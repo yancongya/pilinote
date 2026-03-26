@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.database import engine, Base
 from src.routers.auth import router as auth_router
+from src.routers.favorites import router as favorites_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -21,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(favorites_router)
 
 
 @app.get("/")
