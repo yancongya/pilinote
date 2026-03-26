@@ -5,23 +5,29 @@ import { useAuthStore } from '../stores/auth'
 function HomePage() {
   const [activeTab, setActiveTab] = useState('home')
   const [refreshing, setRefreshing] = useState(false)
-  // pageTransition 已移除
   const [urlInput, setUrlInput] = useState('')
   const [urlList, setUrlList] = useState<string[]>([])
   const { user, logout } = useAuthStore()
   const [animationParent] = useAutoAnimate({ duration: 150, easing: 'linear' })
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [isDark, setIsDark] = useState(true)
 
-  const toggleTheme = () => {
-    const newIsDark = !isDark
-    setIsDark(newIsDark)
-    if (newIsDark) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }
+  const [selectedFolder, setSelectedFolder] = useState<any>(null)
+  const [folders, setFolders] = useState([
+    { id: 1, name: '学习资料', count: 12, cover: '', upper: { name: '技术UP主' } },
+    { id: 2, name: '娱乐视频', count: 8, cover: '', upper: { name: '搞笑博主' } },
+    { id: 3, name: '技术教程', count: 15, cover: '', upper: { name: '编程达人' } },
+    { id: 4, name: '音乐收藏', count: 6, cover: '', upper: { name: '音乐达人' } },
+    { id: 5, name: '美食视频', count: 9, cover: '', upper: { name: '美食家' } },
+    { id: 6, name: '运动健身', count: 5, cover: '', upper: { name: '健身教练' } }
+  ])
+  const [videos, setVideos] = useState([
+    { id: 1, title: 'React入门教程', duration: '12:34', uploader: '前端小哥', views: '12.3万播放', favTime: '2024-01-15' },
+    { id: 2, title: 'TypeScript基础', duration: '15:20', uploader: '技术宅', views: '8.5万播放', favTime: '2024-01-16' },
+    { id: 3, title: 'CSS布局技巧', duration: '10:45', uploader: '设计师', views: '6.7万播放', favTime: '2024-01-17' },
+    { id: 4, title: 'Vue3新特性', duration: '18:30', uploader: '全栈开发', views: '15.2万播放', favTime: '2024-01-18' }
+  ])
+
+  
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -58,29 +64,7 @@ function HomePage() {
           <h1>PiliNote</h1>
         </div>
         <div className="header-right">
-          <button
-            className="icon-btn theme-toggle"
-            onClick={toggleTheme}
-            aria-label={isDark ? '切换到亮色模式' : '切换到暗色模式'}
-          >
-            {isDark ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/>
-                <line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/>
-                <line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
-          </button>
+
           {user && (
             <div className="user-info" onClick={() => setShowLogoutConfirm(true)}>
               <img src={getAvatarUrl(user.avatar || '')} alt={user.username} className="user-avatar" />
@@ -240,47 +224,105 @@ function HomePage() {
             className="content-section"
           >
             <div className="section-header">
-              <div className="section-title">
-                <h2>收藏夹</h2>
-                <span className="video-count">6个视频</span>
-              </div>
-              <button
-                className="refresh-btn"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                aria-label="刷新收藏夹"
+              <div
+                className={`section-title ${selectedFolder ? 'cursor-pointer' : ''}`}
+                onClick={() => selectedFolder && setSelectedFolder(null)}
               >
-                <svg
-                  className={`refresh-icon ${refreshing ? 'spinning' : ''}`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/>
-                </svg>
-              </button>
+                {selectedFolder && (
+                  <button
+                    className="back-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedFolder(null)
+                    }}
+                    aria-label="返回收藏夹列表"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M19 12H5"/>
+                      <path d="M12 19l-7-7 7-7"/>
+                    </svg>
+                  </button>
+                )}
+                <h2>{selectedFolder ? selectedFolder.name : '我的收藏'}</h2>
+                <span className="video-count">{selectedFolder ? `共${selectedFolder.count}条视频` : `${folders.length}个收藏夹`}</span>
+              </div>
             </div>
-            <div className="video-grid" role="list" aria-label="收藏夹视频列表">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <article key={i} className="video-card" role="listitem" aria-label={`视频 ${i}`}>
-                  <div className="video-placeholder">
-                    <span className="video-number" aria-hidden="true">{i}</span>
-                    <div className="video-duration-overlay">12:34</div>
-                  </div>
-                  <div className="video-info">
-                    <h3>视频标题 {i}</h3>
-                    <div className="video-meta">
-                      <p className="uploader">UP主名称</p>
-                      <span className="views">12.3万播放</span>
+
+            {!selectedFolder ? (
+              <div className="fav-folder-list" role="list" aria-label="收藏夹列表">
+                {folders.map(folder => (
+                  <article
+                    key={folder.id}
+                    className="fav-folder-item"
+                    onClick={() => setSelectedFolder(folder)}
+                    role="listitem"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedFolder(folder)
+                      }
+                    }}
+                  >
+                    <div className="fav-folder-cover">
+                      <div className="fav-folder-thumbnail">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+                    <div className="fav-folder-info">
+                      <h3>{folder.name}</h3>
+                      <div className="fav-folder-meta">
+                        <span className="fav-folder-count">{folder.count}个内容</span>
+                        <span className="fav-folder-upper">UP主：{folder.upper?.name || '未知'}</span>
+                        <span className={`fav-folder-status ${folder.id % 3 === 0 ? 'private' : 'public'}`}>
+                          {folder.id % 3 === 0 ? '私密' : '公开'}
+                        </span>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="fav-video-list" role="list" aria-label="视频列表">
+                {videos.map(video => (
+                  <article key={video.id} className="fav-video-item" role="listitem">
+                    <div className="fav-video-cover">
+                      <div className="fav-video-thumbnail">
+                        <span className="video-number" aria-hidden="true">{video.id}</span>
+                        <div className="video-duration-overlay">{video.duration}</div>
+                      </div>
+                    </div>
+                    <div className="fav-video-info">
+                      <h3>{video.title}</h3>
+                      <div className="fav-video-meta">
+                        <span className="fav-video-time">{video.favTime}</span>
+                        <span className="fav-video-uploader">{video.uploader}</span>
+                        <span className="fav-video-views">{video.views}</span>
+                      </div>
+                      <div className="fav-video-stats">
+                        <span className="stat-item">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                          {video.views}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      className="fav-video-remove-btn"
+                      aria-label="取消收藏"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
