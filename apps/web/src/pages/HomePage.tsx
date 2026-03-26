@@ -43,6 +43,11 @@ function HomePage() {
                   src={`/api/auth/proxy/avatar?url=${encodeURIComponent(user.avatar || `https://i2.hdslb.com/bfs/face/${user.mid}.jpg`)}`}
                   alt="用户头像"
                   className="user-avatar"
+                  onError={(e) => {
+                    // 如果代理失败，使用默认头像
+                    const target = e.target as HTMLImageElement
+                    target.src = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect fill='%235CB67B' width='40' height='40'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='white' font-size='20'>${user.username?.[0]?.toUpperCase() || 'U'}</text></svg>`
+                  }}
                 />
                 <span className="user-name">{user.username}</span>
               </div>
@@ -62,8 +67,8 @@ function HomePage() {
                   <div className="logout-confirm-content">
                     <p>确定要退出登录吗？</p>
                     <div className="logout-confirm-buttons">
-                      <button onClick={() => setShowLogoutConfirm(false)}>取消</button>
-                      <button onClick={logout}>确定</button>
+                      <button onClick={cancelLogout}>取消</button>
+                      <button onClick={confirmLogout}>确定</button>
                     </div>
                   </div>
                 </div>
