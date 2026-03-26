@@ -22,16 +22,13 @@ export default function FavoritesContent() {
     return downloadList.some(item => item.id === videoId)
   }
 
-  const handleAddToDownload = (video: any, e: React.MouseEvent) => {
+  const toggleDownload = (video: any, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!isAddedToDownload(video.id)) {
+    if (isAddedToDownload(video.id)) {
+      setDownloadList(downloadList.filter(item => item.id !== video.id))
+    } else {
       setDownloadList([...downloadList, video])
     }
-  }
-
-  const handleRemoveFromDownload = (videoId: number, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setDownloadList(downloadList.filter(item => item.id !== videoId))
   }
 
   return (
@@ -133,16 +130,8 @@ export default function FavoritesContent() {
                 </div>
               </div>
               <button
-                className="fav-video-remove-btn"
-                aria-label="取消收藏"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-              </button>
-              <button
                 className="fav-video-download-btn"
-                onClick={(e) => handleAddToDownload(video, e)}
+                onClick={(e) => toggleDownload(video, e)}
                 aria-label={isAddedToDownload(video.id) ? '从下载列表移除' : '添加到下载列表'}
                 title={isAddedToDownload(video.id) ? '已添加' : '添加到下载'}
               >
