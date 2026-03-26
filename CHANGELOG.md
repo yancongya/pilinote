@@ -324,6 +324,43 @@
 - 16:9封面比例
 - 绿色主题色
 
+- 绿色主题色
+
+### 阶段 9: Tab页面解耦 (2026-03-26)
+- [x] 创建独立的tab组件文件
+- [x] 提取首页内容到HomeContent组件
+- [x] 提取收藏内容到FavoritesContent组件
+- [x] 提取稍后再看内容到WatchLaterContent组件
+- [x] 提取下载管理内容到DownloadsContent组件
+- [x] 简化HomePage.tsx，只保留导航和tab切换逻辑
+- [x] 每个tab独立管理自己的状态
+
+### 完成工作
+1. 组件拆分：
+   - 创建 `apps/web/src/pages/components/` 目录
+   - 拆分为4个独立组件：
+     - HomeContent.tsx（URL输入框和列表）
+     - FavoritesContent.tsx（收藏夹和视频列表）
+     - WatchLaterContent.tsx（稍后再看页面）
+     - DownloadsContent.tsx（下载管理页面）
+
+2. 状态管理：
+   - 每个组件独立管理自己的状态
+   - HomePage只负责tab切换逻辑
+   - 提高代码可维护性和可读性
+
+3. 文件结构优化：
+   - HomePage.tsx: 从506行减少到200行左右
+   - 清晰的职责分离
+   - 更容易扩展和维护
+
+### 下一阶段计划
+- [ ] Phase 3: 视频源管理
+  - 实现收藏夹API
+  - 实现稍后再看API
+  - 实现链接智能识别
+  - 前端视频源页面
+
 ---
 
 ## 待记录...
