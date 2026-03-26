@@ -40,7 +40,7 @@ function HomePage() {
             <>
               <div className="user-info">
                 <img
-                  src={user.avatar || `/api/auth/proxy/avatar?mid=${user.mid}`}
+                  src={`/api/auth/proxy/avatar?url=${encodeURIComponent(user.avatar || `https://i2.hdslb.com/bfs/face/${user.mid}.jpg`)}`}
                   alt="用户头像"
                   className="user-avatar"
                 />
