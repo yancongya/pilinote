@@ -1,19 +1,38 @@
 import { useState } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useAuthStore } from '../stores/auth'
+import { useLocation, useNavigate } from 'react-router-dom'
 import HomeContent from './components/HomeContent'
 import FavoritesContent from './components/FavoritesContent'
 import WatchLaterContent from './components/WatchLaterContent'
 import DownloadsContent from './components/DownloadsContent'
 
 function HomePage() {
-  const [activeTab, setActiveTab] = useState('home')
+  const location = useLocation()
+  const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const [animationParent] = useAutoAnimate({ duration: 150, easing: 'linear' })
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
+  // 根据路径确定当前activeTab
+  const getActiveTabFromPath = () => {
+    const path = location.pathname
+    if (path === '/favorites') return 'favorites'
+    if (path === '/watch-later') return 'watch-later'
+    if (path === '/downloads') return 'downloads'
+    return 'home'
+  }
+
+  const activeTab = getActiveTabFromPath()
+
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab)
+    const routes: Record<string, string> = {
+      home: '/home',
+      favorites: '/favorites',
+      'watch-later': '/watch-later',
+      downloads: '/downloads'
+    }
+    navigate(routes[tab] || '/home')
   }
 
   const handleLogout = () => {

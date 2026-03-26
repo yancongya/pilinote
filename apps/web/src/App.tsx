@@ -1,6 +1,7 @@
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 import { useAuthStore } from './stores/auth'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -12,13 +13,23 @@ function App() {
   }
 
   return (
-    <div className="app">
-      {isAuthenticated ? (
-        <HomePage />
-      ) : (
-        <LoginPage onLogin={handleLogin} />
-      )}
-    </div>
+    <BrowserRouter>
+      <div className="app">
+        {isAuthenticated ? (
+          <Routes>
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/favorites" element={<HomePage />} />
+            <Route path="/watch-later" element={<HomePage />} />
+            <Route path="/downloads" element={<HomePage />} />
+          </Routes>
+        ) : (
+          <Routes>
+            <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
+          </Routes>
+        )}
+      </div>
+    </BrowserRouter>
   )
 }
 
