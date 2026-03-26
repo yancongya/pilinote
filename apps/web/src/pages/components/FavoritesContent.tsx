@@ -3,18 +3,18 @@ import { useState } from 'react'
 export default function FavoritesContent() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
   const [folders, setFolders] = useState([
-    { id: 1, name: '学习资料', count: 12, cover: '', upper: { name: '技术UP主' } },
-    { id: 2, name: '娱乐视频', count: 8, cover: '', upper: { name: '搞笑博主' } },
-    { id: 3, name: '技术教程', count: 15, cover: '', upper: { name: '编程达人' } },
-    { id: 4, name: '音乐收藏', count: 6, cover: '', upper: { name: '音乐达人' } },
-    { id: 5, name: '美食视频', count: 9, cover: '', upper: { name: '美食家' } },
-    { id: 6, name: '运动健身', count: 5, cover: '', upper: { name: '健身教练' } }
+    { id: 1, name: '学习资料', count: 12, cover: '', isPrivate: false },
+    { id: 2, name: '娱乐视频', count: 8, cover: '', isPrivate: true },
+    { id: 3, name: '技术教程', count: 15, cover: '', isPrivate: true },
+    { id: 4, name: '音乐收藏', count: 6, cover: '', isPrivate: false },
+    { id: 5, name: '美食视频', count: 9, cover: '', isPrivate: false },
+    { id: 6, name: '运动健身', count: 5, cover: '', isPrivate: true }
   ])
   const [videos, setVideos] = useState([
-    { id: 1, title: 'React入门教程', duration: '12:34', uploader: '前端小哥', views: '12.3万播放', favTime: '2024-01-15' },
-    { id: 2, title: 'TypeScript基础', duration: '15:20', uploader: '技术宅', views: '8.5万播放', favTime: '2024-01-16' },
-    { id: 3, title: 'CSS布局技巧', duration: '10:45', uploader: '设计师', views: '6.7万播放', favTime: '2024-01-17' },
-    { id: 4, title: 'Vue3新特性', duration: '18:30', uploader: '全栈开发', views: '15.2万播放', favTime: '2024-01-18' }
+    { id: 1, title: 'React入门教程', duration: '12:34', uploader: '前端小哥', views: '12.3万', comments: 1, time: '4小时前' },
+    { id: 2, title: 'TypeScript基础', duration: '15:20', uploader: '技术宅', views: '8.5万', comments: 0, time: '昨天' },
+    { id: 3, title: 'CSS布局技巧', duration: '10:45', uploader: '设计师', views: '6.7万', comments: 3, time: '3天前' },
+    { id: 4, title: 'Vue3新特性', duration: '18:30', uploader: '全栈开发', views: '15.2万', comments: 5, time: '1周前' }
   ])
 
   return (
@@ -45,7 +45,7 @@ export default function FavoritesContent() {
             </button>
           )}
           <h2>{selectedFolder ? selectedFolder.name : '我的收藏'}</h2>
-          <span className="video-count">{selectedFolder ? `共${selectedFolder.count}条视频` : `${folders.length}个收藏夹`}</span>
+          <span className="video-count">{selectedFolder ? `共${selectedFolder.count}条视频 · ${selectedFolder.isPrivate ? '私密' : '公开'}` : `${folders.length}个收藏夹`}</span>
         </div>
       </div>
 
@@ -76,9 +76,8 @@ export default function FavoritesContent() {
                 <h3>{folder.name}</h3>
                 <div className="fav-folder-meta">
                   <span className="fav-folder-count">{folder.count}个内容</span>
-                  <span className="fav-folder-upper">UP主：{folder.upper?.name || '未知'}</span>
-                  <span className={`fav-folder-status ${folder.id % 3 === 0 ? 'private' : 'public'}`}>
-                    {folder.id % 3 === 0 ? '私密' : '公开'}
+                  <span className={`fav-folder-status ${folder.isPrivate ? 'private' : 'public'}`}>
+                    {folder.isPrivate ? '私密' : '公开'}
                   </span>
                 </div>
               </div>
@@ -91,16 +90,14 @@ export default function FavoritesContent() {
             <article key={video.id} className="fav-video-item" role="listitem">
               <div className="fav-video-cover">
                 <div className="fav-video-thumbnail">
-                  <span className="video-number" aria-hidden="true">{video.id}</span>
                   <div className="video-duration-overlay">{video.duration}</div>
                 </div>
               </div>
               <div className="fav-video-info">
                 <h3>{video.title}</h3>
                 <div className="fav-video-meta">
-                  <span className="fav-video-time">{video.favTime}</span>
                   <span className="fav-video-uploader">{video.uploader}</span>
-                  <span className="fav-video-views">{video.views}</span>
+                  <span className="fav-video-time">{video.time}</span>
                 </div>
                 <div className="fav-video-stats">
                   <span className="stat-item">
@@ -109,6 +106,12 @@ export default function FavoritesContent() {
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
                     {video.views}
+                  </span>
+                  <span className="stat-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L12 2.5a8.38 8.38 0 0 1 3.8.9 8.5 8.5 0 0 1 4.7 7.6z"/>
+                    </svg>
+                    {video.comments}
                   </span>
                 </div>
               </div>

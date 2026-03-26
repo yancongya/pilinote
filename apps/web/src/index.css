@@ -1970,32 +1970,31 @@ body {
 
 .fav-folder-meta {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
 }
 
 .fav-folder-count {
   font-size: 13px;
-  color: #666;
-}
-
-.fav-folder-upper {
-  font-size: 13px;
-  color: #666;
+  color: #999;
 }
 
 .fav-folder-status {
   font-size: 12px;
   display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .fav-folder-status.public {
   color: #5CB67B;
+  background: rgba(92, 182, 123, 0.1);
 }
 
 .fav-folder-status.private {
   color: #999;
+  background: rgba(153, 153, 153, 0.1);
 }
 
 /* 收藏夹详情页样式 */
@@ -2110,13 +2109,13 @@ body {
 
 .fav-video-meta {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .fav-video-time {
-  font-size: 11px;
+  font-size: 12px;
   color: #999;
 }
 
@@ -2125,15 +2124,11 @@ body {
   color: #666;
 }
 
-.fav-video-views {
-  font-size: 13px;
-  color: #666;
-}
-
 .fav-video-stats {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  margin-top: 4px;
 }
 
 .stat-item {
