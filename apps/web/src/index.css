@@ -1864,3 +1864,29 @@ body {
 .logout-confirm-buttons button:last-child:hover {
   background: #5568d3;
 }
+
+.theme-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.theme-toggle:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  color: #1a1a1a;
+}
+
+.dark .theme-toggle svg {
+  color: #f0f0f0;
+}
