@@ -14,7 +14,7 @@
 - [08-reference-projects.md](08-reference-projects.md) - 参考项目索引
 
 ## 架构图
-- [pilinote_architecture.drawio](../../pilinote_architecture.drawio) - 系统架构设计
+- [pilinote_architecture.drawio](pilinote_architecture.drawio) - 系统架构设计
 
 ## 参考项目
 详见 [08-reference-projects.md](08-reference-projects.md)

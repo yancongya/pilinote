@@ -65,7 +65,8 @@ pilinote/
 │   ├── vidbee/                   # Electron视频下载器（桌面端实现）
 │   ├── bilibili-downloader/      # B站下载器（下载实现）
 │   └── bilibili-favlist-auto-downloader/ # 收藏夹自动下载
-├── pilinote_architecture.drawio  # 系统架构设计图
+├── docs/dev/              # 开发文档
+│   └── pilinote_architecture.drawio  # 系统架构设计图
 ├── CHANGELOG.md           # 开发日志
 └── .gitignore             # Git忽略规则
 ```
@@ -290,8 +291,8 @@ pilinote/
 ## 重要文档
 
 - [开发文档索引](docs/dev/README.md) - 完整开发文档
+- [系统架构图](docs/dev/pilinote_architecture.drawio) - 可视化架构设计
 - [开发日志](CHANGELOG.md) - 开发进度记录
-- [系统架构图](pilinote_architecture.drawio) - 可视化架构设计
 - [参考项目索引](docs/dev/08-reference-projects.md) - 参考项目详情
 
 ## 快速开始

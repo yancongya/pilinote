@@ -40,6 +40,9 @@ pilinote/
 - **文件模块**: 文件组织、元数据管理
 - **用户模块**: 账号管理、设置
 
+## 架构图
+- `docs/dev/pilinote_architecture.drawio` - 系统架构设计图
+
 ## 参考实现
 - `reference/hermes/packages/`
 - `reference/vidbee/apps/`
