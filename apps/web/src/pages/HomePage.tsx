@@ -29,6 +29,11 @@ function HomePage() {
     setShowLogoutConfirm(false)
   }
 
+  const getAvatarUrl = (avatarUrl: string) => {
+    if (!avatarUrl) return ''
+    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(avatarUrl)}`
+  }
+
   return (
     <div className="home-container">
       <header className="home-header">
@@ -38,33 +43,21 @@ function HomePage() {
         <div className="header-right">
           {user ? (
             <>
-              <div className="user-info">
+              <div className="user-info" onClick={() => setShowLogoutConfirm(true)}>
                 <img
-                  src={`/api/auth/proxy/avatar?url=${encodeURIComponent(user.avatar || `https://i2.hdslb.com/bfs/face/${user.mid}.jpg`)}`}
-                  alt="用户头像"
+                  src={getAvatarUrl(user.avatar || '')}
+                  alt={user.username}
                   className="user-avatar"
                   onError={(e) => {
-                    // 如果代理失败，使用默认头像
                     const target = e.target as HTMLImageElement
                     target.src = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect fill='%235CB67B' width='40' height='40'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='white' font-size='20'>${user.username?.[0]?.toUpperCase() || 'U'}</text></svg>`
                   }}
                 />
                 <span className="user-name">{user.username}</span>
               </div>
-              <button
-                className="logout-btn"
-                onClick={handleLogout}
-                aria-label="退出登录"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                  <polyline points="16 17 21 12 16 7"/>
-                  <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-              </button>
               {showLogoutConfirm && (
-                <div className="logout-confirm">
-                  <div className="logout-confirm-content">
+                <div className="logout-confirm-overlay" onClick={() => setShowLogoutConfirm(false)}>
+                  <div className="logout-confirm-panel" onClick={(e) => e.stopPropagation()}>
                     <p>确定要退出登录吗？</p>
                     <div className="logout-confirm-buttons">
                       <button onClick={cancelLogout}>取消</button>
