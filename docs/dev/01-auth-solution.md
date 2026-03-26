@@ -258,4 +258,136 @@ interface UserInfo {
 ### 认证方式
 - ✅ 扫码登录
 - ✅ SESSDATA登录
-- ✅ 密码登录 (基础实现)
+- ⚠️ 密码登录 (基础实现，需要CAPTCHA验证码)
+- ⚠️ 手机验证码登录 (基础实现，需要CAPTCHA验证码)
+
+## 最新优化 (2026-03-26)
+
+### 5. 头像403问题
+**问题**: B站头像图片显示403 Forbidden
+
+**原因**: B站图片有防盗链保护，需要正确的Referer和User-Agent
+
+**解决方案**: 创建头像代理API
+```python
+# apps/api/src/routers/auth.py
+@router.get("/proxy/avatar")
+async def proxy_avatar(url: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            url,
+            headers={
+                "Referer": "https://www.bilibili.com",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            }
+        )
+    return Response(content=response.content, media_type="image/jpeg")
+```
+
+前端使用代理：
+```typescript
+const getAvatarUrl = (avatarUrl: string) => {
+  return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(avatarUrl)}`
+}
+```
+
+### 6. 手机验证码登录
+**问题**: 手机验证码登录返回400错误
+
+**原因**: B站要求Geetest CAPTCHA验证码才能发送短信
+
+**解决方案**: 返回详细的错误响应
+```python
+raise HTTPException(
+    status_code=422,
+    detail={
+        "message": "发送短信需要验证码",
+        "error_type": "captcha_required",
+        "hint": "请使用扫码登录或SESSDATA登录方式"
+    }
+)
+```
+
+### 7. 登录界面UI优化
+**目标**: 实现App风格的左右tab切换效果
+
+**实现方案**:
+1. 固定容器高度（桌面400px，移动360px）
+2. 使用绝对定位显示不同tab内容
+3. error-message固定在容器底部
+
+```css
+.login-content {
+  position: relative;
+  height: 400px;
+  min-height: 400px;
+}
+
+.qrcode-section,
+.sessdata-section {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error-message {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+```
+
+**移动端适配**:
+```css
+@media (max-width: 768px) {
+  .login-content {
+    height: 360px;
+    min-height: 360px;
+  }
+
+  /* 保持tab横向排列 */
+  .login-tabs {
+    gap: 4px;
+  }
+}
+```
+
+### 8. 登录方式简化
+**原因**: 密码登录和短信登录都需要CAPTCHA验证码，用户体验不佳
+
+**决策**: 只保留两种可靠的登录方式
+- ✅ 扫码登录（推荐）
+- ✅ SESSDATA登录（快速开发）
+
+**修改内容**:
+- 移除密码登录tab
+- 移除短信登录tab
+- 删除相关状态变量和事件处理器
+- 清理未使用的CSS样式
+
+## 技术栈总结
+
+### 后端
+- FastAPI 0.115.6
+- SQLAlchemy 2.0.36
+- SQLite (开发) / PostgreSQL (生产)
+- httpx 0.28.1
+- Pydantic 2.10.4
+
+### 前端
+- React 19
+- Zustand (状态管理)
+- qrcode.react (二维码生成)
+- localStorage (持久化)
+
+### 认证方式
+- ✅ 扫码登录（推荐）
+- ✅ SESSDATA登录（快速开发）
+- ⚠️ 密码登录（基础实现，需要CAPTCHA）
+- ⚠️ 手机验证码登录（基础实现，需要CAPTCHA）

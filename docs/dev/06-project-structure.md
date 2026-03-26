@@ -79,8 +79,11 @@ pilinote/
 - `GET /api/auth/qrcode` - 获取登录二维码
 - `GET /api/auth/qrcode/status/{qrcode_key}` - 查询二维码状态
 - `POST /api/auth/sessdata` - SESSDATA登录
-- `POST /api/auth/password` - 密码登录
+- `POST /api/auth/password` - 密码登录（需要CAPTCHA验证码）
+- `POST /api/auth/sms/send` - 发送短信验证码（需要CAPTCHA验证码）
+- `POST /api/auth/sms/login` - 短信验证码登录
 - `GET /api/auth/user-info` - 获取用户信息
+- `GET /api/auth/proxy/avatar` - 头像代理（解决403问题）
 
 ### 数据库模型
 - `User` - 用户信息表
@@ -97,9 +100,10 @@ pilinote/
 
 ### 页面组件
 - `LoginPage` - 登录页面
-  - 扫码登录
-  - SESSDATA登录
-  - 密码登录
+  - 扫码登录（推荐）
+  - SESSDATA登录（快速开发）
+  - App风格左右tab切换
+  - 固定容器高度布局
 - `HomePage` - 主页面
   - 收藏夹页面
   - 稍后再看页面

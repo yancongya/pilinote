@@ -5,6 +5,8 @@ export interface ApiResponse<T> {
   message?: string;
   data?: T;
   code?: number;
+  error_type?: string;
+  hint?: string;
 }
 
 export interface QrcodeData {
@@ -31,6 +33,15 @@ export interface PasswordRequest {
   challenge?: string;
   validate?: string;
   seccode?: string;
+}
+
+export interface SmsCodeRequest {
+  phone: string;
+}
+
+export interface SmsLoginRequest {
+  phone: string;
+  code: string;
 }
 
 class ApiService {
@@ -80,6 +91,22 @@ class ApiService {
     request: PasswordRequest
   ): Promise<ApiResponse<UserInfo>> {
     return this.request<UserInfo>('/api/auth/password', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async sendSmsCode(phone: string): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/sms/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  }
+
+  async loginBySms(
+    request: SmsLoginRequest
+  ): Promise<ApiResponse<UserInfo>> {
+    return this.request<UserInfo>('/api/auth/sms/login', {
       method: 'POST',
       body: JSON.stringify(request),
     });

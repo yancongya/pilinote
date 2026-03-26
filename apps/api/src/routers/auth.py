@@ -10,6 +10,8 @@ from src.schemas.login import (
     PasswordLoginRequest,
     PasswordLoginResponse,
     UserInfoResponse,
+    SmsCodeRequest,
+    SmsLoginRequest,
 )
 from src.services.bilibili import BilibiliService
 from src.models.user import User
@@ -156,6 +158,78 @@ async def login_by_password(request: PasswordLoginRequest, db: Session = Depends
                 "success": True,
                 "message": "登录成功",
                 "data": result["data"]
+            }
+        
+        # 检查是否为验证码错误
+        message = result.get("message", "登录失败")
+        if "验证码" in message:
+            raise HTTPException(
+                status_code=422, 
+                detail={
+                    "message": "密码登录需要验证码",
+                    "error_type": "captcha_required",
+                    "hint": "请使用扫码登录或SESSDATA登录方式"
+                }
+            )
+        
+        raise HTTPException(status_code=400, detail=message)
+    finally:
+        service.close()
+
+
+@router.post("/sms/send", response_model=dict)
+async def send_sms_code(request: SmsCodeRequest):
+    """发送手机验证码"""
+    # B站的短信验证码功能也受到验证码限制
+    raise HTTPException(
+        status_code=422,
+        detail={
+            "message": "短信验证码功能需要图形验证码",
+            "error_type": "captcha_required",
+            "hint": "请使用扫码登录或SESSDATA登录方式"
+        }
+    )
+
+
+@router.post("/sms/login", response_model=dict)
+async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
+    """通过手机验证码登录"""
+    service = BilibiliService()
+    try:
+        result = service.login_by_sms(request.phone, request.code)
+        if result["success"]:
+            user_data = result["data"]
+            mid = user_data["mid"]
+
+            existing_user = db.query(User).filter(User.mid == mid).first()
+            if existing_user:
+                existing_user.sessdata = user_data["sessdata"]
+                existing_user.username = user_data["username"]
+                existing_user.avatar = user_data.get("avatar")
+                existing_user.updated_at = None
+                db.commit()
+            else:
+                new_user = User(
+                    mid=mid,
+                    username=user_data["username"],
+                    avatar=user_data.get("avatar"),
+                    sessdata=user_data["sessdata"]
+                )
+                db.add(new_user)
+                db.commit()
+
+            return {
+                "success": True,
+                "message": "登录成功",
+                "data": {
+                    "code": 0,
+                    "mid": user_data["mid"],
+                    "username": user_data["username"],
+                    "avatar": user_data.get("avatar"),
+                    "level": user_data.get("level"),
+                    "vip_status": user_data.get("vip_status"),
+                    "sessdata": user_data["sessdata"]
+                }
             }
         raise HTTPException(status_code=400, detail=result.get("message", "登录失败"))
     finally:

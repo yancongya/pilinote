@@ -96,6 +96,30 @@ class PasswordLoginResponse(BaseModel):
         }
 
 
+class SmsCodeRequest(BaseModel):
+    phone: str = Field(..., description="手机号")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "phone": "13800138000"
+            }
+        }
+
+
+class SmsLoginRequest(BaseModel):
+    phone: str = Field(..., description="手机号")
+    code: str = Field(..., description="验证码")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "phone": "13800138000",
+                "code": "123456"
+            }
+        }
+
+
 class UserInfoResponse(BaseModel):
     mid: int
     username: str

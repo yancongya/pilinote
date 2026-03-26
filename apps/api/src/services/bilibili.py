@@ -188,6 +188,103 @@ class BilibiliService:
             "message": data.get("message", "登录失败")
         }
 
+    def send_sms_code(self, phone: str) -> Dict:
+        """发送手机验证码"""
+        url = f"{self.passport_base}/x/passport-login/web/sms/send"
+        
+        form_data = {
+            "tel": phone,
+            "cid": 86,
+            "source": "main_web"
+        }
+        
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
+        try:
+            response = self.client.post(url, data=form_data, headers=headers)
+            data = response.json()
+            
+            if data.get("code") == 0:
+                return {
+                    "success": True,
+                    "data": data.get("data", {})
+                }
+            return {
+                "success": False,
+                "message": data.get("message", "发送验证码失败")
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"发送验证码异常: {str(e)}"
+            }
+
+    def login_by_sms(self, phone: str, code: str) -> Dict:
+        """通过手机验证码登录"""
+        url = f"{self.passport_base}/x/passport-login/web/login/sms"
+        
+        form_data = {
+            "tel": phone,
+            "code": code,
+            "cid": 86,
+            "source": "main_web",
+            "keep": 0,
+            "go_url": "https://www.bilibili.com"
+        }
+        
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
+        try:
+            response = self.client.post(url, data=form_data, headers=headers)
+            data = response.json()
+            
+            if data.get("code") == 0:
+                # 登录成功，获取用户信息
+                login_data = data.get("data", {})
+                url = login_data.get("url", "")
+                
+                # 从响应中获取cookie
+                cookies = response.cookies
+                sessdata = cookies.get("SESSDATA") or login_data.get("refresh_token", "")
+                
+                if sessdata:
+                    # 获取用户详细信息
+                    try:
+                        user_info = self.login_by_sessdata(sessdata)
+                        if user_info.get("success"):
+                            return {
+                                "success": True,
+                                "data": {
+                                    **user_info.get("data", {}),
+                                    "sessdata": sessdata
+                                }
+                            }
+                    except Exception as e:
+                        print(f"获取用户信息失败: {e}")
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "code": 0,
+                        "sessdata": sessdata
+                    }
+                }
+            return {
+                "success": False,
+                "message": data.get("message", "登录失败")
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"登录异常: {str(e)}"
+            }
+
     def close(self):
         """关闭HTTP客户端"""
         self.client.close()

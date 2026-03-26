@@ -10,11 +10,8 @@ interface LoginPageProps {
 function LoginPage({ onLogin }: LoginPageProps) {
   const [activeTab, setActiveTab] = useState('qrcode')
   const [qrcodeUrl, setQrcodeUrl] = useState('')
-  const [qrcodeKey, setQrcodeKey] = useState('')
   const [qrcodeStatus, setQrcodeStatus] = useState<'loading' | 'waiting' | 'scanned' | 'success' | 'expired'>('loading')
   const [sessdata, setSessdata] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const pollIntervalRef = useRef<number | null>(null)
@@ -36,7 +33,6 @@ function LoginPage({ onLogin }: LoginPageProps) {
       const response = await apiService.getQrcode()
       if (response.success && response.data) {
         setQrcodeUrl(response.data.url)
-        setQrcodeKey(response.data.qrcode_key || '')
         setQrcodeStatus('waiting')
         startPolling(response.data.qrcode_key || '')
       } else {
@@ -124,42 +120,6 @@ function LoginPage({ onLogin }: LoginPageProps) {
     }
   }
 
-  const handlePasswordLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError('请输入用户名和密码')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-
-    try {
-      const response = await apiService.loginByPassword({
-        username: username.trim(),
-        password: password.trim(),
-      })
-      if (response.success && response.data) {
-        setUser({
-          ...response.data,
-        })
-        onLogin()
-      } else {
-        setError(response.message || '登录失败')
-      }
-    } catch (err) {
-      setError('网络请求失败')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLoginSuccess = async () => {
-    // 从API获取用户信息
-    // 这里需要从响应中获取SESSDATA，然后调用getUserInfo
-    // 目前简化处理，直接跳转
-    onLogin()
-  }
-
   const handleRefreshQrcode = () => {
     fetchQrcode()
   }
@@ -192,16 +152,6 @@ function LoginPage({ onLogin }: LoginPageProps) {
             tabIndex={activeTab === 'sessdata' ? 0 : -1}
           >
             SESSDATA
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'password'}
-            aria-controls="password-panel"
-            className={`tab ${activeTab === 'password' ? 'active' : ''}`}
-            onClick={() => setActiveTab('password')}
-            tabIndex={activeTab === 'password' ? 0 : -1}
-          >
-            密码登录
           </button>
         </div>
 
@@ -292,61 +242,12 @@ function LoginPage({ onLogin }: LoginPageProps) {
             </div>
           )}
 
-          {activeTab === 'password' && (
-            <div
-              id="password-panel"
-              role="tabpanel"
-              aria-labelledby="password-tab"
-              className="password-section"
-            >
-              <label htmlFor="username-input" className="visually-hidden">
-                手机号或邮箱
-              </label>
-              <input
-                id="username-input"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="手机号/邮箱"
-                className="input-field"
-                aria-required="true"
-                disabled={loading}
-              />
-              <label htmlFor="password-input" className="visually-hidden">
-                密码
-              </label>
-              <input
-                id="password-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="密码"
-                className="input-field"
-                aria-required="true"
-                disabled={loading}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handlePasswordLogin()
-                  }
-                }}
-              />
-              <button
-                className="login-btn"
-                onClick={handlePasswordLogin}
-                disabled={loading}
-                aria-label="使用密码登录"
-              >
-                {loading ? '登录中...' : '登录'}
-              </button>
+          {error && (
+            <div className="error-message" role="alert" aria-live="polite">
+              {error}
             </div>
           )}
         </div>
-
-        {error && (
-          <div className="error-message" role="alert" aria-live="polite">
-            {error}
-          </div>
-        )}
       </div>
     </div>
   )
