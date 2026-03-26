@@ -64,6 +64,9 @@
         <mxCell id="source-url" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="输入链接/BVID" vertex="1">
           <mxGeometry height="40" width="150" x="1030" y="230" as="geometry" />
         </mxCell>
+        <mxCell id="source-homepage-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=2;fontColor=#000000;" value="首页UI实现:&#xa;- 首页tab (默认tab)&#xa;- URL输入框 (居中显示)&#xa;- 添加/删除URL功能&#xa;- 待处理视频列表" vertex="1">
+          <mxGeometry height="60" width="210" x="1100" y="440" as="geometry" />
+        </mxCell>
         <mxCell id="source-fav-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v3/fav/folder/created/list&#xa;参数: pn, ps, up_mid&#xa;获取: 收藏夹列表" vertex="1">
           <mxGeometry height="60" width="210" x="640" y="290" as="geometry" />
         </mxCell>

@@ -438,6 +438,167 @@ body {
   min-height: 100%;
 }
 
+/* 首页样式 */
+.home-input-section {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.url-input-container {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.url-input {
+  flex: 1;
+  padding: 16px 20px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: white;
+  min-height: 52px;
+}
+
+.url-input::placeholder {
+  color: #999;
+}
+
+.url-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.add-url-btn {
+  padding: 0 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.add-url-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.add-url-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.add-url-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.add-url-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.url-list-section {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 800px;
+  align-self: center;
+}
+
+.url-list-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+.url-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.url-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.url-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.url-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.url-icon {
+  width: 20px;
+  height: 20px;
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+.url-text {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-url-btn {
+  padding: 8px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.remove-url-btn:hover {
+  background: #fecaca;
+}
+
+.remove-url-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -1104,6 +1265,38 @@ body {
 
   .video-list {
     gap: 12px;
+  }
+
+  /* 首页移动端样式 */
+  .url-input-container {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .url-input {
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .add-url-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    font-size: 14px;
+  }
+
+  .url-item {
+    padding: 12px;
+  }
+
+  .url-text {
+    font-size: 13px;
+  }
+
+  .url-list-section {
+    max-width: 100%;
   }
 }
 
