@@ -1934,9 +1934,7 @@ body {
 }
 
 .fav-folder-thumbnail {
-  width: 140px;
-  height: 100%;
-  min-height: 79px;
+  width: 160px;
   aspect-ratio: 16/9;
   background: linear-gradient(135deg, #5CB67B 0%, #4A9F6D 100%);
   border-radius: 8px;
@@ -2064,9 +2062,7 @@ body {
 }
 
 .fav-video-thumbnail {
-  width: 140px;
-  height: 100%;
-  min-height: 79px;
+  width: 160px;
   aspect-ratio: 16/9;
   background: linear-gradient(135deg, #5CB67B 0%, #4A9F6D 100%);
   border-radius: 8px;
