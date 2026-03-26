@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 export default function WatchLaterContent() {
+  const [downloadList, setDownloadList] = useState<any[]>([])
   const [videos, setVideos] = useState([
     {
       id: 1,
@@ -43,6 +44,22 @@ export default function WatchLaterContent() {
       thumbnail: 'agent'
     }
   ])
+
+  const isAddedToDownload = (videoId: number) => {
+    return downloadList.some(item => item.id === videoId)
+  }
+
+  const handleAddToDownload = (video: any, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!isAddedToDownload(video.id)) {
+      setDownloadList([...downloadList, video])
+    }
+  }
+
+  const handleRemoveFromDownload = (videoId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDownloadList(downloadList.filter(item => item.id !== videoId))
+  }
 
   return (
     <section
@@ -101,6 +118,17 @@ export default function WatchLaterContent() {
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M18 6L6 18M6 6l12 12"/>
+                  </svg>
+                </button>
+                <button
+                  className="watch-later-download-btn"
+                  onClick={(e) => handleAddToDownload(video, e)}
+                  aria-label={isAddedToDownload(video.id) ? '从下载列表移除' : '添加到下载列表'}
+                  title={isAddedToDownload(video.id) ? '已添加' : '添加到下载'}
+                >
+                  <svg viewBox="0 0 24 24" fill={isAddedToDownload(video.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06a5.5 5.5 0 0 0 7.78-7.78l-1.72 1.71"/>
+                    <path d="M14 11a5.5 5.5 0 0 0-7.54-.54l-3 3a5.5 5.5 0 0 0 7.07 7.07l1.71-1.71"/>
                   </svg>
                 </button>
               </article>

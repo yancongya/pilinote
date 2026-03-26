@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 export default function FavoritesContent() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
+  const [downloadList, setDownloadList] = useState<any[]>([])
   const [folders, setFolders] = useState([
     { id: 1, name: '学习资料', count: 12, cover: '', isPrivate: false },
     { id: 2, name: '娱乐视频', count: 8, cover: '', isPrivate: true },
@@ -16,6 +17,22 @@ export default function FavoritesContent() {
     { id: 3, title: 'CSS布局技巧', duration: '10:45', uploader: '设计师', views: '6.7万', comments: 3, time: '3天前' },
     { id: 4, title: 'Vue3新特性', duration: '18:30', uploader: '全栈开发', views: '15.2万', comments: 5, time: '1周前' }
   ])
+
+  const isAddedToDownload = (videoId: number) => {
+    return downloadList.some(item => item.id === videoId)
+  }
+
+  const handleAddToDownload = (video: any, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!isAddedToDownload(video.id)) {
+      setDownloadList([...downloadList, video])
+    }
+  }
+
+  const handleRemoveFromDownload = (videoId: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDownloadList(downloadList.filter(item => item.id !== videoId))
+  }
 
   return (
     <section
@@ -121,6 +138,17 @@ export default function FavoritesContent() {
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+              <button
+                className="fav-video-download-btn"
+                onClick={(e) => handleAddToDownload(video, e)}
+                aria-label={isAddedToDownload(video.id) ? '从下载列表移除' : '添加到下载列表'}
+                title={isAddedToDownload(video.id) ? '已添加' : '添加到下载'}
+              >
+                <svg viewBox="0 0 24 24" fill={isAddedToDownload(video.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06a5.5 5.5 0 0 0 7.78-7.78l-1.72 1.71"/>
+                  <path d="M14 11a5.5 5.5 0 0 0-7.54-.54l-3 3a5.5 5.5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
               </button>
             </article>
