@@ -110,6 +110,11 @@ pilinote/
   - 稍后再看页面
   - 下载管理页面
 
+### 技术栈
+- **动画库**: @formkit/auto-animate
+- **状态管理**: Zustand
+- **路由**: React Router
+
 ### 服务层
 - `api.ts` - API调用封装
   - 统一错误处理

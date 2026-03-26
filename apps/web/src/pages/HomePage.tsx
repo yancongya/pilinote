@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useAuthStore } from '../stores/auth'
 
 function HomePage() {
   const [activeTab, setActiveTab] = useState('home')
   const [refreshing, setRefreshing] = useState(false)
-  const [pageTransition, setPageTransition] = useState('')
+  // pageTransition 已移除
   const [urlInput, setUrlInput] = useState('')
   const [urlList, setUrlList] = useState<string[]>([])
   const { user, logout } = useAuthStore()
+  const [animationParent] = useAutoAnimate({ duration: 150, easing: 'linear' })
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -17,11 +20,7 @@ function HomePage() {
   }
 
   const handleTabChange = (tab: string) => {
-    setPageTransition('fade-out')
-    setTimeout(() => {
-      setActiveTab(tab)
-      setPageTransition('fade-in')
-    }, 150)
+    setActiveTab(tab)
   }
 
   const handleAddUrl = () => {
@@ -46,25 +45,26 @@ function HomePage() {
       <header className="home-header">
         <div className="header-left">
           <h1>PiliNote</h1>
+        </div>
+        <div className="header-right">
           {user && (
-            <div className="user-info">
+            <div className="user-info" onClick={() => setShowLogoutConfirm(true)}>
               <img src={getAvatarUrl(user.avatar || '')} alt={user.username} className="user-avatar" />
               <span className="user-name">{user.username}</span>
             </div>
           )}
-        </div>
-        <div className="header-right">
-          <button
-            className="icon-btn header-icon"
-            onClick={logout}
-            aria-label="退出登录"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-          </button>
+          {/* 退出确认面板 */}
+          {showLogoutConfirm && (
+            <div className="logout-confirm-overlay" onClick={() => setShowLogoutConfirm(false)}>
+              <div className="logout-confirm-panel" onClick={(e) => e.stopPropagation()}>
+                <p>确定要退出登录吗？</p>
+                <div className="logout-confirm-buttons">
+                  <button onClick={() => setShowLogoutConfirm(false)}>取消</button>
+                  <button onClick={logout}>确定</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -127,7 +127,7 @@ function HomePage() {
         </button>
       </nav>
 
-      <main className={`home-content ${pageTransition}`}>
+      <main ref={animationParent} className="home-content">
         {activeTab === 'home' && (
           <section
             id="home-panel"
@@ -135,7 +135,7 @@ function HomePage() {
             aria-labelledby="home-tab"
             className="content-section"
           >
-            <div className="home-input-section">
+            <div className={`home-input-section ${urlList.length > 0 ? 'has-content' : ''}`}>
               <div className="url-input-container">
                 <label htmlFor="url-input" className="visually-hidden">
                   视频链接

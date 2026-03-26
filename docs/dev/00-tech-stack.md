@@ -18,6 +18,7 @@
 - **状态管理**: TanStack Query / Zustand
 - **路由**: React Router v6
 - **实时通信**: Socket.io-client / EventSource
+- **动画库**: @formkit/auto-animate
 
 ## 桌面端技术栈
 - **框架**: Electron 28+
