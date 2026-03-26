@@ -1,9 +1,9 @@
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
-import { useAuthStore } from './stores/auth'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useAuthStore } from './stores/auth'
 
-function App() {
+function AppContent() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
   const handleLogin = () => {
@@ -12,22 +12,26 @@ function App() {
     // 实际上isAuthenticated会在setUser时自动更新
   }
 
+  return isAuthenticated ? (
+    <Routes>
+      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/home" element={<HomePage />} />
+      <Route path="/favorites" element={<HomePage />} />
+      <Route path="/watch-later" element={<HomePage />} />
+      <Route path="/downloads" element={<HomePage />} />
+    </Routes>
+  ) : (
+    <Routes>
+      <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
+    </Routes>
+  )
+}
+
+function App() {
   return (
     <BrowserRouter>
       <div className="app">
-        {isAuthenticated ? (
-          <Routes>
-            <Route path="/" element={<Navigate to="/home" replace />} />
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/favorites" element={<HomePage />} />
-            <Route path="/watch-later" element={<HomePage />} />
-            <Route path="/downloads" element={<HomePage />} />
-          </Routes>
-        ) : (
-          <Routes>
-            <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
-          </Routes>
-        )}
+        <AppContent />
       </div>
     </BrowserRouter>
   )
