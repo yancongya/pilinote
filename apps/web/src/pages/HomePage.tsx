@@ -40,11 +40,11 @@ function HomePage() {
             <>
               <div className="user-info">
                 <img
-                  src={`/api/auth/proxy/avatar?mid=${user.mid}`}
+                  src={user.avatar || `/api/auth/proxy/avatar?mid=${user.mid}`}
                   alt="用户头像"
                   className="user-avatar"
                 />
-                <span className="user-name">{user.name}</span>
+                <span className="user-name">{user.username}</span>
               </div>
               <button
                 className="logout-btn"
