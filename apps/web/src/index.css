@@ -1468,3 +1468,119 @@ body {
 .toast.info {
   background: #3182ce;
 }
+
+/* 二维码登录相关样式 */
+.qrcode-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+}
+
+.qrcode-loading,
+.qrcode-scanned,
+.qrcode-expired {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.qrcode-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.qrcode-image {
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  padding: 10px;
+}
+
+.qrcode-image svg {
+  width: 100%;
+  height: 100%;
+}
+
+.qrcode-hint {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.qrcode-scanned-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  color: #10b981;
+}
+
+.qrcode-scanned-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.qrcode-scanned p,
+.qrcode-expired p {
+  color: #6b7280;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.refresh-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #5568d3;
+}
+
+.refresh-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+/* 错误消息样式 */
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 用户信息样式 */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}

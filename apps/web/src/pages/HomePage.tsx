@@ -1,13 +1,11 @@
 import { useState } from 'react'
+import { useAuthStore } from '../stores/auth'
 
-interface HomePageProps {
-  onLogout: () => void
-}
-
-function HomePage({ onLogout }: HomePageProps) {
+function HomePage() {
   const [activeTab, setActiveTab] = useState('favorites')
   const [refreshing, setRefreshing] = useState(false)
   const [pageTransition, setPageTransition] = useState('')
+  const { user, logout } = useAuthStore()
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -24,16 +22,28 @@ function HomePage({ onLogout }: HomePageProps) {
     }, 150)
   }
 
+  // 获取头像代理URL
+  const getAvatarUrl = (avatarUrl: string) => {
+    if (!avatarUrl) return ''
+    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(avatarUrl)}`
+  }
+
   return (
     <div className="home-container">
       <header className="home-header">
         <div className="header-left">
           <h1>PiliNote</h1>
+          {user && (
+            <div className="user-info">
+              <img src={getAvatarUrl(user.avatar)} alt={user.username} className="user-avatar" />
+              <span className="user-name">{user.username}</span>
+            </div>
+          )}
         </div>
         <div className="header-right">
           <button
             className="icon-btn header-icon"
-            onClick={onLogout}
+            onClick={logout}
             aria-label="退出登录"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

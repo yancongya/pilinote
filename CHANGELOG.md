@@ -126,13 +126,76 @@
 - **可访问性**: 完整ARIA标签支持
 - **响应式**: 3个断点（<640px, 640-2024px, >1024px）
 
+### 阶段 4: 后端登录功能 (2026-03-26)
+- [x] 搭建FastAPI后端框架
+- [x] 实现B站扫码登录API
+- [x] 实现B站SESSDATA登录API
+- [x] 实现B站密码登录API
+- [x] 创建SQLite数据库模型
+- [x] 实现用户信息存储和管理
+- [x] 配置CORS跨域支持
+
+### 完成工作
+1. 技术栈：
+   - FastAPI 0.115.6 + Uvicorn 0.34.0
+   - SQLAlchemy 2.0.36 + SQLite
+   - Pydantic 2.10.4 + httpx 0.28.1
+   - passlib 1.7.4 (密码加密)
+
+2. 项目结构：
+   - apps/api/src/
+     - config.py (配置管理)
+     - database.py (数据库连接)
+     - models/ (数据模型)
+     - schemas/ (Pydantic模式)
+     - routers/ (API路由)
+     - services/ (业务逻辑)
+
+3. API端点：
+   - GET /api/auth/qrcode - 获取登录二维码
+   - GET /api/auth/qrcode/status/{qrcode_key} - 查询二维码状态
+   - POST /api/auth/sessdata - SESSDATA登录
+   - POST /api/auth/password - 密码登录
+   - GET /api/auth/user-info - 获取用户信息
+
+### 阶段 5: 前后端集成 (2026-03-26)
+- [x] 创建前端API服务层
+- [x] 实现用户状态管理 (Zustand)
+- [x] 集成扫码登录流程
+- [x] 集成SESSDATA登录流程
+- [x] 集成密码登录流程
+- [x] 修复二维码显示问题
+- [x] 修复扫码登录状态轮询问题
+
+### 完成工作
+1. 前端服务层：
+   - apps/web/src/services/api.ts
+   - 统一API调用接口
+   - 错误处理和响应格式化
+
+2. 状态管理：
+   - apps/web/src/stores/auth.ts
+   - 使用Zustand管理用户状态
+   - 本地持久化存储（localStorage）
+
+3. 问题修复：
+   - **二维码显示问题**：B站API返回的URL不是图片，使用qrcode.react库生成二维码
+   - **扫码登录过期问题**：后端返回数据缺少code字段，前端无法识别登录成功状态
+   - **数据结构不匹配**：统一前后端API响应格式，确保包含必要的状态码
+
+### 技术栈总结
+- **后端**: FastAPI + SQLAlchemy + SQLite
+- **前端状态**: Zustand + localStorage
+- **API通信**: RESTful + JSON
+- **二维码生成**: qrcode.react
+- **认证方式**: 扫码 + SESSDATA + 密码
+
 ### 下一阶段计划
-- [ ] Phase 2: 后端框架搭建
-  - 搭建FastAPI后端框架
-  - 实现SESSDATA认证API
-  - 集成yt-dlp下载引擎
-  - 实现SQLite数据库
-  - 配置Celery任务队列
+- [ ] Phase 3: 视频源管理
+  - 实现收藏夹API
+  - 实现稍后再看API
+  - 实现链接智能识别
+  - 前端视频源页面
 
 ---
 
