@@ -1,9 +1,9 @@
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
 
-function AppContent() {
+function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
   const handleLogin = () => {
@@ -24,16 +24,6 @@ function AppContent() {
     <Routes>
       <Route path="*" element={<LoginPage onLogin={handleLogin} />} />
     </Routes>
-  )
-}
-
-function App() {
-  return (
-    <BrowserRouter>
-      <div className="app">
-        <AppContent />
-      </div>
-    </BrowserRouter>
   )
 }
 
