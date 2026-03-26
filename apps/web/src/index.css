@@ -2212,6 +2212,212 @@ body {
   }
 }
 
+/* 稍后再看列表样式 */
+.watch-later-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.watch-later-item {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 1px solid #f0f0f0;
+  position: relative;
+}
+
+.watch-later-item:hover {
+  background-color: #f8f8f8;
+}
+
+.watch-later-item:active {
+  background-color: #f0f0f0;
+}
+
+.watch-later-cover {
+  flex-shrink: 0;
+}
+
+.watch-later-thumbnail {
+  width: 160px;
+  aspect-ratio: 16/9;
+  background: linear-gradient(135deg, #5CB67B 0%, #4A9F6D 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  font-weight: 600;
+  position: relative;
+}
+
+.watch-later-thumbnail svg {
+  width: 40px;
+  height: 40px;
+  opacity: 0.5;
+}
+
+.video-progress-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+
+.video-progress-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 30%;
+  background: #5CB67B;
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.video-progress-text {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.watch-later-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.watch-later-info h3 {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  letter-spacing: 0.3px;
+}
+
+.watch-later-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.watch-later-uploader {
+  font-size: 13px;
+  color: #666;
+}
+
+.watch-later-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.watch-later-remove-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.watch-later-remove-btn:hover {
+  background-color: #f0f0f0;
+  color: #5CB67B;
+}
+
+.watch-later-remove-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 播放全部按钮 */
+.play-all-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  height: 48px;
+  background: #2E7D32;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+  z-index: 100;
+}
+
+.play-all-btn:hover {
+  background: #1B5E20;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(46, 125, 50, 0.4);
+}
+
+.play-all-btn:active {
+  transform: translateY(0);
+}
+
+.play-all-btn svg:first-child {
+  width: 18px;
+  height: 18px;
+}
+
+.play-all-btn svg:last-child {
+  width: 16px;
+  height: 16px;
+}
+}
+
 @media (min-width: 769px) {
   .fav-folder-item,
   .fav-video-item {
