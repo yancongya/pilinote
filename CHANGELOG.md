@@ -379,6 +379,40 @@
    - 头像加载失败显示绿色背景+用户名首字母
    - 退出确认面板带遮罩层，点击外部关闭
 
+### 阶段 11: 路由规划与修复 (2026-03-26)
+- [x] 添加React Router路由配置
+- [x] 为每个tab配置独立路由
+- [x] HomePage根据URL路径确定当前tab
+- [x] tab切换使用路由导航
+- [x] 修复React Hook调用错误
+
+### 完成工作
+1. 路由配置：
+   - 配置BrowserRouter在main.tsx最外层
+   - 为每个tab添加独立路由：
+     - `/home` - 首页
+     - `/favorites` - 收藏
+     - `/watch-later` - 稍后再看
+     - `/downloads` - 下载
+   - 根路径`/`重定向到`/home`
+
+2. 路由集成：
+   - HomePage使用useLocation获取当前路径
+   - 根据路径确定当前activeTab
+   - 使用useNavigate进行路由导航
+   - tab切换触发路由导航
+
+3. 问题修复：
+   - 修复BrowserRouter导致的React Hook调用错误
+   - 将BrowserRouter移到React.StrictMode外面
+   - 避免React StrictMode创建多个实例导致的hook冲突
+
+4. 优势：
+   - URL能反映当前页面状态
+   - 可以直接通过URL访问特定tab
+   - 刷新页面后保持在当前tab
+   - 支持浏览器前进/后退
+
 ### 下一阶段计划
 - [ ] Phase 3: 视频源管理
   - 实现收藏夹API
