@@ -738,3 +738,81 @@
 - 懒加载和条件渲染
 - 图片懒加载和代理缓存
 
+### 阶段 20: 项目架构文档优化 (2026-03-27)
+- [x] 基于bilitool的MVC架构优化项目结构文档
+- [x] 创建完整的MVC架构设计文档
+- [x] 更新架构图添加MVC架构可视化
+- [x] 添加技术栈详细说明
+- [x] 添加配置管理文档
+- [x] 添加数据流转说明
+- [x] 添加扩展性设计文档
+
+### 完成工作
+1. 项目结构文档更新（docs/dev/06-project-structure.md）：
+   - 基于MVC架构重新组织项目结构
+   - 添加详细的模块划分和职责说明
+   - 添加数据模型定义（User, Video, Download, Settings）
+   - 添加完整的API结构说明
+   - 添加配置管理和环境变量说明
+   - 添加技术栈详细说明
+   - 添加数据流转和开发环境说明
+
+2. MVC架构设计文档（docs/dev/pilinote_mvc_architecture.md）：
+   - 创建完整的MVC架构文档
+   - 包含详细的架构图和层次职责说明
+   - 添加数据流向和设计原则
+   - 添加开发指南和扩展性设计
+   - 添加性能优化和安全考虑
+   - 添加测试策略和技术选型理由
+
+3. 架构图更新（docs/dev/pilinote_architecture.drawio）：
+   - 添加MVC架构可视化图表
+   - 包含View层、Controller层、Service层、Model层
+   - 显示各层的组件和职责
+   - 添加数据流向箭头和设计原则说明
+   - 备份原有架构图为pilinote_architecture_old.drawio
+
+4. 技术栈文档化：
+   - 后端：Python 3.11+、FastAPI、SQLAlchemy、Celery、Redis
+   - 前端：React 19+、TypeScript、Vite、Zustand、React Router
+   - 桌面端：Electron 28+
+   - 数据库：SQLite（开发）/ PostgreSQL（生产）
+
+5. 配置管理文档：
+   - 后端配置（config.py）
+   - 环境变量（.env.example）
+   - 前端配置（vite.config.ts, tsconfig.json）
+   - 部署配置和开发环境说明
+
+6. 参考项目文档：
+   - bilitool（MVC架构设计）
+   - Hermes（前后端分离架构）
+   - Vidbee（Electron桌面端）
+   - PiliPala（B站API实现）
+
+### 架构改进
+- 分层清晰：View → Controller → Service → Model
+- 职责分离：每层只负责自己的职责
+- 依赖注入：便于测试和替换实现
+- 接口抽象：支持多种存储方式
+- 错误处理：统一错误处理机制
+
+### 技术优势
+- 可维护性：代码结构清晰，易于维护
+- 可扩展性：新功能易于添加
+- 可测试性：分层架构便于单元测试
+- 团队协作：职责明确，便于分工
+
+### 参考资源
+- bilitool的MVC架构设计理念
+- 企业级应用架构最佳实践
+- RESTful API设计规范
+- 前后端分离架构模式
+
+### 下一阶段计划
+- [ ] Phase 3: 下载管理
+  - 集成yt-dlp下载引擎
+  - 实现下载队列管理
+  - 实现下载进度追踪
+  - 前端下载管理页面
+
