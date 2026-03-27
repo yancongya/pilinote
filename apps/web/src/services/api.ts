@@ -151,6 +151,18 @@ class ApiService {
       : `/api/video/${videoId}`;
     return this.request<any>(url, { method: 'GET' });
   }
+
+  // 稍后再看相关API
+  async getWatchLaterList(
+    sessdata: string,
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<ApiResponse<any>> {
+    return this.request<any>(
+      `/api/watchlater/list?sessdata=${encodeURIComponent(sessdata)}&page=${page}&page_size=${pageSize}`,
+      { method: 'GET' }
+    );
+  }
 }
 
 export const apiService = new ApiService();

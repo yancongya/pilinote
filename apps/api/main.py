@@ -5,6 +5,7 @@ from src.database import engine, Base
 from src.routers.auth import router as auth_router
 from src.routers.favorites import router as favorites_router
 from src.routers.video import router as video_router
+from src.routers.watchlater import router as watchlater_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -25,6 +26,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(favorites_router)
 app.include_router(video_router)
+app.include_router(watchlater_router)
 
 
 @app.get("/")

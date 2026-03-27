@@ -357,6 +357,40 @@ class BilibiliService:
                 "message": f"获取收藏夹详情异常: {str(e)}"
             }
 
+    def get_watch_later(self, sessdata: str, page: int = 1, page_size: int = 20) -> Dict:
+        """获取稍后再看列表"""
+        url = f"{self.api_base}/x/v2/history/toview"
+        headers = {
+            "Cookie": f"SESSDATA={sessdata}",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        params = {
+            "pn": page,
+            "ps": page_size
+        }
+        
+        try:
+            response = self.client.get(url, headers=headers, params=params)
+            data = response.json()
+            print(f"稍后再看列表响应: {data}")
+            
+            if data.get("code") == 0:
+                return {
+                    "success": True,
+                    "data": data.get("data", {})
+                }
+            return {
+                "success": False,
+                "message": data.get("message", "获取稍后再看列表失败"),
+                "code": data.get("code")
+            }
+        except Exception as e:
+            print(f"获取稍后再看列表异常: {str(e)}")
+            return {
+                "success": False,
+                "message": f"获取稍后再看列表异常: {str(e)}"
+            }
+
     def close(self):
         """关闭HTTP客户端"""
         self.client.close()

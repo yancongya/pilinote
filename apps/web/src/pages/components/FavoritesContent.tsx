@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
@@ -13,6 +13,8 @@ export default function FavoritesContent() {
   const [error, setError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
@@ -142,26 +144,35 @@ export default function FavoritesContent() {
     }
   }, [selectedFolder, fetchVideos])
 
-  // 无限滚动加载更多
+  // 使用Intersection Observer实现无限滚动
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY
-      const windowHeight = window.innerHeight
-      const documentHeight = document.documentElement.scrollHeight
-      
-      // 当滚动到距离底部100px时加载更多
-      if (scrollTop + windowHeight >= documentHeight - 100 && !loading && !loadingMore && hasMore && selectedFolder) {
-        const nextPage = currentPage + 1
-        // 检测是否是移动端
-        const isMobile = window.innerWidth < 640
-        const pageSize = isMobile ? 5 : 10
-        fetchVideos(nextPage, true, pageSize)
-        setCurrentPage(nextPage)
+    if (!loadMoreRef.current || !hasMore || loading || loadingMore || !selectedFolder) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (target.isIntersecting && !loading && !loadingMore && hasMore) {
+          const nextPage = currentPage + 1
+          const isMobile = window.innerWidth < 640
+          const pageSize = isMobile ? 5 : 10
+          fetchVideos(nextPage, true, pageSize)
+          setCurrentPage(nextPage)
+        }
+      },
+      {
+        rootMargin: '100px',
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(loadMoreRef.current)
+    observerRef.current = observer
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
       }
     }
-
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
   }, [currentPage, loading, loadingMore, hasMore, selectedFolder, fetchVideos])
 
   const isAddedToDownload = (videoId: number) => {
@@ -346,33 +357,11 @@ export default function FavoritesContent() {
               {loadingMore && (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>加载中...</div>
               )}
-              {!loadingMore && hasMore && videos.length > 0 && (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <button 
-                    onClick={() => {
-                      const nextPage = currentPage + 1
-                      const isMobile = window.innerWidth < 640
-                      const pageSize = isMobile ? 5 : 10
-                      fetchVideos(nextPage, true, pageSize)
-                      setCurrentPage(nextPage)
-                    }}
-                    style={{
-                      padding: '10px 20px',
-                      background: '#3B82F6',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    加载更多
-                  </button>
-                </div>
-              )}
               {!hasMore && videos.length > 0 && (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>没有更多视频了</div>
               )}
+              {/* 用于Intersection Observer的触发元素 */}
+              {hasMore && <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />}
             </>
           )}
         </div>

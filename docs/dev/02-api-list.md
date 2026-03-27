@@ -53,6 +53,12 @@
   - 参数: video_id (bvid或aid), sessdata (可选)
   - 返回: 完整视频信息包括分P、分辨率、统计等
 
+### 稍后再看模块 (`/api/watchlater`)
+- `GET /api/watchlater/list` - 获取稍后再看列表
+  - 参数: sessdata, page, page_size
+  - 返回: 稍后再看视频列表、观看进度、统计信息
+  - 特点: B站API一次性返回所有视频，客户端分页显示
+
 ## API响应格式
 所有后端API都遵循统一的响应格式：
 ```json

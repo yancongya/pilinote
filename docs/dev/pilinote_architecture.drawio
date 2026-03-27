@@ -407,10 +407,10 @@
         </mxCell>
         
         <!-- Phase 2: 视频源管理 -->
-        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 2: 视频源管理&#xa;(基本完成 75%)" vertex="1">
+        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 2: 视频源管理&#xa;(基本完成 90%)" vertex="1">
           <mxGeometry height="300" width="350" x="430" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="phase2-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ 收藏夹API&#xa;✅ 收藏夹前端页面&#xa;✅ 视频详情页面&#xa;✅ 图片防盗链处理&#xa;⏳ 稍后再看API&#xa;⏳ 链接智能识别" vertex="1">
+        <mxCell id="phase2-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ 收藏夹API&#xa;✅ 收藏夹前端页面&#xa;✅ 视频详情页面&#xa;✅ 图片防盗链处理&#xa;✅ 稍后再看API&#xa;⏳ 链接智能识别" vertex="1">
           <mxGeometry height="150" width="300" x="455" y="120" as="geometry" />
         </mxCell>
         

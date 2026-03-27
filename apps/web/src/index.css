@@ -264,17 +264,22 @@ body {
   height: 100vh;
 }
 
+.home-main {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+}
+
 .home-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
   background: white;
-  position: sticky;
-  top: 0;
-  z-index: 100;
   border-bottom: 1px solid #f0f0f0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  width: 100%;
 }
 
 .header-left h1 {
@@ -337,10 +342,13 @@ body {
 
 .home-tabs {
   display: flex;
-  gap: 6px;
-  padding: 12px 24px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 16px;
   background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  border-right: 1px solid #f0f0f0;
+  width: 80px;
+  flex-shrink: 0;
 }
 
 .home-tab {
@@ -348,17 +356,17 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 10px 16px;
+  padding: 12px 8px;
   background: transparent;
   border: none;
   color: #4a4a4a;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 68px;
-  min-width: 68px;
+  min-width: 64px;
   touch-action: manipulation;
   position: relative;
 }
@@ -404,7 +412,6 @@ body {
   background: #ffffff;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 100px; /* 为底部导航留出空间 */
 }
 
 /* 页面切换动画已移除 */
@@ -589,6 +596,17 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.section-header.has-tabs {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  margin-bottom: 16px;
+}
+
+.watch-later-tabs {
+  width: 100%;
 }
 
 .section-title {
@@ -1114,6 +1132,10 @@ body {
     max-width: 100%;
   }
 
+  .home-main {
+    flex-direction: column;
+  }
+
   .home-header {
     padding: 16px 20px;
     padding-bottom: max(16px, env(safe-area-inset-top, 16px));
@@ -1132,6 +1154,10 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .section-header.has-tabs {
+    padding: 0;
   }
 
   .section-header h2 {
@@ -1468,10 +1494,19 @@ body {
   animation: spin 0.8s ease-in-out infinite;
 }
 
+/* 下拉刷新旋转动画 */
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* 下拉刷新优化 */
+.content-section {
+  min-height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .loading-container {
@@ -2528,5 +2563,80 @@ body {
   .fav-folder-info h3,
   .fav-video-info h3 {
     font-size: 16px;
+  }
+}
+
+/* 稍后再看子tab样式 */
+.watch-later-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 4px 0;
+  width: 100%;
+}
+
+.watch-later-tab {
+  position: relative;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 40px;
+  min-width: 40px;
+  touch-action: manipulation;
+  text-align: center;
+}
+
+.watch-later-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: calc(100% - 24px);
+  max-width: 60px;
+  height: 2px;
+  background: #667eea;
+  border-radius: 2px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.watch-later-tab:hover {
+  color: #667eea;
+}
+
+.watch-later-tab.active {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.watch-later-tab.active::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.watch-later-tab:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .watch-later-tabs {
+    gap: 8px;
+  }
+
+  .watch-later-tab {
+    font-size: 14px;
+    padding: 6px 0;
+    min-height: 36px;
+  }
+
+  .watch-later-tab::after {
+    width: calc(100% - 16px);
+    max-width: 45px;
   }
 }
