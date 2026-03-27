@@ -163,6 +163,14 @@ class ApiService {
       { method: 'GET' }
     );
   }
+
+  // 下载链接解析API
+  async parseDownloadUrl(url: string): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/download/parse', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    });
+  }
 }
 
 export const apiService = new ApiService();
