@@ -947,3 +947,284 @@
   - WebSocket实时进度推送
   - 前端下载管理页面完善
 
+
+---
+
+## 阶段 23: 下载管理功能分析与方案设计 (2026-03-27)
+
+### 参考项目分析总结
+
+#### 1. 参考项目对比
+
+**Hermes - 企业级下载管理系统**
+- ✅ 完整的任务队列架构（Celery + Redis）
+- ✅ 三层进度更新架构（Redis + SSE + DB）
+- ✅ 安全的SSE实时推送机制
+- ✅ 支持批量下载和任务分组
+- ⚠️ 架构复杂度高，学习成本高
+
+**Vidbee - 优秀的UI/UX实现**
+- ✅ 实时进度显示（百分比、速度、ETA）
+- ✅ 分组显示和批量操作
+- ✅ 双机制更新（定时轮询 + SSE）
+- ✅ 丰富的交互体验
+- ⚠️ 仅前端实现，需要后端API
+
+**Bilibili-downloader - 基础下载实现**
+- ✅ 线程化下载和进度回调
+- ✅ FFmpeg集成和音视频合并
+- ✅ 暂停/取消支持
+- ⚠️ 单线程下载，无任务队列
+
+**bilitool - 简单直接的下载实现**
+- ✅ 清晰的MVC架构
+- ✅ 基础下载功能
+- ✅ 文件名清理逻辑
+- ❌ 无暂停/取消/重试
+- ❌ 无并发下载
+- ❌ 无状态持久化
+
+#### 2. 当前项目PiliNote现状
+
+**已完成功能：**
+- ✅ 基础框架（FastAPI + SQLAlchemy + SQLite）
+- ✅ 用户认证（扫码、SESSDATA）
+- ✅ 视频源API（收藏夹、稍后再看、视频详情）
+- ✅ 下载链接解析（多P视频支持）
+- ✅ 前端UI框架（React + TypeScript）
+
+**缺失功能：**
+- ❌ 下载任务数据模型
+- ❌ 下载引擎集成（yt-dlp）
+- ❌ 任务队列系统
+- ❌ 进度追踪机制
+- ❌ 实时进度推送
+- ❌ 下载任务管理UI
+
+### 技术方案设计
+
+#### 方案选择：渐进式实现
+
+**Phase 1: 快速原型（1-2周）**
+- 参考bilitool的简单架构
+- 使用asyncio实现异步下载
+- 基础进度管理
+- 前端UI完善
+
+**Phase 2: 功能增强（2-3周）**
+- 添加并发控制
+- 实现断点续传
+- 错误重试机制
+- 任务状态持久化
+
+**Phase 3: 企业升级（3-4周，可选）**
+- 集成Celery + Redis
+- 实现SSE实时推送
+- 三层进度更新架构
+- 批量下载优化
+
+#### 数据模型设计
+
+**下载任务表：**
+```python
+class Download(Base):
+    id = Column(String, primary_key=True)
+    bvid = Column(String, nullable=False, index=True)
+    title = Column(String)
+    status = Column(Enum("pending", "queued", "downloading", "processing", "completed", "failed", "cancelled"))
+    progress = Column(Float, default=0.0)  # 0.0 to 100.0
+    
+    # 进度追踪
+    downloaded_bytes = Column(Integer)
+    total_bytes = Column(Integer)
+    download_speed = Column(Float)
+    eta = Column(Float)
+    
+    # B站特定字段
+    cid = Column(Integer)
+    aid = Column(String)
+    quality = Column(Integer)
+    format = Column(String)
+    
+    # 元数据
+    thumbnail_url = Column(String)
+    duration = Column(Integer)
+    uploader = Column(String)
+    
+    # 文件管理
+    file_path = Column(String)
+    file_size = Column(Integer)
+    
+    # 错误处理
+    error_message = Column(String)
+    retry_count = Column(Integer, default=0)
+    
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+```
+
+#### API接口设计
+
+**下载管理API：**
+```
+POST   /api/download/start          - 创建下载任务
+GET    /api/download/list           - 获取下载任务列表
+GET    /api/download/{id}           - 获取单个下载任务详情
+DELETE /api/download/{id}           - 删除下载任务
+POST   /api/download/{id}/pause     - 暂停下载
+POST   /api/download/{id}/resume    - 恢复下载
+POST   /api/download/{id}/cancel    - 取消下载
+POST   /api/download/{id}/retry     - 重试失败的任务
+```
+
+#### 前端UI设计
+
+**下载管理页面功能：**
+- 任务列表显示（支持状态过滤）
+- 进度条和实时数据更新
+- 任务控制按钮（暂停/取消/重试）
+- 批量操作（多选、批量删除）
+- 统计卡片（下载中、已完成、失败）
+
+### 实施计划
+
+#### 第一步：后端基础功能（当前阶段）
+
+**任务清单：**
+1. 创建Download数据模型
+2. 集成yt-dlp下载引擎
+3. 实现异步下载任务
+4. 创建下载API端点
+5. 实现进度回调机制
+6. 添加任务状态管理
+
+**技术实现：**
+```python
+# 异步下载任务
+async def download_video_task(download_id: str, bvid: str, options: Dict):
+    download = get_download(download_id)
+    download.status = "downloading"
+    download.started_at = datetime.utcnow()
+    
+    # yt-dlp配置
+    ydl_opts = {
+        'format': f'{options["quality"]}+bestaudio/best',
+        'outtmpl': f'downloads/{download_id}/%(title)s.%(ext)s',
+        'progress_hooks': [lambda d: update_progress(download_id, d)],
+        'cookiefile': get_cookie_file(options.get('sessdata')),
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([f'https://www.bilibili.com/video/{bvid}'])
+        
+        download.status = "completed"
+        download.completed_at = datetime.utcnow()
+        download.progress = 100.0
+        
+    except Exception as e:
+        download.status = "failed"
+        download.error_message = str(e)
+        download.retry_count += 1
+    
+    finally:
+        db.commit()
+```
+
+#### 第二步：前端UI实现
+
+**任务清单：**
+1. 创建下载任务列表组件
+2. 实现进度条显示
+3. 添加任务控制按钮
+4. 实现状态过滤功能
+5. 添加实时数据更新
+6. 实现批量操作
+
+**技术实现：**
+```typescript
+// 下载任务组件
+function DownloadItem({ download, onPause, onResume, onCancel, onRetry }) {
+  const progressPercent = download.progress || 0;
+  const isDownloading = download.status === 'downloading';
+  const isFailed = download.status === 'failed';
+  
+  return (
+    <div className="download-item">
+      <div className="download-info">
+        <img src={download.thumbnail_url} alt={download.title} />
+        <div className="download-details">
+          <h3>{download.title}</h3>
+          <div className="download-meta">
+            <span>{download.uploader}</span>
+            <span>{formatDuration(download.duration)}</span>
+          </div>
+          <ProgressBar value={progressPercent} />
+          <div className="download-stats">
+            <span>{progressPercent.toFixed(1)}%</span>
+            <span>{download.download_speed || '0 KB/s'}</span>
+            <span>ETA: {download.eta || '--'}</span>
+          </div>
+        </div>
+      </div>
+      <div className="download-actions">
+        {isDownloading && <Button onClick={() => onPause(download.id)}>暂停</Button>}
+        {isFailed && <Button onClick={() => onRetry(download.id)}>重试</Button>}
+        <Button onClick={() => onCancel(download.id)}>取消</Button>
+      </div>
+    </div>
+  );
+}
+```
+
+### 技术依赖
+
+**新增依赖：**
+```txt
+yt-dlp>=2024.1.1  # 下载引擎
+celery>=5.3.0    # 任务队列（Phase 2）
+redis>=5.0.0     # 消息队列（Phase 2）
+```
+
+### 预期成果
+
+**Phase 1完成后：**
+- ✅ 支持单个视频下载
+- ✅ 实时进度显示
+- ✅ 基本任务管理
+- ✅ 前端UI完善
+
+**Phase 2完成后：**
+- ✅ 支持并发下载（最多3个）
+- ✅ 支持断点续传
+- ✅ 错误重试机制
+- ✅ 任务队列管理
+
+**Phase 3完成后：**
+- ✅ 企业级架构
+- ✅ SSE实时推送
+- ✅ 批量下载优化
+- ✅ 完整的任务管理
+
+### 注意事项
+
+1. **文件管理**：自动创建下载目录，按视频ID组织
+2. **错误处理**：详细记录错误信息，支持用户查看
+3. **并发控制**：限制最大并发下载数，避免资源耗尽
+4. **进度更新**：合理的更新频率，避免过度刷新
+5. **状态同步**：确保前端和后端状态一致性
+
+### 参考资源
+
+**核心参考项目：**
+- reference/hermes/ - 企业级下载管理架构
+- reference/vidbee/ - 优秀的UI/UX设计
+- reference/bilibili-downloader/ - 下载引擎集成
+- reference/bilitool/ - 清晰的MVC架构
+
+**技术文档：**
+- yt-dlp官方文档：https://github.com/yt-dlp/yt-dlp
+- Celery官方文档：https://docs.celeryq.dev/
+- FastAPI异步编程：https://fastapi.tiangolo.com/async/
