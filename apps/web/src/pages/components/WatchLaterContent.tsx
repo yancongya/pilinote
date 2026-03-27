@@ -45,6 +45,11 @@ export default function WatchLaterContent() {
 
   // 格式化时间戳为具体日期时间
   const formatTime = (timestamp: number): string => {
+    // 处理时间戳为0或无效的情况
+    if (!timestamp || timestamp <= 0) {
+      return '未知时间'
+    }
+    
     const date = new Date(timestamp * 1000)
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -87,7 +92,7 @@ export default function WatchLaterContent() {
             uploader: video.uploader?.name || '未知',
             views: formatNumber(video.view),
             comments: video.comment,
-            time: formatTime(video.pubtime),
+            time: formatTime(video.add_time), // 显示添加时间而不是发布时间
             progress: video.progress,
             addTime: formatTime(video.add_time)
           }))
