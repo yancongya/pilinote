@@ -118,6 +118,39 @@ class ApiService {
       { method: 'GET' }
     );
   }
+
+// 收藏夹相关API
+  async getFolders(sessdata: string, upMid: number, page: number = 1, pageSize: number = 20): Promise<ApiResponse<any>> {
+    return this.request<any>(
+      `/api/favorites/folders?sessdata=${encodeURIComponent(sessdata)}&up_mid=${upMid}&page=${page}&page_size=${pageSize}`,
+      { method: 'GET' }
+    );
+  }
+
+  async getFolderDetail(
+    folderId: number,
+    sessdata: string,
+    page: number = 1,
+    pageSize: number = 20,
+    keyword: string = '',
+    order: string = 'mtime'
+  ): Promise<ApiResponse<any>> {
+    return this.request<any>(
+      `/api/favorites/folders/${folderId}?sessdata=${encodeURIComponent(sessdata)}&page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}`,
+      { method: 'GET' }
+    );
+  }
+
+  // 视频详情相关API
+  async getVideoDetail(
+    videoId: string,
+    sessdata?: string
+  ): Promise<ApiResponse<any>> {
+    const url = sessdata 
+      ? `/api/video/${videoId}?sessdata=${encodeURIComponent(sessdata)}`
+      : `/api/video/${videoId}`;
+    return this.request<any>(url, { method: 'GET' });
+  }
 }
 
 export const apiService = new ApiService();

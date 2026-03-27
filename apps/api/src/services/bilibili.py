@@ -285,7 +285,7 @@ class BilibiliService:
                 "message": f"登录异常: {str(e)}"
             }
 
-    def get_folder_list(self, sessdata: str, page: int = 1, page_size: int = 20) -> Dict:
+    def get_folder_list(self, sessdata: str, up_mid: int, page: int = 1, page_size: int = 20) -> Dict:
         """获取收藏夹列表"""
         url = f"{self.api_base}/x/v3/fav/folder/created/list"
         headers = {
@@ -294,12 +294,14 @@ class BilibiliService:
         }
         params = {
             "pn": page,
-            "ps": page_size
+            "ps": page_size,
+            "up_mid": up_mid
         }
         
         try:
             response = self.client.get(url, headers=headers, params=params)
             data = response.json()
+            print(f"收藏夹列表响应: {data}")
             
             if data.get("code") == 0:
                 return {
@@ -308,9 +310,11 @@ class BilibiliService:
                 }
             return {
                 "success": False,
-                "message": data.get("message", "获取收藏夹列表失败")
+                "message": data.get("message", "获取收藏夹列表失败"),
+                "code": data.get("code")
             }
         except Exception as e:
+            print(f"获取收藏夹列表异常: {str(e)}")
             return {
                 "success": False,
                 "message": f"获取收藏夹列表异常: {str(e)}"

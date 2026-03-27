@@ -387,3 +387,94 @@
     </mxGraphModel>
   </diagram>
 </mxfile>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="实现状态 - 2026-03-27" id="implementation-status">
+    <mxGraphModel dx="2113" dy="925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#000000;" value="PiliNote 实现状态 (2026-03-27)" vertex="1">
+          <mxGeometry height="40" width="1200" x="200" y="20" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 1: 核心功能 -->
+        <mxCell id="phase1-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 1: 核心功能&#xa;(部分完成 60%)" vertex="1">
+          <mxGeometry height="300" width="350" x="50" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase1-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ FastAPI后端框架&#xa;✅ React前端框架&#xa;✅ 用户认证功能&#xa;⏳ yt-dlp集成&#xa;⏳ SQLite数据库" vertex="1">
+          <mxGeometry height="150" width="300" x="75" y="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 2: 视频源管理 -->
+        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 2: 视频源管理&#xa;(基本完成 75%)" vertex="1">
+          <mxGeometry height="300" width="350" x="430" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase2-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ 收藏夹API&#xa;✅ 收藏夹前端页面&#xa;✅ 视频详情页面&#xa;✅ 图片防盗链处理&#xa;⏳ 稍后再看API&#xa;⏳ 链接智能识别" vertex="1">
+          <mxGeometry height="150" width="300" x="455" y="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 3: 下载管理 -->
+        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontColor=#000000;" value="Phase 3: 下载管理&#xa;(未开始 0%)" vertex="1">
+          <mxGeometry height="300" width="350" x="810" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase3-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="⏳ yt-dlp集成&#xa;⏳ 下载队列&#xa;⏳ 进度推送&#xa;⏳ 下载管理页面" vertex="1">
+          <mxGeometry height="150" width="300" x="835" y="120" as="geometry" />
+        </mxCell>
+        
+        <!-- 当前功能详情 -->
+        <mxCell id="features-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#000000;" value="已实现功能详情" vertex="1">
+          <mxGeometry height="400" width="1100" x="50" y="420" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-auth" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="用户认证:" vertex="1">
+          <mxGeometry height="20" width="200" x="75" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="features-auth-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 扫码登录 (二维码生成 + 状态轮询)&#xa;• SESSDATA登录 (Cookie输入 + 验证)&#xa;• 密码登录 (需验证码，已实现后端API)&#xa;• 手机验证码登录 (需CAPTCHA，已实现后端API)&#xa;• 用户信息获取和显示&#xa;• 头像代理 (解决403防盗链)" vertex="1">
+          <mxGeometry height="80" width="320" x="75" y="465" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-favorites" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="收藏夹功能:" vertex="1">
+          <mxGeometry height="20" width="200" x="425" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="features-favorites-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 收藏夹列表展示&#xa;• 收藏夹详情 (视频列表)&#xa;• 智能分页 (移动端5条，桌面端10条)&#xa;• 无限滚动加载&#xa;• 视频卡片 (封面、标题、UP主、统计数据)&#xa;• 图片防盗链处理&#xa;• 加载更多按钮" vertex="1">
+          <mxGeometry height="80" width="320" x="425" y="465" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-video" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="视频详情:" vertex="1">
+          <mxGeometry height="20" width="200" x="775" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="features-video-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 视频基本信息 (标题、封面、UP主)&#xa;• 统计信息 (播放量、弹幕数、发布时间)&#xa;• 分P信息展示&#xa;• 视频简介 (支持链接点击)&#xa;• 下载功能 (模拟模式)&#xa;• 多P选择下载&#xa;• 具体时间显示 (不使用相对时间)" vertex="1">
+          <mxGeometry height="80" width="320" x="775" y="465" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-ui" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="UI/UX特性:" vertex="1">
+          <mxGeometry height="20" width="200" x="75" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="features-ui-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 移动端优先设计&#xa;• 响应式布局 (手机/平板/桌面)&#xa;• App风格导航栏&#xa;• 绿色主题色 (#5CB67B)&#xa;• 固定亮色模式&#xa;• 平滑动画过渡&#xa;• iOS安全区域适配" vertex="1">
+          <mxGeometry height="70" width="320" x="75" y="590" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-tech" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="技术栈:" vertex="1">
+          <mxGeometry height="20" width="200" x="425" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="features-tech-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 后端: FastAPI + Python 3.11+ + SQLAlchemy&#xa;• 前端: React 19 + TypeScript + Vite + Tailwind CSS&#xa;• 状态管理: Zustand&#xa;• 路由: React Router v6&#xa;• 认证: B站扫码登录 + SESSDATA&#xa;• HTTP客户端: httpx (Python) + fetch (JavaScript)" vertex="1">
+          <mxGeometry height="70" width="320" x="425" y="590" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-api" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="已实现API:" vertex="1">
+          <mxGeometry height="20" width="200" x="775" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="features-api-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• GET /api/auth/qrcode - 获取二维码&#xa;• GET /api/auth/qrcode/status/{key} - 查询状态&#xa;• POST /api/auth/sessdata - SESSDATA登录&#xa;• GET /api/favorites/folders - 收藏夹列表&#xa;• GET /api/favorites/folders/{id} - 收藏夹详情&#xa;• GET /api/video/{id} - 视频详情&#xa;• GET /api/auth/proxy/avatar - 图片代理" vertex="1">
+          <mxGeometry height="70" width="320" x="775" y="590" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="next-steps" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="下一阶段计划" vertex="1">
+          <mxGeometry height="120" width="1100" x="50" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="next-steps-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#000000;" value="Phase 3: 下载管理 - 集成yt-dlp，实现下载队列管理、进度追踪和下载管理页面&#xa;Phase 4: 文件组织 - 自动下载字幕/弹幕、音轨提取、元数据保存、文件夹组织逻辑&#xa;Phase 5: 部署优化 - Docker Compose配置、Caddy反向代理、环境变量管理、生产环境优化&#xa;Phase 6: 桌面端 - Electron基础框架、打包配置、跨平台测试、发布流程" vertex="1">
+          <mxGeometry height="90" width="1050" x="75" y="875" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>

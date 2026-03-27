@@ -1,5 +1,6 @@
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
+import VideoDetailPage from './pages/VideoDetailPage'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
 
@@ -19,6 +20,7 @@ function App() {
       <Route path="/favorites" element={<HomePage />} />
       <Route path="/watch-later" element={<HomePage />} />
       <Route path="/downloads" element={<HomePage />} />
+      <Route path="/video/:videoId" element={<VideoDetailPage />} />
     </Routes>
   ) : (
     <Routes>

@@ -10,16 +10,20 @@ router = APIRouter(prefix="/api/favorites", tags=["收藏夹"])
 @router.get("/folders", response_model=dict)
 async def get_folders(
     sessdata: str = Query(..., description="用户SESSDATA"),
+    up_mid: int = Query(..., description="用户mid"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量")
 ):
     """获取收藏夹列表"""
     service = BilibiliService()
     try:
-        result = service.get_folder_list(sessdata, page, page_size)
+        result = service.get_folder_list(sessdata, up_mid, page, page_size)
+        print(f"收藏夹API原始响应: {result}")
         if result["success"]:
             data = result["data"]
+            print(f"解析后的data: {data}")
             folders = data.get("list", [])
+            print(f"获取到的folders数量: {len(folders)}")
             
             # 转换为前端需要的格式
             folder_list = []
