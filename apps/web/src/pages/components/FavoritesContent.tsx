@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
+import { ArrowLeft, Folder } from 'lucide-react'
 import VideoListCard from './VideoListCard'
 
 // 格式化时长（秒转为 MM:SS）
@@ -260,10 +261,7 @@ export default function FavoritesContent() {
               }}
               aria-label="返回收藏夹列表"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M19 12H5"/>
-                <path d="M12 19l-7-7 7-7"/>
-              </svg>
+              <ArrowLeft />
             </button>
           )}
           <h2>{selectedFolder ? selectedFolder.title : '我的收藏'}</h2>
@@ -307,9 +305,7 @@ export default function FavoritesContent() {
                     {folder.cover ? (
                       <img src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(folder.cover)}`} alt={folder.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                      </svg>
+                      <Folder />
                     )}
                   </div>
                 </div>

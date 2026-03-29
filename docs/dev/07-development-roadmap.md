@@ -138,6 +138,24 @@
   - 添加page_size和info字段
 - **视频详情页**: 移除观看次数和评论数组件，禁用简介文本选择和链接点击
 
+### 图标库迁移 (2026-03-29)
+- **技术升级**: 从手写SVG迁移到lucide-react图标库
+  - 安装lucide-react 1.7.0
+  - 替换所有手写SVG为React组件
+  - 统一图标风格和设计语言
+- **迁移范围**: 
+  - 核心页面组件: HomePage, VideoDetailPage, LoginPage, DownloadSeriesDetailPage
+  - 内容组件: VideoListCard, FavoritesContent, HomeContent, DownloadsContent
+- **使用的图标**:
+  - 导航: LogIn, Home, Heart, Clock, Download, ArrowLeft, ChevronLeft, ChevronRight
+  - 功能: Film, Eye, MessageCircle, Folder, User, Plus, Check
+  - 操作: X, RefreshCw, Trash, Loader2
+- **优势提升**:
+  - 代码简化: 从复杂SVG路径简化为组件调用
+  - 类型安全: 完整TypeScript支持
+  - 性能优化: tree-shaking支持，减少打包体积
+  - 可维护性: 集中管理，易于更新
+
 ## 当前注意事项
 
 ### 前端注意事项

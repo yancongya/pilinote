@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { ChevronLeft, X, RefreshCw, Trash } from 'lucide-react'
 
 interface DownloadTask {
   id: string
@@ -205,9 +206,7 @@ export default function DownloadSeriesDetailPage() {
       {/* 顶部导航栏 */}
       <div className="series-nav">
         <button className="nav-back" onClick={() => navigate(-1)}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M12 4L6 10L12 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <ChevronLeft />
           <span>返回</span>
         </button>
         <h1 className="series-title">{seriesData?.seriesName || '系列详情'}</h1>
@@ -348,18 +347,14 @@ export default function DownloadSeriesDetailPage() {
                     className="action-btn cancel-btn"
                     onClick={() => handleCancelDownload(task.id)}
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M5 5L15 15M5 15L15 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
+                    <X />
                   </button>
                 ) : task.status === 'failed' ? (
                   <button 
                     className="action-btn retry-btn"
                     onClick={() => handleRetryDownload(task.id)}
                   >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <RefreshCw />
                   </button>
                 ) : null}
                 
@@ -367,9 +362,7 @@ export default function DownloadSeriesDetailPage() {
                   className="action-btn delete-btn"
                   onClick={() => handleDeleteDownload(task.id)}
                 >
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M3 6l2 12h10l2-12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <Trash />
                 </button>
               </div>
             </div>

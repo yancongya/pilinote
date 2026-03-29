@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
+import { Check } from 'lucide-react'
 
 interface LoginPageProps {
   onLogin: () => void
@@ -185,9 +186,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
                 {qrcodeStatus === 'scanned' && (
                   <div className="qrcode-scanned">
                     <div className="qrcode-scanned-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                      </svg>
+                      <Check />
                     </div>
                     <p>已扫码，请确认登录</p>
                   </div>

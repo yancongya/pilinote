@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ChevronRight } from 'lucide-react'
 
 interface DownloadTask {
   id: string
@@ -306,9 +307,7 @@ export default function DownloadsContent() {
 
                 {/* 箭头 */}
                 <div className="series-arrow">
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M8 4L14 10L8 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <ChevronRight />
                 </div>
               </div>
             ))}

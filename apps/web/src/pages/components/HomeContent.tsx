@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
+import { Loader2, Plus, Eye, MessageCircle, Check, Download } from 'lucide-react'
 
 interface VideoInfo {
   bvid: string
@@ -200,15 +201,9 @@ export default function HomeContent() {
             aria-label="解析链接"
           >
             {loading ? (
-              <svg className="loading-spinner" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.3"/>
-                <path d="M12 2 A10 10 0 0 1 22 12" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/>
-              </svg>
+              <Loader2 className="loading-spinner" />
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
+              <Plus />
             )}
             <span className="btn-text">{loading ? '解析中...' : '解析'}</span>
           </button>
@@ -243,16 +238,11 @@ export default function HomeContent() {
               </div>
               <div className="video-stats">
                 <span className="stat-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
+                  <Eye />
                   {formatNumber(videoInfo.stat.view)}
                 </span>
                 <span className="stat-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
+                  <MessageCircle />
                   {formatNumber(videoInfo.stat.danmaku)}
                 </span>
               </div>
@@ -289,9 +279,7 @@ export default function HomeContent() {
                       onClick={() => togglePageSelection(page.page)}
                     >
                       <div className="page-checkbox">
-                        <svg viewBox="0 0 24 24" fill={selectedPages.has(page.page) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
+                        <Check fill={selectedPages.has(page.page) ? "currentColor" : "none"} />
                       </div>
                       <div className="page-info">
                         <div className="page-number">第 {page.page} 话</div>
@@ -311,20 +299,9 @@ export default function HomeContent() {
                 onClick={handleDownload}
               >
                 {downloading ? (
-                  <svg className="loading-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <line x1="12" y1="2" x2="12" y2="6" />
-                    <line x1="12" y1="18" x2="12" y2="22" />
-                    <polyline points="4.93 4.93 7.76 7.76 4.93 9.17" />
-                    <polyline points="4.93 19.07 7.76 16.24 4.93 14.83" />
-                    <polyline points="19.07 4.93 16.24 7.76 19.07 9.17" />
-                    <polyline points="19.07 19.07 16.24 16.24 19.07 14.83" />
-                  </svg>
+                  <Loader2 className="loading-icon" />
                 ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                  </svg>
+                  <Download />
                 )}
                 <span className="btn-text">
                   {downloading ? '添加中...' : (isMultiPart ? `下载 ${selectedPages.size} 个视频` : '下载视频')}
