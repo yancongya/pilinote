@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
+import { useCacheStore } from '../../stores/cache'
 import VideoListCard from './VideoListCard'
 
 export default function FavoritesContent() {
@@ -16,9 +17,16 @@ export default function FavoritesContent() {
   const [hasMore, setHasMore] = useState(true)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const isMounted = useRef(false)
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const { 
+    getFoldersCache, 
+    setFoldersCache, 
+    getFolderVideosCache, 
+    setFolderVideosCache 
+  } = useCacheStore()
 
   // 处理收藏夹选择，更新路由
   const handleSelectFolder = (folder: any) => {
@@ -71,10 +79,17 @@ export default function FavoritesContent() {
     }
   }, [folders])
 
-  // 获取收藏夹列表
+  // 获取收藏夹列表（带缓存）
   useEffect(() => {
     const fetchFolders = async () => {
       if (!user?.sessdata || !user?.mid) return
+      
+      // 先检查缓存
+      const cachedFolders = getFoldersCache()
+      if (cachedFolders) {
+        setFolders(cachedFolders)
+        return
+      }
       
       setLoading(true)
       setError('')
@@ -83,6 +98,7 @@ export default function FavoritesContent() {
         const response = await apiService.getFolders(user.sessdata, user.mid)
         if (response.success && response.data) {
           setFolders(response.data)
+          setFoldersCache(response.data) // 保存到缓存
         } else {
           setError(response.message || '获取收藏夹列表失败')
         }
@@ -93,12 +109,26 @@ export default function FavoritesContent() {
       }
     }
 
-    fetchFolders()
-  }, [user])
+    // 只在组件首次挂载时执行
+    if (!isMounted.current) {
+      fetchFolders()
+      isMounted.current = true
+    }
+  }, [user, getFoldersCache, setFoldersCache])
 
-  // 获取收藏夹详情（视频列表）
+  // 获取收藏夹详情（视频列表，带缓存）
   const fetchVideos = useCallback(async (page: number = 1, isLoadMore: boolean = false, pageSize: number = 10) => {
     if (!selectedFolder || !user?.sessdata) return
+    
+    // 第一页且不是加载更多时，检查缓存
+    if (page === 1 && !isLoadMore) {
+      const cachedVideos = getFolderVideosCache(selectedFolder.id)
+      if (cachedVideos) {
+        setVideos(cachedVideos)
+        setHasMore(false) // 缓存的数据假设是完整的
+        return
+      }
+    }
     
     if (isLoadMore) {
       setLoadingMore(true)
@@ -135,6 +165,10 @@ export default function FavoritesContent() {
           setVideos(formattedVideos)
           const pageSize = response.data.page_size || 10
           setHasMore(formattedVideos.length === pageSize)
+          // 保存第一页数据到缓存
+          if (page === 1) {
+            setFolderVideosCache(selectedFolder.id, formattedVideos)
+          }
         }
       } else {
         setError(response.message || '获取视频列表失败')
@@ -145,7 +179,7 @@ export default function FavoritesContent() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [selectedFolder, user])
+  }, [selectedFolder, user, getFolderVideosCache, setFolderVideosCache, formatDuration, formatNumber, formatTime])
 
   // 当选中的收藏夹改变时，重新加载视频列表
   useEffect(() => {

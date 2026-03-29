@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
+import { useCacheStore } from '../../stores/cache'
 import VideoListCard from './VideoListCard'
 
 export default function WatchLaterContent() {
@@ -9,9 +10,11 @@ export default function WatchLaterContent() {
   const [videos, setVideos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const isMounted = useRef(false)
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const { getWatchLaterCache, setWatchLaterCache } = useCacheStore()
 
   // 格式化时长（秒转为 MM:SS）
   const formatDuration = (seconds: number): string => {
@@ -46,9 +49,16 @@ export default function WatchLaterContent() {
     return `${year}-${month}-${day} ${hours}:${minutes}`
   }
 
-  // 获取稍后再看列表
+  // 获取稍后再看列表（带缓存）
   const fetchVideos = useCallback(async () => {
     if (!user?.sessdata) return
+    
+    // 先检查缓存
+    const cachedVideos = getWatchLaterCache()
+    if (cachedVideos) {
+      setVideos(cachedVideos)
+      return
+    }
     
     setLoading(true)
     setError('')
@@ -75,6 +85,7 @@ export default function WatchLaterContent() {
         }))
         
         setVideos(formattedVideos)
+        setWatchLaterCache(formattedVideos) // 保存到缓存
       } else {
         setError(response.message || '获取稍后再看列表失败')
       }
@@ -83,11 +94,14 @@ export default function WatchLaterContent() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, getWatchLaterCache, setWatchLaterCache, formatDuration, formatNumber, formatProgress, formatTime])
 
-  // 初始加载
+  // 初始加载（只执行一次）
   useEffect(() => {
-    fetchVideos()
+    if (!isMounted.current) {
+      fetchVideos()
+      isMounted.current = true
+    }
   }, [fetchVideos])
 
   const isAddedToDownload = (videoId: number) => {
