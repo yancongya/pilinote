@@ -11,6 +11,8 @@ export default function VideoDetailPage() {
   const [error, setError] = useState<string>('')
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
   const [downloading, setDownloading] = useState(false)
+  const [isDownloaded, setIsDownloaded] = useState(false)
+  const [downloadTasks, setDownloadTasks] = useState<any[]>([])
   const { sessdata } = useAuthStore()
 
   // 获取代理图片URL
@@ -63,6 +65,9 @@ export default function VideoDetailPage() {
           if (data.pages && data.pages.length > 0) {
             setSelectedPages(new Set(data.pages.map((p: any) => p.cid)))
           }
+          
+          // 检查是否已下载
+          checkIfDownloaded(data.bvid)
         } else {
           setError(response.message || '获取视频详情失败')
         }
@@ -75,6 +80,31 @@ export default function VideoDetailPage() {
 
     fetchVideoDetail()
   }, [videoId, sessdata])
+
+  // 检查视频是否已下载
+  const checkIfDownloaded = async (bvid: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/download/list')
+      const data = await response.json()
+      
+      if (data.success && data.downloads) {
+        // 只显示已完成的下载任务
+        const completedDownloads = data.downloads.filter((d: any) => 
+          d.bvid === bvid && d.status === 'completed'
+        )
+        
+        if (completedDownloads.length > 0) {
+          setIsDownloaded(true)
+          setDownloadTasks(completedDownloads)
+        } else {
+          setIsDownloaded(false)
+          setDownloadTasks([])
+        }
+      }
+    } catch (err) {
+      console.error('检查下载状态失败:', err)
+    }
+  }
 
   const formatNumber = (num: number): string => {
     if (num >= 10000) {
@@ -95,8 +125,14 @@ export default function VideoDetailPage() {
   }
 
   const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
+    if (!seconds) return '--:--'
+    const hours = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
@@ -151,23 +187,43 @@ export default function VideoDetailPage() {
     }
   }
 
-  // 添加到下载队列（模拟）
+  // 添加到下载队列
   const handleAddToDownload = async () => {
     if (!video || selectedPages.size === 0) return
     
     setDownloading(true)
     try {
-      // 模拟下载添加
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // 获取用户SESSDATA
+      const sessdata = localStorage.getItem('sessdata')
       
-      console.log('模拟添加到下载队列:', {
-        bvid: video.bvid,
-        aid: video.aid,
-        title: video.title,
-        pages: Array.from(selectedPages)
-      })
+      // 为每个选中的分P创建下载任务
+      for (const pageNum of selectedPages) {
+        const page = video.pages?.find((p: any) => p.page === pageNum)
+        if (!page) continue
+        
+        const downloadData = {
+          bvid: video.bvid,
+          title: video.title,
+          cid: page.cid,
+          aid: video.aid,
+          quality: 64, // 默认720P
+          output_format: 'mp4',
+          thumbnail_url: video.cover,
+          duration: page.duration,
+          uploader: video.uploader?.name,
+          uploader_mid: video.uploader?.mid,
+          sessdata: sessdata || undefined
+        }
+        
+        const response = await apiService.startDownload(downloadData)
+        
+        if (!response.success) {
+          alert(`添加下载失败: ${response.message}`)
+          return
+        }
+      }
       
-      alert(`已添加 ${selectedPages.size} 个视频到下载队列（模拟）`)
+      alert(`已添加 ${selectedPages.size} 个视频到下载队列`)
     } catch (error) {
       console.error('添加下载失败:', error)
       alert('添加下载失败')
@@ -337,10 +393,21 @@ export default function VideoDetailPage() {
           color: '#fff',
           padding: '4px 8px',
           borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: '600'
+          fontSize: '11px',
+          fontWeight: '600',
+          textAlign: 'right',
+          lineHeight: '1.3'
         }}>
-          {formatDuration(video.duration)}
+          {isDownloaded && downloadTasks.length > 0 ? (
+            <>
+              <div>共{downloadTasks.length}{video.pages && video.pages.length > 1 && `/${video.pages.length}`}个视频</div>
+              <div>总时长：{formatDuration(
+                downloadTasks.reduce((total: number, task: any) => total + (task.duration || 0), 0)
+              )}</div>
+            </>
+          ) : (
+            formatDuration(video.duration)
+          )}
         </div>
       </div>
 
@@ -399,13 +466,17 @@ export default function VideoDetailPage() {
                     fontSize: '12px',
                     color: '#999'
                   }}>
-                    <span>{formatNumber(video.view)}播放</span>
-                    <span>{formatNumber(video.danmaku)}弹幕</span>
-                    <span>{formatTime(video.pubtime)}</span>
+                    {!isDownloaded && (
+                      <>
+                        <span>{formatNumber(video.view)}播放</span>
+                        <span>{formatNumber(video.danmaku)}弹幕</span>
+                        <span>{formatTime(video.pubtime)}</span>
+                      </>
+                    )}
                   </div>
                           </div>        
                 {/* 分P信息 */}
-                {video.pages && video.pages.length > 1 && (
+                {!isDownloaded && video.pages && video.pages.length > 1 && (
                   <div style={{
                     marginBottom: '16px',
                     fontSize: '13px',
@@ -434,7 +505,8 @@ export default function VideoDetailPage() {
           </div>
         ) : null}
 
-        {/* 下载区域 */}
+        {/* 下载区域 - 仅在未下载时显示 */}
+        {!isDownloaded && (
         <div style={{
           marginTop: '24px',
           paddingTop: '16px',
@@ -578,6 +650,92 @@ export default function VideoDetailPage() {
             </button>
           )}
         </div>
+        )}
+
+        {/* 下载任务列表 - 仅在已下载时显示 */}
+        {isDownloaded && downloadTasks.length > 0 && (
+        <div style={{
+          marginTop: '24px',
+          paddingTop: '16px',
+          borderTop: '1px solid #f0f0f0'
+        }}>
+          <h3 style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#1a1a1a',
+            marginBottom: '12px'
+          }}>
+            视频列表
+          </h3>
+
+          {downloadTasks.map((task) => (
+            <div key={task.id} style={{
+              background: '#f9f9f9',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              {/* 状态标识 */}
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: task.status === 'completed' ? '#4CAF50' : 
+                           task.status === 'downloading' ? '#fb7299' : 
+                           task.status === 'failed' ? '#ef5350' : '#9e9e9e'
+              }}></div>
+
+              {/* 任务信息 */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#333'
+                }}>
+                  <div style={{ 
+                    flex: 1, 
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {task.title}
+                  </div>
+                  {task.duration && task.duration > 0 && (
+                    <span style={{ 
+                      fontSize: '12px', 
+                      color: '#666',
+                      flexShrink: 0,
+                      marginLeft: 'auto'
+                    }}>
+                      {formatDuration(task.duration)}
+                    </span>
+                  )}
+                </div>
+                {task.status === 'completed' && task.file_path && (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#4CAF50', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px',
+                    marginTop: '4px'
+                  }}>
+                    <span>✓</span>
+                    <span>已下载</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        )}
       </div>
     </div>
   )

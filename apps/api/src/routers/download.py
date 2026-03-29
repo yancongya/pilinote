@@ -1,8 +1,10 @@
 # Copyright (c) 2025 PiliNote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Dict, Any, Optional, List
+from pydantic import BaseModel
 import httpx
-from typing import Dict, Any
+
 from src.schemas.download import (
     ParseLinkRequest,
     ParseLinkResponse,
@@ -17,6 +19,7 @@ from src.schemas.download import (
     DownloadOption
 )
 from src.utils.bilibili_utils import link_parser, id_converter
+from src.services.download_service import download_service
 
 router = APIRouter(prefix="/api/download", tags=["下载"])
 
@@ -37,6 +40,39 @@ FORMAT_OPTIONS = [
     {"format": "flv", "desc": "FLV格式"},
     {"format": "mkv", "desc": "MKV格式"},
 ]
+
+
+# 下载任务相关模型
+class StartDownloadRequest(BaseModel):
+    bvid: str
+    title: str
+    cid: Optional[int] = None
+    aid: Optional[int] = None
+    quality: int = 64
+    output_format: str = "mp4"
+    thumbnail_url: Optional[str] = None
+    duration: Optional[int] = None
+    uploader: Optional[str] = None
+    uploader_mid: Optional[int] = None
+    sessdata: Optional[str] = None
+
+
+class StartDownloadResponse(BaseModel):
+    success: bool
+    download_id: Optional[str] = None
+    message: Optional[str] = None
+
+
+class DownloadListResponse(BaseModel):
+    success: bool
+    downloads: List[Dict[str, Any]]
+    total: int
+
+
+class DownloadDetailResponse(BaseModel):
+    success: bool
+    download: Optional[Dict[str, Any]] = None
+    message: Optional[str] = None
 
 
 @router.post("/parse", response_model=ParseLinkResponse)
@@ -175,45 +211,197 @@ async def convert_video_id(video_id: str, target_type: str = "bvid"):
         }
 
 
-@router.post("/task/create", response_model=DownloadTaskResponse)
-async def create_download_task(request: CreateDownloadTaskRequest):
+@router.post("/start", response_model=StartDownloadResponse)
+async def start_download(request: StartDownloadRequest, background_tasks: BackgroundTasks):
     """
-    创建下载任务
-    
-    注意: 此接口目前仅用于验证参数，实际下载功能需要后续实现
+    创建并启动下载任务
     """
     try:
-        # 验证视频ID格式
-        if request.id_type == "bvid":
-            if not id_converter.is_bvid(request.video_id):
-                raise HTTPException(status_code=400, detail="无效的BV编号格式")
-        else:
-            if not str(request.video_id).isdigit():
-                raise HTTPException(status_code=400, detail="无效的AV编号格式")
-        
-        # 这里应该创建实际的下载任务
-        # 目前仅返回模拟数据
-        task_id = f"task_{hash(request.video_id)}"
-        
-        return DownloadTaskResponse(
-            success=True,
-            task_id=task_id,
-            message="下载任务创建成功 (模拟)",
-            data={
-                "video_id": request.video_id,
-                "id_type": request.id_type,
-                "options": request.options.model_dump(),
-                "status": "pending"
-            }
+        # 创建下载任务
+        download_id = download_service.create_download_task(
+            bvid=request.bvid,
+            title=request.title,
+            cid=request.cid,
+            aid=request.aid,
+            quality=request.quality,
+            output_format=request.output_format,
+            thumbnail_url=request.thumbnail_url,
+            duration=request.duration,
+            uploader=request.uploader,
+            uploader_mid=request.uploader_mid,
+            sessdata=request.sessdata
         )
         
-    except HTTPException:
-        raise
+        # 在后台启动下载任务
+        background_tasks.add_task(download_service._process_download, download_id)
+        
+        return StartDownloadResponse(
+            success=True,
+            download_id=download_id,
+            message="下载任务创建成功"
+        )
+        
     except Exception as e:
-        return DownloadTaskResponse(
+        return StartDownloadResponse(
             success=False,
             message=f"创建下载任务失败: {str(e)}"
         )
+
+
+@router.get("/list", response_model=DownloadListResponse)
+async def get_download_list(status: Optional[str] = None):
+    """
+    获取下载任务列表
+    
+    Args:
+        status: 可选，筛选特定状态的任务
+    """
+    try:
+        downloads = download_service.get_all_downloads(status)
+        
+        # 转换为字典格式
+        download_list = []
+        for download in downloads:
+            download_list.append({
+                "id": download.id,
+                "bvid": download.bvid,
+                "title": download.title,
+                "status": download.status,
+                "progress": download.progress,
+                "downloaded_bytes": download.downloaded_bytes,
+                "total_bytes": download.total_bytes,
+                "download_speed": download.download_speed,
+                "eta": download.eta,
+                "thumbnail_url": download.thumbnail_url,
+                "duration": download.duration,
+                "uploader": download.uploader,
+                "file_path": download.file_path,
+                "error_message": download.error_message,
+                "created_at": download.created_at.isoformat() if download.created_at else None,
+                "started_at": download.started_at.isoformat() if download.started_at else None,
+                "completed_at": download.completed_at.isoformat() if download.completed_at else None,
+                "aid": download.aid  # 添加aid字段用于系列分组
+            })
+        
+        return DownloadListResponse(
+            success=True,
+            downloads=download_list,
+            total=len(download_list)
+        )
+        
+    except Exception as e:
+        return DownloadListResponse(
+            success=False,
+            downloads=[],
+            total=0
+        )
+
+
+@router.get("/{download_id}", response_model=DownloadDetailResponse)
+async def get_download_detail(download_id: str):
+    """
+    获取单个下载任务详情
+    """
+    try:
+        download = download_service.get_download(download_id)
+        
+        if not download:
+            return DownloadDetailResponse(
+                success=False,
+                message="下载任务不存在"
+            )
+        
+        download_data = {
+            "id": download.id,
+            "bvid": download.bvid,
+            "title": download.title,
+            "status": download.status,
+            "progress": download.progress,
+            "downloaded_bytes": download.downloaded_bytes,
+            "total_bytes": download.total_bytes,
+            "download_speed": download.download_speed,
+            "eta": download.eta,
+            "thumbnail_url": download.thumbnail_url,
+            "duration": download.duration,
+            "uploader": download.uploader,
+            "file_path": download.file_path,
+            "file_size": download.file_size,
+            "error_message": download.error_message,
+            "created_at": download.created_at.isoformat() if download.created_at else None,
+            "started_at": download.started_at.isoformat() if download.started_at else None,
+            "completed_at": download.completed_at.isoformat() if download.completed_at else None
+        }
+        
+        return DownloadDetailResponse(
+            success=True,
+            download=download_data
+        )
+        
+    except Exception as e:
+        return DownloadDetailResponse(
+            success=False,
+            message=f"获取下载详情失败: {str(e)}"
+        )
+
+
+@router.post("/{download_id}/cancel")
+async def cancel_download(download_id: str):
+    """
+    取消下载任务
+    """
+    try:
+        success = download_service.cancel_download(download_id)
+        
+        if success:
+            return {"success": True, "message": "下载任务已取消"}
+        else:
+            return {"success": False, "message": "下载任务不存在"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"取消下载失败: {str(e)}"}
+
+
+@router.post("/{download_id}/retry")
+async def retry_download(download_id: str):
+    """
+    重试失败的下载任务
+    """
+    try:
+        success = download_service.retry_download(download_id)
+        
+        if success:
+            return {"success": True, "message": "下载任务已重新开始"}
+        else:
+            return {"success": False, "message": "无法重试此任务"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"重试失败: {str(e)}"}
+
+
+@router.delete("/{download_id}")
+async def delete_download(download_id: str):
+    """
+    删除下载任务记录
+    """
+    try:
+        # 先取消正在进行的下载
+        download_service.cancel_download(download_id)
+        
+        # 从数据库中删除
+        from src.database import SessionLocal
+        from src.models.download import Download
+        
+        with SessionLocal() as session:
+            download = session.query(Download).filter(Download.id == download_id).first()
+            if download:
+                session.delete(download)
+                session.commit()
+                return {"success": True, "message": "下载任务已删除"}
+            else:
+                return {"success": False, "message": "下载任务不存在"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"删除失败: {str(e)}"}
 
 
 @router.get("/quality/options")

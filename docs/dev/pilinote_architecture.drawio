@@ -92,10 +92,10 @@
           <mxGeometry height="40" width="380" x="760" y="510" as="geometry" />
         </mxCell>
         <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
-          <mxGeometry height="350" width="550" x="50" y="600" as="geometry" />
+          <mxGeometry height="380" width="550" x="50" y="600" as="geometry" />
         </mxCell>
-        <mxCell id="phase3-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 3: 下载管理 (基于yt-dlp)" vertex="1">
-          <mxGeometry height="30" width="350" x="70" y="610" as="geometry" />
+        <mxCell id="phase3-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 3: 下载管理 (已实现 70% - asyncio版本)" vertex="1">
+          <mxGeometry height="30" width="400" x="70" y="610" as="geometry" />
         </mxCell>
         <mxCell id="queue-add" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="添加到下载队列" vertex="1">
           <mxGeometry height="40" width="130" x="260" y="650" as="geometry" />
@@ -121,74 +121,86 @@
         <mxCell id="queue-quality" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;fontStyle=2;fontColor=#000000;" value="画质选择:&#xa;- 1080P+ (需要登录)&#xa;- 1080P&#xa;- 720P&#xa;- 480P" vertex="1">
           <mxGeometry height="50" width="180" x="160" y="880" as="geometry" />
         </mxCell>
+        <mxCell id="current-impl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontColor=#000000;" value="当前实现 (asyncio版本)" vertex="1">
+          <mxGeometry height="30" width="250" x="260" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="impl-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="Download模型&#xa;(SQLite数据库)" vertex="1">
+          <mxGeometry height="40" width="140" x="100" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="impl-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="DownloadService&#xa;(异步下载服务)" vertex="1">
+          <mxGeometry height="40" width="140" x="260" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="impl-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="App风格UI&#xa;(React + Material)" vertex="1">
+          <mxGeometry height="40" width="140" x="420" y="980" as="geometry" />
+        </mxCell>
         <mxCell id="phase4-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
-          <mxGeometry height="350" width="650" x="630" y="600" as="geometry" />
+          <mxGeometry height="350" width="650" x="630" y="1020" as="geometry" />
         </mxCell>
         <mxCell id="phase4-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 4: 文件组织 (自动处理)" vertex="1">
-          <mxGeometry height="30" width="350" x="650" y="610" as="geometry" />
+          <mxGeometry height="30" width="350" x="650" y="1030" as="geometry" />
         </mxCell>
         <mxCell id="file-start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="下载完成" vertex="1">
-          <mxGeometry height="40" width="130" x="880" y="650" as="geometry" />
+          <mxGeometry height="40" width="130" x="880" y="1070" as="geometry" />
         </mxCell>
         <mxCell id="file-parallel" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="并行处理" vertex="1">
-          <mxGeometry height="30" width="190" x="850" y="710" as="geometry" />
+          <mxGeometry height="30" width="190" x="850" y="1130" as="geometry" />
         </mxCell>
         <mxCell id="file-subtitle" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="字幕下载" vertex="1">
-          <mxGeometry height="35" width="130" x="660" y="760" as="geometry" />
+          <mxGeometry height="35" width="130" x="660" y="1180" as="geometry" />
         </mxCell>
         <mxCell id="file-danmu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="弹幕下载" vertex="1">
-          <mxGeometry height="35" width="130" x="810" y="760" as="geometry" />
+          <mxGeometry height="35" width="130" x="810" y="1180" as="geometry" />
         </mxCell>
         <mxCell id="file-audio" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="音轨提取" vertex="1">
-          <mxGeometry height="35" width="130" x="960" y="760" as="geometry" />
+          <mxGeometry height="35" width="130" x="960" y="1180" as="geometry" />
         </mxCell>
         <mxCell id="file-metadata" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="元数据保存 (JSON)" vertex="1">
-          <mxGeometry height="35" width="160" x="1110" y="760" as="geometry" />
+          <mxGeometry height="35" width="160" x="1110" y="1180" as="geometry" />
         </mxCell>
         <mxCell id="file-structure" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="文件夹结构" vertex="1">
-          <mxGeometry height="30" width="160" x="740" y="820" as="geometry" />
+          <mxGeometry height="30" width="160" x="740" y="1240" as="geometry" />
         </mxCell>
         <mxCell id="file-example-single" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=8;fontFamily=Courier New;fontColor=#000000;" value="单个: BV号_标题/&#xa;  ├─ video.mp4&#xa;  ├─ subtitle.srt&#xa;  ├─ danmu.xml&#xa;  └─ metadata.json" vertex="1">
-          <mxGeometry height="60" width="240" x="650" y="870" as="geometry" />
+          <mxGeometry height="60" width="240" x="650" y="1290" as="geometry" />
         </mxCell>
         <mxCell id="file-example-collection" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=8;fontFamily=Courier New;fontColor=#000000;" value="合集: BV号_合集名/&#xa;  ├─ P01_视频1/&#xa;  ├─ P02_视频2/&#xa;  └─ P03_视频3/" vertex="1">
-          <mxGeometry height="60" width="240" x="920" y="870" as="geometry" />
+          <mxGeometry height="60" width="240" x="920" y="1290" as="geometry" />
         </mxCell>
         <mxCell id="phase5-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
-          <mxGeometry height="380" width="1700" x="50" y="980" as="geometry" />
+          <mxGeometry height="380" width="1700" x="50" y="1400" as="geometry" />
         </mxCell>
         <mxCell id="phase5-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 5: 部署方案" vertex="1">
-          <mxGeometry height="30" width="200" x="70" y="990" as="geometry" />
+          <mxGeometry height="30" width="200" x="70" y="1410" as="geometry" />
         </mxCell>
         <mxCell id="deploy-web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="Web部署" vertex="1">
-          <mxGeometry height="90" width="250" x="80" y="1040" as="geometry" />
+          <mxGeometry height="90" width="250" x="80" y="1460" as="geometry" />
         </mxCell>
         <mxCell id="deploy-docker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="Docker部署" vertex="1">
-          <mxGeometry height="90" width="250" x="360" y="1040" as="geometry" />
+          <mxGeometry height="90" width="250" x="360" y="1460" as="geometry" />
         </mxCell>
         <mxCell id="deploy-desktop" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="桌面端部署" vertex="1">
-          <mxGeometry height="90" width="250" x="640" y="1040" as="geometry" />
+          <mxGeometry height="90" width="250" x="640" y="1460" as="geometry" />
         </mxCell>
         <mxCell id="tech-stack" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="完整技术栈" vertex="1">
-          <mxGeometry height="290" width="780" x="920" y="1040" as="geometry" />
+          <mxGeometry height="290" width="780" x="920" y="1460" as="geometry" />
         </mxCell>
         <mxCell id="backend-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="后端:" vertex="1">
-          <mxGeometry height="20" width="740" x="940" y="1070" as="geometry" />
+          <mxGeometry height="20" width="740" x="940" y="1490" as="geometry" />
         </mxCell>
         <mxCell id="backend-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Python 3.11+ / FastAPI 0.104+ (异步Web框架)&#xa;• yt-dlp (核心下载引擎，支持B站1000+站点)&#xa;• SQLAlchemy 2.0+ / SQLite或PostgreSQL (ORM + 数据库)&#xa;• Celery 5.3+ / Redis 7.0+ (异步任务队列)&#xa;• Pydantic v2 (数据验证)&#xa;• httpx / aiohttp (异步HTTP客户端)" vertex="1">
-          <mxGeometry height="70" width="720" x="960" y="1090" as="geometry" />
+          <mxGeometry height="70" width="720" x="960" y="1510" as="geometry" />
         </mxCell>
         <mxCell id="frontend-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="前端:" vertex="1">
-          <mxGeometry height="20" width="740" x="940" y="1170" as="geometry" />
+          <mxGeometry height="20" width="740" x="940" y="1590" as="geometry" />
         </mxCell>
         <mxCell id="frontend-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• React 18+ / Vite 5.0+ / TypeScript 5.0+&#xa;• Tailwind CSS 3.4+ / shadcn/ui (样式框架)&#xa;• TanStack Query / Zustand (状态管理)&#xa;• React Router v6 (路由)&#xa;• Socket.io-client / EventSource (实时通信)" vertex="1">
-          <mxGeometry height="60" width="720" x="960" y="1190" as="geometry" />
+          <mxGeometry height="60" width="720" x="960" y="1610" as="geometry" />
         </mxCell>
         <mxCell id="desktop-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="桌面端:" vertex="1">
-          <mxGeometry height="20" width="740" x="940" y="1260" as="geometry" />
+          <mxGeometry height="20" width="740" x="940" y="1680" as="geometry" />
         </mxCell>
         <mxCell id="desktop-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Electron 28+ (打包React应用为跨平台桌面应用)&#xa;• electron-builder (构建工具)&#xa;• 支持Windows、macOS、Linux" vertex="1">
-          <mxGeometry height="50" width="720" x="960" y="1280" as="geometry" />
+          <mxGeometry height="50" width="720" x="960" y="1700" as="geometry" />
         </mxCell>
         <mxCell id="edge1" edge="1" parent="1" source="auth-start" style="fontColor=#000000;" target="auth-method-select">
           <mxGeometry relative="1" as="geometry" />
@@ -386,9 +398,6 @@
       </root>
     </mxGraphModel>
   </diagram>
-</mxfile>
-    </mxGraphModel>
-  </diagram>
   <diagram name="实现状态 - 2026-03-27" id="implementation-status">
     <mxGraphModel dx="2113" dy="925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" background="#ffffff" math="0" shadow="0">
       <root>
@@ -415,11 +424,11 @@
         </mxCell>
         
         <!-- Phase 3: 下载管理 -->
-        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;fontColor=#000000;" value="Phase 3: 下载管理&#xa;(未开始 0%)" vertex="1">
+        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="Phase 3: 下载管理&#xa;(已实现 70%)" vertex="1">
           <mxGeometry height="300" width="350" x="810" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="phase3-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="⏳ yt-dlp集成&#xa;⏳ 下载队列&#xa;⏳ 进度推送&#xa;⏳ 下载管理页面" vertex="1">
-          <mxGeometry height="150" width="300" x="835" y="120" as="geometry" />
+        <mxCell id="phase3-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ Download模型&#xa;✅ DownloadService&#xa;✅ yt-dlp集成&#xa;✅ 下载API接口&#xa;✅ App风格UI界面&#xa;✅ 系列视频分组&#xa;✅ 实时进度更新&#xa;⏳ Celery+Redis队列&#xa;⏳ WebSocket实时推送" vertex="1">
+          <mxGeometry height="200" width="300" x="835" y="120" as="geometry" />
         </mxCell>
         
         <!-- 当前功能详情 -->
@@ -520,23 +529,14 @@
           <mxGeometry height="140" width="200" x="885" y="1090" as="geometry" />
         </mxCell>
         
-        <mxCell id="mvc-arrows" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;fontSize=10;strokeColor=#667eea;" value="" vertex="1">
-          <mxGeometry width="20" height="20" relative="1" as="geometry">
-            <mxPoint x="300" y="1120" />
-            <mxPoint x="320" y="1120" />
-          </mxGeometry>
+        <mxCell id="mvc-arrow-1" edge="1" parent="1" source="mvc-layer-view" target="mvc-layer-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="mvc-arrows" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;fontSize=10;strokeColor=#667eea;" value="" vertex="1">
-          <mxGeometry width="20" height="20" relative="1" as="geometry">
-            <mxPoint x="570" y="1120" />
-            <mxPoint x="590" y="1120" />
-          </mxGeometry>
+        <mxCell id="mvc-arrow-2" edge="1" parent="1" source="mvc-layer-controller" target="mvc-layer-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="mvc-arrows" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;fontSize=10;strokeColor=#667eea;" value="" vertex="1">
-          <mxGeometry width="20" height="20" relative="1" as="geometry">
-            <mxPoint x="840" y="1120" />
-            <mxPoint x="860" y="1120" />
-          </mxGeometry>
+        <mxCell id="mvc-arrow-3" edge="1" parent="1" source="mvc-layer-service" target="mvc-layer-model" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         
         <mxCell id="mvc-dataflow-note" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontStyle=2;fontColor=#000000;" value="数据流向: View → Controller → Service → Model → Database/ExternalAPI" vertex="1">
@@ -549,3 +549,4 @@
       </root>
     </mxGraphModel>
   </diagram>
+</mxfile>

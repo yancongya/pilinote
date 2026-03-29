@@ -171,6 +171,57 @@ class ApiService {
       body: JSON.stringify({ url }),
     });
   }
+
+  // 下载任务管理API
+  async startDownload(downloadData: {
+    bvid: string;
+    title: string;
+    cid?: number;
+    aid?: number;
+    quality?: number;
+    output_format?: string;
+    thumbnail_url?: string;
+    duration?: number;
+    uploader?: string;
+    uploader_mid?: number;
+    sessdata?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/download/start', {
+      method: 'POST',
+      body: JSON.stringify(downloadData),
+    });
+  }
+
+  async getDownloadList(status?: string): Promise<ApiResponse<any>> {
+    const params = status ? `?status=${status}` : '';
+    return this.request<any>(`/api/download/list${params}`, {
+      method: 'GET',
+    });
+  }
+
+  async getDownloadDetail(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}`, {
+      method: 'GET',
+    });
+  }
+
+  async cancelDownload(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async retryDownload(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/retry`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteDownload(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();

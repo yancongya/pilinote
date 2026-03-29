@@ -177,20 +177,23 @@ pilinote/
   - `GET /api/watchlater/list` - 获取稍后再看列表
   - `GET /api/video/{video_id}` - 获取视频详情
 
-### 下载模块（待实现）
+### 下载模块（已实现70%）
 - **功能**: 任务队列、进度管理、文件下载
 - **组件**:
-  - yt-dlp下载引擎
-  - 任务队列管理
-  - 进度追踪和推送
-  - 断点续传
+  - yt-dlp下载引擎 ✅
+  - 异步下载服务 ✅
+  - 任务队列管理 ✅
+  - 进度追踪 ✅
+  - App风格UI界面 ✅
+  - 系列视频分组 ✅
+  - 断点续传（计划中）
 - **API端点**:
-  - `POST /api/download/add` - 添加下载任务
-  - `GET /api/download/list` - 获取下载列表
-  - `POST /api/download/pause/{id}` - 暂停下载
-  - `POST /api/download/resume/{id}` - 恢复下载
-  - `DELETE /api/download/{id}` - 删除下载任务
-  - `GET /api/download/progress/{id}` - 获取下载进度
+  - POST /api/download/start - 创建下载任务 ✅
+  - GET /api/download/list - 获取下载列表 ✅
+  - DELETE /api/download/{id} - 删除下载任务 ✅
+  - POST /api/download/{id}/cancel - 取消下载 ✅
+  - POST /api/download/{id}/retry - 重试下载 ✅
+  - GET /api/download/progress/{id} - 获取下载进度（计划中）
 
 ### 文件模块（待实现）
 - **功能**: 文件组织、元数据管理、字幕弹幕
@@ -256,28 +259,58 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 ```
 
-#### Download模型（待实现）
+#### Download模型（已实现）
 ```python
 class Download(Base):
     __tablename__ = "downloads"
     
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    bvid = Column(String(20), nullable=False)
-    aid = Column(BigInteger)
-    title = Column(String(500))
-    status = Column(Enum('pending', 'downloading', 'paused', 'completed', 'failed'), default='pending')
-    progress = Column(Integer, default=0)  # 0-100
-    file_path = Column(String(1000))
-    file_size = Column(BigInteger)
-    downloaded_size = Column(BigInteger, default=0)
-    speed = Column(Integer, default=0)
-    error = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(String, primary_key=True)  # 下载任务ID (UUID)
+    bvid = Column(String(20), nullable=False, index=True)  # B站视频ID
+    title = Column(String(500))  # 视频标题
+    
+    # 任务状态
+    status = Column(
+        Enum("pending", "queued", "downloading", "processing", "completed", "failed", "cancelled", 
+             name="download_status"),
+        default="pending",
+        index=True
+    )
+    progress = Column(Float, default=0.0)  # 下载进度 0.0 - 100.0
+    
+    # 进度追踪
+    downloaded_bytes = Column(Integer, default=0)  # 已下载字节数
+    total_bytes = Column(Integer, default=0)  # 总字节数
+    download_speed = Column(Float, default=0.0)  # 下载速度 (KB/s)
+    eta = Column(Float, default=0.0)  # 预计剩余时间 (秒)
+    
+    # B站特定字段
+    cid = Column(Integer)  # 视频CID
+    aid = Column(Integer)  # 视频AID
+    quality = Column(Integer, default=64)  # 视频质量
+    output_format = Column(String(10), default="mp4")  # 输出格式
+    
+    # 元数据
+    thumbnail_url = Column(String(500))  # 视频封面URL
+    duration = Column(Integer)  # 视频时长 (秒)
+    uploader = Column(String(100))  # UP主名称
+    uploader_mid = Column(Integer)  # UP主 MID
+    
+    # 文件管理
+    file_path = Column(String(500))  # 文件保存路径
+    file_size = Column(Integer, default=0)  # 文件大小
+    
+    # 错误处理
+    error_message = Column(Text)  # 错误信息
+    retry_count = Column(Integer, default=0)  # 重试次数
+    
+    # 用户关联
+    sessdata = Column(Text)  # 用户SESSDATA (用于认证)
+    
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     started_at = Column(DateTime)
     completed_at = Column(DateTime)
-    
-    user = relationship("User", back_populates="downloads")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 ```
 
 #### Settings模型（待实现）
@@ -369,10 +402,11 @@ class Settings(Base):
 - **Web框架**: FastAPI 0.104+
 - **ORM**: SQLAlchemy 2.0+
 - **数据库**: SQLite (开发) / PostgreSQL (生产)
-- **任务队列**: Celery 5.3+ + Redis 7.0+ (待实现)
+- **异步下载**: asyncio (已实现)
+- **任务队列**: Celery 5.3+ + Redis 7.0+ (计划中)
 - **数据验证**: Pydantic v2
 - **HTTP客户端**: httpx
-- **下载引擎**: yt-dlp (待实现)
+- **下载引擎**: yt-dlp (已集成)
 
 ### 前端技术栈
 - **框架**: React 19+
@@ -476,13 +510,14 @@ export default defineConfig({
 5. 前端显示视频列表
 6. 图片通过代理API解决403问题
 
-### 下载流程（待实现）
-1. 用户添加视频到下载队列
-2. 创建Download任务记录
-3. 使用yt-dlp开始下载
-4. 实时更新进度
-5. 下载完成后处理文件
-6. 保存元数据和字幕弹幕
+### 下载流程（已实现70%）
+1. 用户添加视频到下载队列 ✅
+2. 创建Download任务记录 ✅
+3. 使用yt-dlp开始异步下载 ✅
+4. 实时更新进度 ✅
+5. 下载完成后保存文件 ✅
+6. 保存元数据（计划中）
+7. 自动下载字幕弹幕（计划中）
 
 ## 参考实现
 

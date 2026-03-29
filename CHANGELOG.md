@@ -1228,3 +1228,126 @@ redis>=5.0.0     # 消息队列（Phase 2）
 - yt-dlp官方文档：https://github.com/yt-dlp/yt-dlp
 - Celery官方文档：https://docs.celeryq.dev/
 - FastAPI异步编程：https://fastapi.tiangolo.com/async/
+
+---
+
+## 阶段 24: 下载管理功能实现 (2026-03-27 - 2026-03-29)
+
+### 实现内容
+
+#### 1. 后端功能实现
+
+**新增文件：**
+- \`apps/api/src/models/download.py\` - 下载任务数据模型
+- \`apps/api/src/services/download_service.py\` - 下载服务类
+
+**核心功能：**
+- ✅ 下载任务数据模型（Download）
+- ✅ yt-dlp下载引擎集成
+- ✅ 异步下载任务处理
+- ✅ 实时进度回调机制
+- ✅ 下载API端点（start, list, pause, cancel, retry, delete）
+- ✅ 任务状态管理（pending, queued, downloading, processing, completed, failed, cancelled）
+- ✅ 文件保存和路径管理
+
+**API端点：**
+\`\`
+POST   /api/download/start          - 创建下载任务
+GET    /api/download/list           - 获取下载任务列表
+GET    /api/download/{id}           - 获取单个下载任务详情
+DELETE /api/download/{id}           - 删除下载任务
+POST   /api/download/{id}/pause     - 暂停下载
+POST   /api/download/{id}/resume    - 恢复下载
+POST   /api/download/{id}/cancel    - 取消下载
+POST   /api/download/{id}/retry     - 重试失败的任务
+\`\`
+
+#### 2. 前端功能实现
+
+**新增文件：**
+- \`apps/web/src/pages/DownloadSeriesDetailPage.tsx\` - 系列详情页面
+
+**核心功能：**
+- ✅ App风格下载管理界面
+- ✅ 两个Tab切换（视频列表、下载列表）
+- ✅ 系列视频分组显示
+- ✅ 实时进度自动刷新（有下载任务时2秒刷新）
+- ✅ 系列详情页面（显示该系列的所有视频）
+- ✅ 已下载视频的下载任务列表显示
+- ✅ 智能点击行为（单个视频→详情页，系列→系列详情页）
+- ✅ 下载状态区分（已完成/下载中）
+- ✅ 视频详情页下载状态检测
+
+**UI设计特点：**
+- Material Design 3风格
+- 移动端优先的响应式设计
+- 圆角Tab按钮（iOS风格）
+- 系列卡片布局（缩略图+信息+箭头）
+- 实时进度显示（进度条+百分比+速度+ETA）
+- 状态颜色标识（粉色下载中、绿色已完成、红色失败）
+
+#### 3. 数据模型设计
+
+**Download模型字段：**
+\`\`python
+id              # 下载任务ID (UUID)
+bvid            # B站视频ID
+title           # 视频标题
+status          # 任务状态
+progress        # 下载进度 0.0-100.0
+downloaded_bytes # 已下载字节数
+total_bytes     # 总字节数
+download_speed  # 下载速度 (KB/s)
+eta             # 预计剩余时间 (秒)
+cid             # 视频CID
+aid             # 视频AID（用于系列分组）
+quality         # 视频质量
+output_format   # 输出格式
+thumbnail_url   # 视频封面URL
+duration        # 视频时长 (秒)
+uploader        # UP主名称
+uploader_mid    # UP主 MID
+file_path       # 文件保存路径
+file_size       # 文件大小
+error_message   # 错误信息
+retry_count     # 重试次数
+sessdata        # 用户SESSDATA
+created_at      # 创建时间
+started_at      # 开始时间
+completed_at    # 完成时间
+\`\`
+
+#### 4. 文件变更统计
+
+**后端文件：**
+- \`apps/api/requirements.txt\` +3行
+- \`apps/api/src/models/__init__.py\` +3行
+- \`apps/api/src/models/download.py\` +58行（新增）
+- \`apps/api/src/services/download_service.py\` +233行（新增）
+- \`apps/api/src/routers/download.py\` +246行
+
+**前端文件：**
+- \`apps/web/src/App.tsx\` +2行
+- \`apps/web/src/index.css\` +1288行
+- \`apps/web/src/pages/DownloadSeriesDetailPage.tsx\` +359行（新增）
+- \`apps/web/src/pages/VideoDetailPage.tsx\` +127行
+- \`apps/web/src/pages/components/DownloadsContent.tsx\` +349行
+- \`apps/web/src/pages/components/HomeContent.tsx\` +79行
+- \`apps/web/src/services/api.ts\` +51行
+
+**总计：**
+- 9个文件修改
+- +2048行新增
+- -100行删除
+
+### 用户体验改进
+
+**下载管理流程：**
+1. 用户在首页输入视频链接
+2. 解析视频信息（支持多P视频）
+3. 选择要下载的章节
+4. 创建下载任务
+5. 在"下载列表"Tab查看下载进度
+6. 下载完成后在"视频列表"Tab查看
+7. 点击已下载视频进入详情页
+8. 查看下载任务列表和文件信息

@@ -14,10 +14,13 @@
 - [x] 前端视频源页面
 
 ## Phase 3: 下载管理 (Week 4)
-- [ ] 集成Celery + Redis
-- [ ] 实现下载队列
-- [ ] WebSocket进度推送
-- [ ] 前端下载管理页面
+- [x] 集成yt-dlp基础下载
+- [x] 实现SQLite数据库
+- [x] 实现下载队列 (asyncio版本)
+- [x] 实时进度更新
+- [x] 前端下载管理页面
+- [ ] 集成Celery + Redis (计划中)
+- [ ] WebSocket进度推送 (计划中)
 
 ## Phase 4: 文件组织 (Week 5)
 - [ ] 自动下载字幕/弹幕
@@ -65,7 +68,7 @@
   - 统计信息（播放量、弹幕数、评论数）
   - 分P信息展示
   - 视频简介（支持链接点击和文本选择）
-  - 下载功能（模拟模式，支持多P选择）
+  - 下载功能（支持多P选择）
 - ✅ 稍后再看功能：
   - 稍后再看列表API
   - 子tab栏（全部/未看完切换）
@@ -73,6 +76,39 @@
   - 观看进度显示（进度条和百分比）
   - 无限滚动加载（Intersection Observer）
   - 智能分页（移动端5条，桌面端10条）
+
+### Phase 3 - 下载管理 (已实现70%)
+- ✅ Download数据模型：
+  - 支持多种状态管理
+  - 进度追踪字段
+  - B站特定字段
+  - 元数据字段
+  - 文件管理字段
+- ✅ DownloadService异步下载服务：
+  - asyncio异步下载
+  - 进度回调机制
+  - yt-dlp集成
+  - 错误处理
+  - 任务状态管理
+- ✅ 下载API接口：
+  - POST /api/download/start - 创建下载任务
+  - GET /api/download/list - 获取下载列表
+  - DELETE /api/download/{id} - 删除下载任务
+  - POST /api/download/{id}/cancel - 取消下载
+  - POST /api/download/{id}/retry - 重试失败任务
+- ✅ App风格UI界面：
+  - 两个Tab切换（视频列表/下载列表）
+  - 系列视频分组
+  - Material Design 3风格
+  - 移动端响应式设计
+- ✅ 下载管理功能：
+  - 系列视频详情页
+  - 实时进度更新（2秒间隔）
+  - 任务控制（取消、重试、删除）
+  - 状态可视化（颜色标识）
+  - 时长统计显示
+- ⏳ Celery+Redis队列（计划中）
+- ⏳ WebSocket实时推送（计划中）
 
 ## 当前注意事项
 
@@ -114,5 +150,5 @@
 - **后端**: FastAPI + Python 3.11+ + SQLAlchemy + SQLite
 - **前端**: React 18 + TypeScript + Vite + Tailwind CSS + Zustand
 - **认证**: B站扫码登录 + SESSDATA
-- **下载**: yt-dlp（待集成）
+- **下载**: yt-dlp (已集成)
 - **部署**: Docker Compose（待实现）

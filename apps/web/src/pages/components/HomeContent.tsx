@@ -42,6 +42,7 @@ interface ParseResponse {
 export default function HomeContent() {
   const [urlInput, setUrlInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [parseData, setParseData] = useState<ParseResponse | null>(null)
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
@@ -97,6 +98,55 @@ export default function HomeContent() {
 
   const deselectAllPages = () => {
     setSelectedPages(new Set())
+  }
+
+  const handleDownload = async () => {
+    if (!parseData?.data?.video || selectedPages.size === 0) return
+    
+    setDownloading(true)
+    setError('')
+    
+    try {
+      const video = parseData.data.video
+      const sessdata = localStorage.getItem('sessdata')
+      
+      // 为每个选中的分P创建下载任务
+      for (const pageNum of selectedPages) {
+        const page = parseData.data.download_options.pages?.find((p: any) => p.page === pageNum)
+        if (!page) continue
+        
+        const downloadData = {
+          bvid: video.bvid,
+          title: video.title,
+          cid: page.cid,
+          aid: video.aid,
+          quality: 64, // 默认720P
+          output_format: 'mp4',
+          thumbnail_url: video.pic,
+          duration: page.duration,
+          uploader: video.owner.name,
+          uploader_mid: video.owner.mid,
+          sessdata: sessdata || undefined
+        }
+        
+        const response = await apiService.startDownload(downloadData)
+        
+        if (!response.success) {
+          setError(`添加下载失败: ${response.message}`)
+          return
+        }
+      }
+      
+      // 清空解析数据
+      setParseData(null)
+      setSelectedPages(new Set())
+      
+      alert(`已添加 ${selectedPages.size} 个视频到下载队列`)
+    } catch (err) {
+      setError('添加下载失败，请稍后重试')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const formatDuration = (seconds: number) => {
@@ -255,14 +305,29 @@ export default function HomeContent() {
             )}
 
             <div className="video-actions">
-              <button className="download-btn primary" disabled={selectedPages.size === 0}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="7 10 12 15 17 10"/>
-                  <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
+              <button 
+                className="download-btn primary" 
+                disabled={selectedPages.size === 0 || downloading}
+                onClick={handleDownload}
+              >
+                {downloading ? (
+                  <svg className="loading-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="12" y1="2" x2="12" y2="6" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                    <polyline points="4.93 4.93 7.76 7.76 4.93 9.17" />
+                    <polyline points="4.93 19.07 7.76 16.24 4.93 14.83" />
+                    <polyline points="19.07 4.93 16.24 7.76 19.07 9.17" />
+                    <polyline points="19.07 19.07 16.24 16.24 19.07 14.83" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                )}
                 <span className="btn-text">
-                  {isMultiPart ? `下载 ${selectedPages.size} 个视频` : '下载视频'}
+                  {downloading ? '添加中...' : (isMultiPart ? `下载 ${selectedPages.size} 个视频` : '下载视频')}
                 </span>
               </button>
             </div>
