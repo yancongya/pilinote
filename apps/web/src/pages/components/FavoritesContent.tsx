@@ -124,7 +124,12 @@ export default function FavoritesContent() {
     if (page === 1 && !isLoadMore) {
       const cachedVideos = getFolderVideosCache(selectedFolder.id)
       if (cachedVideos) {
-        setVideos(cachedVideos)
+        // 确保缓存中的视频对象包含所有必需字段
+        const validatedVideos = cachedVideos.map(video => ({
+          ...video,
+          comments: video.comments || '0' // 确保评论字段存在
+        }))
+        setVideos(validatedVideos)
         setHasMore(false) // 缓存的数据假设是完整的
         return
       }

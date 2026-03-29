@@ -84,6 +84,13 @@ async def get_folder_detail(
             
             video_list = []
             for media in medias or []:
+                # 获取评论数量，优先从cnt_info获取，其次从stat获取
+                comment_count = (
+                    media.get("cnt_info", {}).get("reply", 0) or 
+                    media.get("stat", {}).get("reply", 0) or 
+                    0
+                )
+                
                 video_list.append({
                     "id": media.get("id"),
                     "title": media.get("title"),
@@ -97,7 +104,7 @@ async def get_folder_detail(
                     "view": media.get("cnt_info", {}).get("play", 0),
                     "danmaku": media.get("cnt_info", {}).get("danmaku", 0),
                     "pubtime": media.get("pubtime", 0),
-                    "comment": media.get("cnt_info", {}).get("reply", 0) or media.get("stat", {}).get("reply", 0),
+                    "comment": comment_count,
                     "bvid": media.get("bvid")
                 })
             

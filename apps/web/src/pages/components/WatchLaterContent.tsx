@@ -56,7 +56,12 @@ export default function WatchLaterContent() {
     // 先检查缓存
     const cachedVideos = getWatchLaterCache()
     if (cachedVideos) {
-      setVideos(cachedVideos)
+      // 确保缓存中的视频对象包含所有必需字段
+      const validatedVideos = cachedVideos.map(video => ({
+        ...video,
+        comments: video.comments || '0' // 确保评论字段存在
+      }))
+      setVideos(validatedVideos)
       return
     }
     
