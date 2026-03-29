@@ -177,8 +177,8 @@ pilinote/
   - `GET /api/watchlater/list` - 获取稍后再看列表
   - `GET /api/video/{video_id}` - 获取视频详情
 
-### 下载模块（已实现70%）
-- **功能**: 任务队列、进度管理、文件下载
+### 下载模块（已实现80%）
+- **功能**: 任务队列、进度管理、文件下载、课程支持
 - **组件**:
   - yt-dlp下载引擎 ✅
   - 异步下载服务 ✅
@@ -186,9 +186,12 @@ pilinote/
   - 进度追踪 ✅
   - App风格UI界面 ✅
   - 系列视频分组 ✅
+  - 课程下载支持 ✅
+  - 链接智能解析 ✅
   - 断点续传（计划中）
 - **API端点**:
   - POST /api/download/start - 创建下载任务 ✅
+  - POST /api/download/parse - 解析下载链接 ✅
   - GET /api/download/list - 获取下载列表 ✅
   - DELETE /api/download/{id} - 删除下载任务 ✅
   - POST /api/download/{id}/cancel - 取消下载 ✅
@@ -238,6 +241,12 @@ from src.routers.video import router as video_router
 app.include_router(favorites_router)
 app.include_router(watchlater_router)
 app.include_router(video_router)
+```
+
+### 下载路由
+```python
+from src.routers.download import router as download_router
+app.include_router(download_router)
 ```
 
 ### 数据库模型

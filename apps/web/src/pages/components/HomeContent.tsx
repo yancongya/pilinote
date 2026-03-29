@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
-import { Loader2, Plus, Eye, MessageCircle, Check, Download } from 'lucide-react'
+import { Loader2, Plus, Eye, Check, Download } from 'lucide-react'
 
 interface VideoInfo {
   bvid: string
@@ -235,15 +235,9 @@ export default function HomeContent() {
                   className="uploader-avatar"
                 />
                 <span className="uploader-name">{videoInfo.owner.name}</span>
-              </div>
-              <div className="video-stats">
                 <span className="stat-item">
                   <Eye />
                   {formatNumber(videoInfo.stat.view)}
-                </span>
-                <span className="stat-item">
-                  <MessageCircle />
-                  {formatNumber(videoInfo.stat.danmaku)}
                 </span>
               </div>
             </div>

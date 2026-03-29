@@ -2358,6 +2358,20 @@ body {
   color: #666;
 }
 
+.video-uploader .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #999;
+  padding-left: 8px;
+}
+
+.video-uploader .stat-item svg {
+  width: 14px;
+  height: 14px;
+}
+
 .video-stats {
   display: flex;
   gap: 12px;

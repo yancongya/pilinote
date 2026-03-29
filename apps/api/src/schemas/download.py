@@ -18,8 +18,8 @@ class ParseLinkRequest(BaseModel):
 
 class ParsedVideoId(BaseModel):
     """解析后的视频ID信息"""
-    type: str = Field(..., description="ID类型: bvid 或 aid")
-    id: str = Field(..., description="视频ID")
+    type: str = Field(..., description="ID类型: season, bvid 或 aid")
+    id: str = Field(..., description="视频ID或课程ID")
     original: str = Field(..., description="原始输入")
 
 

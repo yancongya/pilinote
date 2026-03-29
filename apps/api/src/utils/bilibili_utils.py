@@ -52,9 +52,11 @@ class LinkParser:
         
     def parse_video_link(self, url: str) -> Dict[str, str]:
         """
-        从各种格式的链接中提取视频ID
+        从各种格式的链接中提取视频ID或课程ID
         
         支持的格式:
+        - 课程ID: ss360 或直接输入 360
+        - 课程链接: https://www.bilibili.com/cheese/play/ss360
         - 直接BVid: BV1xx411c7mh
         - 完整URL: https://www.bilibili.com/video/BV1xx411c7mh
         - 短链接: https://b23.tv/BV1xx411c7mh
@@ -63,14 +65,35 @@ class LinkParser:
         
         Returns:
             {
-                "type": "bvid" | "aid",
-                "id": "BV1xx411c7mh" | 12345678,
+                "type": "season" | "bvid" | "aid",
+                "id": "360" | "BV1xx411c7mh" | 12345678,
                 "original": "原始链接"
             }
         """
         url = url.strip()
         
-        # 1. 处理直接输入的BVid (必须是正好12位)
+        # 1. 处理课程链接 (优先处理，因为课程链接可能包含数字)
+        # 检查课程完整链接
+        cheese_url_match = re.search(r'bilibili\.com/cheese/play/ss(\d+)', url)
+        if cheese_url_match:
+            season_id = int(cheese_url_match.group(1))
+            return {
+                "type": "season",
+                "id": str(season_id),
+                "original": url
+            }
+        
+        # 检查课程ID格式 ss数字
+        season_match = re.search(r'^ss(\d+)$', url)
+        if season_match:
+            season_id = int(season_match.group(1))
+            return {
+                "type": "season",
+                "id": str(season_id),
+                "original": url
+            }
+        
+        # 2. 处理直接输入的BVid (必须是正好12位)
         if url.startswith('BV') and len(url) == 12:
             if self.converter.is_bvid(url):
                 return {
@@ -81,7 +104,7 @@ class LinkParser:
             else:
                 raise ValueError(f'无效的BV编号格式: {url}')
         
-        # 2. 提取BVid (支持BV前缀的10位字符)
+        # 3. 提取BVid (支持BV前缀的10位字符)
         bvid_match = re.search(r'(BV[0-9A-Za-z]{10})', url)
         if bvid_match:
             bvid = bvid_match.group(1)
@@ -93,7 +116,7 @@ class LinkParser:
                     "original": url
                 }
         
-        # 3. 提取Avid (支持av前缀或纯数字)
+        # 4. 提取Avid (支持av前缀)
         aid_match = re.search(r'av(\d+)', url)
         if aid_match:
             aid = int(aid_match.group(1))
@@ -103,7 +126,7 @@ class LinkParser:
                 "original": url
             }
         
-        # 4. 处理纯数字输入
+        # 5. 处理纯数字输入（优先处理为AID）
         if url.isdigit():
             aid = int(url)
             return {
@@ -113,6 +136,8 @@ class LinkParser:
             }
         
         raise ValueError('不支持的链接格式。支持的格式包括：\n'
+                        '- 课程ID: ss360\n'
+                        '- 课程链接: https://www.bilibili.com/cheese/play/ss360\n'
                         '- BV编号: BV1xx411c7mh\n'
                         '- 完整URL: https://www.bilibili.com/video/BV1xx411c7mh\n'
                         '- 短链接: https://b23.tv/BV1xx411c7mh\n'
@@ -147,12 +172,14 @@ class LinkParser:
         
         Args:
             video_id: 视频ID
-            id_type: ID类型，"bvid" 或 "aid"
+            id_type: ID类型，"season", "bvid" 或 "aid"
             
         Returns:
             API URL字符串
         """
-        if id_type == "bvid":
+        if id_type == "season":
+            return f"https://api.bilibili.com/pugv/view/web/season?season_id={video_id}"
+        elif id_type == "bvid":
             return f"https://api.bilibili.com/x/web-interface/view?bvid={video_id}"
         else:
             return f"https://api.bilibili.com/x/web-interface/view?aid={video_id}"

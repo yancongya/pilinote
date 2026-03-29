@@ -81,6 +81,8 @@ async def parse_link(request: ParseLinkRequest):
     解析下载链接，提取视频ID和基本信息
     
     支持的格式:
+    - 课程ID: ss360 或直接输入 360
+    - 课程链接: https://www.bilibili.com/cheese/play/ss360
     - BV编号: BV1xx411c7mh
     - 完整URL: https://www.bilibili.com/video/BV1xx411c7mh
     - 短链接: https://b23.tv/BV1xx411c7mh
@@ -90,7 +92,7 @@ async def parse_link(request: ParseLinkRequest):
         # 解析链接
         parsed = link_parser.parse_video_link(request.url)
         
-        # 获取视频信息
+        # 获取信息
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer": "https://www.bilibili.com"
@@ -99,6 +101,95 @@ async def parse_link(request: ParseLinkRequest):
         if request.sessdata:
             headers["Cookie"] = f"SESSDATA={request.sessdata}"
         
+        # 如果是课程链接，使用课程API
+        if parsed["type"] == "season":
+            from src.services.bilibili import BilibiliService
+            bilibili_service = BilibiliService()
+            
+            try:
+                # 获取课程详情
+                season_id = int(parsed["id"])
+                course_detail_result = bilibili_service.get_classroom_detail(season_id, request.sessdata or "")
+                
+                if not course_detail_result["success"]:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=course_detail_result.get("message", "获取课程信息失败")
+                    )
+                
+                course_detail = course_detail_result["data"]
+                
+                # 获取课程分集列表
+                course_episodes_result = bilibili_service.get_classroom_episodes(season_id, request.sessdata or "", 1, 100)
+                
+                if not course_episodes_result["success"]:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=course_episodes_result.get("message", "获取课程分集失败")
+                    )
+                
+                course_data = course_episodes_result["data"]
+                episodes = course_data.get("items", [])
+                
+                if not episodes:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="课程暂无分集内容或需要购买"
+                    )
+                
+                # 获取UP主信息
+                up_info = course_detail.get("up_info", {})
+                
+                # 获取统计数据
+                stat = course_detail.get("stat", {})
+                
+                # 返回课程信息（使用真实的课程详情）
+                return ParseLinkResponse(
+                    success=True,
+                    data={
+                        "parsed_id": ParsedVideoId(**parsed),
+                        "video": VideoInfo(
+                            bvid=episodes[0].get("bvid", ""),  # 使用第一个分集的bvid
+                            aid=episodes[0].get("aid", 0),     # 使用第一个分集的aid
+                            title=course_detail.get("title", ""),  # 使用课程真实标题
+                            desc=course_detail.get("subtitle", "") or course_detail.get("description", ""),
+                            pic=course_detail.get("cover", ""),   # 使用课程封面
+                            duration=sum(ep.get("duration", 0) for ep in episodes),  # 课程总时长
+                            pubdate=course_detail.get("pubtime", 0) or int(course_detail.get("release_date", 0)),  # 课程发布时间
+                            cid=episodes[0].get("cid", 0),      # 使用第一个分集的cid
+                            owner={
+                                "mid": up_info.get("mid", 0),
+                                "name": up_info.get("uname", ""),
+                                "face": up_info.get("avatar", "")
+                            },
+                            stat={
+                                "view": stat.get("play", 0),
+                                "danmaku": 0  # 课程可能没有弹幕统计
+                            }
+                        ),
+                        "download_options": {
+                            "multi_part": True,
+                            "pages": [
+                                VideoPages(
+                                    page=ep.get("index", 0),
+                                    cid=ep.get("cid", 0),
+                                    part=ep.get("title", f"第{ep.get('index', 0)}集"),
+                                    duration=ep.get("duration", 0)
+                                )
+                                for ep in episodes
+                            ]
+                        },
+                        "course_info": {
+                            "season_id": season_id,
+                            "total_episodes": len(episodes),
+                            "episodes": episodes
+                        }
+                    }
+                )
+            finally:
+                bilibili_service.close()
+        
+        # 普通视频链接处理
         # 构建API URL
         api_url = link_parser.get_video_info_url(parsed["id"], parsed["type"])
         
