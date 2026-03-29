@@ -357,16 +357,16 @@ class BilibiliService:
                 "message": f"获取收藏夹详情异常: {str(e)}"
             }
 
-    def get_watch_later(self, sessdata: str, page: int = 1, page_size: int = 20) -> Dict:
-        """获取稍后再看列表"""
+    def get_watch_later(self, sessdata: str) -> Dict:
+        """获取稍后再看列表（全部）"""
         url = f"{self.api_base}/x/v2/history/toview"
         headers = {
             "Cookie": f"SESSDATA={sessdata}",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
+        # 传递大参数获取全部数据，B站API默认只返回20个
         params = {
-            "pn": page,
-            "ps": page_size
+            "ps": 1000  # 获取1000个视频，确保覆盖全部
         }
         
         try:

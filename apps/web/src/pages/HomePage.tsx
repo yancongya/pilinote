@@ -17,7 +17,7 @@ function HomePage() {
   // 根据路径确定当前activeTab
   const getActiveTabFromPath = () => {
     const path = location.pathname
-    if (path === '/favorites') return 'favorites'
+    if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
     if (path === '/watch-later') return 'watch-later'
     if (path === '/downloads') return 'downloads'
     return 'home'

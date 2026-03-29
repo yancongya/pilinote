@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
+import VideoListCard from './VideoListCard'
 
 export default function FavoritesContent() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
@@ -18,6 +19,18 @@ export default function FavoritesContent() {
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
+
+  // 处理收藏夹选择，更新路由
+  const handleSelectFolder = (folder: any) => {
+    setSelectedFolder(folder)
+    navigate(`/favorites/${folder.id}`, { replace: true })
+  }
+
+  // 处理返回收藏夹列表，更新路由
+  const handleBackToFolders = () => {
+    setSelectedFolder(null)
+    navigate('/favorites', { replace: true })
+  }
 
   // 格式化时长（秒转为 MM:SS）
   const formatDuration = (seconds: number): string => {
@@ -45,12 +58,18 @@ export default function FavoritesContent() {
     return `${year}-${month}-${day} ${hours}:${minutes}`
   }
 
-  // 获取代理图片URL
-  const getProxyImageUrl = (url: string | null | undefined): string => {
-    if (!url) return ''
-    // 使用后端代理API
-    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
-  }
+  // 监听路由变化，支持通过URL直接访问收藏夹详情
+  useEffect(() => {
+    const currentPath = window.location.pathname
+    const favoritesMatch = currentPath.match(/^\/favorites\/(\d+)$/)
+    if (favoritesMatch && folders.length > 0) {
+      const folderId = parseInt(favoritesMatch[1])
+      const folder = folders.find(f => f.id === folderId)
+      if (folder) {
+        setSelectedFolder(folder)
+      }
+    }
+  }, [folders])
 
   // 获取收藏夹列表
   useEffect(() => {
@@ -61,18 +80,13 @@ export default function FavoritesContent() {
       setError('')
       
       try {
-        console.log('开始获取收藏夹列表...', { sessdata: user.sessdata, mid: user.mid })
         const response = await apiService.getFolders(user.sessdata, user.mid)
-        console.log('API响应:', response)
         if (response.success && response.data) {
-          console.log('设置收藏夹数据:', response.data)
           setFolders(response.data)
         } else {
-          console.error('API调用失败:', response)
           setError(response.message || '获取收藏夹列表失败')
         }
       } catch (err) {
-        console.error('网络请求异常:', err)
         setError('网络请求失败')
       } finally {
         setLoading(false)
@@ -106,21 +120,21 @@ export default function FavoritesContent() {
           duration: formatDuration(video.duration),
           uploader: video.uploader?.name || '未知',
           views: formatNumber(video.view),
-          comments: video.comment,
+          comments: video.comment ? formatNumber(video.comment) : '0',
           time: formatTime(video.pubtime)
         }))
         
         if (isLoadMore) {
           setVideos(prev => {
             const newLength = prev.length + formattedVideos.length
-            const total = response.data.total || 0
-            setHasMore(newLength < total)
+            const pageSize = response.data.page_size || 10
+            setHasMore(formattedVideos.length === pageSize)
             return [...prev, ...formattedVideos]
           })
         } else {
           setVideos(formattedVideos)
-          const total = response.data.total || 0
-          setHasMore(formattedVideos.length < total)
+          const pageSize = response.data.page_size || 10
+          setHasMore(formattedVideos.length === pageSize)
         }
       } else {
         setError(response.message || '获取视频列表失败')
@@ -136,10 +150,7 @@ export default function FavoritesContent() {
   // 当选中的收藏夹改变时，重新加载视频列表
   useEffect(() => {
     if (selectedFolder) {
-      // 检测是否是移动端
-      const isMobile = window.innerWidth < 640
-      const initialPageSize = isMobile ? 5 : 10
-      fetchVideos(1, false, initialPageSize)
+      fetchVideos(1, false, 10)
       setCurrentPage(1)
     }
   }, [selectedFolder, fetchVideos])
@@ -153,9 +164,7 @@ export default function FavoritesContent() {
         const target = entries[0]
         if (target.isIntersecting && !loading && !loadingMore && hasMore) {
           const nextPage = currentPage + 1
-          const isMobile = window.innerWidth < 640
-          const pageSize = isMobile ? 5 : 10
-          fetchVideos(nextPage, true, pageSize)
+          fetchVideos(nextPage, true, 10)
           setCurrentPage(nextPage)
         }
       },
@@ -188,11 +197,6 @@ export default function FavoritesContent() {
     }
   }
 
-  const handleVideoClick = (video: any) => {
-    // 暂时使用video.id作为bvid，后续需要从后端获取真实的bvid
-    navigate(`/video/${video.bvid || video.id}`)
-  }
-
   if (!user?.sessdata) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -211,14 +215,14 @@ export default function FavoritesContent() {
       <div className="section-header">
         <div
           className={`section-title ${selectedFolder ? 'cursor-pointer' : ''}`}
-          onClick={() => selectedFolder && setSelectedFolder(null)}
+          onClick={handleBackToFolders}
         >
           {selectedFolder && (
             <button
               className="back-btn"
               onClick={(e) => {
                 e.stopPropagation()
-                setSelectedFolder(null)
+                handleBackToFolders()
               }}
               aria-label="返回收藏夹列表"
             >
@@ -254,20 +258,20 @@ export default function FavoritesContent() {
               <article
                 key={folder.id}
                 className="fav-folder-item"
-                onClick={() => setSelectedFolder(folder)}
+                onClick={() => handleSelectFolder(folder)}
                 role="listitem"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    setSelectedFolder(folder)
+                    handleSelectFolder(folder)
                   }
                 }}
               >
                 <div className="fav-folder-cover">
                   <div className="fav-folder-thumbnail">
                     {folder.cover ? (
-                      <img src={getProxyImageUrl(folder.cover)} alt={folder.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(folder.cover)}`} alt={folder.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -288,79 +292,25 @@ export default function FavoritesContent() {
       )}
 
       {!loading && !error && selectedFolder && (
-        <div className="fav-video-list" role="list" aria-label="视频列表">
+        <div className="video-list" role="list" aria-label="视频列表">
           {videos.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>暂无视频</div>
           ) : (
             <>
               {videos.map(video => (
-              <article 
-                key={video.id} 
-                className="fav-video-item" 
-                role="listitem"
-                onClick={() => handleVideoClick(video)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="fav-video-cover">
-                  <div className="fav-video-thumbnail">
-                    {video.cover ? (
-                      <img src={getProxyImageUrl(video.cover)} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
-                        <line x1="7" y1="2" x2="7" y2="22"/>
-                        <line x1="17" y1="2" x2="17" y2="22"/>
-                        <line x1="2" y1="12" x2="22" y2="12"/>
-                        <line x1="2" y1="7" x2="7" y2="7"/>
-                        <line x1="2" y1="17" x2="7" y2="17"/>
-                        <line x1="17" y1="17" x2="22" y2="17"/>
-                        <line x1="17" y1="7" x2="22" y2="7"/>
-                      </svg>
-                    )}
-                    <div className="video-duration-overlay">{video.duration}</div>
-                  </div>
-                </div>
-                <div className="fav-video-info">
-                  <h3>{video.title}</h3>
-                  <div className="fav-video-meta">
-                    <span className="fav-video-uploader">{video.uploader}</span>
-                    <span className="fav-video-time">{video.time}</span>
-                  </div>
-                  <div className="fav-video-stats">
-                    <span className="stat-item">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                      </svg>
-                      {video.views}
-                    </span>
-                    <span className="stat-item">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L12 2.5a8.38 8.38 0 0 1 3.8.9 8.5 8.5 0 0 1 4.7 7.6z"/>
-                      </svg>
-                      {video.comments}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  className="fav-video-download-btn"
-                  onClick={(e) => toggleDownload(video, e)}
-                  aria-label={isAddedToDownload(video.id) ? '从下载列表移除' : '添加到下载列表'}
-                  title={isAddedToDownload(video.id) ? '已添加' : '添加到下载'}
-                >
-                  <svg viewBox="0 0 24 24" fill={isAddedToDownload(video.id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-                  </svg>
-                </button>
-              </article>
-            ))}
+                <VideoListCard
+                  key={video.id}
+                  {...video}
+                  onDownloadToggle={toggleDownload}
+                  isDownloaded={isAddedToDownload(video.id)}
+                />
+              ))}
               {loadingMore && (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>加载中...</div>
               )}
               {!hasMore && videos.length > 0 && (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>没有更多视频了</div>
               )}
-              {/* 用于Intersection Observer的触发元素 */}
               {hasMore && <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />}
             </>
           )}

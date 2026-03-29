@@ -26,6 +26,47 @@
 - **队列**: Celery Worker
 - **代理**: Caddy/Nginx
 
+## 开发环境配置
+
+### 后端API服务器启动
+
+**重要**: 必须使用虚拟环境启动API服务器，否则会出现依赖缺失导致的功能异常。
+
+```bash
+# 进入API目录
+cd apps/api
+
+# 创建虚拟环境（如果不存在）
+python3 -m venv venv
+
+# 激活虚拟环境
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动API服务器（必须使用虚拟环境的python）
+./venv/bin/python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**常见问题**:
+- 如果直接使用 `python3 -m uvicorn...` 启动，会使用系统Python，缺少项目依赖
+- 系统Python缺少 `yt_dlp` 等依赖，会导致稍后再看、收藏夹等功能异常
+- 错误示例: `ModuleNotFoundError: No module named 'yt_dlp'`
+
+### 前端开发服务器启动
+
+```bash
+# 进入Web目录
+cd apps/web
+
+# 安装依赖
+pnpm install
+
+# 启动开发服务器
+pnpm dev
+```
+
 ## 配置管理
 - 环境变量
 - 配置文件

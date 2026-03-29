@@ -6,19 +6,20 @@ router = APIRouter(prefix="/api/watchlater", tags=["稍后再看"])
 
 @router.get("/list", response_model=dict)
 async def get_watch_later_list(
-    sessdata: str = Query(..., description="用户SESSDATA"),
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量")
+    sessdata: str = Query(..., description="用户SESSDATA")
 ):
-    """获取稍后再看列表"""
+    """获取稍后再看列表（全部）"""
     service = BilibiliService()
     try:
-        result = service.get_watch_later(sessdata, page, page_size)
+        result = service.get_watch_later(sessdata)
         if result["success"]:
             data = result["data"]
             
             # 视频列表
             videos = data.get("list", [])
+            count = data.get("count", 0)
+            print(f"DEBUG: B站API返回count: {count}")
+            print(f"DEBUG: 实际获取到的视频数量: {len(videos)}")  # 调试信息
             video_list = []
             for video in videos:
                 video_list.append({
@@ -34,7 +35,7 @@ async def get_watch_later_list(
                     },
                     "view": video.get("stat", {}).get("view", 0),
                     "danmaku": video.get("stat", {}).get("danmaku", 0),
-                    "comment": video.get("stat", {}).get("reply", 0),
+                    "comment": video.get("stat", {}).get("reply", 0) or video.get("cnt_info", {}).get("reply", 0),
                     "pubtime": video.get("pubtime", 0),
                     "progress": video.get("progress", -1),  # -1表示未开始观看
                     "add_time": video.get("add_at", 0)
@@ -44,8 +45,6 @@ async def get_watch_later_list(
                 "success": True,
                 "data": {
                     "list": video_list,
-                    "page": page,
-                    "page_size": page_size,
                     "total": len(video_list)
                 }
             }

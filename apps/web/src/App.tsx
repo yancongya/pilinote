@@ -19,6 +19,7 @@ function App() {
       <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/favorites" element={<HomePage />} />
+      <Route path="/favorites/:folderId" element={<HomePage />} />
       <Route path="/watch-later" element={<HomePage />} />
       <Route path="/downloads" element={<HomePage />} />
       <Route path="/video/:videoId" element={<VideoDetailPage />} />
