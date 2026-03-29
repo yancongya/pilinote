@@ -5,6 +5,39 @@ import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
 import VideoListCard from './VideoListCard'
 
+// 格式化时长（秒转为 MM:SS）
+const formatDuration = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// 格式化数字（播放量、评论数）
+const formatNumber = (num: number): string => {
+  if (num >= 10000) {
+    return `${(num / 10000).toFixed(1)}万`
+  }
+  return num.toString()
+}
+
+// 格式化进度（秒转为百分比）
+const formatProgress = (progress: number, duration: number): string => {
+  if (progress === -1 || duration === 0) return '未观看'
+  const percent = Math.floor((progress / duration) * 100)
+  return `${percent}%`
+}
+
+// 格式化时间戳为具体日期时间
+const formatTime = (timestamp: number): string => {
+  const date = new Date(timestamp * 1000)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
 export default function WatchLaterContent() {
   const [downloadList, setDownloadList] = useState<any[]>([])
   const [videos, setVideos] = useState<any[]>([])
@@ -15,39 +48,6 @@ export default function WatchLaterContent() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const { getWatchLaterCache, setWatchLaterCache } = useCacheStore()
-
-  // 格式化时长（秒转为 MM:SS）
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  // 格式化数字（播放量、评论数）
-  const formatNumber = (num: number): string => {
-    if (num >= 10000) {
-      return `${(num / 10000).toFixed(1)}万`
-    }
-    return num.toString()
-  }
-
-  // 格式化进度（秒转为百分比）
-  const formatProgress = (progress: number, duration: number): string => {
-    if (progress === -1 || duration === 0) return '未观看'
-    const percent = Math.floor((progress / duration) * 100)
-    return `${percent}%`
-  }
-
-  // 格式化时间戳为具体日期时间
-  const formatTime = (timestamp: number): string => {
-    const date = new Date(timestamp * 1000)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    return `${year}-${month}-${day} ${hours}:${minutes}`
-  }
 
   // 获取稍后再看列表（带缓存）
   const fetchVideos = useCallback(async () => {
@@ -99,7 +99,7 @@ export default function WatchLaterContent() {
     } finally {
       setLoading(false)
     }
-  }, [user, getWatchLaterCache, setWatchLaterCache, formatDuration, formatNumber, formatProgress, formatTime])
+  }, [user, getWatchLaterCache, setWatchLaterCache])
 
   // 初始加载（只执行一次）
   useEffect(() => {

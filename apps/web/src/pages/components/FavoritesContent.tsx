@@ -5,6 +5,32 @@ import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
 import VideoListCard from './VideoListCard'
 
+// 格式化时长（秒转为 MM:SS）
+const formatDuration = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// 格式化数字（播放量、评论数）
+const formatNumber = (num: number): string => {
+  if (num >= 10000) {
+    return `${(num / 10000).toFixed(1)}万`
+  }
+  return num.toString()
+}
+
+// 格式化时间戳为具体日期时间
+const formatTime = (timestamp: number): string => {
+  const date = new Date(timestamp * 1000)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
 export default function FavoritesContent() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
   const [downloadList, setDownloadList] = useState<any[]>([])
@@ -38,32 +64,6 @@ export default function FavoritesContent() {
   const handleBackToFolders = () => {
     setSelectedFolder(null)
     navigate('/favorites', { replace: true })
-  }
-
-  // 格式化时长（秒转为 MM:SS）
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  // 格式化数字（播放量、评论数）
-  const formatNumber = (num: number): string => {
-    if (num >= 10000) {
-      return `${(num / 10000).toFixed(1)}万`
-    }
-    return num.toString()
-  }
-
-  // 格式化时间戳为具体日期时间
-  const formatTime = (timestamp: number): string => {
-    const date = new Date(timestamp * 1000)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    return `${year}-${month}-${day} ${hours}:${minutes}`
   }
 
   // 监听路由变化，支持通过URL直接访问收藏夹详情
@@ -184,7 +184,7 @@ export default function FavoritesContent() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [selectedFolder, user, getFolderVideosCache, setFolderVideosCache, formatDuration, formatNumber, formatTime])
+  }, [selectedFolder, user, getFolderVideosCache, setFolderVideosCache])
 
   // 当选中的收藏夹改变时，重新加载视频列表
   useEffect(() => {
