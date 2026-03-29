@@ -449,6 +449,12 @@ body {
   }
 }
 
+@media (max-width: 640px) {
+  .home-input-section {
+    padding: 12px 0;
+  }
+}
+
 .home-input-section.has-content {
   justify-content: flex-start;
 }
@@ -4564,12 +4570,22 @@ body {
     gap: 12px;
   }
   
-  .section-header {
+  #favorites-panel .section-header,
+  #watchlater-panel .section-header,
+  #downloads-panel .section-header {
     padding: 12px 16px;
   }
   
-  .home-header {
-    padding: 12px 16px;
+  .section-header {
+    margin-bottom: 12px;
+  }
+  
+  .video-list {
+    gap: 8px;
+  }
+  
+  .fav-folder-list {
+    gap: 8px;
   }
 }
 
