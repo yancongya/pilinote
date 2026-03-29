@@ -4491,3 +4491,53 @@ body {
     gap: 12px;
   }
 }
+
+/* 非首页页面标题栏固定定位 */
+#favorites-panel .section-header,
+#watchlater-panel .section-header,
+#downloads-panel .section-header {
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 16px 20px;
+  border-radius: 0;
+  margin-bottom: 16px;
+  z-index: 10;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 首页无顶部导航栏时的样式调整 */
+.home-container:not(.has-tabs) .home-main {
+  padding-top: 0;
+}
+
+.home-container:not(.has-tabs) .home-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 确保内容区域正确滚动 */
+.content-section {
+  overflow-y: auto;
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
+/* 隐藏滚动条但保留功能 */
+.content-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content-section::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content-section::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.content-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
