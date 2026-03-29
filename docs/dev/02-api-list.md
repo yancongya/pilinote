@@ -45,8 +45,65 @@
 ### 收藏夹模块 (`/api/favorites`)
 - `GET /api/favorites/folders` - 获取收藏夹列表
   - 参数: sessdata, up_mid, page, page_size
+  - 返回格式:
+    ```json
+    {
+      "success": true,
+      "data": [
+        {
+          "id": 123,
+          "title": "收藏夹名称",
+          "media_count": 45,
+          "cover": "https://...",
+          "intro": "简介",
+          "favorite_state": false
+        }
+      ],
+      "total": 5
+    }
+    ```
+
 - `GET /api/favorites/folders/{folder_id}` - 获取收藏夹详情（视频列表）
   - 参数: sessdata, page, page_size, keyword, order, type, tid
+  - 返回格式:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "medias": [
+          {
+            "id": 12345,
+            "bvid": "BV1xx411c7mh",
+            "title": "视频标题",
+            "cover": "https://...",
+            "duration": 360,
+            "intro": "简介",
+            "pubtime": 1234567890,
+            "view": 12345,
+            "danmaku": 100,
+            "comment": 0,
+            "coin": 50,
+            "favorite": 200,
+            "share": 30,
+            "like": 150,
+            "uploader": {
+              "mid": 123456,
+              "name": "UP主名称",
+              "face": "https://..."
+            }
+          }
+        ],
+        "page_size": 20,
+        "info": {
+          "media_count": 45
+        }
+      },
+      "total": 45
+    }
+    ```
+  - **重要提示**: 评论数字段`comment`可能返回0，这是B站API的限制
+  - 前端应该根据实际值决定是否显示评论数
+  - 评论数为0时不显示评论图标，避免误导用户
 
 ### 视频模块 (`/api/video`)
 - `GET /api/video/{video_id}` - 获取视频详情

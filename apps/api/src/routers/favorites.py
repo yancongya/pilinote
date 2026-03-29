@@ -94,7 +94,11 @@ async def get_folder_detail(
             
             return {
                 "success": True,
-                "data": videos,
+                "data": {
+                    "medias": videos,
+                    "page_size": page_size,
+                    "info": data.get("info", {})
+                },
                 "total": data.get("info", {}).get("media_count", 0)
             }
         raise HTTPException(status_code=400, detail=result["message"])
