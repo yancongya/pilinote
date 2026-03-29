@@ -43,7 +43,6 @@ export default function FavoritesContent() {
   const [hasMore, setHasMore] = useState(true)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
-  const isMounted = useRef(false)
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
@@ -109,11 +108,7 @@ export default function FavoritesContent() {
       }
     }
 
-    // 只在组件首次挂载时执行
-    if (!isMounted.current) {
-      fetchFolders()
-      isMounted.current = true
-    }
+    fetchFolders()
   }, [user, getFoldersCache, setFoldersCache])
 
   // 获取收藏夹详情（视频列表，带缓存）

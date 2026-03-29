@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
@@ -43,7 +43,6 @@ export default function WatchLaterContent() {
   const [videos, setVideos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const isMounted = useRef(false)
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
@@ -101,12 +100,9 @@ export default function WatchLaterContent() {
     }
   }, [user, getWatchLaterCache, setWatchLaterCache])
 
-  // 初始加载（只执行一次）
+  // 初始加载（每次切换到该tab时都会检查缓存）
   useEffect(() => {
-    if (!isMounted.current) {
-      fetchVideos()
-      isMounted.current = true
-    }
+    fetchVideos()
   }, [fetchVideos])
 
   const isAddedToDownload = (videoId: number) => {
