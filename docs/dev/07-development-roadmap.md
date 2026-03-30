@@ -21,10 +21,17 @@
 - [x] 前端下载管理页面
 - [x] 链接智能解析（支持视频和课程）
 - [x] 课程下载支持
+- [x] 下载任务管理（开始、暂停、继续、取消）
+- [x] 并发控制（最大3个任务）
+- [x] 任务状态可视化
 - [ ] 集成Celery + Redis (计划中)
 - [ ] WebSocket进度推送 (计划中)
 
 ## Phase 4: 文件组织 (Week 5)
+- [ ] 自动下载字幕/弹幕
+- [ ] 音轨提取
+- [ ] 元数据保存
+- [ ] 文件夹组织逻辑
 - [ ] 自动下载字幕/弹幕
 - [ ] 音轨提取
 - [ ] 元数据保存
@@ -79,8 +86,70 @@
   - 无限滚动加载（Intersection Observer）
   - 智能分页（移动端5条，桌面端10条）
 
-### Phase 3 - 下载管理 (已实现80%)
+### Phase 3 - 下载管理 (已完成)
 - ✅ Download数据模型：
+  - 支持多种状态管理
+  - 进度追踪字段
+  - B站特定字段
+  - 元数据字段
+  - 文件管理字段
+  - 课程支持字段（season_id）
+- ✅ DownloadManager异步下载管理器：
+  - asyncio.Queue任务队列
+  - 并发控制（最大3个同时下载）
+  - 任务状态管理（8种状态）
+  - 任务控制方法（start/pause/resume/cancel）
+  - FIFO队列调度
+- ✅ DownloadEngine下载引擎：
+  - yt-dlp集成
+  - 进度回调机制（下载进度、速度、ETA）
+  - FFmpeg支持和格式转换
+  - 错误处理和重试机制
+- ✅ DownloadService异步下载服务：
+  - asyncio异步下载
+  - 进度回调机制
+  - yt-dlp集成
+  - 错误处理
+  - 任务状态管理
+- ✅ 下载API接口：
+  - POST /api/download/start - 创建下载任务
+  - POST /api/download/parse - 解析下载链接
+  - GET /api/download/list - 获取下载列表
+  - DELETE /api/download/{id} - 删除下载任务
+  - POST /api/download/{id}/cancel - 取消下载
+  - POST /api/download/{id}/retry - 重试失败任务
+  - POST /api/download/{download_id}/start - 开始下载任务
+  - POST /api/download/{download_id}/pause - 暂停下载任务
+  - POST /api/download/{download_id}/resume - 继续下载任务
+  - POST /api/download/{download_id}/cancel - 取消下载任务
+  - GET /api/download/{download_id}/status - 获取任务状态
+  - GET /api/download/manager/tasks - 获取所有任务
+- ✅ 链接智能解析：
+  - 支持B站视频链接（bvid/aid）
+  - 支持课程链接（ss360格式）
+  - 支持完整URL解析
+  - 自动识别链接类型
+- ✅ 课程下载支持：
+  - 课程详情获取
+  - 课程分集列表获取
+  - 批量课程下载
+  - 课程元数据保存
+- ✅ App风格UI界面：
+  - 两个Tab切换（视频列表/下载列表）
+  - 系列视频分组
+  - Material Design 3风格
+  - 移动端响应式设计
+- ✅ 下载管理功能：
+  - 系列视频详情页
+  - 实时进度更新（2秒间隔）
+  - 任务控制（开始、暂停、继续、取消、删除）
+  - 状态可视化（颜色标识）
+  - 时长统计显示
+  - 并发控制（最大3个任务）
+  - 任务队列管理
+  - 批量操作支持
+- ⏳ Celery+Redis队列（计划中）
+- ⏳ WebSocket实时推送（计划中）
   - 支持多种状态管理
   - 进度追踪字段
   - B站特定字段
@@ -125,6 +194,51 @@
 - ⏳ WebSocket实时推送（计划中）
 
 ## 最近改进
+
+### 下载管理系统完成 (2026-03-30)
+- **DownloadManager异步下载管理器**:
+  - 基于asyncio.Queue的任务队列实现
+  - 支持最大3个并发下载任务的并发控制
+  - 完整的任务状态管理（8种状态：pending/queued/downloading/paused/processing/completed/failed/cancelled）
+  - FIFO队列调度机制
+  - 任务控制方法：start（开始）、pause（暂停）、resume（继续）、cancel（取消）
+  - 实时任务状态追踪和更新
+
+- **DownloadEngine下载引擎**:
+  - 完整的yt-dlp集成
+  - 进度回调机制（下载进度、下载速度、剩余时间ETA）
+  - FFmpeg支持和自动格式转换
+  - 错误处理和自动重试机制
+  - 支持多种视频质量和格式
+
+- **任务管理API**:
+  - POST /api/download/{download_id}/start - 开始下载任务
+  - POST /api/download/{download_id}/pause - 暂停下载任务
+  - POST /api/download/{download_id}/resume - 继续下载任务
+  - POST /api/download/{download_id}/cancel - 取消下载任务
+  - GET /api/download/{download_id}/status - 获取任务状态
+  - GET /api/download/manager/tasks - 获取所有任务
+
+- **前端状态管理增强**:
+  - Zustand store添加任务控制方法
+  - 实时进度更新（2秒间隔）
+  - 统一的错误处理和状态更新
+  - API服务层扩展（支持所有任务控制操作）
+
+- **UI/UX优化**:
+  - 使用VideoListCard组件统一卡片设计
+  - 任务控制按钮（开始、删除）
+  - 实时进度显示（进度条、速度、ETA）
+  - 支持单个视频和系列视频显示
+  - 状态筛选和搜索功能
+  - 响应式设计（移动端优先）
+
+- **Bug修复**:
+  - 数据库模型添加'paused'状态支持
+  - 前端过滤条件添加'paused'状态
+  - 修复CSS语法错误（未闭合括号）
+  - 添加条件渲染避免空src警告
+  - 恢复VideoListCard组件，移除冲突样式
 
 ### 下载管理功能完善 (2026-03-30)
 - **添加到列表功能**: 实现完整的"添加到列表"功能
