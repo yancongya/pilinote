@@ -60,6 +60,7 @@ yarn-error.log*
 dist/
 dist-ssr/
 *.local
+tsconfig.tsbuildinfo
 
 # Electron
 /out/
