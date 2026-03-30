@@ -186,6 +186,178 @@ class CookieManager:
                 "message": f"刷新确认异常: {str(e)}"
             }
     
+    async def save_to_db(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        保存cookie到数据库（优先级1核心功能）
+        
+        Args:
+            user_id: 用户ID，支持多账号管理
+            
+        Returns:
+            Dict[str, Any]: 保存结果
+        """
+        try:
+            from src.database import SessionLocal
+            from src.models.cookie import Cookie
+            
+            db = SessionLocal()
+            try:
+                # 删除该用户的所有旧cookie
+                if user_id:
+                    db.query(Cookie).filter(Cookie.user_id == user_id).delete()
+                else:
+                    # 如果没有user_id，删除所有cookie
+                    db.query(Cookie).delete()
+                
+                # 保存新cookie
+                saved_count = 0
+                for name, value in self.cookies.items():
+                    cookie = Cookie(
+                        user_id=user_id,
+                        name=name,
+                        value=value,
+                        expires_at=int(self.expires_at.timestamp()) if self.expires_at else None
+                    )
+                    db.add(cookie)
+                    saved_count += 1
+                
+                db.commit()
+                
+                print(f"[Cookie Persistence] 保存了{saved_count}个cookie到数据库")
+                
+                return {
+                    "success": True,
+                    "message": f"保存了{saved_count}个cookie到数据库",
+                    "saved_count": saved_count
+                }
+            except Exception as e:
+                db.rollback()
+                print(f"[Cookie Persistence] 保存失败: {str(e)}")
+                return {
+                    "success": False,
+                    "message": f"保存cookie到数据库失败: {str(e)}"
+                }
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Cookie Persistence] 初始化失败: {str(e)}")
+            return {
+                "success": False,
+                "message": f"初始化数据库失败: {str(e)}"
+            }
+    
+    async def load_from_db(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        从数据库加载cookie（优先级1核心功能）
+        
+        Args:
+            user_id: 用户ID，支持多账号管理
+            
+        Returns:
+            Dict[str, Any]: 加载结果
+        """
+        try:
+            from src.database import SessionLocal
+            from src.models.cookie import Cookie
+            
+            db = SessionLocal()
+            try:
+                # 查询cookie
+                query = db.query(Cookie)
+                if user_id:
+                    query = query.filter(Cookie.user_id == user_id)
+                
+                cookies = query.all()
+                
+                if not cookies:
+                    print(f"[Cookie Persistence] 数据库中没有找到cookie")
+                    return {
+                        "success": True,
+                        "message": "数据库中没有cookie",
+                        "loaded_count": 0
+                    }
+                
+                # 加载cookie
+                loaded_count = 0
+                for cookie in cookies:
+                    self.cookies[cookie.name] = cookie.value
+                    loaded_count += 1
+                    
+                    # 特殊处理refresh_token
+                    if cookie.name == "refresh_token":
+                        self.refresh_token = cookie.value
+                        if cookie.expires_at:
+                            self.expires_at = datetime.fromtimestamp(cookie.expires_at)
+                
+                print(f"[Cookie Persistence] 从数据库加载了{loaded_count}个cookie")
+                
+                return {
+                    "success": True,
+                    "message": f"从数据库加载了{loaded_count}个cookie",
+                    "loaded_count": loaded_count
+                }
+            except Exception as e:
+                print(f"[Cookie Persistence] 加载失败: {str(e)}")
+                return {
+                    "success": False,
+                    "message": f"从数据库加载cookie失败: {str(e)}"
+                }
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Cookie Persistence] 初始化失败: {str(e)}")
+            return {
+                "success": False,
+                "message": f"初始化数据库失败: {str(e)}"
+            }
+    
+    async def clear_cookies(self) -> Dict[str, Any]:
+        """
+        清除所有cookie（优先级1核心功能）
+        
+        Returns:
+            Dict[str, Any]: 清除结果
+        """
+        try:
+            # 清除内存中的cookie
+            cookie_count = len(self.cookies)
+            self.cookies.clear()
+            self.refresh_token = None
+            self.refresh_csrf = None
+            self.expires_at = None
+            
+            # 清除数据库中的cookie
+            from src.database import SessionLocal
+            from src.models.cookie import Cookie
+            
+            db = SessionLocal()
+            try:
+                db.query(Cookie).delete()
+                db.commit()
+                
+                print(f"[Cookie Persistence] 清除了{cookie_count}个cookie（内存+数据库）")
+                
+                return {
+                    "success": True,
+                    "message": f"清除了{cookie_count}个cookie",
+                    "cleared_count": cookie_count
+                }
+            except Exception as e:
+                db.rollback()
+                print(f"[Cookie Persistence] 清除数据库cookie失败: {str(e)}")
+                return {
+                    "success": False,
+                    "message": f"清除数据库cookie失败: {str(e)}"
+                }
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"[Cookie Persistence] 清除失败: {str(e)}")
+            return {
+                "success": False,
+                "message": f"清除cookie失败: {str(e)}"
+            }
+    
     def close(self):
         """关闭客户端"""
         self.client.close()

@@ -392,3 +392,84 @@ async def proxy_avatar(url: str):
                 raise HTTPException(status_code=response.status_code, detail="Failed to fetch avatar")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching avatar: {str(e)}")
+
+
+@router.post("/refresh-cookie", response_model=dict)
+async def refresh_cookie():
+    """
+    使用refresh_token自动刷新cookie（优先级1核心功能）
+    
+    功能：
+    - 使用refresh_token刷新过期的cookie
+    - 自动更新新的refresh_token
+    - 刷新失败时提示需要重新登录
+    
+    Returns:
+        Dict: 刷新结果
+    """
+    service = BilibiliService()
+    try:
+        result = await service.refresh_cookie()
+        return result
+    finally:
+        service.close()
+
+
+@router.post("/logout", response_model=dict)
+async def logout():
+    """
+    退出登录（优先级1核心功能）
+    
+    功能：
+    - 通知B站账号登出
+    - 清理本地Cookie
+    - 更新前端登录状态
+    
+    Returns:
+        Dict: 登出结果
+    """
+    service = BilibiliService()
+    try:
+        # 获取当前cookies
+        cookies_dict = service.headers_manager.cookie_manager.get_cookies()
+        bili_csrf = cookies_dict.get("bili_jct")
+        
+        if not bili_csrf:
+            # 如果没有bili_csrf，直接清理本地cookie
+            await service.headers_manager.cookie_manager.clear_cookies()
+            await service.headers_manager.refresh()
+            return {
+                "success": True,
+                "message": "已清理本地cookie"
+            }
+        
+        # 通知B站账号登出
+        url = "https://passport.bilibili.com/login/exit/v2"
+        params = {"biliCSRF": bili_csrf}
+        
+        async_client = await service._get_client()
+        await async_client.post(url, params=params)
+        
+        # 清理本地cookie
+        await service.headers_manager.cookie_manager.clear_cookies()
+        await service.headers_manager.refresh()
+        
+        print("[Logout] 退出登录成功")
+        
+        return {
+            "success": True,
+            "message": "退出登录成功"
+        }
+    except Exception as e:
+        # 即使退出请求失败，也要清理本地cookie
+        await service.headers_manager.cookie_manager.clear_cookies()
+        await service.headers_manager.refresh()
+        
+        print(f"[Logout] 退出登录异常（已清理本地cookie）: {str(e)}")
+        
+        return {
+            "success": True,
+            "message": "退出登录成功（通知服务异常，但已清理本地数据）"
+        }
+    finally:
+        service.close()

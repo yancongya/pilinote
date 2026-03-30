@@ -676,6 +676,96 @@ class BilibiliService:
                 "message": f"获取课程详情异常: {str(e)}"
             }
 
+    async def refresh_cookie(self) -> Dict:
+        """
+        使用refresh_token自动刷新cookie（复刻BiliTools的refresh_cookie功能）
+        
+        Returns:
+            Dict: 刷新结果
+        """
+        try:
+            # 获取当前的cookies
+            cookies_dict = self.headers_manager.cookie_manager.get_cookies()
+            
+            # 检查是否有refresh_token和bili_jct
+            refresh_token = cookies_dict.get("refresh_token")
+            bili_csrf = cookies_dict.get("bili_jct")
+            
+            if not refresh_token:
+                return {
+                    "success": False,
+                    "message": "缺少refresh_token，无法刷新cookie"
+                }
+            
+            if not bili_csrf:
+                return {
+                    "success": False,
+                    "message": "缺少bili_jct，无法刷新cookie"
+                }
+            
+            # 调用B站的cookie刷新接口
+            url = "https://passport.bilibili.com/x/passport-login/web/cookie/refresh"
+            params = {
+                "csrf": bili_csrf,
+                "refresh_csrf": refresh_token,
+                "refresh_token": refresh_token,
+                "source": "main_web"
+            }
+            
+            async_client = await self._get_client()
+            response = await async_client.post(url, params=params)
+            
+            print(f"[Cookie Refresh] Response status: {response.status_code}")
+            print(f"[Cookie Refresh] Response text: {response.text[:500]}")
+            
+            # 检查响应
+            if response.status_code != 200:
+                return {
+                    "success": False,
+                    "message": f"HTTP错误: {response.status_code}"
+                }
+            
+            data = response.json()
+            print(f"[Cookie Refresh] Response code: {data.get('code')}, message: {data.get('message')}")
+            
+            if data.get("code") == 0:
+                # 刷新成功，处理新的cookies
+                response_cookies = dict(response.cookies)
+                
+                # 更新cookie管理器
+                for name, value in response_cookies.items():
+                    await self.headers_manager.cookie_manager.set_cookie(name, value)
+                
+                # 刷新headers
+                await self.headers_manager.refresh()
+                
+                print(f"[Cookie Refresh] Cookie刷新成功，更新了{len(response_cookies)}个cookie")
+                
+                return {
+                    "success": True,
+                    "message": "Cookie刷新成功",
+                    "data": {
+                        "refreshed_cookies": list(response_cookies.keys())
+                    }
+                }
+            else:
+                # 刷新失败，可能是refresh_token过期
+                error_message = data.get("message", "刷新失败")
+                return {
+                    "success": False,
+                    "message": f"Cookie刷新失败: {error_message}",
+                    "code": data.get("code"),
+                    "need_relogin": True  # 需要重新登录
+                }
+                
+        except Exception as e:
+            print(f"[Cookie Refresh] 刷新异常: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Cookie刷新异常: {str(e)}",
+                "need_relogin": True
+            }
+
     def close(self):
         """关闭HTTP客户端"""
         self.client.close()
