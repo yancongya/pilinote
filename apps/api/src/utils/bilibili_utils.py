@@ -183,7 +183,7 @@ class LinkParser:
                     }
                 
                 # 用户视频
-                if type_ == 'video' or type_ == 'lists' or len(segs) == 1:
+                if type_ == 'video' or type_ == 'lists':
                     list_id_match = re.search(r'/lists/(\d+)', path)
                     list_id = int(list_id_match.group(1)) if list_id_match else None
                     return {
@@ -193,8 +193,17 @@ class LinkParser:
                         "original": url
                     }
                 
+                # 如果只有mid，也视为用户视频
+                if len(segs) == 1:
+                    return {
+                        "id": mid,
+                        "type": MediaType.USER_VIDEO,
+                        "target": None,
+                        "original": url
+                    }
+                
                 # 用户图文
-                if segs[2] == 'opus' or type_ == 'article':
+                if type_ == 'article' or type_ == 'opus':
                     return {
                         "id": mid,
                         "type": MediaType.USER_OPUS,
@@ -203,7 +212,7 @@ class LinkParser:
                     }
                 
                 # 用户音频
-                if segs[2] == 'audio' or type_ == 'audio':
+                if type_ == 'audio':
                     return {
                         "id": mid,
                         "type": MediaType.USER_AUDIO,
@@ -214,11 +223,25 @@ class LinkParser:
                 raise ValueError('无效的用户链接')
             
             # 处理 www.bilibili.com
-            if len(segs) < 2:
+            if len(segs) < 1:
                 raise ValueError('无效的链接格式')
             
-            type_ = segs[0]
-            id_ = segs[1]
+            # 检查路径第一段是否为类型标识
+            if len(segs) >= 2:
+                type_ = segs[0]
+                id_ = segs[1]
+            else:
+                type_ = segs[0] if segs else ''
+                id_ = ''
+            
+            # 稍后再看
+            if type_ == 'watchlater':
+                return {
+                    "id": "",
+                    "type": MediaType.WATCH_LATER,
+                    "target": None,
+                    "original": url
+                }
             
             # 视频
             if re.match(r'^(BV\w{10}|av\d+)$', id_, re.IGNORECASE):
