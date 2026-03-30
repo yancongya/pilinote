@@ -21,7 +21,7 @@ async def get_watch_later_list(
     try:
         service = BilibiliService()
         try:
-            result = service.get_watch_later(sessdata)
+            result = await service.get_watch_later(sessdata)
             if result["success"]:
                 data = result["data"]
                 

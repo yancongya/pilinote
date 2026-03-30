@@ -70,7 +70,7 @@ async def get_folder_detail(
     try:
         service = BilibiliService()
         try:
-            result = service.get_folder_detail(sessdata, folder_id, page, page_size, keyword, order, type, tid)
+            result = await service.get_folder_detail(sessdata, folder_id, page, page_size, keyword, order, type, tid)
             
             if result["success"]:
                 data = result["data"]
