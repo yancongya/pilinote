@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Download, Clock, AlertCircle, Play, Trash, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Check, Download, Clock, AlertCircle, Play, Trash, RefreshCw, CheckSquare, Square, GitCompare } from 'lucide-react'
 import { useDownloadStore } from '../stores/download'
 import { apiService } from '../services/api'
 
@@ -481,7 +481,7 @@ const handleStartBatch = async () => {
                 }}
                 title="全选"
               >
-                全选
+                <CheckSquare size={16} />
               </button>
               <button
                 onClick={handleDeselectAll}
@@ -496,7 +496,7 @@ const handleStartBatch = async () => {
                 }}
                 title="取消全选"
               >
-                取消全选
+                <Square size={16} />
               </button>
               <button
                 onClick={handleInvertSelection}
@@ -511,7 +511,7 @@ const handleStartBatch = async () => {
                 }}
                 title="反选"
               >
-                反选
+                <GitCompare size={16} />
               </button>
               {selectedPages.size > 0 && (
                 <button
