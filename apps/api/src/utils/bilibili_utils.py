@@ -326,8 +326,9 @@ class LinkParser:
             # 课程
             return f"https://api.bilibili.com/pugv/view/web/season?season_id={video_id}"
         elif media_type == MediaType.BANGUMI:
-            # 番剧
-            return f"https://api.bilibili.com/pgc/view/web/season?season_id={video_id}"
+            # 番剧 - 去掉 ss 前缀
+            season_id = video_id.replace('ss', '').replace('SS', '')
+            return f"https://api.bilibili.com/pgc/view/web/season?season_id={season_id}"
         elif media_type == MediaType.VIDEO:
             # 视频
             return f"https://api.bilibili.com/x/web-interface/view?bvid={video_id}"

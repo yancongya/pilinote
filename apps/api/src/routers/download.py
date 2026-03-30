@@ -209,7 +209,8 @@ async def parse_link(request: ParseLinkRequest):
                         message=data.get("message", "获取番剧信息失败")
                     )
                 
-                bangumi_data = data.get("data", {})
+                # 番剧API返回的数据在 result 字段下
+                bangumi_data = data.get("result", {})
                 episodes = bangumi_data.get("episodes", [])
                 
                 if not episodes:
@@ -230,22 +231,34 @@ async def parse_link(request: ParseLinkRequest):
                             bvid=episodes[0].get("bvid", ""),
                             aid=episodes[0].get("aid", 0),
                             title=bangumi_data.get("title", ""),
-                            desc=bangumi.get("subtitle", "") or bangumi.get("evaluate", ""),
+                            desc=bangumi_data.get("subtitle", "") or bangumi_data.get("evaluate", ""),
                             pic=bangumi_data.get("cover", ""),
                             duration=sum(ep.get("duration", 0) for ep in episodes),
                             pubdate=bangumi_data.get("pubtime", 0),
                             cid=episodes[0].get("cid", 0),
-                            owner=bangumi.get("up_info", {}),
-                            stat=bangumi_data.get("stat", {})
+                            owner={
+                                "mid": bangumi_data.get("up_info", {}).get("mid", 0),
+                                "name": bangumi_data.get("up_info", {}).get("uname", ""),
+                                "face": bangumi_data.get("up_info", {}).get("avatar", "")
+                            },
+                            stat={
+                                "view": bangumi_data.get("stat", {}).get("views", 0),
+                                "danmaku": bangumi_data.get("stat", {}).get("danmakus", 0),
+                                "reply": bangumi_data.get("stat", {}).get("reply", 0),
+                                "favorite": bangumi_data.get("stat", {}).get("favorite", 0),
+                                "coin": bangumi_data.get("stat", {}).get("coin", 0),
+                                "share": bangumi_data.get("stat", {}).get("share", 0),
+                                "like": bangumi_data.get("stat", {}).get("likes", 0)
+                            }
                         ),
                         "download_options": {
                             "multi_part": True,
                             "pages": [
                                 VideoPages(
-                                    page=ep.get("page", 0),
+                                    page=ep.get("ep_id", 0),
                                     cid=ep.get("cid", 0),
-                                    part=ep.get("title", f"P{ep.get('page', 0)}"),
-                                    duration=ep.get("duration", 0)
+                                    part=ep.get("long_title", f"P{ep.get('ep_id', 0)}"),
+                                    duration=ep.get("duration", 0) // 1000  # 番剧duration是毫秒
                                 )
                                 for ep in episodes
                             ]
