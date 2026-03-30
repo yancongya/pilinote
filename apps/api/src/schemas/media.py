@@ -80,6 +80,7 @@ class MediaItem(BaseModel):
     index: int = Field(0, description="索引")
     stat: Optional[MediaStats] = Field(None, description="统计信息")
     upper: Optional[MediaUpper] = Field(None, description="上传者信息")
+    progress: Optional[float] = Field(-1, description="观看进度（秒），-1表示未观看")
 
 
 class MediaSection(BaseModel):

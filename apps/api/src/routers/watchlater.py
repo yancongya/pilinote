@@ -51,7 +51,7 @@ async def get_watch_later_list(
                     "favorite": stat.favorite or 0,
                     "share": stat.share or 0,
                     "pubtime": item.pubtime,
-                    "progress": -1,  # -1表示未开始观看
+                    "progress": item.progress if item.progress is not None else -1,
                     "add_time": item.pubtime  # 暂时使用pubtime作为添加时间
                 })
             

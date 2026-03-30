@@ -694,7 +694,8 @@ class MediaDataProcessor:
                     bvid=video.get("bvid", ""),
                     index=global_index,
                     stat=stat,
-                    upper=item_upper
+                    upper=item_upper,
+                    progress=video.get("progress", -1)
                 )
                 items.append(item)
             
