@@ -495,6 +495,138 @@ async def get_video_info_with_retry(bvid: str, max_retries: int = 3) -> Dict[str
             return result
 ```
 
+## 扩展应用场景
+
+### 收藏页统计数据获取
+```python
+async def _process_favorite(self, media_id: str, sessdata: Optional[str], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """处理收藏夹类型 - 使用HTML解析获取完整统计信息"""
+    
+    # 获取收藏夹列表
+    medias = data["data"]["medias"]
+    
+    items = []
+    for i, media in enumerate(medias):
+        bvid = media.get("bvid", "")
+        
+        # 为每个视频使用HTML解析方法获取完整统计信息
+        if bvid:
+            video_headers = self._build_complete_headers(bvid, sessdata)
+            
+            try:
+                html_response = await client.get(
+                    f"https://www.bilibili.com/video/{bvid}",
+                    headers=video_headers,
+                    follow_redirects=True
+                )
+                
+                video_data = self._extract_video_data(html_response.text)
+                
+                if video_data:
+                    item_stat = MediaStats(
+                        play=video_data.get("stat", {}).get("view", 0),
+                        danmaku=video_data.get("stat", {}).get("danmaku", 0),
+                        reply=video_data.get("stat", {}).get("reply", 0),
+                        like=video_data.get("stat", {}).get("like", 0),
+                        coin=video_data.get("stat", {}).get("coin", 0),
+                        favorite=video_data.get("stat", {}).get("favorite", 0),
+                        share=video_data.get("stat", {}).get("share", 0)
+                    )
+                else:
+                    # 回退到收藏夹API数据
+                    item_stat = MediaStats(**media.get("cnt_info", {}))
+            except Exception:
+                # 异常时使用收藏夹API数据
+                item_stat = MediaStats(**media.get("cnt_info", {}))
+```
+
+### 稍后再看页统计数据获取
+```python
+async def _process_watchlater(self, sessdata: Optional[str], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """处理稍后再看类型 - 使用HTML解析获取完整统计信息"""
+    
+    # 获取稍后再看列表
+    list_data = data["data"]["list"]
+    
+    items = []
+    for i, video in enumerate(list_data):
+        bvid = video.get("bvid", "")
+        
+        # 为每个视频使用HTML解析方法获取完整统计信息
+        if bvid:
+            video_headers = self._build_complete_headers(bvid, sessdata)
+            
+            try:
+                html_response = await client.get(
+                    f"https://www.bilibili.com/video/{bvid}",
+                    headers=video_headers,
+                    follow_redirects=True
+                )
+                
+                video_data = self._extract_video_data(html_response.text)
+                
+                if video_data:
+                    stat = MediaStats(
+                        play=video_data.get("stat", {}).get("view", 0),
+                        danmaku=video_data.get("stat", {}).get("danmaku", 0),
+                        reply=video_data.get("stat", {}).get("reply", 0),
+                        like=video_data.get("stat", {}).get("like", 0),
+                        coin=video_data.get("stat", {}).get("coin", 0),
+                        favorite=video_data.get("stat", {}).get("favorite", 0),
+                        share=video_data.get("stat", {}).get("share", 0)
+                    )
+                else:
+                    # 回退到稍后再看API数据
+                    stat = MediaStats(**video.get("cnt_info", {}))
+            except Exception:
+                # 异常时使用稍后再看API数据
+                stat = MediaStats(**video.get("cnt_info", {}))
+```
+
+### Headers构建辅助函数
+```python
+def _build_complete_headers(self, bvid: str, sessdata: Optional[str]) -> Dict[str, str]:
+    """构建完整的请求headers"""
+    
+    # 构建cookie字符串
+    cookies = []
+    for key, value in self.default_cookies.items():
+        cookies.append(f"{key}={value}")
+    
+    if sessdata:
+        cookies.append(f"SESSDATA={sessdata}")
+    
+    # 构建完整headers
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": f"https://www.bilibili.com/video/{bvid}",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+        "Origin": "https://www.bilibili.com",
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"'
+    }
+    
+    if cookies:
+        headers["Cookie"] = "; ".join(cookies)
+    
+    return headers
+```
+
+### 关键注意事项
+
+1. **Headers完整性**: 必须使用完整的headers，否则B站可能限制返回的数据
+2. **Referer设置**: 必须设置为具体的视频URL，不能是通用值
+3. **Cookie组合**: 必须包含default_cookies和SESSDATA
+4. **容错处理**: HTML解析失败时要回退到API数据
+5. **性能考虑**: 每个视频需要单独请求，控制每页数量（默认20条）
+
 ## 总结
 
 HTML解析方法成功解决了B站API反爬虫限制的问题，具有以下优势：
