@@ -383,25 +383,34 @@ class DownloadManager:
             return
         
         try:
-            logger.info(f"Starting download execution for {download_id}, bvid: {download.bvid}")
+            logger.info(f"Starting download execution for {download_id}, bvid: {download.bvid}, title: {download.title}")
             self._update_status(download_id, DownloadStatus.DOWNLOADING.value)
             
             # 导入下载引擎
             from src.services.download_engine import DownloadEngine
             engine = DownloadEngine()
             
+            # 使用视频标题创建子文件夹名称
+            safe_title = "".join(c for c in download.title if c.isalnum() or c in (' ', '-', '_')).strip()
+            if not safe_title:
+                safe_title = "video"
+            
+            # 构建输出路径：UUID/标题
+            output_path = f"downloads/{download_id}/{safe_title}"
+            
             # 执行下载
-            logger.info(f"Calling download_engine.download_video for {download.bvid}")
+            logger.info(f"Calling download_engine.download_video for {download.bvid}, output_path: {output_path}")
             await engine.download_video(
                 bvid=download.bvid,
                 quality=download.quality,
                 output_format=download.output_format,
-                output_path=f"downloads/{download_id}",
+                output_path=output_path,
                 sessdata=download.sessdata,
                 progress_callback=lambda d, p, db, tb, ds, eta: self._update_progress(
                     download_id, p, db, tb, ds, eta
                 ),
-                pause_event=self.paused_downloads.get(download_id)
+                pause_event=self.paused_downloads.get(download_id),
+                cid=download.cid
             )
             logger.info(f"Download video completed for {download.bvid}")
             
@@ -415,16 +424,26 @@ class DownloadManager:
             for root, dirs, files in os.walk(f"downloads/{download_id}"):
                 for file in files:
                     if file.endswith(('.mp4', '.flv', '.mkv', '.webm')):
-                        video_files.append(os.path.join(root, file))
+                        full_path = os.path.join(root, file)
+                        file_size = os.path.getsize(full_path)
+                        video_files.append((full_path, file_size))
+                        logger.info(f"Found video file: {full_path}, size: {file_size} bytes")
             
             if video_files:
+                # 计算总大小
+                total_size = sum(size for path, size in video_files)
+                main_file = video_files[0][0]
+                
                 with SessionLocal() as db:
                     download = db.query(Download).filter(Download.id == download_id).first()
                     if download:
-                        download.file_path = video_files[0]
-                        download.file_size = os.path.getsize(video_files[0])
+                        download.file_path = main_file
+                        download.file_size = total_size
+                        download.total_bytes = total_size
+                        download.downloaded_bytes = total_size
+                        download.progress = 100.0
                         db.commit()
-                        logger.info(f"Updated file path for {download_id}: {video_files[0]}")
+                        logger.info(f"Updated file path for {download_id}: {main_file}, total size: {total_size}")
             else:
                 logger.warning(f"No video files found for {download_id}")
             

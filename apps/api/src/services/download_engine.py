@@ -35,7 +35,8 @@ class DownloadEngine:
         output_path: str,
         sessdata: Optional[str] = None,
         progress_callback: Optional[Callable] = None,
-        pause_event: Optional[asyncio.Event] = None
+        pause_event: Optional[asyncio.Event] = None,
+        cid: Optional[int] = None
     ):
         """
         下载视频
@@ -60,7 +61,7 @@ class DownloadEngine:
         ydl_opts = {
             'format': format_str,
             'outtmpl': str(output_dir / '%(title)s.%(ext)s'),
-            'quiet': True,
+            'quiet': False,  # 启用日志输出
             'no_warnings': True,
             'merge_output_format': output_format,
             'postprocessors': [{
@@ -70,6 +71,13 @@ class DownloadEngine:
             'progress_hooks': [],
         }
         
+        # 如果指定了cid，只下载特定的分P
+        if cid:
+            ydl_opts['playlist_items'] = str(cid)
+            logger.info(f"Downloading specific part: cid={cid}")
+        else:
+            logger.info(f"Downloading all parts for bvid={bvid}")
+        
         # 添加进度回调
         if progress_callback:
             def progress_hook(d):
@@ -78,7 +86,8 @@ class DownloadEngine:
                 if pause_event:
                     pause_event.wait()
                 
-                if d['status'] == 'downloading':
+                status = d.get('status')
+                if status == 'downloading':
                     total_bytes = d.get('total_bytes', 0) or d.get('total_bytes_estimate', 0) or 0
                     downloaded_bytes = d.get('downloaded_bytes', 0) or 0
                     
@@ -93,9 +102,16 @@ class DownloadEngine:
                     download_speed = speed / 1024 if speed else 0.0
                     eta = d.get('eta') or 0
                     
+                    # 添加日志
+                    logger.info(f"Progress: {progress:.1f}%, {downloaded_bytes}/{total_bytes} bytes, {download_speed:.1f} KB/s, ETA: {eta}s")
+                    
                     progress_callback(d.get('info_dict', {}).get('display_id', ''), progress, downloaded_bytes, total_bytes, download_speed, eta)
-                elif d['status'] == 'finished':
-                    progress_callback(d.get('info_dict', {}).get('display_id', ''), 100.0, d.get('total_bytes', 0), d.get('total_bytes', 0), 0.0, 0.0)
+                elif status == 'finished':
+                    total_bytes = d.get('total_bytes', 0) or 0
+                    logger.info(f"Download finished: {total_bytes} bytes")
+                    progress_callback(d.get('info_dict', {}).get('display_id', ''), 100.0, total_bytes, total_bytes, 0.0, 0.0)
+                elif status == 'error':
+                    logger.error(f"Download error: {d.get('error', 'Unknown error')}")
             
             ydl_opts['progress_hooks'].append(progress_hook)
         

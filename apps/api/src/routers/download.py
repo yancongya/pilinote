@@ -1076,19 +1076,30 @@ async def start_batch_downloads(request: BatchStartRequest, background_tasks: Ba
 @router.delete("/{download_id}")
 async def delete_download(download_id: str):
     """
-    删除下载任务记录
+    删除下载任务记录和相关文件
     """
     try:
+        import os
+        import shutil
+        from src.database import SessionLocal
+        from src.models.download import Download
+        
         # 先取消正在进行的下载
         download_service.cancel_download(download_id)
         
         # 从数据库中删除
-        from src.database import SessionLocal
-        from src.models.download import Download
-        
         with SessionLocal() as session:
             download = session.query(Download).filter(Download.id == download_id).first()
             if download:
+                # 删除文件和目录
+                download_dir = f"downloads/{download_id}"
+                if os.path.exists(download_dir):
+                    try:
+                        shutil.rmtree(download_dir)
+                        logger.info(f"Deleted download directory: {download_dir}")
+                    except Exception as e:
+                        logger.error(f"Failed to delete directory {download_dir}: {e}")
+                
                 session.delete(download)
                 session.commit()
                 return {"success": True, "message": "下载任务已删除"}
@@ -1118,13 +1129,15 @@ async def clear_all_downloads():
 @router.delete("/bvid/{bvid}")
 async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
     """
-    根据bvid删除下载任务
+    根据bvid删除下载任务和相关文件
     
     Args:
         bvid: B站视频ID
         status: 可选，只删除特定状态的任务
     """
     try:
+        import os
+        import shutil
         from src.database import SessionLocal
         from src.models.download import Download
         
@@ -1135,9 +1148,21 @@ async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
             downloads = query.all()
             
             deleted_count = 0
+            deleted_dirs = []
             for download in downloads:
                 # 先取消正在进行的下载
                 download_service.cancel_download(download.id)
+                
+                # 删除文件和目录
+                download_dir = f"downloads/{download.id}"
+                if os.path.exists(download_dir):
+                    try:
+                        shutil.rmtree(download_dir)
+                        deleted_dirs.append(download_dir)
+                        logger.info(f"Deleted download directory: {download_dir}")
+                    except Exception as e:
+                        logger.error(f"Failed to delete directory {download_dir}: {e}")
+                
                 session.delete(download)
                 deleted_count += 1
             
@@ -1146,7 +1171,8 @@ async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
             return {
                 "success": True,
                 "message": f"已删除 {deleted_count} 个下载任务",
-                "deleted_count": deleted_count
+                "deleted_count": deleted_count,
+                "deleted_directories": deleted_dirs
             }
             
     except Exception as e:

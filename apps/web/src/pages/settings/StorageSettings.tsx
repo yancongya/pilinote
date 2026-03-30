@@ -6,10 +6,66 @@ export default function StorageSettings() {
   const { settings, loading, error, updateSettings, resetSettings, exportSettings, importSettings } = useSettingsStore()
   const [exportData, setExportData] = useState('')
   const [showExport, setShowExport] = useState(false)
+  const [clearingCache, setClearingCache] = useState(false)
+  const [storageInfo, setStorageInfo] = useState({
+    totalSizeFormatted: '0 B',
+    fileCount: 0,
+    directoryCount: 0
+  })
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
+    fetchStorageInfo()
   }, [])
+
+  const fetchStorageInfo = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/settings/storage-info')
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        setStorageInfo({
+          totalSizeFormatted: data.data.total_size_formatted,
+          fileCount: data.data.file_count,
+          directoryCount: data.data.directory_count
+        })
+      }
+    } catch (error) {
+      console.error('获取存储信息失败:', error)
+    }
+  }
+
+  const handleClearCache = async (cacheType: string) => {
+    if (cacheType === 'downloads') {
+      if (!confirm('确定要清理所有下载文件吗？此操作不可恢复！')) {
+        return
+      }
+    } else if (cacheType === 'all') {
+      if (!confirm('确定要清理所有缓存吗？此操作不可恢复！')) {
+        return
+      }
+    }
+    
+    setClearingCache(true)
+    try {
+      const response = await fetch(`http://localhost:8000/api/settings/clear-cache?cache_type=${cacheType}`, {
+        method: 'POST'
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        alert(data.message || '清理成功')
+        // 重新获取存储信息
+        fetchStorageInfo()
+      } else {
+        alert('清理失败: ' + (data.message || 'Unknown error'))
+      }
+    } catch (error) {
+      alert('清理失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    } finally {
+      setClearingCache(false)
+    }
+  }
 
   if (!settings) {
     return <div className="loading-state">加载中...</div>
@@ -86,6 +142,22 @@ export default function StorageSettings() {
       <div className="settings-group">
         <h3>存储设置</h3>
         
+        {/* 存储信息显示 */}
+        <div className="storage-info-panel">
+          <div className="storage-stat">
+            <span className="storage-stat-label">占用空间</span>
+            <span className="storage-stat-value">{storageInfo.totalSizeFormatted}</span>
+          </div>
+          <div className="storage-stat">
+            <span className="storage-stat-label">文件数量</span>
+            <span className="storage-stat-value">{storageInfo.fileCount}</span>
+          </div>
+          <div className="storage-stat">
+            <span className="storage-stat-label">视频数量</span>
+            <span className="storage-stat-value">{storageInfo.directoryCount}</span>
+          </div>
+        </div>
+        
         <div className="setting-item">
           <label>
             <Database />
@@ -122,6 +194,30 @@ export default function StorageSettings() {
             />
             <span>保留失败的任务</span>
           </label>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h3>缓存管理</h3>
+        
+        <div className="data-actions">
+          <button 
+            className="action-button cache-button"
+            onClick={() => handleClearCache('downloads')}
+            disabled={clearingCache || loading}
+          >
+            <Trash2 />
+            清理下载文件
+          </button>
+          
+          <button 
+            className="action-button cache-button danger-button"
+            onClick={() => handleClearCache('all')}
+            disabled={clearingCache || loading}
+          >
+            <RefreshCw />
+            清理所有缓存
+          </button>
         </div>
       </div>
 

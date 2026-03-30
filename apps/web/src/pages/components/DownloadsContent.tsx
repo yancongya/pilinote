@@ -46,6 +46,12 @@ export default function DownloadsContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('downloading')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [storageInfo, setStorageInfo] = useState({
+    totalSize: 0,
+    totalSizeFormatted: '0 B',
+    fileCount: 0,
+    directoryCount: 0
+  })
   const navigate = useNavigate()
 
   // 格式化时长
@@ -128,6 +134,34 @@ export default function DownloadsContent() {
     fetchDownloads()
   }
 
+  // 格式化文件大小
+  const formatFileSize = (bytes: number): string => {
+    if (!bytes || bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  }
+
+  // 获取存储信息
+  const fetchStorageInfo = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/settings/storage-info')
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        setStorageInfo({
+          totalSize: data.data.total_size,
+          totalSizeFormatted: data.data.total_size_formatted,
+          fileCount: data.data.file_count,
+          directoryCount: data.data.directory_count
+        })
+      }
+    } catch (err) {
+      console.error('获取存储信息失败:', err)
+    }
+  }, [])
+
   // 获取下载任务列表
   const fetchDownloads = useCallback(async () => {
     setLoading(true)
@@ -139,6 +173,8 @@ export default function DownloadsContent() {
       
       if (data.success) {
         setDownloads(data.downloads)
+        // 同时更新存储信息
+        fetchStorageInfo()
       } else {
         setError(data.message || '获取下载列表失败')
       }
@@ -147,7 +183,7 @@ export default function DownloadsContent() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [fetchStorageInfo])
 
   // 按系列分组
   const groupDownloadsBySeries = useCallback(async (tasks: DownloadTask[]): Promise<DownloadSeries[]> => {
@@ -312,6 +348,20 @@ export default function DownloadsContent() {
           <span className="tab-badge downloading">{stats.downloading}</span>
         </button>
       </div>
+
+      {/* 存储信息 */}
+      {(storageInfo.fileCount > 0 || storageInfo.directoryCount > 0) && (
+        <div className="storage-info">
+          <span className="storage-label">占用空间:</span>
+          <span className="storage-value">{storageInfo.totalSizeFormatted}</span>
+          <span className="storage-separator">|</span>
+          <span className="storage-label">文件数:</span>
+          <span className="storage-value">{storageInfo.fileCount}</span>
+          <span className="storage-separator">|</span>
+          <span className="storage-label">视频数:</span>
+          <span className="storage-value">{storageInfo.directoryCount}</span>
+        </div>
+      )}
 
       {/* 内容区域 */}
       <div className="downloads-content">
