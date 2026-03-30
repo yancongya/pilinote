@@ -6346,8 +6346,7 @@ body {
   .data-actions {
     flex-direction: column;
   }
-  
-  .action-button,
+}
 
 /* 下载管理样式 */
 .download-series-card {
@@ -6693,9 +6692,5 @@ body {
   .task-actions {
     width: 100%;
     justify-content: flex-end;
-  }
-}
-  .reset-button {
-    width: 100%;
   }
 }
