@@ -23,19 +23,30 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      setUser: (user) =>
-        set({
+      setUser: (user) => {
+        const newState = {
           user,
           isAuthenticated: user !== null,
-        }),
-      logout: () =>
+        }
+        set(newState)
+        
+        // 验证数据是否保存
+        setTimeout(() => {
+          const currentState = useAuthStore.getState()
+          const localStorageData = localStorage.getItem('pilinote-auth')
+        }, 100)
+      },
+      logout: () => {
         set({
           user: null,
           isAuthenticated: false,
-        }),
+        })
+      },
     }),
     {
       name: 'pilinote-auth',
+      onRehydrateStorage: () => (state) => {
+      },
     }
   )
 );

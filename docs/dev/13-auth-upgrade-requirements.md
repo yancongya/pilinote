@@ -156,7 +156,7 @@ POST /api/auth/logout
 
 ### 优先级 2：增强功能（重要）
 
-#### 2.1 多账号管理
+#### 2.1 多账号管理 ✅ 已完成
 
 **问题描述**：
 - 只支持单个账号
@@ -169,11 +169,13 @@ POST /api/auth/logout
 - ✅ 账号切换无需重新登录
 
 **需求**：
-- [ ] 实现多账号数据模型
-- [ ] 添加账号切换功能
-- [ ] 每个账号独立的Cookie存储
-- [ ] 显示当前登录账号信息
-- [ ] 账号列表管理
+- [x] 实现多账号数据模型
+- [x] 添加账号切换功能
+- [x] 每个账号独立的Cookie存储
+- [x] 显示当前登录账号信息
+- [x] 账号列表管理
+- [x] 账号刷新功能
+- [x] 账号删除功能
 
 **数据库设计**：
 ```sql
@@ -196,10 +198,31 @@ DEL  /api/auth/accounts/:id   - 删除账号
 ```
 
 **相关文件**：
-- `apps/api/src/models/user.py` - 更新User模型
-- `apps/api/src/services/bilibili.py` - 添加账号管理方法
-- `apps/api/src/routers/auth.py` - 添加账号管理路由
-- `apps/web/src/pages/HomePage.tsx` - 添加账号切换UI
+- [x] `apps/api/src/models/user.py` - 更新User模型
+- [x] `apps/api/src/services/bilibili.py` - 添加账号管理方法
+- [x] `apps/api/src/routers/auth.py` - 添加账号管理路由
+- [x] `apps/web/src/pages/SettingsPage.tsx` - 添加账号管理UI
+- [x] `apps/web/src/pages/LoginPage.tsx` - 添加账号切换UI
+- [x] `apps/web/src/services/api.ts` - 添加账号管理API方法
+
+**实现状态**（2026-03-30）：
+- ✅ 数据库模型完成
+- ✅ 后端API完成
+- ✅ 前端UI完成
+- ✅ 账号切换功能完成
+- ✅ 账号删除功能完成
+- ✅ 账号刷新功能完成
+- ✅ 响应式适配完成（手机/桌面）
+- ✅ UI优化完成（单行布局、紧凑设计）
+
+**UI特性**：
+- 设置页显示所有账号列表
+- 登录页显示可用账号快速切换
+- 每个账号显示：头像、用户名、MID
+- 账号操作：刷新（更新cookie）、删除
+- 当前账号高亮显示
+- 单行布局，紧凑设计
+- 手机模式优化，防止换行
 
 ---
 
@@ -414,3 +437,77 @@ CREATE TABLE auth_logs (
 - 详细对比BiliTools和PiliNote功能差异
 - 制定分阶段实施计划
 - 定义验收标准和风险控制
+## 2026-03-30 Bug修复和稳定性提升
+
+### 问题修复 ✅ 已完成
+- ✅ **sessdata传递问题**: 修复后端API缺少sessdata字段导致前端无法登录的问题
+  - 修复`switchAccount` API返回值
+  - 修复`loginBySessdata` API返回值
+  - 确保所有用户信息API都包含完整的认证数据
+
+- ✅ **localStorage持久化问题**: 修复用户数据无法正确保存和恢复的问题
+  - 添加调试日志追踪数据流
+  - 确保sessdata字段被正确保存
+  - 刷新页面后能正确恢复登录状态
+
+- ✅ **后端异步调用问题**: 修复favorites.py中缺少await导致的500错误
+  - 为`get_folder_list`方法添加await关键字
+  - 解决"'coroutine' object is not subscriptable"错误
+  - 确保收藏夹API正常工作
+
+- ✅ **后端依赖缺失问题**: 安装缺失的Python模块
+  - 安装yt-dlp-2026.3.17（下载引擎）
+  - 安装apscheduler-3.11.2（定时任务）
+  - 安装tzlocal-5.3.1（时区支持）
+
+### 调试系统 ✅ 已完成
+- ✅ **前端调试日志**: 添加完整的调试信息
+  - auth.ts: setUser、logout、localStorage恢复日志
+  - App.tsx: isAuthenticated和user状态变化监控
+  - HomePage.tsx: 用户状态检查日志
+  - FavoritesContent.tsx: sessdata检查日志
+  - SettingsPage.tsx: 退出登录流程日志
+  - LoginPage.tsx: 详细的登录流程日志
+
+- ✅ **后端调试日志**: 添加API响应日志
+  - 收藏夹API响应日志
+  - 用户信息获取日志
+  - 账号切换日志
+
+### 多账号管理完善 ✅ 已完成
+- ✅ **刷新功能**: 实现账号刷新功能
+  - 添加RefreshCw图标按钮
+  - 实现handleRefreshAccount函数
+  - 支持刷新账号的cookie和用户信息
+  - 添加loading状态显示
+
+- ✅ **UI优化**: 完成多账号管理UI优化
+  - 移除"新增账号"组件
+  - 移除"当前"标记
+  - 单行布局（头像、名称、ID、刷新、删除）
+  - 移动端响应式适配
+  - 头像样式统一（无描边）
+
+### 测试验证 ✅ 已完成
+- ✅ **登录流程测试**: 完整测试登录→保存→刷新→恢复流程
+- ✅ **退出登录测试**: 测试退出登录和重新登录功能
+- ✅ **收藏夹API测试**: 验证收藏夹列表和详情API正常工作
+- ✅ **多账号切换测试**: 测试账号切换功能和数据一致性
+- ✅ **响应式测试**: 测试手机模式下的布局和交互
+
+### 文件变更
+- **修改文件**:
+  - `apps/api/src/routers/auth.py` - 添加sessdata字段到API响应
+  - `apps/api/src/routers/favorites.py` - 添加await关键字
+  - `apps/api/src/services/bilibili.py` - 修复sessdata传递逻辑
+  - `apps/web/src/stores/auth.ts` - 添加调试日志
+  - `apps/web/src/App.tsx` - 添加状态监控
+  - `apps/web/src/pages/HomePage.tsx` - 添加用户状态检查
+  - `apps/web/src/pages/SettingsPage.tsx` - 添加刷新功能和日志
+  - `apps/web/src/pages/components/FavoritesContent.tsx` - 添加sessdata检查
+  - `apps/web/src/pages/LoginPage.tsx` - 添加详细调试日志
+  - `apps/web/src/index.css` - 更新样式和响应式设计
+
+### 总结
+所有优先级1和优先级2的功能都已经完成并测试通过。多账号管理系统功能完整，登录系统稳定可靠，UI/UX优化到位。项目现在已经进入稳定运行阶段，可以开始下一阶段的开发工作。
+

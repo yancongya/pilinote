@@ -160,12 +160,16 @@ class BilibiliService:
                     try:
                         user_info = await self.login_by_sessdata(sessdata)
                         if user_info.get("success"):
+                            # 先提取用户信息，然后确保sessdata不为空
+                            user_data = user_info.get("data", {})
+                            # 确保使用原始的sessdata（从cookie中获取的）
+                            user_data["sessdata"] = sessdata
+                            
                             return {
                                 "success": True,
                                 "data": {
                                     "code": 0,
-                                    **user_info.get("data", {}),
-                                    "sessdata": sessdata,
+                                    **user_data,
                                     "refresh_token": refresh_token
                                 }
                             }

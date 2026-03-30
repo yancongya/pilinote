@@ -20,8 +20,7 @@ async def get_folders(
     """获取收藏夹列表"""
     service = BilibiliService()
     try:
-        result = service.get_folder_list(sessdata, up_mid, page, page_size)
-        print(f"收藏夹API原始响应: {result}")
+        result = await service.get_folder_list(sessdata, up_mid, page, page_size)
         if result["success"]:
             data = result["data"]
             print(f"解析后的data: {data}")
@@ -185,7 +184,6 @@ async def get_collected_folders(
     service = BilibiliService()
     try:
         result = service.get_collected_folders(sessdata, up_mid, page, page_size)
-        print(f"订阅收藏夹API原始响应: {result}")
         
         if result["success"]:
             data = result["data"]

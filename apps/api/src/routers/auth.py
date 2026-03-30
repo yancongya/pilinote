@@ -211,22 +211,39 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
             user_data = result["data"]
             mid = user_data["mid"]
 
+            # 检查用户是否已存在
             existing_user = db.query(User).filter(User.mid == mid).first()
+            
+            # 将所有用户设置为非活跃
+            db.query(User).update({"is_active": False})
+            
             if existing_user:
                 existing_user.sessdata = user_data["sessdata"]
                 existing_user.username = user_data["username"]
                 existing_user.avatar = user_data.get("avatar")
+                existing_user.is_active = True
                 existing_user.updated_at = None
                 db.commit()
+                user_id = existing_user.id
             else:
                 new_user = User(
                     mid=mid,
                     username=user_data["username"],
                     avatar=user_data.get("avatar"),
-                    sessdata=user_data["sessdata"]
+                    sessdata=user_data["sessdata"],
+                    is_active=True
                 )
                 db.add(new_user)
                 db.commit()
+                db.flush()
+                user_id = new_user.id
+            
+            # 保存所有cookie到数据库（关联user_id）
+            cookies_dict = service.headers_manager.cookie_manager.get_cookies()
+            save_result = await service.headers_manager.cookie_manager.save_to_db(user_id)
+            
+            print(f"[Login] 用户 {user_data['username']} (mid={mid}) 登录成功")
+            print(f"[Login] 保存了{save_result.get('saved_count', 0)}个cookie")
 
             return {
                 "success": True,
@@ -236,7 +253,8 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
                     "username": user_data["username"],
                     "avatar": user_data.get("avatar"),
                     "level": user_data.get("level"),
-                    "vip_status": user_data.get("vip_status")
+                    "vip_status": user_data.get("vip_status"),
+                    "sessdata": user_data["sessdata"]  # 添加sessdata字段
                 }
             }
         raise HTTPException(status_code=400, detail=result["message"])
@@ -416,7 +434,7 @@ async def refresh_cookie():
 
 
 @router.post("/logout", response_model=dict)
-async def logout():
+async def logout(db: Session = Depends(get_db)):
     """
     退出登录（优先级1核心功能）
     
@@ -424,12 +442,17 @@ async def logout():
     - 通知B站账号登出
     - 清理本地Cookie
     - 更新前端登录状态
+    - 清除用户的is_active状态
     
     Returns:
         Dict: 登出结果
     """
     service = BilibiliService()
     try:
+        # 清除所有用户的is_active状态
+        db.query(User).update({"is_active": False})
+        db.commit()
+        
         # 获取当前cookies
         cookies_dict = service.headers_manager.cookie_manager.get_cookies()
         bili_csrf = cookies_dict.get("bili_jct")
@@ -461,11 +484,14 @@ async def logout():
             "message": "退出登录成功"
         }
     except Exception as e:
-        # 即使退出请求失败，也要清理本地cookie
+        # 即使退出请求失败，也要清理本地cookie和is_active状态
+        db.query(User).update({"is_active": False})
+        db.commit()
+        
         await service.headers_manager.cookie_manager.clear_cookies()
         await service.headers_manager.refresh()
         
-        print(f"[Logout] 退出登录异常（已清理本地cookie）: {str(e)}")
+        print(f"[Logout] 退出登录异常（已清理本地数据）: {str(e)}")
         
         return {
             "success": True,
@@ -473,3 +499,263 @@ async def logout():
         }
     finally:
         service.close()
+
+
+@router.get("/accounts", response_model=dict)
+async def get_accounts(db: Session = Depends(get_db)):
+    """
+    获取账号列表（优先级2增强功能）
+    
+    功能：
+    - 获取所有已登录的账号
+    - 标识当前活跃账号
+    
+    Returns:
+        Dict: 账号列表
+    """
+    try:
+        # 查询所有用户
+        users = db.query(User).order_by(User.created_at.desc()).all()
+        
+        accounts_list = []
+        for user in users:
+            accounts_list.append({
+                "id": user.id,
+                "mid": user.mid,
+                "username": user.username,
+                "avatar": user.avatar,
+                "is_active": user.is_active,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            })
+        
+        return {
+            "success": True,
+            "data": {
+                "accounts": accounts_list,
+                "total": len(accounts_list)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取账号列表失败: {str(e)}")
+
+
+@router.get("/status", response_model=dict)
+async def get_login_status(db: Session = Depends(get_db)):
+    """
+    获取登录状态（优先级2增强功能）
+    
+    功能：
+    - 检查当前登录状态
+    - 返回当前活跃账号信息
+    - 检测cookie有效性
+    
+    Returns:
+        Dict: 登录状态信息
+    """
+    from src.services.headers_manager import get_headers_manager
+    
+    service = BilibiliService()
+    try:
+        # 查找活跃用户
+        active_user = db.query(User).filter(User.is_active == True).first()
+        
+        if not active_user:
+            return {
+                "success": True,
+                "data": {
+                    "is_logged_in": False,
+                    "message": "未登录"
+                }
+            }
+        
+        # 检查cookie有效性
+        headers_manager = get_headers_manager()
+        cookies_dict = headers_manager.cookie_manager.get_cookies()
+        
+        has_sessdata = "SESSDATA" in cookies_dict and cookies_dict["SESSDATA"]
+        
+        if not has_sessdata:
+            return {
+                "success": True,
+                "data": {
+                    "is_logged_in": False,
+                    "message": "Cookie已失效",
+                    "user": {
+                        "id": active_user.id,
+                        "mid": active_user.mid,
+                        "username": active_user.username,
+                        "avatar": active_user.avatar
+                    }
+                }
+            }
+        
+        # 尝试获取用户信息以验证登录状态
+        try:
+            user_info = await service.get_user_info(cookies_dict["SESSDATA"])
+            
+            if user_info.get("code") != 0:
+                return {
+                    "success": True,
+                    "data": {
+                        "is_logged_in": False,
+                        "message": f"登录已失效: {user_info.get('message', '未知错误')}",
+                        "user": {
+                            "id": active_user.id,
+                            "mid": active_user.mid,
+                            "username": active_user.username,
+                            "avatar": active_user.avatar
+                        }
+                    }
+                }
+            
+            # 登录有效
+            return {
+                "success": True,
+                "data": {
+                    "is_logged_in": True,
+                    "message": "已登录",
+                    "user": {
+                        "id": active_user.id,
+                        "mid": active_user.mid,
+                        "username": active_user.username,
+                        "avatar": active_user.avatar,
+                        "user_info": user_info.get("data", {})
+                    }
+                }
+            }
+        except Exception as e:
+            return {
+                "success": True,
+                "data": {
+                    "is_logged_in": False,
+                    "message": f"验证登录状态失败: {str(e)}",
+                    "user": {
+                        "id": active_user.id,
+                        "mid": active_user.mid,
+                        "username": active_user.username,
+                        "avatar": active_user.avatar
+                    }
+                }
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取登录状态失败: {str(e)}")
+    finally:
+        service.close()
+
+
+@router.post("/accounts/switch", response_model=dict)
+async def switch_account(account_id: int, db: Session = Depends(get_db)):
+    """
+    切换账号（优先级2增强功能）
+    
+    功能：
+    - 切换到指定账号
+    - 加载该账号的cookie
+    - 设置为活跃账号
+    
+    Args:
+        account_id: 账号ID
+        
+    Returns:
+        Dict: 切换结果
+    """
+    from src.services.headers_manager import get_headers_manager
+    
+    service = BilibiliService()
+    try:
+        # 查找目标账号
+        user = db.query(User).filter(User.id == account_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="账号不存在")
+        
+        # 将所有用户设置为非活跃
+        db.query(User).update({"is_active": False})
+        
+        # 设置目标账号为活跃
+        user.is_active = True
+        db.commit()
+        
+        # 获取全局headers_manager
+        headers_manager = get_headers_manager()
+        
+        # 清除当前cookie
+        await headers_manager.cookie_manager.clear_cookies()
+        
+        # 从数据库加载该账号的cookie
+        load_result = await headers_manager.cookie_manager.load_from_db(user.id)
+        
+        # 设置SESSDATA到HeadersManager（注意：set_cookie是同步方法）
+        if user.sessdata:
+            headers_manager.cookie_manager.set_cookie("SESSDATA", user.sessdata)
+            await headers_manager.refresh()
+        
+        # 更新用户信息
+        user_info = await service.get_user_info(user.sessdata)
+        
+        
+        return {
+            "success": True,
+            "message": f"切换到账号: {user.username}",
+            "data": {
+                "mid": user.mid,
+                "username": user.username,
+                "avatar": user.avatar,
+                "sessdata": user.sessdata,  # 添加sessdata字段
+                "user_info": user_info.get("data", {})
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"切换账号失败: {str(e)}")
+    finally:
+        service.close()
+
+
+@router.delete("/accounts/{account_id}", response_model=dict)
+async def delete_account(account_id: int, db: Session = Depends(get_db)):
+    """
+    删除账号（优先级2增强功能）
+    
+    功能：
+    - 删除指定账号
+    - 清理该账号的cookie
+    
+    Args:
+        account_id: 账号ID
+        
+    Returns:
+        Dict: 删除结果
+    """
+    from src.services.headers_manager import get_headers_manager
+    
+    try:
+        # 查找目标账号
+        user = db.query(User).filter(User.id == account_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="账号不存在")
+        
+        username = user.username
+        mid = user.mid
+        
+        # 如果删除的是当前活跃账号，清除所有cookie
+        if user.is_active:
+            headers_manager = get_headers_manager()
+            await headers_manager.cookie_manager.clear_cookies()
+            await headers_manager.refresh()
+        
+        # 删除用户
+        db.delete(user)
+        db.commit()
+        
+        # 删除该用户的所有cookie
+        from src.models.cookie import Cookie
+        db.query(Cookie).filter(Cookie.user_id == account_id).delete()
+        db.commit()
+        
+        print(f"[Account Delete] 删除账号: {username} (mid={mid})")
+        
+        return {
+            "success": True,
+            "message": f"已删除账号: {username}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除账号失败: {str(e)}")

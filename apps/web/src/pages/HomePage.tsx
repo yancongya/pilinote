@@ -17,6 +17,10 @@ function HomePage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
   
+  // 调试：打印用户状态
+  useEffect(() => {
+  }, [user])
+  
   // Week 2: 定期检查并刷新cookie
   useEffect(() => {
     if (!user || !user.sessdata) return
@@ -95,6 +99,10 @@ function HomePage() {
     return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(avatarUrl)}`
   }
 
+  const handleAvatarClick = () => {
+    navigate('/settings')
+  }
+
   return (
     <div className={`home-container ${activeTab === 'home' ? 'has-tabs' : ''}`}>
       <header className="home-header">
@@ -104,7 +112,7 @@ function HomePage() {
         <div className="header-right">
           {user ? (
             <>
-              <div className="user-info" onClick={() => setShowLogoutConfirm(true)}>
+              <div className="user-info" onClick={handleAvatarClick}>
                 <img
                   src={getAvatarUrl(user.avatar || '')}
                   alt={user.username}

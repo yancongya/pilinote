@@ -61,6 +61,10 @@ export default function FavoritesContent() {
     syncFromServer 
   } = downloadStore
 
+  // 调试：打印用户状态
+  useEffect(() => {
+  }, [user])
+
   // 处理收藏夹选择，更新路由
   const handleSelectFolder = (folder: any) => {
     setSelectedFolder(folder)

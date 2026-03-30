@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
@@ -9,7 +10,19 @@ interface LoginPageProps {
   onLogin: () => void
 }
 
+interface Account {
+  id: number
+  mid: number
+  username: string
+  avatar: string
+  is_active: boolean
+  created_at: string
+}
+
 function LoginPage({ onLogin }: LoginPageProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  
   const [activeTab, setActiveTab] = useState('qrcode')
   const [qrcodeUrl, setQrcodeUrl] = useState('')
   const [qrcodeStatus, setQrcodeStatus] = useState<'loading' | 'waiting' | 'scanned' | 'success' | 'expired'>('loading')
@@ -28,6 +41,11 @@ function LoginPage({ onLogin }: LoginPageProps) {
   const [smsCaptchaKey, setSmsCaptchaKey] = useState('')
   const [countryCode, setCountryCode] = useState('86')
 
+  // 账号列表
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [accountsLoading, setAccountsLoading] = useState(false)
+  const [switchingAccountId, setSwitchingAccountId] = useState<number | null>(null)
+
   useEffect(() => {
     if (activeTab === 'qrcode') {
       fetchQrcode()
@@ -38,6 +56,49 @@ function LoginPage({ onLogin }: LoginPageProps) {
       }
     }
   }, [activeTab])
+
+  // 加载账号列表
+  useEffect(() => {
+    loadAccounts()
+  }, [])
+
+  const loadAccounts = async () => {
+    setAccountsLoading(true)
+    try {
+      const response = await apiService.getAccounts()
+      if (response.success && response.data) {
+        setAccounts(response.data.accounts || [])
+      }
+    } catch (err) {
+      console.error('获取账号列表失败:', err)
+    } finally {
+      setAccountsLoading(false)
+    }
+  }
+
+  const handleSwitchAccount = async (accountId: number) => {
+    setSwitchingAccountId(accountId)
+    setError('')
+
+    try {
+      const response = await apiService.switchAccount(accountId)
+      if (response.success && response.data) {
+        setUser({
+          mid: response.data.mid,
+          username: response.data.username,
+          avatar: response.data.avatar,
+          sessdata: response.data.sessdata,
+        })
+        onLogin()
+      } else {
+        setError(response.message || '切换账号失败')
+      }
+    } catch (err) {
+      setError('网络请求失败')
+    } finally {
+      setSwitchingAccountId(null)
+    }
+  }
 
   const fetchQrcode = async () => {
     try {
@@ -63,6 +124,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
       try {
         const response = await apiService.queryQrcodeStatus(key)
         console.log('二维码状态:', response)
+        console.log('响应完整数据:', JSON.stringify(response, null, 2))
 
         if (response.success && response.data) {
           // 登录成功
@@ -82,7 +144,17 @@ function LoginPage({ onLogin }: LoginPageProps) {
               sessdata: response.data.sessdata
             }
             
+            console.log('登录成功，保存用户信息:', userInfo)
+            console.log('sessdata值:', userInfo.sessdata)
             setUser(userInfo)
+            
+            // 验证setUser后的状态
+            setTimeout(() => {
+              const store = useAuthStore.getState()
+              console.log('setUser后的store状态:', store.user)
+              console.log('setUser后的sessdata:', store.user?.sessdata)
+            }, 100)
+            
             onLogin()
           } 
           // 二维码已扫码
@@ -277,6 +349,50 @@ function LoginPage({ onLogin }: LoginPageProps) {
           >
             SESSDATA
           </button>
+        </div>
+
+        {/* 账号列表 */}
+        <div className="login-accounts">
+          {accountsLoading ? (
+            <div className="accounts-loading">加载中...</div>
+          ) : accounts.length === 0 ? null : (
+            <div className="accounts-list">
+              {accounts.map((account) => (
+                <div
+                  key={account.id}
+                  className={`account-item ${switchingAccountId === account.id ? 'switching' : ''}`}
+                  onClick={() => handleSwitchAccount(account.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleSwitchAccount(account.id)
+                    }
+                  }}
+                >
+                  <img
+                    src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(account.avatar)}`}
+                    alt={account.username}
+                    className="account-avatar"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.src = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect fill='%233B82F6' width='40' height='40'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='white' font-size='20'>${account.username?.[0]?.toUpperCase() || 'U'}</text></svg>`
+                    }}
+                  />
+                  <div className="account-info">
+                    <span className="account-name">{account.username}</span>
+                    <span className="account-id">MID: {account.mid}</span>
+                  </div>
+                  {switchingAccountId === account.id && (
+                    <div className="account-switching">
+                      <Check />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="login-content">

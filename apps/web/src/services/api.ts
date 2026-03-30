@@ -310,6 +310,37 @@ class ApiService {
       body: JSON.stringify({ cid, tel, token, challenge, validate, seccode }),
     });
   }
+
+  // 多账号管理相关API
+  async getLoginStatus(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/status', {
+      method: 'GET',
+    });
+  }
+
+  async getAccounts(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/accounts', {
+      method: 'GET',
+    });
+  }
+
+  async switchAccount(accountId: number): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/auth/accounts/switch?account_id=${accountId}`, {
+      method: 'POST',
+    });
+  }
+
+  async deleteAccount(accountId: number): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/auth/accounts/${accountId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async logout(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/logout', {
+      method: 'POST',
+    });
+  }
 }
 
 export const apiService = new ApiService();
