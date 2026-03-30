@@ -1,14 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListCard from './VideoListCard'
 import { useDownloadStore } from '../../stores/download'
-import { apiService } from '../../services/api'
 
 interface DownloadTask {
   id: string
   bvid: string
   title: string
-  status: 'pending' | 'queued' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  status: 'pending' | 'queued' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'paused'
   progress: number
   downloaded_bytes: number
   total_bytes: number
@@ -47,24 +46,7 @@ export default function DownloadsContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('downloading')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [expandedSeries, setExpandedSeries] = useState<string | null>(null)
-  const refreshTimerRef = useRef<number | null>(null)
   const navigate = useNavigate()
-
-  // 格式化文件大小
-  const formatFileSize = (bytes: number): string => {
-    if (!bytes || bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
-  }
-
-  // 格式化速度
-  const formatSpeed = (speed: number): string => {
-    if (!speed || speed === 0) return '0 KB/s'
-    return formatFileSize(speed * 1024) + '/s'
-  }
 
   // 格式化时长
   const formatDuration = (seconds: number): string => {
@@ -77,16 +59,6 @@ export default function DownloadsContent() {
       return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
     return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  // 格式化ETA
-  const formatETA = (seconds: number): string => {
-    if (!seconds || seconds === 0) return '--:--'
-    if (seconds < 60) return `${Math.round(seconds)}秒`
-    if (seconds < 3600) return `${Math.round(seconds / 60)}分`
-    const hours = Math.floor(seconds / 3600)
-    const mins = Math.round((seconds % 3600) / 60)
-    return `${hours}小时${mins}分`
   }
 
   // 格式化时间
@@ -107,64 +79,15 @@ export default function DownloadsContent() {
       'pending': '等待下载',
       'queued': '队列中',
       'downloading': '下载中',
-      'processing': '处理中',
       'paused': '已暂停',
+      'processing': '处理中',
       'failed': '下载失败',
       'cancelled': '已取消'
     }
     return statusMap[status] || status
   }
 
-  // 获取状态图标
-  const getStatusIcon = (status: string): string => {
-    const iconMap: Record<string, string> = {
-      'pending': '⏳',
-      'queued': '📋',
-      'downloading': '⬇️',
-      'processing': '⚙️',
-      'paused': '⏸️',
-      'failed': '❌',
-      'cancelled': '🚫'
-    }
-    return iconMap[status] || '📥'
-  }
-
-  // 开始下载（单个任务）
-  const handleStartTask = async (taskId: string) => {
-    const success = await downloadStore.startDownload(taskId)
-    if (!success) {
-      alert('开始下载失败')
-    }
-  }
-
-  // 暂停下载
-  const handlePauseTask = async (taskId: string) => {
-    const success = await downloadStore.pauseDownload(taskId)
-    if (!success) {
-      alert('暂停下载失败')
-    }
-  }
-
-  // 继续下载
-  const handleResumeTask = async (taskId: string) => {
-    const success = await downloadStore.resumeDownload(taskId)
-    if (!success) {
-      alert('继续下载失败')
-    }
-  }
-
-  // 取消下载
-  const handleCancelTask = async (taskId: string) => {
-    if (!confirm('确定要取消下载吗？')) {
-      return
-    }
-    const success = await downloadStore.cancelDownload(taskId)
-    if (!success) {
-      alert('取消下载失败')
-    }
-  }
-
-  // 开始下载（系列）
+  // 开始下载
   const handleStartDownload = async (series: DownloadSeries) => {
     const success = await downloadStore.startBatchDownloads(series.tasks.map(task => task.id))
     if (!success) {
@@ -188,11 +111,6 @@ export default function DownloadsContent() {
     fetchDownloads()
   }
 
-  // 切换系列展开/折叠
-  const toggleSeries = (seriesId: string) => {
-    setExpandedSeries(expandedSeries === seriesId ? null : seriesId)
-  }
-
   // 获取下载任务列表
   const fetchDownloads = useCallback(async () => {
     setLoading(true)
@@ -203,7 +121,6 @@ export default function DownloadsContent() {
       const data = await response.json()
       
       if (data.success) {
-        // 获取所有下载任务，不过滤
         setDownloads(data.downloads)
       } else {
         setError(data.message || '获取下载列表失败')
@@ -257,10 +174,10 @@ export default function DownloadsContent() {
       const firstTask = groups[seriesId].tasks[0]
       if (firstTask.bvid) {
         try {
-          const response = await apiService.getVideoDetail(firstTask.bvid)
-          if (response.success && response.data) {
-            // 使用视频的真实标题作为系列名
-            groups[seriesId].seriesName = response.data.title
+          const response = await fetch(`http://localhost:8000/api/video/detail/${firstTask.bvid}`)
+          const data = await response.json()
+          if (data.success && data.data) {
+            groups[seriesId].seriesName = data.data.title
           }
         } catch (error) {
           console.error('获取视频详情失败:', error)
@@ -323,21 +240,10 @@ export default function DownloadsContent() {
     )
     
     if (hasDownloading) {
-      refreshTimerRef.current = setInterval(() => {
+      const timer = setInterval(() => {
         fetchDownloads()
       }, 2000)
-    } else {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current)
-        refreshTimerRef.current = null
-      }
-    }
-
-    return () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current)
-        refreshTimerRef.current = null
-      }
+      return () => clearInterval(timer)
     }
   }, [downloads, fetchDownloads])
 
@@ -369,86 +275,6 @@ export default function DownloadsContent() {
     ).length,
     completed: downloads.filter(d => d.status === 'completed').length,
   }
-
-  // 渲染单个任务的控制按钮
-  const renderTaskControls = (task: DownloadTask) => {
-    switch (task.status) {
-      case 'pending':
-      case 'failed':
-        return (
-          <button 
-            className="task-control-btn start"
-            onClick={() => handleStartTask(task.id)}
-            title="开始下载"
-          >
-            ▶️
-          </button>
-        )
-      case 'downloading':
-        return (
-          <button 
-            className="task-control-btn pause"
-            onClick={() => handlePauseTask(task.id)}
-            title="暂停下载"
-          >
-            ⏸️
-          </button>
-        )
-      case 'paused':
-        return (
-          <button 
-            className="task-control-btn resume"
-            onClick={() => handleResumeTask(task.id)}
-            title="继续下载"
-          >
-            ▶️
-          </button>
-        )
-      case 'queued':
-        return (
-          <button 
-            className="task-control-btn queued"
-            onClick={() => handleCancelTask(task.id)}
-            title="取消下载"
-          >
-            ⏸️
-          </button>
-        )
-      default:
-        return null
-    }
-  }
-
-  // 渲染任务详情
-  const renderTaskDetail = (task: DownloadTask) => (
-    <div className="task-detail">
-      <div className="task-info">
-        <div className="task-status">
-          <span className="status-icon">{getStatusIcon(task.status)}</span>
-          <span className="status-text">{getStatusText(task.status)}</span>
-        </div>
-        {task.status === 'downloading' && (
-          <div className="task-progress-info">
-            <span className="download-speed">{formatSpeed(task.download_speed)}</span>
-            <span className="eta">{formatETA(task.eta)}</span>
-          </div>
-        )}
-        {task.error_message && (
-          <div className="task-error">{task.error_message}</div>
-        )}
-      </div>
-      <div className="task-actions">
-        {renderTaskControls(task)}
-        <button 
-          className="task-control-btn cancel"
-          onClick={() => handleCancelTask(task.id)}
-          title="取消下载"
-        >
-          🚫
-        </button>
-      </div>
-    </div>
-  )
 
   return (
     <div className="downloads-app">
@@ -494,108 +320,46 @@ export default function DownloadsContent() {
             {seriesList.map(series => {
               const isSeries = series.totalCount > 1
               const firstTask = series.tasks[0]
-              const isExpanded = expandedSeries === series.seriesId
               
               // 计算系列的整体进度
               const seriesProgress = series.totalCount > 0 
                 ? Math.round((series.completedCount / series.totalCount) * 100) 
                 : 0
               
+              // 判断下载状态
+              const downloadStatus = isSeries 
+                ? (seriesProgress === 100 ? 'in_list' : 'in_list')
+                : (firstTask.status === 'completed' ? 'in_list' : 'in_list')
+              
+              // 单个视频或系列视频都可以点击进入详情页
+              const canClickDetail = true
+              
               return (
-                <div key={series.seriesId} className="download-series-card">
-                  {/* 系列卡片 */}
-                  <div 
-                    className={`series-header ${isExpanded ? 'expanded' : ''}`}
-                    onClick={() => isSeries && toggleSeries(series.seriesId)}
-                  >
-                    <div className="series-info">
-                      {isSeries && (
-                        <span className="expand-icon">
-                          {isExpanded ? '▼' : '▶'}
-                        </span>
-                      )}
-                      {firstTask.thumbnail_url && (
-                        <img 
-                          src={firstTask.thumbnail_url} 
-                          alt={series.seriesName}
-                          className="series-thumbnail"
-                        />
-                      )}
-                      {!firstTask.thumbnail_url && (
-                        <div className="series-thumbnail placeholder">🎬</div>
-                      )}
-                      <div className="series-details">
-                        <h3 className="series-title">{series.seriesName}</h3>
-                        <div className="series-meta">
-                          <span className="series-uploader">{firstTask.uploader}</span>
-                          <span className="series-duration">{formatDuration(firstTask.duration || 0)}</span>
-                          <span className="series-count">{series.completedCount}/{series.totalCount}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="series-progress">
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
-                          style={{ width: `${seriesProgress}%` }}
-                        />
-                      </div>
-                      <span className="progress-text">{seriesProgress}%</span>
-                    </div>
-                    <div className="series-actions">
-                      {isSeries && !isExpanded ? (
-                        <>
-                          <button 
-                            className="series-action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleStartDownload(series)
-                            }}
-                            title="开始下载"
-                          >
-                            ▶️
-                          </button>
-                          <button 
-                            className="series-action-btn"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteDownload(series)
-                            }}
-                            title="删除"
-                          >
-                            🗑️
-                          </button>
-                        </>
-                      ) : null}
-                    </div>
-                  </div>
-                  
-                  {/* 展开的任务列表 */}
-                  {isExpanded && isSeries && (
-                    <div className="series-tasks">
-                      {series.tasks.map(task => (
-                        <div key={task.id} className="task-item">
-                          <div className="task-main">
-                            <span className="task-title">
-                              P{series.tasks.indexOf(task) + 1}: {task.title}
-                            </span>
-                            <div className="task-progress-bar">
-                              <div 
-                                className="task-progress-fill"
-                                style={{ width: `${task.progress}%` }}
-                              />
-                              <span className="task-progress-text">{task.progress.toFixed(1)}%</span>
-                            </div>
-                          </div>
-                          {renderTaskDetail(task)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* 单个视频任务 */}
-                  {!isSeries && renderTaskDetail(firstTask)}
-                </div>
+                <VideoListCard
+                  key={series.seriesId}
+                  id={firstTask.id}
+                  bvid={firstTask.bvid || series.seriesId}
+                  title={series.seriesName}
+                  cover={firstTask.thumbnail_url || ''}
+                  duration={formatDuration(firstTask.duration || 0)}
+                  uploader={firstTask.uploader || ''}
+                  views={getStatusText(firstTask.status)}
+                  comments={formatTime(series.createdTime)}
+                  time=""
+                  progress={isSeries ? seriesProgress : firstTask.progress}
+                  downloadStatus={downloadStatus}
+                  showDownloadButton={false}
+                  isSeries={isSeries}
+                  clickable={canClickDetail}
+                  showActionButtons={true}
+                  canStart={firstTask.status === 'pending' || firstTask.status === 'failed' || firstTask.status === 'paused'}
+                  onActionStart={() => handleStartDownload(series)}
+                  onActionDelete={() => handleDeleteDownload(series)}
+                  onVideoClick={() => {
+                    // 所有视频都可以进入详情页
+                    navigate(`/downloads/${series.seriesId}`)
+                  }}
+                />
               )
             })}
           </div>
