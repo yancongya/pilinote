@@ -77,37 +77,46 @@ class DownloadDetailResponse(BaseModel):
 
 @router.post("/parse", response_model=ParseLinkResponse)
 async def parse_link(request: ParseLinkRequest):
-    """
-    解析下载链接，提取视频ID和基本信息
+    r"""
+    解析下载链接，提取资源ID和基本信息
     
     支持的格式:
-    - 课程ID: ss360 或直接输入 360
-    - 课程链接: https://www.bilibili.com/cheese/play/ss360
-    - BV编号: BV1xx411c7mh
-    - 完整URL: https://www.bilibili.com/video/BV1xx411c7mh
-    - 短链接: https://b23.tv/BV1xx411c7mh
-    - AV编号: av12345678 或 12345678
+    - 视频: av\d+, BV\w{10}
+    - 番剧: ep\d+, ss\d+, md\d+
+    - 音乐: au\d+
+    - 歌单: am\d+
+    - 课程: cheese.play/ss\d+
+    - 稍后再看: /watchlater
+    - 收藏夹: space.bilibili.com/{mid}/favlist?fid={fid}
+    - 图文: cv\d+
+    - 图文合集: rl\d+
+    - 用户视频: space.bilibili.com/{mid}/video
+    - 用户图文: space.bilibili.com/{mid}/opus
+    - 用户音频: space.bilibili.com/{mid}/audio
+    - 短链接: b23.tv
     """
     try:
-        # 解析链接
-        parsed = link_parser.parse_video_link(request.url)
+        # 使用新的 parse_id 方法解析链接
+        parsed = link_parser.parse_id(request.url)
         
-        # 获取信息
+        # 设置请求头
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer": "https://www.bilibili.com"
         }
-        
         if request.sessdata:
             headers["Cookie"] = f"SESSDATA={request.sessdata}"
         
-        # 如果是课程链接，使用课程API
-        if parsed["type"] == "season":
+        # 根据媒体类型处理不同的资源
+        media_type = parsed["type"]
+        api_url = link_parser.get_video_info_url(str(parsed["id"]), media_type)
+        
+        # 特殊处理：课程
+        if media_type == MediaType.LESSON:
             from src.services.bilibili import BilibiliService
             bilibili_service = BilibiliService()
             
             try:
-                # 获取课程详情
                 season_id = int(parsed["id"])
                 course_detail_result = bilibili_service.get_classroom_detail(season_id, request.sessdata or "")
                 
@@ -118,8 +127,6 @@ async def parse_link(request: ParseLinkRequest):
                     )
                 
                 course_detail = course_detail_result["data"]
-                
-                # 获取课程分集列表
                 course_episodes_result = bilibili_service.get_classroom_episodes(season_id, request.sessdata or "", 1, 100)
                 
                 if not course_episodes_result["success"]:
@@ -137,26 +144,26 @@ async def parse_link(request: ParseLinkRequest):
                         message="课程暂无分集内容或需要购买"
                     )
                 
-                # 获取UP主信息
                 up_info = course_detail.get("up_info", {})
-                
-                # 获取统计数据
                 stat = course_detail.get("stat", {})
                 
-                # 返回课程信息（使用真实的课程详情）
                 return ParseLinkResponse(
                     success=True,
                     data={
-                        "parsed_id": ParsedVideoId(**parsed),
+                        "parsed_id": ParsedVideoId(
+                            id=parsed["id"],
+                            type=parsed["type"].value,
+                            original=parsed["original"]
+                        ),
                         "video": VideoInfo(
-                            bvid=episodes[0].get("bvid", ""),  # 使用第一个分集的bvid
-                            aid=episodes[0].get("aid", 0),     # 使用第一个分集的aid
-                            title=course_detail.get("title", ""),  # 使用课程真实标题
+                            bvid=episodes[0].get("bvid", ""),
+                            aid=episodes[0].get("aid", 0),
+                            title=course_detail.get("title", ""),
                             desc=course_detail.get("subtitle", "") or course_detail.get("description", ""),
-                            pic=course_detail.get("cover", ""),   # 使用课程封面
-                            duration=sum(ep.get("duration", 0) for ep in episodes),  # 课程总时长
-                            pubdate=course_detail.get("pubtime", 0) or int(course_detail.get("release_date", 0)),  # 课程发布时间
-                            cid=episodes[0].get("cid", 0),      # 使用第一个分集的cid
+                            pic=course_detail.get("cover", ""),
+                            duration=sum(ep.get("duration", 0) for ep in episodes),
+                            pubdate=course_detail.get("pubtime", 0) or int(course_detail.get("release_date", 0)),
+                            cid=episodes[0].get("cid", 0),
                             owner={
                                 "mid": up_info.get("mid", 0),
                                 "name": up_info.get("uname", ""),
@@ -164,7 +171,7 @@ async def parse_link(request: ParseLinkRequest):
                             },
                             stat={
                                 "view": stat.get("play", 0),
-                                "danmaku": 0  # 课程可能没有弹幕统计
+                                "danmaku": 0
                             }
                         ),
                         "download_options": {
@@ -189,14 +196,411 @@ async def parse_link(request: ParseLinkRequest):
             finally:
                 bilibili_service.close()
         
-        # 普通视频链接处理
-        # 构建API URL
-        api_url = link_parser.get_video_info_url(parsed["id"], parsed["type"])
+        # 特殊处理：番剧
+        elif media_type == MediaType.BANGUMI:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("code") != 0:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=data.get("message", "获取番剧信息失败")
+                    )
+                
+                bangumi_data = data.get("data", {})
+                episodes = bangumi_data.get("episodes", [])
+                
+                if not episodes:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="番剧暂无分集内容或需要购买"
+                    )
+                
+                return ParseLinkResponse(
+                    success=True,
+                    data={
+                        "parsed_id": ParsedVideoId(
+                            id=parsed["id"],
+                            type=parsed["type"].value,
+                            original=parsed["original"]
+                        ),
+                        "video": VideoInfo(
+                            bvid=episodes[0].get("bvid", ""),
+                            aid=episodes[0].get("aid", 0),
+                            title=bangumi_data.get("title", ""),
+                            desc=bangumi.get("subtitle", "") or bangumi.get("evaluate", ""),
+                            pic=bangumi_data.get("cover", ""),
+                            duration=sum(ep.get("duration", 0) for ep in episodes),
+                            pubdate=bangumi_data.get("pubtime", 0),
+                            cid=episodes[0].get("cid", 0),
+                            owner=bangumi.get("up_info", {}),
+                            stat=bangumi_data.get("stat", {})
+                        ),
+                        "download_options": {
+                            "multi_part": True,
+                            "pages": [
+                                VideoPages(
+                                    page=ep.get("page", 0),
+                                    cid=ep.get("cid", 0),
+                                    part=ep.get("title", f"P{ep.get('page', 0)}"),
+                                    duration=ep.get("duration", 0)
+                                )
+                                for ep in episodes
+                            ]
+                        },
+                        "bangumi_info": {
+                            "season_id": parsed["id"],
+                            "total_episodes": len(episodes),
+                            "episodes": episodes
+                        }
+                    }
+                )
         
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(api_url, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+        # 特殊处理：稍后再看
+        elif media_type == MediaType.WATCH_LATER:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("code") != 0:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=data.get("message", "获取稍后再看失败")
+                    )
+                
+                watchlater_data = data.get("data", [])
+                if not watchlater_data:
+                    return ParseLinkResponse(
+                        success=True,
+                        data={
+                            "parsed_id": ParsedVideoId(
+                                id=parsed["id"],
+                                type=parsed["type"].value,
+                                original=parsed["original"]
+                            ),
+                            "video": VideoInfo(
+                                bvid="",
+                                aid=0,
+                                title="稍后再看",
+                                desc="暂无内容",
+                                pic="",
+                                duration=0,
+                                pubdate=0,
+                                cid=0,
+                                owner={},
+                                stat={}
+                            ),
+                            "download_options": {
+                                "multi_part": False,
+                                "pages": []
+                            },
+                            "watchlater_info": {
+                                "total": len(watchlater_data),
+                                "items": watchlater_data
+                            }
+                        }
+                    )
+                
+                # 返回第一个视频的信息
+                first_item = watchlater_data[0]
+                first_bvid = first_item.get("bvid", "")
+                
+                # 获取第一个视频的详情
+                first_video_url = f"https://api.bilibili.com/x/web-interface/view?bvid={first_bvid}"
+                first_video_response = await client.get(first_video_url, headers=headers)
+                first_video_data = first_video_response.json()
+                
+                if first_video_data.get("code") == 0:
+                    video_data = first_video_data.get("data", {})
+                    return ParseLinkResponse(
+                        success=True,
+                        data={
+                            "parsed_id": ParsedVideoId(
+                                id=parsed["id"],
+                                type=parsed["type"].value,
+                                original=parsed["original"]
+                            ),
+                            "video": VideoInfo(
+                                bvid=video_data.get("bvid", ""),
+                                aid=video_data.get("aid", 0),
+                                title=video_data.get("title", ""),
+                                desc=video_data.get("desc", ""),
+                                pic=video_data.get("pic", ""),
+                                duration=video_data.get("duration", 0),
+                                pubdate=video_data.get("pubtime", 0),
+                                cid=video_data.get("cid", 0),
+                                owner=video_data.get("owner", {}),
+                                stat=video_data.get("stat", {})
+                            ),
+                            "download_options": {
+                                "multi_part": True,
+                                "pages": [
+                                    VideoPages(
+                                        page=page.get("page", 0),
+                                        cid=page.get("cid", 0),
+                                        part=page.get("part", ""),
+                                        duration=page.get("duration", 0)
+                                    )
+                                    for page in video_data.get("pages", [])
+                                ]
+                            },
+                            "watchlater_info": {
+                                "total": len(watchlater_data),
+                                "items": watchlater_data
+                            }
+                        }
+                    )
+        
+        # 特殊处理：收藏夹
+        elif media_type == MediaType.FAVORITE:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("code") != 0:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=data.get("message", "获取收藏夹失败")
+                    )
+                
+                fav_data = data.get("data", {})
+                medias = fav_data.get("medias", [])
+                
+                if not medias:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="收藏夹为空"
+                    )
+                
+                # 返回第一个视频的信息
+                first_media = medias[0]
+                first_bvid = first_media.get("bvid", "")
+                
+                # 获取第一个视频的详情
+                first_video_url = f"https://api.bilibili.com/x/web-interface/view?bvid={first_bvid}"
+                first_video_response = await client.get(first_video_url, headers=headers)
+                first_video_data = first_video_response.json()
+                
+                if first_video_data.get("code") == 0:
+                    video_data = first_video_data.get("data", {})
+                    return ParseLinkResponse(
+                        success=True,
+                        data={
+                            "parsed_id": ParsedVideoId(
+                                id=parsed["id"],
+                                type=parsed["type"].value,
+                                original=parsed["original"]
+                            ),
+                            "video": VideoInfo(
+                                bvid=video_data.get("bvid", ""),
+                                aid=video_data.get("aid", 0),
+                                title=video_data.get("title", ""),
+                                desc=video_data.get("desc", ""),
+                                pic=video_data.get("pic", ""),
+                                duration=video_data.get("duration", 0),
+                                pubdate=video_data.get("pubtime", 0),
+                                cid=video_data.get("cid", 0),
+                                owner=video_data.get("owner", {}),
+                                stat=video_data.get("stat", {})
+                            ),
+                            "download_options": {
+                                "multi_part": True,
+                                "pages": [
+                                    VideoPages(
+                                        page=page.get("page", 0),
+                                        cid=page.get("cid", 0),
+                                        part=page.get("part", ""),
+                                        duration=page.get("duration", 0)
+                                    )
+                                    for page in video_data.get("pages", [])
+                                ]
+                            },
+                            "favorite_info": {
+                                "mid": parsed["id"],
+                                "fid": parsed["target"],
+                                "total": len(medias),
+                                "items": medias
+                            }
+                        }
+                    )
+        
+        # 特殊处理：音乐
+        elif media_type in [MediaType.MUSIC, MediaType.MUSIC_LIST]:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("code") != 0:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=data.get("message", "获取音乐信息失败")
+                    )
+                
+                music_data = data.get("data", {})
+                return ParseLinkResponse(
+                    success=True,
+                    data={
+                        "parsed_id": ParsedVideoId(
+                            id=parsed["id"],
+                            type=parsed["type"].value,
+                            original=parsed["original"]
+                        ),
+                        "video": VideoInfo(
+                            bvid="",
+                            aid=0,
+                            title=music_data.get("title", ""),
+                            desc=music_data.get("intro", ""),
+                            pic=music_data.get("cover", ""),
+                            duration=music_data.get("duration", 0),
+                            pubdate=music_data.get("pub_time", 0),
+                            cid=0,
+                            owner={
+                                "mid": music_data.get("author", {}).get("mid", 0),
+                                "name": music_data.get("author", {}).get("name", ""),
+                                "face": music_data.get("author", {}).get("face", "")
+                            },
+                            stat={
+                                "view": music_data.get("stat", {}).get("play", 0),
+                                "danmaku": 0
+                            }
+                        ),
+                        "download_options": {
+                            "multi_part": False,
+                            "pages": []
+                        },
+                        "music_info": music_data
+                    }
+                )
+        
+        # 特殊处理：图文
+        elif media_type in [MediaType.OPUS, MediaType.OPUS_LIST]:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("code") != 0:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=data.get("message", "获取图文信息失败")
+                    )
+                
+                article_data = data.get("data", {})
+                return ParseLinkResponse(
+                    success=True,
+                    data={
+                        "parsed_id": ParsedVideoId(
+                            id=parsed["id"],
+                            type=parsed["type"].value,
+                            original=parsed["original"]
+                        ),
+                        "video": VideoInfo(
+                            bvid="",
+                            aid=0,
+                            title=article_data.get("title", ""),
+                            desc=article_data.get("desc", ""),
+                            pic=article_data.get("origin_image_urls", [""])[0] if article_data.get("origin_image_urls") else "",
+                            duration=0,
+                            pubdate=article_data.get("pub_time", 0),
+                            cid=0,
+                            owner={
+                                "mid": article_data.get("mid", 0),
+                                "name": article_data.get("author", {}).get("name", ""),
+                                "face": article_data.get("author", {}).get("face", "")
+                            },
+                            stat=article_data.get("stats", {})
+                        ),
+                        "download_options": {
+                            "multi_part": False,
+                            "pages": []
+                        },
+                        "opus_info": article_data
+                    }
+                )
+        
+        # 特殊处理：用户内容（视频/图文/音频）
+        elif media_type in [MediaType.USER_VIDEO, MediaType.USER_OPUS, MediaType.USER_AUDIO]:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data.get("code") != 0:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=data.get("message", "获取用户信息失败")
+                    )
+                
+                archives = data.get("data", {}).get("list", {}).get("vlist", [])
+                if not archives:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="用户暂无发布内容"
+                    )
+                
+                # 返回第一个内容的信息
+                first_archive = archives[0]
+                first_bvid = first_archive.get("bvid", "")
+                
+                # 获取第一个视频的详情
+                first_video_url = f"https://api.bilibili.com/x/web-interface/view?bvid={first_bvid}"
+                first_video_response = await client.get(first_video_url, headers=headers)
+                first_video_data = first_video_response.json()
+                
+                if first_video_data.get("code") == 0:
+                    video_data = first_video_data.get("data", {})
+                    return ParseLinkResponse(
+                        success=True,
+                        data={
+                            "parsed_id": ParsedVideoId(
+                                id=parsed["id"],
+                                type=parsed["type"].value,
+                                original=parsed["original"]
+                            ),
+                            "video": VideoInfo(
+                                bvid=video_data.get("bvid", ""),
+                                aid=video_data.get("aid", 0),
+                                title=video_data.get("title", ""),
+                                desc=video_data.get("desc", ""),
+                                pic=video_data.get("pic", ""),
+                                duration=video_data.get("duration", 0),
+                                pubdate=video_data.get("pubtime", 0),
+                                cid=video_data.get("cid", 0),
+                                owner=video_data.get("owner", {}),
+                                stat=video_data.get("stat", {})
+                            ),
+                            "download_options": {
+                                "multi_part": True,
+                                "pages": [
+                                    VideoPages(
+                                        page=page.get("page", 0),
+                                        cid=page.get("cid", 0),
+                                        part=page.get("part", ""),
+                                        duration=page.get("duration", 0)
+                                    )
+                                    for page in video_data.get("pages", [])
+                                ]
+                            },
+                            "user_info": {
+                                "mid": parsed["id"],
+                                "target": parsed["target"],
+                                "total": len(archives),
+                                "items": archives
+                            }
+                        }
+                    )
+        
+        # 普通视频链接处理（视频类型）
+        else:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(api_url, headers=headers)
+                response.raise_for_status()
+                data = response.json()
             
             if data["code"] != 0:
                 return ParseLinkResponse(
@@ -208,7 +612,11 @@ async def parse_link(request: ParseLinkRequest):
             
             # 构建返回数据
             video_info = {
-                "parsed_id": ParsedVideoId(**parsed),
+                "parsed_id": ParsedVideoId(
+                    type=parsed["type"].value,
+                    id=str(parsed["id"]),
+                    original=parsed["original"]
+                ),
                 "video": VideoInfo(
                     bvid=video_data["bvid"],
                     aid=video_data["aid"],
