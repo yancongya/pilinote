@@ -89,7 +89,7 @@ export default function HomeContent() {
         setUrlInput('')
         
         // 刷新下载列表
-        await downloadStore.fetchDownloads()
+        await downloadStore.syncFromServer()
         
         if (skippedCount > 0) {
           setSuccessMessage(`已添加 ${addedCount} 个视频到下载队列，跳过 ${skippedCount} 个已存在的视频`)
