@@ -20,8 +20,18 @@ from src.schemas.download import (
 )
 from src.utils.bilibili_utils import link_parser, id_converter, MediaType
 from src.services.download_service import download_service
+from src.services.download_manager import download_manager
 
 router = APIRouter(prefix="/api/download", tags=["下载"])
+
+# 在应用启动时启动下载管理器
+@router.on_event("startup")
+async def startup_event():
+    await download_manager.start()
+
+@router.on_event("shutdown")
+async def shutdown_event():
+    await download_manager.stop()
 
 
 # 支持的画质选项
@@ -1163,3 +1173,131 @@ async def get_format_options():
         "success": True,
         "data": FORMAT_OPTIONS
     }
+
+
+# ===== 任务管理API =====
+
+@router.post("/{download_id}/start")
+async def start_download_task(download_id: str):
+    """
+    开始下载任务
+    
+    Args:
+        download_id: 下载任务ID
+    """
+    try:
+        success = await download_manager.start_task(download_id)
+        
+        if success:
+            return {"success": True, "message": "下载任务已开始"}
+        else:
+            return {"success": False, "message": "无法开始下载任务"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"开始下载失败: {str(e)}"}
+
+
+@router.post("/{download_id}/pause")
+async def pause_download_task(download_id: str):
+    """
+    暂停下载任务
+    
+    Args:
+        download_id: 下载任务ID
+    """
+    try:
+        success = await download_manager.pause_task(download_id)
+        
+        if success:
+            return {"success": True, "message": "下载任务已暂停"}
+        else:
+            return {"success": False, "message": "无法暂停下载任务"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"暂停下载失败: {str(e)}"}
+
+
+@router.post("/{download_id}/resume")
+async def resume_download_task(download_id: str):
+    """
+    继续下载任务
+    
+    Args:
+        download_id: 下载任务ID
+    """
+    try:
+        success = await download_manager.resume_task(download_id)
+        
+        if success:
+            return {"success": True, "message": "下载任务已继续"}
+        else:
+            return {"success": False, "message": "无法继续下载任务"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"继续下载失败: {str(e)}"}
+
+
+@router.post("/{download_id}/cancel")
+async def cancel_download_task(download_id: str):
+    """
+    取消下载任务
+    
+    Args:
+        download_id: 下载任务ID
+    """
+    try:
+        success = await download_manager.cancel_task(download_id)
+        
+        if success:
+            return {"success": True, "message": "下载任务已取消"}
+        else:
+            return {"success": False, "message": "无法取消下载任务"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"取消下载失败: {str(e)}"}
+
+
+@router.get("/{download_id}/status")
+async def get_download_task_status(download_id: str):
+    """
+    获取下载任务状态
+    
+    Args:
+        download_id: 下载任务ID
+    """
+    try:
+        status = await download_manager.get_task_status(download_id)
+        
+        if status:
+            return {"success": True, "data": status}
+        else:
+            return {"success": False, "message": "下载任务不存在"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"获取任务状态失败: {str(e)}"}
+
+
+@router.get("/manager/tasks")
+async def get_all_download_tasks(status: Optional[str] = None):
+    """
+    获取所有下载任务（使用下载管理器）
+    
+    Args:
+        status: 可选，筛选特定状态的任务
+    """
+    try:
+        tasks = await download_manager.get_all_tasks(status)
+        
+        return {
+            "success": True,
+            "data": tasks,
+            "total": len(tasks)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"获取任务列表失败: {str(e)}",
+            "data": [],
+            "total": 0
+        }

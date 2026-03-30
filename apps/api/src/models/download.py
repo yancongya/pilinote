@@ -13,7 +13,7 @@ class Download(Base):
     
     # 任务状态
     status = Column(
-        Enum("pending", "queued", "downloading", "processing", "completed", "failed", "cancelled", name="download_status"),
+        Enum("pending", "queued", "downloading", "paused", "processing", "completed", "failed", "cancelled", name="download_status"),
         default="pending",
         index=True
     )

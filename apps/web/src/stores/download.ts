@@ -75,6 +75,15 @@ interface DownloadState {
   // 批量开始下载
   startBatchDownloads: (downloadIds?: string[]) => Promise<boolean>
   
+  // 任务控制方法
+  startDownload: (downloadId: string) => Promise<boolean>
+  pauseDownload: (downloadId: string) => Promise<boolean>
+  resumeDownload: (downloadId: string) => Promise<boolean>
+  cancelDownload: (downloadId: string) => Promise<boolean>
+  
+  // 获取任务状态
+  getTaskStatus: (downloadId: string) => Promise<DownloadItem | null>
+  
   // 清空下载列表
   clearDownloads: () => void
 }
@@ -388,6 +397,99 @@ export const useDownloadStore = create<DownloadState>()(
         } catch (error) {
           console.error('批量开始下载失败:', error)
           return false
+        }
+      },
+      
+      startDownload: async (downloadId: string) => {
+        try {
+          const response = await apiService.startDownloadTask(downloadId)
+          
+          if (response.success) {
+            // 立即更新本地状态
+            get().updateDownloadStatus(downloadId, 'downloading')
+            // 同步服务器状态
+            get().syncFromServer()
+            return true
+          }
+          
+          return false
+        } catch (error) {
+          console.error('开始下载失败:', error)
+          return false
+        }
+      },
+      
+      pauseDownload: async (downloadId: string) => {
+        try {
+          const response = await apiService.pauseDownloadTask(downloadId)
+          
+          if (response.success) {
+            // 立即更新本地状态
+            get().updateDownloadStatus(downloadId, 'paused')
+            // 同步服务器状态
+            get().syncFromServer()
+            return true
+          }
+          
+          return false
+        } catch (error) {
+          console.error('暂停下载失败:', error)
+          return false
+        }
+      },
+      
+      resumeDownload: async (downloadId: string) => {
+        try {
+          const response = await apiService.resumeDownloadTask(downloadId)
+          
+          if (response.success) {
+            // 立即更新本地状态
+            get().updateDownloadStatus(downloadId, 'downloading')
+            // 同步服务器状态
+            get().syncFromServer()
+            return true
+          }
+          
+          return false
+        } catch (error) {
+          console.error('继续下载失败:', error)
+          return false
+        }
+      },
+      
+      cancelDownload: async (downloadId: string) => {
+        try {
+          const response = await apiService.cancelDownloadTask(downloadId)
+          
+          if (response.success) {
+            // 立即更新本地状态
+            get().updateDownloadStatus(downloadId, 'cancelled')
+            // 同步服务器状态
+            get().syncFromServer()
+            return true
+          }
+          
+          return false
+        } catch (error) {
+          console.error('取消下载失败:', error)
+          return false
+        }
+      },
+      
+      getTaskStatus: async (downloadId: string) => {
+        try {
+          const response = await apiService.getDownloadTaskStatus(downloadId)
+          
+          if (response.success && response.data) {
+            // 更新本地状态
+            get().updateDownloadStatus(downloadId, response.data.status, response.data.progress)
+            return response.data as DownloadItem
+          }
+          
+          return null
+        } catch (error) {
+          console.error('获取任务状态失败:', error)
+          return null
         }
       },
       

@@ -343,6 +343,44 @@ class ApiService {
       method: 'POST',
     });
   }
+
+  // 任务管理相关API（Week 4-5）
+  async startDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/start`, {
+      method: 'POST',
+    });
+  }
+
+  async pauseDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/pause`, {
+      method: 'POST',
+    });
+  }
+
+  async resumeDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/resume`, {
+      method: 'POST',
+    });
+  }
+
+  async cancelDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async getDownloadTaskStatus(downloadId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/download/${downloadId}/status`, {
+      method: 'GET',
+    });
+  }
+
+  async getAllDownloadTasks(status?: string): Promise<ApiResponse<any>> {
+    const params = status ? `?status=${status}` : '';
+    return this.request<any>(`/api/download/manager/tasks${params}`, {
+      method: 'GET',
+    });
+  }
 }
 
 export const apiService = new ApiService();
