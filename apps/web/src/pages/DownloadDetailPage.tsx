@@ -286,16 +286,18 @@ const handleStartBatch = async () => {
       
       const pages = videoResponse.data.pages
       console.log('B站API返回的总分P数:', pages.length)
+      console.log('fetchDownloads后的downloads数量:', downloads.length)
+      console.log('fetchDownloads后的downloads:', downloads)
       
-      // 获取当前显示的列表
-      const currentCids = new Set(downloads.map(d => d.cid).filter(Boolean))
-      console.log('当前显示的CIDs:', Array.from(currentCids))
+      // 获取当前显示的列表（使用 title 匹配，不依赖 cid）
+      const currentTitles = new Set(downloads.map(d => d.title).filter(Boolean))
+      console.log('当前显示的标题:', Array.from(currentTitles))
       
-      // 纯前端逻辑：找出当前列表中不存在的分P
+      // 纯前端逻辑：找出当前列表中不存在的分P（用 title 匹配）
       const pagesToRestore = pages.filter((page: any) => {
-        const cid = page.cid
-        const notInCurrent = !currentCids.has(cid)
-        console.log(`分P ${cid}: 不在当前列表=${notInCurrent}`)
+        const title = page.part
+        const notInCurrent = !currentTitles.has(title)
+        console.log(`分P ${title}: 不在当前列表=${notInCurrent}`)
         return notInCurrent
       })
       
