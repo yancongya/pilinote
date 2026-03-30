@@ -107,3 +107,6 @@ coverage/
 *.bak
 *.backup
 *~
+
+# 临时脚本
+apps/api/update_part_titles.py
