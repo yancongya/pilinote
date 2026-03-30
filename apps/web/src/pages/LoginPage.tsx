@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
-import { Check } from 'lucide-react'
+import { Check, Smartphone } from 'lucide-react'
+import GeetestCaptcha from '../components/GeetestCaptcha'
 
 interface LoginPageProps {
   onLogin: () => void
@@ -17,6 +18,15 @@ function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState('')
   const pollIntervalRef = useRef<number | null>(null)
   const { setUser } = useAuthStore()
+  
+  // 短信登录状态
+  const [showCaptcha, setShowCaptcha] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [smsCode, setSmsCode] = useState('')
+  const [smsSent, setSmsSent] = useState(false)
+  const [captchaData, setCaptchaData] = useState<{ challenge: string; validate: string; seccode: string; token: string } | null>(null)
+  const [smsCaptchaKey, setSmsCaptchaKey] = useState('')
+  const [countryCode, setCountryCode] = useState('86')
 
   useEffect(() => {
     if (activeTab === 'qrcode') {
@@ -62,36 +72,39 @@ function LoginPage({ onLogin }: LoginPageProps) {
               clearInterval(pollIntervalRef.current)
             }
 
-            // 保存用户信息
+            // 保存用户信息（包含refresh_token）
             const userInfo = {
               mid: response.data.mid,
               username: response.data.username,
               avatar: response.data.avatar,
               level: response.data.level,
               vip_status: response.data.vip_status,
-              sessdata: response.data.sessdata || ''
+              sessdata: response.data.sessdata
             }
+            
             setUser(userInfo)
             onLogin()
-          }
-        } else {
-          // 处理错误状态
-          const code = response.code
-          if (code === 86090) {
+          } 
+          // 二维码已扫码
+          else if (response.data.code === 86090) {
             setQrcodeStatus('scanned')
-          } else if (code === 86038) {
+          }
+          // 二维码已过期
+          else if (response.data.code === 86038) {
             setQrcodeStatus('expired')
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current)
             }
-          } else if (code === 86101) {
-            setQrcodeStatus('waiting')
           }
         }
       } catch (err) {
         console.error('轮询二维码状态失败:', err)
       }
     }, 2000)
+  }
+
+  const handleRefreshQrcode = () => {
+    fetchQrcode()
   }
 
   const handleSessdataLogin = async () => {
@@ -106,13 +119,19 @@ function LoginPage({ onLogin }: LoginPageProps) {
     try {
       const response = await apiService.loginBySessdata(sessdata.trim())
       if (response.success && response.data) {
-        setUser({
-          ...response.data,
-          sessdata: sessdata.trim(),
-        })
+        setUser(response.data)
+        
+        // 初始化指纹系统
+        try {
+          await apiService.initFingerprint()
+          console.log('指纹系统初始化成功')
+        } catch (err) {
+          console.warn('指纹系统初始化失败:', err)
+        }
+        
         onLogin()
       } else {
-        setError(response.message || '登录失败')
+        setError(response.message || 'SESSDATA登录失败')
       }
     } catch (err) {
       setError('网络请求失败')
@@ -121,19 +140,113 @@ function LoginPage({ onLogin }: LoginPageProps) {
     }
   }
 
-  const handleRefreshQrcode = () => {
-    fetchQrcode()
+  // Week 3: 处理短信验证码发送
+  const handleSendSmsCode = async () => {
+    if (!phone.trim()) {
+      setError('请输入手机号码')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      // 首先获取验证码参数（包含token）
+      const captchaParamsResponse = await apiService.getCaptchaParams()
+      if (!captchaParamsResponse.success || !captchaParamsResponse.data) {
+        throw new Error(captchaParamsResponse.message || '获取验证码参数失败')
+      }
+
+      const { token } = captchaParamsResponse.data
+
+      // 使用Geetest发送短信验证码
+      setShowCaptcha(true)
+      setCaptchaData({ ...captchaData, token } || { token })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发送短信验证码失败')
+      setLoading(false)
+    }
+  }
+
+  // Week 3: 处理短信Geetest验证成功
+  const handleSmsCaptchaSuccess = async (captchaResult: { challenge: string; validate: string; seccode: string }) => {
+    try {
+      const response = await apiService.sendSmsCodeWithCaptcha(
+        countryCode,
+        phone.trim(),
+        captchaData?.token || '',
+        captchaResult.challenge,
+        captchaResult.validate,
+        captchaResult.seccode
+      )
+
+      if (response.success) {
+        setSmsSent(true)
+        setShowCaptcha(false)
+        setSmsCaptchaKey(response.data?.captcha_key || '')
+        setError('')
+      } else {
+        setError(response.message || '发送短信验证码失败')
+        setShowCaptcha(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发送短信验证码失败')
+      setShowCaptcha(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Week 3: 处理短信登录
+  const handleSmsLogin = async () => {
+    if (!phone.trim() || !smsCode.trim()) {
+      setError('请输入手机号码和验证码')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await apiService.loginBySms({
+        phone: phone.trim(),
+        code: smsCode.trim(),
+        captcha_key: smsCaptchaKey
+      })
+
+      if (response.success && response.data) {
+        setUser({
+          ...response.data,
+        })
+        
+        // 初始化指纹系统
+        try {
+          await apiService.initFingerprint()
+          console.log('指纹系统初始化成功')
+        } catch (err) {
+          console.warn('指纹系统初始化失败:', err)
+        }
+        
+        onLogin()
+      } else {
+        setError(response.message || '短信登录失败')
+      }
+    } catch (err) {
+      setError('网络请求失败')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="login-container" role="main">
-      <div className="login-card" role="dialog" aria-labelledby="login-title">
+    <div className="login-container">
+      <div className="login-card">
         <div className="login-header">
-          <h1 id="login-title" className="login-title">PiliNote</h1>
-          <p className="login-subtitle">B站视频下载管理</p>
+          <h1 className="login-title">PiliNote</h1>
+          <p className="login-subtitle">B站视频下载管理系统</p>
         </div>
 
-        <div className="login-tabs" role="tablist" aria-label="登录方式选择">
+        <div className="login-tabs">
           <button
             role="tab"
             aria-selected={activeTab === 'qrcode'}
@@ -143,6 +256,16 @@ function LoginPage({ onLogin }: LoginPageProps) {
             tabIndex={activeTab === 'qrcode' ? 0 : -1}
           >
             扫码登录
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'sms'}
+            aria-controls="sms-panel"
+            className={`tab ${activeTab === 'sms' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sms')}
+            tabIndex={activeTab === 'sms' ? 0 : -1}
+          >
+            短信登录
           </button>
           <button
             role="tab"
@@ -162,7 +285,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
               id="qrcode-panel"
               role="tabpanel"
               aria-labelledby="qrcode-tab"
-              className="qrcode-section"
+              className={`qrcode-section ${activeTab === 'qrcode' ? 'active' : ''}`}
             >
               <div className="qrcode-container" aria-label="二维码登录区域">
                 {qrcodeStatus === 'loading' && (
@@ -188,15 +311,23 @@ function LoginPage({ onLogin }: LoginPageProps) {
                     <div className="qrcode-scanned-icon">
                       <Check />
                     </div>
-                    <p>已扫码，请确认登录</p>
+                    <p>已扫码，请在手机上确认登录</p>
+                  </div>
+                )}
+                {qrcodeStatus === 'success' && (
+                  <div className="qrcode-success">
+                    <div className="qrcode-success-icon">
+                      <Check />
+                    </div>
+                    <p>登录成功，正在跳转...</p>
                   </div>
                 )}
                 {qrcodeStatus === 'expired' && (
                   <div className="qrcode-expired">
-                    <p>二维码已过期</p>
+                    <p>二维码已过期，请刷新重试</p>
                     <button
-                      className="refresh-btn"
                       onClick={handleRefreshQrcode}
+                      className="refresh-btn"
                       aria-label="刷新二维码"
                     >
                       刷新二维码
@@ -212,21 +343,20 @@ function LoginPage({ onLogin }: LoginPageProps) {
               id="sessdata-panel"
               role="tabpanel"
               aria-labelledby="sessdata-tab"
-              className="sessdata-section"
+              className={`sessdata-section ${activeTab === 'sessdata' ? 'active' : ''}`}
             >
-              <label htmlFor="sessdata-input" className="visually-hidden">
-                SESSDATA
-              </label>
-              <input
-                id="sessdata-input"
-                type="text"
-                value={sessdata}
-                onChange={(e) => setSessdata(e.target.value)}
-                placeholder="请输入SESSDATA"
-                className="input-field"
-                aria-required="true"
-                disabled={loading}
-              />
+              <div className="input-group">
+                <Smartphone className="input-icon" />
+                <input
+                  type="text"
+                  value={sessdata}
+                  onChange={(e) => setSessdata(e.target.value)}
+                  placeholder="请输入SESSDATA"
+                  className="input-field"
+                  aria-required="true"
+                  disabled={loading}
+                />
+              </div>
               <button
                 className="login-btn"
                 onClick={handleSessdataLogin}
@@ -241,12 +371,89 @@ function LoginPage({ onLogin }: LoginPageProps) {
             </div>
           )}
 
+          {activeTab === 'sms' && (
+            <div
+              id="sms-panel"
+              role="tabpanel"
+              aria-labelledby="sms-tab"
+              className={`sms-section ${activeTab === 'sms' ? 'active' : ''}`}
+            >
+              <div className="input-group">
+                <Smartphone className="input-icon" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="请输入手机号码"
+                  className="input-field"
+                  disabled={loading}
+                />
+              </div>
+              <div className="input-group">
+                <Smartphone className="input-icon" />
+                <input
+                  type="text"
+                  value={smsCode}
+                  onChange={(e) => setSmsCode(e.target.value)}
+                  placeholder="请输入验证码"
+                  className="input-field"
+                  disabled={loading}
+                />
+                <button
+                  className="send-sms-btn"
+                  onClick={handleSendSmsCode}
+                  disabled={loading || smsSent}
+                >
+                  {smsSent ? '已发送' : '获取验证码'}
+                </button>
+              </div>
+
+              <button
+                className="login-btn"
+                onClick={handleSmsLogin}
+                disabled={loading || !smsSent}
+              >
+                {loading ? '登录中...' : '登录'}
+              </button>
+              <p className="hint-text">
+                点击获取验证码后会显示Geetest验证码
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="error-message" role="alert" aria-live="polite">
               {error}
             </div>
           )}
         </div>
+
+        {/* Week 3: Geetest验证码模态框 */}
+        {showCaptcha && (
+          <div className="captcha-overlay" onClick={() => setShowCaptcha(false)}>
+            <div className="captcha-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="captcha-header">
+                <h3>安全验证</h3>
+                <button 
+                  className="close-btn" 
+                  onClick={() => setShowCaptcha(false)}
+                  aria-label="关闭验证码"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="captcha-body">
+                <GeetestCaptcha 
+                  onSuccess={handleSmsCaptchaSuccess}
+                  onError={(error) => {
+                    setError(error)
+                    setShowCaptcha(false)
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

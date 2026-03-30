@@ -14,6 +14,8 @@
 - [08-reference-projects.md](08-reference-projects.md) - 参考项目索引
 - [09-download-management.md](09-download-management.md) - 下载管理功能
 - [10-html-parsing-method.md](10-html-parsing-method.md) - HTML解析方法（绕过API限制）
+- [11-auth-upgrade-plan.md](11-auth-upgrade-plan.md) - 账号登录功能升级计划
+- [12-ui-ux-design.md](12-ui-ux-design.md) - UI/UX设计系统（Soft UI Evolution）
 
 ## 架构图
 - [pilinote_architecture.drawio](pilinote_architecture.drawio) - 系统架构设计

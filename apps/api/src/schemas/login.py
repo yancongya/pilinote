@@ -65,7 +65,7 @@ class PasswordLoginRequest(BaseModel):
     password: str = Field(..., description="B站密码")
     token: Optional[str] = None
     challenge: Optional[str] = None
-    validate: Optional[str] = None
+    geetest_validate: Optional[str] = Field(None, alias="validate", description="Geetest验证结果")
     seccode: Optional[str] = None
 
     class Config:
@@ -75,6 +75,7 @@ class PasswordLoginRequest(BaseModel):
                 "password": "password123"
             }
         }
+        populate_by_name = True
 
 
 class PasswordLoginResponse(BaseModel):
@@ -107,15 +108,39 @@ class SmsCodeRequest(BaseModel):
         }
 
 
+class SmsCodeWithCaptchaRequest(BaseModel):
+    cid: str = Field(..., description="国家代码")
+    tel: str = Field(..., description="手机号")
+    token: str = Field(..., description="验证码token")
+    challenge: str = Field(..., description="Geetest challenge")
+    geetest_validate: str = Field(..., alias="validate", description="Geetest validate")
+    seccode: str = Field(..., description="Geetest seccode")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "cid": "86",
+                "tel": "13800138000",
+                "token": "xxx",
+                "challenge": "xxx",
+                "validate": "xxx",
+                "seccode": "xxx"
+            }
+        }
+        populate_by_name = True
+
+
 class SmsLoginRequest(BaseModel):
     phone: str = Field(..., description="手机号")
     code: str = Field(..., description="验证码")
+    captcha_key: str = Field("", description="验证码密钥")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "phone": "13800138000",
-                "code": "123456"
+                "code": "123456",
+                "captcha_key": "xxx"
             }
         }
 

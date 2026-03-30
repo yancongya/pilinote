@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useAuthStore } from '../stores/auth'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -7,6 +7,7 @@ import HomeContent from './components/HomeContent'
 import FavoritesContent from './components/FavoritesContent'
 import WatchLaterContent from './components/WatchLaterContent'
 import DownloadsContent from './components/DownloadsContent'
+import { apiService } from '../services/api'
 
 function HomePage() {
   const location = useLocation()
@@ -14,6 +15,50 @@ function HomePage() {
   const { user, logout } = useAuthStore()
   const [animationParent] = useAutoAnimate({ duration: 150, easing: 'linear' })
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
+  
+  // Week 2: 定期检查并刷新cookie
+  useEffect(() => {
+    if (!user || !user.sessdata) return
+
+    // 初始化认证系统状态
+    const initAuthSystem = async () => {
+      try {
+        const response = await apiService.refreshCookies()
+        if (response.success) {
+          setAuthStatus('initialized')
+          console.log('认证系统状态:', response.message)
+        } else {
+          setAuthStatus('error')
+          console.warn('认证系统状态检查失败:', response.message)
+        }
+      } catch (err) {
+        setAuthStatus('error')
+        console.error('认证系统状态检查异常:', err)
+      }
+    }
+
+    initAuthSystem()
+
+    // 每24小时检查一次cookie状态
+    const checkCookieInterval = setInterval(async () => {
+      try {
+        const response = await apiService.refreshCookies()
+        if (response.success) {
+          console.log('Cookie刷新成功:', response.message)
+          setAuthStatus('initialized')
+        } else {
+          console.warn('Cookie刷新失败:', response.message)
+          setAuthStatus('error')
+        }
+      } catch (err) {
+        console.error('Cookie刷新异常:', err)
+        setAuthStatus('error')
+      }
+    }, 24 * 60 * 60 * 1000) // 24小时
+
+    return () => clearInterval(checkCookieInterval)
+  }, [user])
 
   // 根据路径确定当前activeTab
   const getActiveTabFromPath = () => {
@@ -70,6 +115,14 @@ function HomePage() {
                   }}
                 />
                 <span className="user-name">{user.username}</span>
+                {/* Week 1 & 2: 认证系统状态指示器 */}
+                <div 
+                  className={`auth-status ${authStatus}`} 
+                  title={`认证系统状态: ${authStatus === 'initialized' ? '已启用' : authStatus === 'error' ? '异常' : '初始化中...'}`}
+                >
+                  {authStatus === 'initialized' && <span>✓</span>}
+                  {authStatus === 'error' && <span>!</span>}
+                </div>
               </div>
               {showLogoutConfirm && (
                 <div className="logout-confirm-overlay" onClick={() => setShowLogoutConfirm(false)}>

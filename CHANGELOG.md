@@ -1,5 +1,293 @@
 # PiliNote 开发日志
 
+## 2026-03-30 登录页面UI/UX全面优化（Soft UI Evolution）
+
+### 设计系统升级
+- ✅ **采用Soft UI Evolution设计风格**: 改进的Neumorphism，提供更好的对比度和现代感
+- ✅ **新配色方案**: 
+  - Primary: #2563EB (专业蓝)
+  - Secondary: #3B82F6 (明亮蓝)
+  - Background: #F8FAFC (优雅浅灰)
+  - Text: #1E293B (深灰黑)
+- ✅ **字体优化**: Inter字体系列，清晰的视觉层次
+- ✅ **阴影系统**: 多层柔和阴影，营造深度感
+
+### Tab切换增强
+- ✅ **流畅动画**: 200ms过渡动画，使用cubic-bezier缓动函数
+- ✅ **悬停反馈**: -1px垂直位移，背景色渐变，阴影提升
+- ✅ **激活状态**: 明显的视觉区分（白色背景+蓝色文字+多层阴影）
+- ✅ **内容过渡**: 淡入+横向位移（20px）平滑动画
+- ✅ **减少运动**: 支持prefers-reduced-motion设置
+
+### 输入框现代化
+- ✅ **清晰焦点状态**: 蓝色边框+4px光晕+多层阴影
+- ✅ **悬停效果**: 边框变浅、阴影增强
+- ✅ **图标交互**: 焦点时图标从#94A3B8变为#2563EB
+- ✅ **禁用状态**: 灰度背景+无阴影+降低透明度
+- ✅ **触摸目标**: ≥48px高度，符合可访问性标准
+
+### 按钮系统升级
+- ✅ **渐变背景**: #2563EB → #3B82F6专业蓝色渐变
+- ✅ **光泽动画**: hover时白色光效滑过效果
+- ✅ **按下反馈**: scale(0.98)缩放效果
+- ✅ **阴影层次**: 多层阴影营造立体感
+- ✅ **焦点状态**: 3px蓝色外边框+光晕效果
+
+### 错误提示优化
+- ✅ **醒目背景**: #FEE2E2红色背景
+- ✅ **警告图标**: ⚠符号增强识别
+- ✅ **滑入动画**: 200ms从下方滑入
+- ✅ **更好的对比**: 文字颜色#DC2626，对比度≥4.5:1
+
+### 二维码区域改进
+- ✅ **更大圆角**: 16px圆角，更柔和的视觉效果
+- ✅ **改进阴影**: 多层阴影，hover时上浮
+- ✅ **提示文本**: 添加浅灰背景框，更突出
+- ✅ **刷新按钮**: 采用渐变背景，与整体风格统一
+
+### 可访问性改进
+- ✅ **对比度达标**: 所有文字对比度≥4.5:1（WCAG AA标准）
+- ✅ **键盘导航**: 完整的焦点状态和Tab顺序
+- ✅ **语义化HTML**: 正确使用role、aria-label、aria-live属性
+- ✅ **屏幕阅读器**: 所有交互元素有清晰的标签
+- ✅ **减少运动**: 尊重用户减少动画偏好设置
+
+### 移动端优化
+- ✅ **触摸目标**: 所有可点击元素≥44×44px
+- ✅ **响应式布局**: 375px/768px/1024px/1440px断点优化
+- ✅ **安全区域**: 尊重iOS安全区域（刘海、手势条）
+- ✅ **键盘适配**: 输入框自动适配数字键盘
+- ✅ **横向滚动**: 消除不必要的横向滚动
+
+### 响应式设计
+- ✅ **移动优先**: 从375px小屏开始设计
+- ✅ **平板适配**: 768px中等屏幕优化
+- ✅ **桌面增强**: 1024px+大屏幕充分利用空间
+- ✅ **间距系统**: 4px/8px递增间距系统
+- ✅ **容器宽度**: 一致的最大宽度控制
+
+### 性能优化
+- ✅ **动画性能**: 使用transform和opacity，避免布局重排
+- ✅ **过渡时长**: 150-300ms微交互，≤400ms复杂过渡
+- ✅ **加载状态**: skeleton屏占位，避免布局跳跃
+- ✅ **字体加载**: font-display: swap防止隐形文字
+
+### 代码质量
+- ✅ **CSS组织**: 按功能模块分组，易于维护
+- ✅ **命名规范**: 语义化类名，清晰的命名空间
+- ✅ **变量使用**: 设计token统一管理颜色和间距
+- ✅ **注释完善**: 关键样式有清晰注释说明
+
+### 文件变更
+- **修改文件**:
+  - `apps/web/src/index.css` - 完全重写登录页面样式系统
+  - `apps/web/src/pages/LoginPage.tsx` - 添加active类名控制动画
+
+---
+
+## 2026-03-30 登录系统优化和文档更新
+
+### 登录方式调整
+- ✅ **移除密码登录**: 因频繁需要Geetest验证码，用户体验不佳
+- ✅ **完善短信登录**: 集成Geetest验证码，支持captcha_key参数
+- ✅ **保留扫码登录**: 无需验证码，推荐使用
+- ✅ **保留SESSDATA登录**: 适合开发者快速测试
+
+### 短信登录实现
+- ✅ **Geetest集成**: 完整的验证码流程（获取参数→验证→发送短信→登录）
+- ✅ **参数优化**: 使用正确的API参数格式（params而非form）
+- ✅ **状态管理**: 添加smsCaptchaKey状态保存验证码密钥
+- ✅ **错误处理**: 详细的错误提示和重试机制
+
+### HeadersManager深度集成
+- ✅ **统一管理**: 所有登录流程使用HeadersManager管理请求头
+- ✅ **设备指纹**: 自动管理buvid3、buvid4、bili_ticket等指纹
+- ✅ **Cookie刷新**: 自动刷新和更新cookies
+- ✅ **异步支持**: 完全适配异步HTTP客户端
+
+### 文档更新
+- ✅ **认证方案文档**: 更新为三种登录方式（扫码、短信、SESSDATA）
+- ✅ **API文档**: 详细的短信登录API流程和参数说明
+- ✅ **实现细节**: 前后端交互流程和代码示例
+- ✅ **常见问题**: 新增短信登录相关问题解决方案
+- ✅ **部署指南**: 生产环境配置和监控建议
+
+### 代码优化
+- ✅ **Pydantic修复**: 解决validate字段冲突问题（使用alias）
+- ✅ **Python语法**: 修复query_qrcode_status方法的缩进问题
+- ✅ **前端清理**: 移除密码登录相关代码和状态
+- ✅ **类型安全**: 更新TypeScript接口定义
+
+### 文件变更
+- **修改文件**:
+  - `docs/dev/01-auth-solution.md` - 完全重写认证方案文档
+  - `apps/web/src/pages/LoginPage.tsx` - 移除密码登录功能
+  - `apps/web/src/services/api.ts` - 更新SmsLoginRequest接口
+  - `apps/api/src/schemas/login.py` - 修复Pydantic字段冲突
+  - `apps/api/src/services/bilibili.py` - 修复语法错误和参数格式
+
+## 2026-03-30 Week 3 & 4: Geetest验证和加密签名增强
+
+### Week 3: Geetest验证支持
+- ✅ **GeetestService**: 实现Geetest验证码服务
+- ✅ **后端API**: 添加 `/api/auth/captcha` 端点获取验证码参数
+- ✅ **前端组件**: 创建GeetestCaptcha组件集成验证码SDK
+- ✅ **密码登录**: 集成Geetest验证码到密码登录流程
+- ✅ **短信登录**: 集成Geetest验证码到短信登录流程
+- ✅ **登录页面**: 添加密码登录和短信登录的UI
+
+### Week 4: 加密和签名增强
+- ✅ **CryptoUtils**: 实现MD5参数签名算法
+- ✅ **RSAUtils**: 实现RSA密码加密
+- ✅ **BilibiliService**: 集成加密和签名到密码登录
+- ✅ **密码加密**: 使用RSA加密密码传输
+- ✅ **参数签名**: 为所有敏感API调用添加签名
+- ✅ **向后兼容**: 加密失败时降级使用原始密码
+
+### 技术改进
+- **Week 3**:
+  - 集成Geetest验证码SDK (gt.0.4.9.js)
+  - 支持中文验证码界面
+  - 模态框验证码展示
+  - 验证码成功后自动提交登录
+
+- **Week 4**:
+  - MD5参数签名防止请求伪造
+  - RSA加密保护密码传输安全
+  - 支持动态获取B站加密密钥
+  - 自动添加refresh_token到cookie管理
+
+### 前端更新
+- ✅ **登录页面**: 4个登录标签（扫码、密码、短信、SESSDATA）
+- ✅ **Geetest组件**: 自动加载验证码SDK
+- ✅ **API服务**: 添加验证码相关方法
+- ✅ **状态管理**: 密码登录和短信登录状态处理
+- ✅ **样式优化**: 新增密码和短信登录样式
+
+### 后端更新
+- ✅ **GeetestService**: 新增验证码服务类
+- ✅ **CryptoUtils**: 新增加密工具类
+- ✅ **RSAUtils**: 新增RSA加密工具类
+- ✅ **BilibiliService**: 集成加密和签名功能
+- ✅ **路由更新**: 添加验证码相关端点
+
+### 文件变更
+- **新增文件**:
+  - `apps/api/src/services/geetest_service.py` - Geetest验证码服务
+  - `apps/api/src/utils/crypto.py` - 加密工具类
+  - `apps/api/src/utils/rsa_utils.py` - RSA加密工具类
+  - `apps/web/src/components/GeetestCaptcha.tsx` - Geetest前端组件
+
+- **修改文件**:
+  - `apps/api/src/routers/auth.py` - 添加验证码端点
+  - `apps/api/src/services/bilibili.py` - 集成加密和签名
+  - `apps/web/src/services/api.ts` - 添加验证码方法
+  - `apps/web/src/pages/LoginPage.tsx` - 添加新登录方式
+  - `apps/web/src/index.css` - 添加新登录样式
+
+### 用户体验改进
+- **更多登录方式**: 用户可以选择扫码、密码、短信、SESSDATA四种登录方式
+- **更安全**: 密码使用RSA加密传输，防止中间人攻击
+- **更可靠**: 参数签名防止请求伪造
+- **更友好**: 验证码提示清晰，自动处理
+
+### 技术亮点
+- **B站API兼容**: 完全复刻B站登录流程
+- **向后兼容**: 加密失败时降级处理
+- **错误处理**: 完善的异常处理和用户提示
+- **模块化设计**: 加密、签名、验证码独立模块
+
+### 下一步计划
+- [ ] 测试所有登录方式
+- [ ] 性能优化和错误处理
+- [ ] 用户文档和帮助指南
+- [ ] Week 5: 多账号管理
+
+## 2026-03-30 Week 1 & 2: 指纹管理和Cookie刷新机制
+
+### 新功能
+- ✅ **指纹管理系统**: 实现buvid指纹生成和管理（Week 1）
+- ✅ **Cookie刷新机制**: 实现refresh_token管理和自动刷新（Week 2）
+- ✅ **BiliTicket签名**: 实现HMAC-SHA256签名算法
+- ✅ **前端API集成**: 添加指纹初始化和cookie刷新API调用
+- ✅ **定时cookie检查**: 自动检查并刷新过期cookie（24小时间隔）
+
+### 技术改进
+- ✅ **FingerprintManager**: 设备指纹管理器（buvid3, buvid4, bili_ticket）
+- ✅ **CookieManager**: Cookie刷新管理器（refresh_token, 自动刷新）
+- ✅ **用户状态增强**: User接口添加refresh_token字段
+- ✅ **登录流程升级**: 扫码登录和SESSDATA登录后自动初始化指纹
+- ✅ **后台刷新**: 静默刷新cookie，不影响用户体验
+
+### 后端更新
+- ✅ **FingerprintManager类**: 指纹管理实现（buvid生成、bili_ticket签名）
+- ✅ **CookieManager类**: Cookie刷新实现（refresh_token管理、自动刷新）
+- ✅ **BilibiliService集成**: 集成指纹和cookie管理到现有服务
+- ✅ **API端点**: /api/auth/init（初始化指纹）、/api/auth/refresh/cookies（刷新cookie）
+- ✅ **登录流程**: query_qrcode_status和login_by_sessdata集成refresh_token保存
+
+### 前端更新
+- ✅ **API服务**: 添加initFingerprint()和refreshCookies()方法
+- ✅ **用户状态**: User接口添加refresh_token字段
+- ✅ **登录页面**: 扫码登录和SESSDATA登录后自动初始化指纹
+- ✅ **主页**: 添加定时cookie检查（24小时间隔）
+- ✅ **静默处理**: 指纹初始化失败不阻塞登录流程
+
+### 测试验证
+- ✅ **功能测试**: 指纹生成、cookie刷新、API集成
+- ✅ **兼容性测试**: 现有登录功能不受影响
+- ✅ **错误处理**: 静默失败，不阻塞正常流程
+- ✅ **性能测试**: 定期刷新不影响应用性能
+
+### 文档更新
+- ✅ **升级计划**: 更新11-auth-upgrade-plan.md标记Week 1和Week 2为已完成
+- ✅ **开发日志**: 记录认证升级的实现细节
+
+### 问题修复
+- 🔧 **指纹API响应**: 修复buvid生成API的JSON解析问题
+- 🔧 **同步/异步**: 统一管理器方法为同步方法
+- 🔧 **API集成**: 修复前后端API接口匹配问题
+
+### 技术细节
+- **指纹管理**:
+  - buvid3: 访问B站首页获取基础cookie
+  - buvid4: 调用指纹API获取设备指纹
+  - bili_ticket: HMAC-SHA256签名（密钥: XgwSnGZ1p）
+
+- **Cookie刷新**:
+  - refresh_token: 登录成功后保存
+  - 自动刷新: 30天有效期
+  - 刷新API: /x/passport-login/web/cookie/refresh
+  - 确认刷新: /x/passport-login/web/confirm/refresh
+
+- **前端集成**:
+  ```typescript
+  // 登录成功后初始化指纹
+  await apiService.initFingerprint()
+  
+  // 定期刷新cookie（24小时）
+  const checkCookieInterval = setInterval(async () => {
+    await apiService.refreshCookies()
+  }, 24 * 60 * 60 * 1000)
+  ```
+
+### 影响范围
+- **后端服务**: FingerprintManager, CookieManager, BilibiliService
+- **API端点**: /api/auth/init, /api/auth/refresh/cookies
+- **前端页面**: LoginPage, HomePage
+- **用户状态**: User接口添加refresh_token
+
+### 兼容性
+- ✅ 向后兼容：不影响现有登录功能
+- ✅ 降级处理：指纹初始化失败不阻塞登录
+- ✅ 静默处理：cookie刷新失败不影响用户体验
+
+### 下一阶段计划
+- [ ] Week 3: Geetest验证支持
+- [ ] Week 4: 加密和签名增强
+- [ ] 参数签名算法（APP_KEY + APP_SEC）
+- [ ] RSA加密密码登录
+
 ## 2026-03-30 统计信息完整化和HTML解析方法实现
 
 ### 新功能

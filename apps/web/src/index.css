@@ -73,51 +73,139 @@ body {
 
 .login-tabs {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  background: #f0f0f0;
-  padding: 4px;
-  border-radius: 12px;
+  gap: 8px;
+  margin-bottom: 32px;
+  background: #F8FAFC;
+  padding: 8px;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 .tab {
   flex: 1;
-  padding: 14px 16px;
+  padding: 14px 20px;
   border: none;
   background: transparent;
-  color: #4a4a4a;
+  color: #64748B;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 48px;
   min-width: 48px;
   touch-action: manipulation;
   text-align: center;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: #667eea;
+  color: #2563EB;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+
+.tab:hover::before {
+  opacity: 1;
+}
+
+.tab:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .tab.active {
   background: white;
-  color: #667eea;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #2563EB;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08);
   font-weight: 700;
+  transform: translateY(-2px);
+}
+
+.tab.active::before {
+  opacity: 1;
 }
 
 .tab:focus-visible {
-  outline: 3px solid #667eea;
+  outline: 3px solid #2563EB;
   outline-offset: 2px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25), 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .tab::before {
+    transition: none;
+  }
+  
+  .tab:hover,
+  .tab.active {
+    transform: none;
+  }
 }
 
 .login-content {
   position: relative;
-  height: 400px;
-  min-height: 400px;
+  height: 480px;
+  min-height: 480px;
+  overflow: hidden;
+}
+
+.qrcode-section,
+.sessdata-section,
+.sms-section {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 32px 0;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.qrcode-section[style*="display"],
+.sessdata-section[style*="display"],
+.sms-section[style*="display"],
+.qrcode-section.active,
+.sessdata-section.active,
+.sms-section.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .qrcode-section,
+  .sessdata-section,
+  .sms-section {
+    transition: none;
+  }
 }
 
 .error-message {
@@ -125,12 +213,40 @@ body {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: #fee2e2;
-  color: #dc2626;
-  padding: 12px 16px;
+  background: #FEE2E2;
+  color: #DC2626;
+  padding: 14px 20px;
   font-size: 14px;
-  border-radius: 0 0 8px 8px;
-  animation: slideUp 0.3s ease;
+  font-weight: 500;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 -4px 12px rgba(220, 38, 38, 0.1);
+  animation: slideUp 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-message::before {
+  content: '⚠';
+  font-size: 16px;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .error-message {
+    animation: none;
+  }
 }
 
 .success-message {
@@ -168,7 +284,173 @@ body {
 
 .sessdata-section {
   justify-content: center;
-  gap: 16px;
+  gap: 24px;
+}
+
+/* Week 3: 密码登录和短信登录样式 */
+.password-section,
+.sms-section {
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+  padding: 0 32px;
+  box-sizing: border-box;
+}
+
+.input-group {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  width: 22px;
+  height: 22px;
+  color: #94A3B8;
+  pointer-events: none;
+  transition: color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.input-field:focus + .input-icon,
+.input-field:focus ~ .input-icon {
+  color: #2563EB;
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .input-icon {
+    transition: none;
+  }
+}
+
+.input-group .input-field {
+  padding-left: 44px;
+}
+
+.send-sms-btn {
+  position: absolute !important;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 16px !important;
+  background: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2), 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+  z-index: 2;
+  letter-spacing: 0.01em;
+}
+
+.send-sms-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%) !important;
+  transform: translateY(-50%) translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3), 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.send-sms-btn:active:not(:disabled) {
+  transform: translateY(-50%) translateY(0) scale(0.98);
+}
+
+.send-sms-btn:disabled {
+  background: #94A3B8 !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: translateY(-50%) !important;
+}
+
+.send-sms-btn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .send-sms-btn {
+    transition: none;
+  }
+  
+  .send-sms-btn:hover:not(:disabled),
+  .send-sms-btn:active:not(:disabled) {
+    transform: translateY(-50%);
+  }
+}
+
+/* Week 3: Geetest验证码模态框 */
+.captcha-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.captcha-modal {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  width: 90%;
+  max-width: 400px;
+}
+
+.captcha-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.captcha-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #9e9e9e;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.captcha-body {
+  padding: 24px;
+}
+
+.geetest-container {
+  width: 100%;
+  min-height: 200px;
 }
 
 .qrcode-placeholder {
@@ -195,73 +477,140 @@ body {
 
 .input-field {
   width: 100%;
-  padding: 16px;
-  border: 2px solid #e0e0e0;
+  padding: 16px 16px 16px 48px;
+  border: 2px solid #E2E8F0;
   border-radius: 12px;
   font-size: 15px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   background: white;
   min-height: 48px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .input-field::placeholder {
-  color: #999;
+  color: #94A3B8;
+  font-weight: 400;
+}
+
+.input-field:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .input-field:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #2563EB;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1), 0 4px 12px rgba(37, 99, 235, 0.15);
+  transform: translateY(-1px);
 }
 
 .input-field:focus-visible {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #2563EB;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1), 0 4px 12px rgba(37, 99, 235, 0.15);
+  transform: translateY(-1px);
+}
+
+.input-field:disabled {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+  transform: none;
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .input-field {
+    transition: none;
+  }
+  
+  .input-field:focus {
+    transform: none;
+  }
 }
 
 .login-btn {
-  padding: 16px 32px;
-  background: #f5f5f5;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 700;
+  padding: 16px 32px !important;
+  background: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 48px;
   min-width: 48px;
   touch-action: manipulation;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25), 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  width: 100% !important;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.01em;
+}
+
+.login-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  transition: left 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-btn:hover::before {
+  left: 100%;
 }
 
 .login-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35), 0 4px 8px rgba(0, 0, 0, 0.12) !important;
 }
 
 .login-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
 }
 
 .login-btn:focus-visible {
-  outline: 3px solid #667eea;
+  outline: 3px solid #2563EB;
   outline-offset: 2px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35), 0 2px 4px rgba(0, 0, 0, 0.08), 0 0 0 4px rgba(37, 99, 235, 0.1) !important;
 }
 
 .login-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
+  transform: none !important;
+  background: #94A3B8 !important;
+  box-shadow: none !important;
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .login-btn,
+  .login-btn::before {
+    transition: none;
+  }
+  
+  .login-btn:hover,
+  .login-btn:active {
+    transform: none;
+  }
 }
 
 .hint-text {
   font-size: 13px;
-  color: #666;
+  color: #64748B;
   text-align: center;
   line-height: 1.6;
+  margin-top: 12px;
+  font-weight: 400;
 }
 
 /* 主页样式 */
@@ -1127,6 +1476,7 @@ body {
     margin: 16px;
     border-radius: 20px;
     max-width: calc(100% - 32px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   }
 
   .login-title {
@@ -1134,18 +1484,30 @@ body {
   }
 
   .login-tabs {
-    gap: 4px;
+    gap: 6px;
+    margin-bottom: 28px;
+    padding: 6px;
   }
 
   .tab {
-    padding: 16px;
+    padding: 14px;
     min-height: 52px;
-    font-size: 15px;
+    font-size: 14px;
+    border-radius: 10px;
   }
 
   .login-content {
-    height: 360px;
-    min-height: 360px;
+    height: 420px;
+    min-height: 420px;
+  }
+
+  .qrcode-image {
+    width: 180px;
+    height: 180px;
+  }
+
+  .qrcode-container {
+    min-height: 260px;
   }
 
   /* 隐藏桌面导航，显示底部导航 */
@@ -1759,13 +2121,17 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 280px;
+  gap: 16px;
 }
 
 .qrcode-loading,
 .qrcode-scanned,
 .qrcode-expired {
   text-align: center;
-  padding: 40px 20px;
+  padding: 40px 24px;
+  color: #64748B;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .qrcode-display {
@@ -1778,13 +2144,20 @@ body {
 .qrcode-image {
   width: 200px;
   height: 200px;
-  border-radius: 8px;
-  border: 2px solid #e5e7eb;
+  border-radius: 16px;
+  border: 2px solid #E2E8F0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: white;
-  padding: 10px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.qrcode-image:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
 }
 
 .qrcode-image svg {
@@ -1793,15 +2166,20 @@ body {
 }
 
 .qrcode-hint {
-  color: #6b7280;
+  color: #64748B;
   font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px 16px;
+  background: #F8FAFC;
+  border-radius: 8px;
 }
 
 .qrcode-scanned-icon {
   width: 80px;
   height: 80px;
   margin: 0 auto 16px;
-  color: #10b981;
+  color: #2563EB;
 }
 
 .qrcode-scanned-icon svg {
@@ -1811,29 +2189,54 @@ body {
 
 .qrcode-scanned p,
 .qrcode-expired p {
-  color: #6b7280;
+  color: #64748B;
   font-size: 16px;
   margin-bottom: 16px;
+  font-weight: 500;
 }
 
 .refresh-btn {
-  background: #667eea;
+  background: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%);
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
 }
 
 .refresh-btn:hover {
-  background: #5568d3;
+  background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.refresh-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .refresh-btn:disabled {
-  background: #a0aec0;
+  background: #94A3B8;
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* 减少运动偏好支持 */
+@media (prefers-reduced-motion: reduce) {
+  .qrcode-image,
+  .refresh-btn {
+    transition: none;
+  }
+  
+  .qrcode-image:hover,
+  .refresh-btn:hover,
+  .refresh-btn:active {
+    transform: none;
+  }
 }
 
 /* 错误消息样式 */
@@ -1874,6 +2277,34 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: #1a1a1a;
+}
+
+/* Week 1 & 2: 认证系统状态指示器 */
+.auth-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.auth-status.initialized {
+  background-color: #5CB67B;
+  color: white;
+}
+
+.auth-status.error {
+  background-color: #ef4444;
+  color: white;
+}
+
+.auth-status.pending {
+  background-color: #e5e7eb;
+  color: #6b7280;
 }
 
 /* 退出确认面板 */

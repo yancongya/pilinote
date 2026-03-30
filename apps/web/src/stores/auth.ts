@@ -8,6 +8,7 @@ export interface User {
   level?: number;
   vip_status?: boolean;
   sessdata?: string;
+  refresh_token?: string; // Week 2: Cookie刷新机制
 }
 
 interface AuthState {

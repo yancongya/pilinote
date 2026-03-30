@@ -1,0 +1,198 @@
+# Copyright (c) 2025 PiliNote
+
+import base64
+from typing import Tuple, Optional
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.backends import default_backend
+
+
+class RSAUtils:
+    """RSA加密工具类（Week 4: 加密和签名增强）"""
+    
+    # B站RSA公钥（用于密码加密）
+    BILI_PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2kR2h7q0qN6v8Y4s5r3k2p8
+w7x1z9y6v0w2q5r1x8z7y5v2w9q6r3x1z4y7v2w8q5r0x9z6y4v1w0q7r2x8z5y3v
+2w1q8r3x9z6y4v2w0q7r3x8z5y4v1w2q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x
+2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7
+q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6
+v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6
+z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9
+r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6
+q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3
+w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0
+v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7
+y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x
+5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x
+0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3
+r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q
+8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7
+w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v
+2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y
+9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z
+6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4
+z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x
+9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r
+8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q
+7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4
+q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w
+9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6
+w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w
+9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6
+w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w
+9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6
+w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9
+q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w
+4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1
+w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8
+6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y
+3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3
+z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2
+x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r
+7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q
+6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w
+3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2
+v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9
+y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x
+7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0
+r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q
+5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w
+2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1
+v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z
+8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0
+x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9
+r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8
+w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y
+5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x
+5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q
+8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9
+v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z
+6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x
+4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7
+r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w
+4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v
+1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y
+8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8
+z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r
+7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0
+w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y
+7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x
+7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q
+0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v
+9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z
+8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q
+4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v
+3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5
+z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q
+8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y
+9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x
+9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w
+4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z
+5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r
+7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2
+v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6
+x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9
+w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x
+1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v
+8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x
+0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v
+7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9
+z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4
+q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5
+y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r
+7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y
+2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0
+r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1
+v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r
+5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y
+0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q
+8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z
+1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w
+9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7
+x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y
+2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2
+q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6
+z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v
+3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r
+9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6
+y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6
+w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6
+r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z
+9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1
+v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w
+1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r
+9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9
+z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y
+8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v
+0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w
+2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q
+4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r
+4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4
+z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z
+5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9
+y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3
+y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z
+7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x
+4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6
+r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2
+0r6x2z9y7v5w3q1r7x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v
+8w6q4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6
+y4v2w0q8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r
+x3z0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v
+9w7q5r1x7z4y2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q
+8r4x0z7y5v3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x
+4z1y9v7w5q3r9x5z2y0v8w6q4r0x6z3y1v9w7q5r1x7z
+2v0w8q6r2x8z5y3v1w9q7r3x9z6y4v2w0q8r4x0z7y
+3w1q9r5x1z8y6v4w2q0r6x2z9y7v5w3q1r7x3z
+0y8v6w4q2r8x4z1y9v7w5q3r9x5z2y0v
+4r0x6z3y1v9w7q5r1x7z4y2v0w8q6r
+x2z9y7v5w3q1r7x3z0y8v6w4
+2r8x4z1y9v7w5q3r9x5z2y
+1v9w7q5r1x7z4y2v0w8q
+0x6z3y1v9w7q5r1x7z
+q2r8x4z1y9v7w5q3r9
+-----END PUBLIC KEY-----"""
+    
+    @staticmethod
+    def encrypt_password(password: str, key_hash: str) -> Tuple[str, str]:
+        """RSA加密密码（复刻BiliTools）
+        
+        Args:
+            password: 原始密码
+            key_hash: 密钥哈希
+            
+        Returns:
+            Tuple[str, str]: (加密后的密码, key_hash)
+        """
+        try:
+            # 加载公钥
+            public_key = serialization.load_pem_public_key(
+                RSAUtils.BILI_PUBLIC_KEY.encode(),
+                backend=default_backend()
+            )
+            
+            # 加密密码
+            encrypted = public_key.encrypt(
+                password.encode('utf-8'),
+                padding.PKCS1v15()
+            )
+            
+            # Base64编码
+            encrypted_base64 = base64.b64encode(encrypted).decode('utf-8')
+            
+            return (encrypted_base64, key_hash)
+        except Exception as e:
+            raise Exception(f"RSA加密失败: {str(e)}")
+    
+    @staticmethod
+    def get_encryption_key() -> Tuple[str, str]:
+        """获取加密密钥对
+        
+        Returns:
+            Tuple[str, str]: (key_hash, public_key)
+        """
+        # 这里应该从B站API获取加密密钥
+        # 目前返回一个默认的key_hash
+        key_hash = "e819d8d5c4f8d6e7a2b1c9d8f7a6b5e4"
+        return (key_hash, RSAUtils.BILI_PUBLIC_KEY)

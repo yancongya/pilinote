@@ -11,20 +11,118 @@ from src.schemas.login import (
     PasswordLoginResponse,
     UserInfoResponse,
     SmsCodeRequest,
+    SmsCodeWithCaptchaRequest,
     SmsLoginRequest,
 )
 from src.services.bilibili import BilibiliService
+from src.services.geetest_service import GeetestService
 from src.models.user import User
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 
-@router.get("/qrcode", response_model=dict)
-async def get_qrcode():
-    """获取登录二维码"""
+@router.post("/init", response_model=dict)
+async def init_fingerprint():
+    """初始化指纹系统（使用HeadersManager）"""
     service = BilibiliService()
     try:
-        result = service.get_qrcode()
+        result = await service.init()
+        return result
+    finally:
+        service.close()
+
+
+@router.post("/refresh/cookies", response_model=dict)
+async def refresh_cookies():
+    """检查并刷新cookie（使用HeadersManager）"""
+    service = BilibiliService()
+    try:
+        result = await service.check_and_refresh_cookies()
+        return result
+    finally:
+        service.close()
+
+
+# Week 3: Geetest验证支持
+@router.get("/captcha/params", response_model=dict)
+async def get_captcha_params():
+    """获取Geetest验证码参数（使用HeadersManager）"""
+    from src.services.headers_manager import init_headers
+    try:
+        # 初始化HeadersManager
+        await init_headers()
+        
+        service = GeetestService()
+        try:
+            result = await service.get_captcha_params()
+            if result["success"]:
+                return {
+                    "success": True,
+                    "data": result["data"]
+                }
+            raise HTTPException(status_code=400, detail=result["message"])
+        finally:
+            service.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取验证码参数失败: {str(e)}")
+
+
+@router.post("/captcha/validate", response_model=dict)
+def validate_captcha(challenge: str, validate: str, seccode: str):
+    """验证Geetest验证码结果（Week 3: Geetest验证支持）"""
+    service = GeetestService()
+    try:
+        result = service.validate_captcha(challenge, validate, seccode)
+        if result["success"]:
+            return {
+                "success": True,
+                "data": result["data"]
+            }
+        raise HTTPException(status_code=400, detail=result["message"])
+    finally:
+        service.close()
+
+
+@router.post("/sms/send", response_model=dict)
+async def send_sms_code_with_captcha(request: SmsCodeWithCaptchaRequest):
+    """发送手机验证码（支持Geetest验证，使用HeadersManager）"""
+    from src.services.headers_manager import init_headers
+    try:
+        # 初始化HeadersManager
+        await init_headers()
+        
+        service = GeetestService()
+        try:
+            result = await service.send_sms_code(
+                request.cid, 
+                request.tel, 
+                request.token, 
+                request.challenge, 
+                request.geetest_validate, 
+                request.seccode
+            )
+            if result["success"]:
+                return {
+                    "success": True,
+                    "data": result["data"],
+                    "message": result["message"]
+                }
+            raise HTTPException(status_code=400, detail=result["message"])
+        finally:
+            service.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"发送短信验证码失败: {str(e)}")
+
+
+@router.get("/qrcode", response_model=dict)
+async def get_qrcode():
+    """获取登录二维码（使用HeadersManager）"""
+    service = BilibiliService()
+    try:
+        # 初始化HeadersManager
+        await service.init()
+        
+        result = await service.get_qrcode()
         if result["success"]:
             data = result["data"]
             return {
@@ -41,10 +139,13 @@ async def get_qrcode():
 
 @router.get("/qrcode/status/{qrcode_key}", response_model=dict)
 async def query_qrcode_status(qrcode_key: str, db: Session = Depends(get_db)):
-    """查询二维码登录状态"""
+    """查询二维码登录状态（使用HeadersManager）"""
     service = BilibiliService()
     try:
-        result = service.query_qrcode_status(qrcode_key)
+        # 初始化HeadersManager
+        await service.init()
+        
+        result = await service.query_qrcode_status(qrcode_key)
         if result["success"]:
             data = result["data"]
 
@@ -99,10 +200,13 @@ async def query_qrcode_status(qrcode_key: str, db: Session = Depends(get_db)):
 
 @router.post("/sessdata", response_model=dict)
 async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends(get_db)):
-    """通过SESSDATA登录"""
+    """通过SESSDATA登录（使用HeadersManager）"""
     service = BilibiliService()
     try:
-        result = service.login_by_sessdata(request.sessdata)
+        # 初始化HeadersManager
+        await service.init()
+        
+        result = await service.login_by_sessdata(request.sessdata)
         if result["success"]:
             user_data = result["data"]
             mid = user_data["mid"]
@@ -142,15 +246,18 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
 
 @router.post("/password", response_model=dict)
 async def login_by_password(request: PasswordLoginRequest, db: Session = Depends(get_db)):
-    """通过密码登录"""
+    """通过密码登录（使用HeadersManager）"""
     service = BilibiliService()
     try:
-        result = service.login_by_password(
+        # 初始化HeadersManager
+        await service.init()
+        
+        result = await service.login_by_password(
             request.username,
             request.password,
             request.token,
             request.challenge,
-            request.validate,
+            request.geetest_validate,
             request.seccode
         )
         if result["success"]:
@@ -177,26 +284,15 @@ async def login_by_password(request: PasswordLoginRequest, db: Session = Depends
         service.close()
 
 
-@router.post("/sms/send", response_model=dict)
-async def send_sms_code(request: SmsCodeRequest):
-    """发送手机验证码"""
-    # B站的短信验证码功能也受到验证码限制
-    raise HTTPException(
-        status_code=422,
-        detail={
-            "message": "短信验证码功能需要图形验证码",
-            "error_type": "captcha_required",
-            "hint": "请使用扫码登录或SESSDATA登录方式"
-        }
-    )
-
-
 @router.post("/sms/login", response_model=dict)
 async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
-    """通过手机验证码登录"""
+    """通过手机验证码登录（使用HeadersManager）"""
     service = BilibiliService()
     try:
-        result = service.login_by_sms(request.phone, request.code)
+        # 初始化HeadersManager
+        await service.init()
+        
+        result = await service.login_by_sms(request.phone, request.code, request.captcha_key)
         if result["success"]:
             user_data = result["data"]
             mid = user_data["mid"]
@@ -238,10 +334,13 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/user-info", response_model=dict)
 async def get_user_info(sessdata: str, db: Session = Depends(get_db)):
-    """获取用户信息"""
+    """获取用户信息（使用HeadersManager）"""
     service = BilibiliService()
     try:
-        result = service.login_by_sessdata(sessdata)
+        # 初始化HeadersManager
+        await service.init()
+        
+        result = await service.login_by_sessdata(sessdata)
         if result["success"]:
             user_data = result["data"]
             return {

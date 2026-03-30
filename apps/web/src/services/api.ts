@@ -42,6 +42,7 @@ export interface SmsCodeRequest {
 export interface SmsLoginRequest {
   phone: string;
   code: string;
+  captcha_key?: string;
 }
 
 class ApiService {
@@ -262,6 +263,51 @@ class ApiService {
     const params = status ? `?status=${status}` : '';
     return this.request<any>(`/api/download/bvid/${bvid}${params}`, {
       method: 'DELETE',
+    });
+  }
+
+  // 认证升级相关API（Week 1 & 2）
+  async initFingerprint(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/init', {
+      method: 'POST',
+    });
+  }
+
+  async refreshCookies(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/refresh/cookies', {
+      method: 'POST',
+    });
+  }
+
+  // Week 3: Geetest验证支持
+  async getCaptchaParams(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/captcha/params', {
+      method: 'GET',
+    });
+  }
+
+  async validateCaptcha(
+    challenge: string,
+    validate: string,
+    seccode: string
+  ): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/captcha/validate', {
+      method: 'POST',
+      body: JSON.stringify({ challenge, validate, seccode }),
+    });
+  }
+
+  async sendSmsCodeWithCaptcha(
+    cid: string,
+    tel: string,
+    token: string,
+    challenge: string,
+    validate: string,
+    seccode: string
+  ): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/sms/send', {
+      method: 'POST',
+      body: JSON.stringify({ cid, tel, token, challenge, validate, seccode }),
     });
   }
 }
