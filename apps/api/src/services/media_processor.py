@@ -529,15 +529,35 @@ class MediaDataProcessor:
                 # 使用HTML解析方法获取完整统计信息
                 item_stat = None
                 if bvid:
-                    # 为每个视频添加动态Referer
-                    video_headers = headers.copy()
-                    video_headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
+                    # 构建完整的headers，与视频详情页保持一致
+                    video_headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Referer": f"https://www.bilibili.com/video/{bvid}",
+                        "Accept": "application/json, text/plain, */*",
+                        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                        "Accept-Encoding": "gzip, deflate, br",
+                        "Connection": "keep-alive",
+                        "Sec-Fetch-Dest": "empty",
+                        "Sec-Fetch-Mode": "cors",
+                        "Sec-Fetch-Site": "same-site",
+                        "Origin": "https://www.bilibili.com"
+                    }
+                    
+                    # 添加cookie
+                    cookies = []
+                    for key, value in self.default_cookies.items():
+                        cookies.append(f"{key}={value}")
+                    if sessdata:
+                        cookies.append(f"SESSDATA={sessdata}")
+                    if cookies:
+                        video_headers["Cookie"] = "; ".join(cookies)
                     
                     try:
                         # 使用HTML解析方法获取视频详情
                         html_response = await client.get(
                             f"https://www.bilibili.com/video/{bvid}",
-                            headers=video_headers
+                            headers=video_headers,
+                            follow_redirects=True
                         )
                         html_response.raise_for_status()
                         html = html_response.text
@@ -563,6 +583,8 @@ class MediaDataProcessor:
                         
                         if video_data:
                             vd = video_data
+                            print(f"[DEBUG] 收藏页HTML解析成功 - BV: {bvid}")
+                            print(f"[DEBUG] videoData.stat内容: {vd.get('stat', {})}")
                             item_stat = MediaStats(
                                 play=vd.get("stat", {}).get("view", 0),
                                 danmaku=vd.get("stat", {}).get("danmaku", 0),
@@ -572,8 +594,10 @@ class MediaDataProcessor:
                                 favorite=vd.get("stat", {}).get("favorite", 0),
                                 share=vd.get("stat", {}).get("share", 0)
                             )
-                    except Exception:
-                        pass
+                        else:
+                            print(f"[DEBUG] 收藏页HTML解析失败 - BV: {bvid}, 未找到videoData")
+                    except Exception as e:
+                        print(f"[DEBUG] 收藏页HTML解析异常 - BV: {bvid}, 错误: {str(e)}")
                 
                 # 如果HTML解析失败，使用收藏夹API提供的基本统计
                 if not item_stat:
@@ -660,9 +684,28 @@ class MediaDataProcessor:
                 # 使用HTML解析方法获取视频详情
                 bvid = video.get("bvid", "")
                 
-                # 为每个视频添加动态Referer
-                video_headers = headers.copy()
-                video_headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
+                # 构建完整的headers，与视频详情页保持一致
+                video_headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer": f"https://www.bilibili.com/video/{bvid}",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Sec-Fetch-Dest": "empty",
+                    "Sec-Fetch-Mode": "cors",
+                    "Sec-Fetch-Site": "same-site",
+                    "Origin": "https://www.bilibili.com"
+                }
+                
+                # 添加cookie
+                cookies = []
+                for key, value in self.default_cookies.items():
+                    cookies.append(f"{key}={value}")
+                if sessdata:
+                    cookies.append(f"SESSDATA={sessdata}")
+                if cookies:
+                    video_headers["Cookie"] = "; ".join(cookies)
                 
                 # 提取上传者信息
                 owner_data = video.get("owner", {})
@@ -675,10 +718,11 @@ class MediaDataProcessor:
                     )
                 
                 try:
-                    # 使用HTML解析方法替代API调用
+                    # 使用HTML解析方法获取视频详情
                     html_response = await client.get(
                         f"https://www.bilibili.com/video/{bvid}",
-                        headers=video_headers
+                        headers=video_headers,
+                        follow_redirects=True
                     )
                     html_response.raise_for_status()
                     html = html_response.text
@@ -704,6 +748,8 @@ class MediaDataProcessor:
                     
                     if video_data:
                         vd = video_data
+                        print(f"[DEBUG] 稍后再看HTML解析成功 - BV: {bvid}")
+                        print(f"[DEBUG] videoData.stat内容: {vd.get('stat', {})}")
                         stat = MediaStats(
                             play=vd.get("stat", {}).get("view", 0),
                             danmaku=vd.get("stat", {}).get("danmaku", 0),
@@ -714,6 +760,7 @@ class MediaDataProcessor:
                             share=vd.get("stat", {}).get("share", 0)
                         )
                     else:
+                        print(f"[DEBUG] 稍后再看HTML解析失败 - BV: {bvid}, 未找到videoData")
                         # 如果HTML解析失败，使用稍后再看API提供的数据
                         stat = MediaStats(
                             play=video.get("stat", {}).get("view", 0),
@@ -724,7 +771,8 @@ class MediaDataProcessor:
                             favorite=0,
                             share=0
                         )
-                except Exception:
+                except Exception as e:
+                    print(f"[DEBUG] 稍后再看HTML解析异常 - BV: {bvid}, 错误: {str(e)}")
                     # 如果发生错误，使用稍后再看API提供的数据
                     stat = MediaStats(
                         play=video.get("stat", {}).get("view", 0),
