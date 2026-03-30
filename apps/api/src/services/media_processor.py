@@ -510,17 +510,8 @@ class MediaDataProcessor:
             # 构建媒体项目列表
             items = []
             for i, media in enumerate(medias):
-                # 从cnt_info获取该视频的统计信息
+                # 从cnt_info获取该视频的统计信息（收藏夹API提供的基本统计）
                 cnt_info = media.get("cnt_info", {})
-                item_stat = MediaStats(
-                    play=cnt_info.get("play", 0),
-                    danmaku=cnt_info.get("danmaku", 0),
-                    reply=cnt_info.get("reply", 0),
-                    like=cnt_info.get("like", 0),
-                    coin=cnt_info.get("coin", 0),
-                    favorite=cnt_info.get("collect", 0),
-                    share=cnt_info.get("share", 0)
-                )
                 
                 # 提取上传者信息
                 upper_data = media.get("upper", {})
@@ -530,6 +521,70 @@ class MediaDataProcessor:
                         name=upper_data.get("name", "未知"),
                         mid=upper_data.get("mid", 0),
                         avatar=upper_data.get("face", "")
+                    )
+                
+                # 获取视频BV号
+                bvid = media.get("bvid", "")
+                
+                # 使用HTML解析方法获取完整统计信息
+                item_stat = None
+                if bvid:
+                    # 为每个视频添加动态Referer
+                    video_headers = headers.copy()
+                    video_headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
+                    
+                    try:
+                        # 使用HTML解析方法获取视频详情
+                        html_response = await client.get(
+                            f"https://www.bilibili.com/video/{bvid}",
+                            headers=video_headers
+                        )
+                        html_response.raise_for_status()
+                        html = html_response.text
+                        
+                        # 从HTML中提取__INITIAL_STATE__数据
+                        patterns = [
+                            r'__INITIAL_STATE__\s*=\s*({.*?});',
+                            r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
+                            r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'
+                        ]
+                        
+                        video_data = None
+                        for pattern in patterns:
+                            match = re.search(pattern, html)
+                            if match:
+                                try:
+                                    state_data = json.loads(match.group(1))
+                                    if 'videoData' in state_data:
+                                        video_data = state_data['videoData']
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+                        
+                        if video_data:
+                            vd = video_data
+                            item_stat = MediaStats(
+                                play=vd.get("stat", {}).get("view", 0),
+                                danmaku=vd.get("stat", {}).get("danmaku", 0),
+                                reply=vd.get("stat", {}).get("reply", 0),
+                                like=vd.get("stat", {}).get("like", 0),
+                                coin=vd.get("stat", {}).get("coin", 0),
+                                favorite=vd.get("stat", {}).get("favorite", 0),
+                                share=vd.get("stat", {}).get("share", 0)
+                            )
+                    except Exception:
+                        pass
+                
+                # 如果HTML解析失败，使用收藏夹API提供的基本统计
+                if not item_stat:
+                    item_stat = MediaStats(
+                        play=cnt_info.get("play", 0),
+                        danmaku=cnt_info.get("danmaku", 0),
+                        reply=cnt_info.get("reply", 0),
+                        like=cnt_info.get("like", 0),
+                        coin=cnt_info.get("coin", 0),
+                        favorite=cnt_info.get("collect", 0),
+                        share=cnt_info.get("share", 0)
                     )
                 
                 item = MediaItem(
