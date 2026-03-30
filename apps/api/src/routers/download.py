@@ -610,6 +610,13 @@ async def parse_link(request: ParseLinkRequest):
             
             video_data = data["data"]
             
+            # 检查视频数据是否完整
+            if not video_data.get("cid"):
+                return ParseLinkResponse(
+                    success=False,
+                    message="视频不可访问或已删除"
+                )
+            
             # 构建返回数据
             video_info = {
                 "parsed_id": ParsedVideoId(
@@ -625,20 +632,20 @@ async def parse_link(request: ParseLinkRequest):
                     pic=video_data["pic"],
                     duration=video_data["duration"],
                     pubdate=video_data["pubdate"],
-                    cid=video_data["cid"],
+                    cid=video_data.get("cid", 0),
                     owner={
                         "mid": video_data["owner"]["mid"],
                         "name": video_data["owner"]["name"],
                         "face": video_data["owner"]["face"]
                     },
                     stat={
-                        "view": video_data["stat"]["view"],
-                        "danmaku": video_data["stat"]["danmaku"],
-                        "reply": video_data["stat"]["reply"],
-                        "favorite": video_data["stat"]["favorite"],
-                        "coin": video_data["stat"]["coin"],
-                        "share": video_data["stat"]["share"],
-                        "like": video_data["stat"]["like"]
+                        "view": video_data["stat"].get("view", 0),
+                        "danmaku": video_data["stat"].get("danmaku", 0),
+                        "reply": video_data["stat"].get("reply", 0),
+                        "favorite": video_data["stat"].get("favorite", 0),
+                        "coin": video_data["stat"].get("coin", 0),
+                        "share": video_data["stat"].get("share", 0),
+                        "like": video_data["stat"].get("like", 0)
                     }
                 ),
                 "download_options": DownloadOptionsResponse(
