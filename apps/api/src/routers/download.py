@@ -18,7 +18,7 @@ from src.schemas.download import (
     DownloadTaskResponse,
     DownloadOption
 )
-from src.utils.bilibili_utils import link_parser, id_converter
+from src.utils.bilibili_utils import link_parser, id_converter, MediaType
 from src.services.download_service import download_service
 
 router = APIRouter(prefix="/api/download", tags=["下载"])
