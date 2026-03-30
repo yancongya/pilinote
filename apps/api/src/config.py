@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+import os
 
 
 class Settings(BaseSettings):
@@ -8,6 +9,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # 确保数据库路径指向data目录
     database_url: str = "sqlite:///./data/pilinote.db"
 
     secret_key: str = "pilinote-secret-key"
@@ -23,3 +25,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# 确保数据库URL指向data目录
+if settings.database_url == "sqlite:///./pilinote.db":
+    # 如果使用的是旧路径，自动更新为新路径
+    settings.database_url = "sqlite:///./data/pilinote.db"

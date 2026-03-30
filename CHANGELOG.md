@@ -1,5 +1,88 @@
 # PiliNote 开发日志
 
+## 2026-03-30 数据库建设（阶段1完成）
+
+### 🗄️ 数据库改造
+- 创建cookies表
+  - 用于持久化存储用户Cookie，支持多账号管理
+  - 包含user_id、name、value、domain、path等字段
+  - 支持Cookie过期时间管理
+  
+- 创建downloads表
+  - 用于存储下载任务信息，支持进度追踪
+  - 包含任务状态（pending/queued/downloading/processing/completed/failed/cancelled）
+  - 支持进度追踪（progress、downloaded_bytes、total_bytes、download_speed、eta）
+  - 包含视频元数据（bvid、title、thumbnail、duration、uploader等）
+  - 支持文件管理（file_path、file_size、error_message、retry_count）
+  
+- 创建settings表
+  - 用于存储系统设置，支持分类管理
+  - 包含设置键、值、类型、分类、描述等字段
+  - 支持多种类型：string、integer、boolean、json
+  - 支持按category分类：download、storage、general
+
+### 🔧 数据库配置优化
+- 修复数据库路径配置不一致问题
+  - 修复前：sqlite:///./pilinote.db
+  - 修复后：sqlite:///./data/pilinote.db
+- 添加自动路径修正逻辑
+- 确保data目录自动创建
+
+### 🛠️ 数据库迁移工具
+- 创建migrate_db.py迁移脚本
+  - 检查当前数据库状态
+  - 创建缺失的表
+  - 初始化默认设置
+  - 显示详细的迁移日志
+- 创建create_missing_tables()函数
+  - 智能检测已存在的表
+  - 只创建缺失的表
+  - 避免重复创建
+
+### ⚙️ 默认设置初始化
+- 下载设置（5个）
+  - download.default_quality: 80 (1080P)
+  - download.max_concurrent: 3
+  - download.speed_limit: 0 (不限制)
+  - download.output_format: mp4
+  - download.download_path: ./downloads
+  
+- 存储设置（3个）
+  - storage.temp_path: ./temp
+  - storage.auto_cleanup: true
+  - storage.keep_failed: false
+  
+- 通用设置（4个）
+  - general.theme: auto
+  - general.language: zh-CN
+  - general.auto_download: false
+  - general.clipboard_monitor: false
+
+### ✅ 测试验证
+- 数据库表创建成功
+- 默认设置初始化成功（12条记录）
+- 用户数据完整（烟囱鸭，MID: 100881808）
+- 所有索引正确创建
+- 表结构符合设计要求
+
+### 📝 技术改进
+- 增强database.py功能
+  - 添加table_exists()函数检查表是否存在
+  - 添加create_missing_tables()函数智能创建表
+  - 添加init_default_settings()函数初始化默认设置
+- 改进config.py配置
+  - 自动修正数据库路径
+  - 确保数据目录存在
+
+### 🎯 完成目标
+- ✅ 创建cookies表
+- ✅ 创建downloads表
+- ✅ 创建settings表
+- ✅ 创建数据库迁移工具
+- ✅ 测试数据库表创建
+- ✅ 初始化默认设置
+- ✅ 修复数据库配置问题
+
 ## 2026-03-30 收藏页和稍后再看页性能优化和bug修复
 
 ### ⚡ 性能优化

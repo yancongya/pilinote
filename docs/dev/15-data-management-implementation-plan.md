@@ -7,7 +7,7 @@
    - 扫码登录
    - 短信登录
    - SESSDATA登录
-   - 多账号管理
+   - 多账号管理（切换、刷新、删除）
 
 2. **视频源管理**
    - 收藏夹管理
@@ -20,25 +20,29 @@
    - 分页加载
 
 ### 🏗️ 基础架构
-1. **数据库**
-   - users表（已创建，存储用户信息）
-   - cookies表（模型已定义）
-   - downloads表（模型已定义）
+1. **数据库现状**
    - 数据库位置：`apps/api/data/pilinote.db`
+   - 已有表：`users`（存储用户信息）
+   - 缺失表：`cookies`、`downloads`、`settings`
 
 2. **技术栈**
    - 后端：FastAPI + SQLAlchemy + SQLite
    - 前端：React + TypeScript + Zustand
    - 状态管理：Zustand（类似Pinia）
 
+3. **路由结构**
+   - 设置页面路由：`/settings`
+   - 点击头像跳转到设置页面
+   - 当前SettingsPage：只有账号管理功能
+
 ### ❌ 待实现功能
-1. **下载管理系统**
-2. **设置系统**
-3. **数据持久化**
+1. **数据库表补充**（cookies、downloads、settings）
+2. **设置系统**（下载设置、数据管理）
+3. **下载管理系统**
 
 ## 分阶段实施计划
 
-## 阶段1：数据库建设（Week 1）
+## 阶段1：数据库改造（Week 1）
 
 ### 1.1 创建缺失的数据表
 
@@ -59,10 +63,9 @@ CREATE TABLE cookies (
 ```
 
 **实施步骤**：
-1. 在`apps/api/src/models/cookie.py`中完善模型定义
-2. 在`apps/api/src/database.py`中添加表创建逻辑
-3. 编写数据库迁移脚本
-4. 测试表创建和数据插入
+1. 在`apps/api/src/database.py`中添加表创建逻辑
+2. 运行数据库迁移创建新表
+3. 测试表创建和数据插入
 
 #### 1.1.2 创建downloads表
 ```sql
@@ -97,9 +100,14 @@ CREATE TABLE downloads (
 ```
 
 **实施步骤**：
-1. 在`apps/api/src/models/download.py`中完善模型定义
-2. 添加表创建逻辑
-3. 创建索引优化查询性能
+1. 使用已有的`apps/api/src/models/download.py`模型
+2. 在`apps/api/src/database.py`中添加表创建逻辑
+3. 创建索引优化查询性能：
+   ```sql
+   CREATE INDEX ix_downloads_bvid ON downloads(bvid);
+   CREATE INDEX ix_downloads_status ON downloads(status);
+   CREATE INDEX ix_downloads_created_at ON downloads(created_at);
+   ```
 4. 测试表创建和数据操作
 
 #### 1.1.3 创建settings表
@@ -120,69 +128,31 @@ CREATE TABLE settings (
 **实施步骤**：
 1. 创建`apps/api/src/models/setting.py`
 2. 定义Settings模型
-3. 实现设置的CRUD操作
-4. 添加默认设置初始化逻辑
+3. 在`apps/api/src/database.py`中添加表创建逻辑
+4. 添加默认设置初始化数据
 
-### 1.2 数据库操作工具类
+### 1.2 数据库改造脚本
 
-#### 创建数据库管理器
+#### 1.2.1 创建数据库迁移工具
 ```python
-# apps/api/src/utils/db_manager.py
+# apps/api/src/utils/db_migration.py
 
-class DatabaseManager:
-    def __init__(self):
-        self.db_path = "data/pilinote.db"
+def migrate_database():
+    """执行数据库迁移"""
+    # 创建缺失的表
+    create_cookies_table()
+    create_downloads_table()
+    create_settings_table()
     
-    def backup_database(self, output_path: str):
-        """备份数据库"""
-        pass
-    
-    def restore_database(self, input_path: str):
-        """恢复数据库"""
-        pass
-    
-    def get_database_size(self) -> int:
-        """获取数据库大小"""
-        pass
-    
-    def clean_database(self, table: str):
-        """清理指定表的数据"""
-        pass
+    # 初始化默认设置
+    init_default_settings()
 ```
 
 **实施步骤**：
-1. 创建数据库管理器类
-2. 实现备份恢复功能
-3. 实现数据库大小查询
-4. 实现数据清理功能
-
-### 1.3 数据库API端点
-
-```python
-# apps/api/src/routers/database.py
-
-@router.get("/size")
-async def get_database_size():
-    """获取数据库大小"""
-
-@router.post("/backup")
-async def backup_database(output_path: str):
-    """备份数据库"""
-
-@router.post("/restore")
-async def restore_database(input_path: str):
-    """恢复数据库"""
-
-@router.delete("/clean/{table}")
-async def clean_table(table: str):
-    """清理指定表"""
-```
-
-**实施步骤**：
-1. 创建database.py路由
-2. 实现各个API端点
-3. 添加权限验证
-4. 编写API文档
+1. 创建数据库迁移工具
+2. 实现表创建逻辑
+3. 添加默认设置初始化
+4. 编写迁移日志
 
 ## 阶段2：设置系统后端（Week 2）
 
@@ -220,7 +190,7 @@ class Settings(BaseModel):
 ```
 
 **实施步骤**：
-1. 创建schemas/settings.py
+1. 创建`schemas/settings.py`
 2. 定义完整的设置类型
 3. 添加字段验证规则
 4. 编写示例和文档
@@ -257,7 +227,7 @@ class SettingsService:
 ```
 
 **实施步骤**：
-1. 创建SettingsService类
+1. 创建`services/settings_service.py`
 2. 实现设置CRUD操作
 3. 实现设置导入导出
 4. 添加设置验证逻辑
@@ -289,35 +259,204 @@ async def import_settings(input_path: str):
 ```
 
 **实施步骤**：
-1. 创建settings.py路由
+1. 创建`routers/settings.py`
 2. 实现各个API端点
 3. 添加错误处理
 4. 编写API文档
 
-## 阶段3：设置系统前端（Week 3）
+## 阶段3：设置系统前端改造（Week 3）
 
-### 3.1 创建设置页面结构
+### 3.1 改造SettingsPage组件结构
 
-#### 3.1.1 设置页面组件
-```
-apps/web/src/pages/SettingsPage.tsx
-apps/web/src/pages/settings/
-  ├── GeneralSettings.tsx      # 通用设置
-  ├── DownloadSettings.tsx     # 下载设置
-  ├── StorageSettings.tsx      # 存储设置
-  ├── DataManagement.tsx       # 数据管理
-  └── AboutSettings.tsx        # 关于设置
+#### 3.1.1 添加Tab导航
+```tsx
+// apps/web/src/pages/SettingsPage.tsx
+
+function SettingsPage() {
+  const [activeTab, setActiveTab] = useState('accounts') // accounts, download, storage
+  
+  const tabs = [
+    { id: 'accounts', label: '账号管理', icon: User },
+    { id: 'download', label: '下载设置', icon: Download },
+    { id: 'storage', label: '数据管理', icon: Database }
+  ]
+  
+  return (
+    <div className="settings-page">
+      <div className="settings-header">
+        <h1>设置</h1>
+      </div>
+      
+      {/* Tab导航 */}
+      <div className="settings-tabs">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <tab.icon />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+      
+      {/* Tab内容 */}
+      <div className="settings-content">
+        {activeTab === 'accounts' && <AccountsSettings />}
+        {activeTab === 'download' && <DownloadSettings />}
+        {activeTab === 'storage' && <StorageSettings />}
+      </div>
+    </div>
+  )
+}
 ```
 
 **实施步骤**：
-1. 创建设置页面主组件
-2. 创建分类设置子组件
-3. 实现设置导航
-4. 添加设置图标和样式
+1. 添加Tab状态管理
+2. 实现Tab切换逻辑
+3. 保持现有的账号管理功能
+4. 添加Tab切换动画
 
-### 3.2 设置状态管理
+### 3.2 拆分SettingsPage组件
 
-#### 3.2.1 Settings Store
+#### 3.2.1 创建子组件目录
+```
+apps/web/src/pages/settings/
+  ├── AccountsSettings.tsx      # 账号管理（从SettingsPage迁移）
+  ├── DownloadSettings.tsx      # 下载设置（新建）
+  └── StorageSettings.tsx       # 数据管理（新建）
+```
+
+**实施步骤**：
+1. 创建settings子目录
+2. 将现有账号管理逻辑迁移到AccountsSettings.tsx
+3. 创建DownloadSettings.tsx
+4. 创建StorageSettings.tsx
+
+#### 3.2.2 AccountsSettings组件
+```tsx
+// apps/web/src/pages/settings/AccountsSettings.tsx
+
+export default function AccountsSettings() {
+  // 从原SettingsPage迁移的账号管理代码
+  return (
+    <div className="accounts-settings">
+      {/* 现有的账号列表、切换、删除功能 */}
+    </div>
+  )
+}
+```
+
+**实施步骤**：
+1. 迁移现有的账号管理代码
+2. 保持所有现有功能
+3. 保持现有的样式
+4. 保持现有的交互
+
+#### 3.2.3 DownloadSettings组件
+```tsx
+// apps/web/src/pages/settings/DownloadSettings.tsx
+
+export default function DownloadSettings() {
+  const { settings, updateSettings } = useSettingsStore()
+  
+  return (
+    <section>
+      <h3>默认视频质量</h3>
+      <Select 
+        value={settings.download.default_quality}
+        onChange={(value) => updateSettings({ download: { default_quality: value }})}
+        options={qualityOptions}
+      />
+      
+      <h3>最大并发数</h3>
+      <Slider 
+        min={1} max={5}
+        value={settings.download.max_concurrent}
+        onChange={(value) => updateSettings({ download: { max_concurrent: value }})}
+      />
+      
+      <h3>速度限制</h3>
+      <Input 
+        type="number"
+        value={settings.download.speed_limit}
+        onChange={(value) => updateSettings({ download: { speed_limit: value }})}
+      />
+      
+      <h3>下载路径</h3>
+      <FolderPicker 
+        value={settings.download.download_path}
+        onChange={(value) => updateSettings({ download: { download_path: value }})}
+      />
+    </section>
+  )
+}
+```
+
+**实施步骤**：
+1. 创建下载设置UI
+2. 实现质量选择器
+3. 实现并发数滑块
+4. 实现路径选择器
+
+#### 3.2.4 StorageSettings组件
+```tsx
+// apps/web/src/pages/settings/StorageSettings.tsx
+
+export default function StorageSettings() {
+  const { settings, updateSettings, databaseInfo } = useSettingsStore()
+  
+  return (
+    <section>
+      <h3>临时文件路径</h3>
+      <FolderPicker 
+        value={settings.storage.temp_path}
+        onChange={(value) => updateSettings({ storage: { temp_path: value }})}
+      />
+      
+      <h3>自动清理</h3>
+      <Switch 
+        checked={settings.storage.auto_cleanup}
+        onChange={(checked) => updateSettings({ storage: { auto_cleanup: checked }})}
+      />
+      
+      <h3>数据库信息</h3>
+      <div className="database-info">
+        <div className="info-item">
+          <span>数据库大小:</span>
+          <span>{formatBytes(databaseInfo.size)}</span>
+        </div>
+        <div className="info-item">
+          <span>用户数量:</span>
+          <span>{databaseInfo.userCount}</span>
+        </div>
+        <div className="info-item">
+          <span>下载任务:</span>
+          <span>{databaseInfo.downloadCount}</span>
+        </div>
+      </div>
+      
+      <div className="action-buttons">
+        <Button onClick={handleBackup}>备份数据库</Button>
+        <Button onClick={handleRestore}>恢复数据库</Button>
+        <Button onClick={handleClean}>清理数据</Button>
+      </div>
+    </section>
+  )
+}
+```
+
+**实施步骤**：
+1. 创建存储设置UI
+2. 实现路径选择器
+3. 实现开关组件
+4. 实现数据库信息显示
+5. 实现备份恢复功能
+
+### 3.3 设置状态管理
+
+#### 3.3.1 Settings Store
 ```typescript
 // apps/web/src/stores/settings.ts
 
@@ -331,6 +470,11 @@ interface SettingsStore {
   settings: Settings | null;
   loading: boolean;
   error: string | null;
+  databaseInfo: {
+    size: number;
+    userCount: number;
+    downloadCount: number;
+  };
   
   // Actions
   fetchSettings: () => Promise<void>;
@@ -338,6 +482,10 @@ interface SettingsStore {
   resetSettings: (category?: string) => Promise<void>;
   exportSettings: (path: string) => Promise<void>;
   importSettings: (path: string) => Promise<void>;
+  fetchDatabaseInfo: () => Promise<void>;
+  backupDatabase: (path: string) => Promise<void>;
+  restoreDatabase: (path: string) => Promise<void>;
+  cleanDatabase: (table: string) => Promise<void>;
 }
 ```
 
@@ -345,125 +493,61 @@ interface SettingsStore {
 1. 创建settings store
 2. 定义设置接口
 3. 实现设置操作方法
-4. 添加持久化支持
+4. 添加数据库管理方法
+5. 添加持久化支持
 
-### 3.3 设置UI组件
+### 3.4 API服务集成
 
-#### 3.3.1 通用设置组件
-```tsx
-// apps/web/src/pages/settings/GeneralSettings.tsx
+#### 3.4.1 添加设置API方法
+```typescript
+// apps/web/src/services/api.ts
 
-export default function GeneralSettings() {
-  return (
-    <section>
-      <h3>主题设置</h3>
-      <Select options={['light', 'dark', 'auto']} />
-      
-      <h3>语言设置</h3>
-      <Select options={['zh-CN', 'en-US']} />
-      
-      <h3>自动下载</h3>
-      <Switch />
-      
-      <h3>剪贴板监听</h3>
-      <Switch />
-    </section>
-  );
+// 设置相关API
+async getSettings(): Promise<ApiResponse<Settings>> {
+  return this.request<Settings>('/api/settings/', { method: 'GET' });
+}
+
+async updateSettings(settings: Partial<Settings>): Promise<ApiResponse<void>> {
+  return this.request<void>('/api/settings/', { 
+    method: 'PUT',
+    body: JSON.stringify(settings)
+  });
+}
+
+async resetSettings(category?: string): Promise<ApiResponse<void>> {
+  return this.request<void>(`/api/settings/reset${category ? `?category=${category}` : ''}`, { 
+    method: 'POST'
+  });
+}
+
+async getDatabaseInfo(): Promise<ApiResponse<DatabaseInfo>> {
+  return this.request<DatabaseInfo>('/api/database/info', { method: 'GET' });
+}
+
+async backupDatabase(path: string): Promise<ApiResponse<void>> {
+  return this.request<void>('/api/database/backup', { 
+    method: 'POST',
+    body: JSON.stringify({ output_path: path })
+  });
+}
+
+async restoreDatabase(path: string): Promise<ApiResponse<void>> {
+  return this.request<void>('/api/database/restore', { 
+    method: 'POST',
+    body: JSON.stringify({ input_path: path })
+  });
+}
+
+async cleanDatabase(table: string): Promise<ApiResponse<void>> {
+  return this.request<void>(`/api/database/clean/${table}`, { method: 'DELETE' });
 }
 ```
 
 **实施步骤**：
-1. 创建通用设置UI
-2. 实现主题切换
-3. 实现语言切换
-4. 实现开关组件
-
-#### 3.3.2 下载设置组件
-```tsx
-// apps/web/src/pages/settings/DownloadSettings.tsx
-
-export default function DownloadSettings() {
-  return (
-    <section>
-      <h3>默认视频质量</h3>
-      <Select options={qualityOptions} />
-      
-      <h3>最大并发数</h3>
-      <Slider min={1} max={5} />
-      
-      <h3>速度限制</h3>
-      <Input type="number" />
-      
-      <h3>下载路径</h3>
-      <FolderPicker />
-    </section>
-  );
-}
-```
-
-**实施步骤**：
-1. 创建下载设置UI
-2. 实现质量选择
-3. 实现并发数调节
-4. 实现路径选择
-
-#### 3.3.3 存储设置组件
-```tsx
-// apps/web/src/pages/settings/StorageSettings.tsx
-
-export default function StorageSettings() {
-  return (
-    <section>
-      <h3>临时文件路径</h3>
-      <FolderPicker />
-      
-      <h3>自动清理</h3>
-      <Switch />
-      
-      <h3>保留失败任务</h3>
-      <Switch />
-      
-      <h3>临时文件大小</h3>
-      <Button onClick={cleanTemp}>清理</Button>
-    </section>
-  );
-}
-```
-
-**实施步骤**：
-1. 创建存储设置UI
-2. 实现路径选择
-3. 实现清理功能
-4. 显示缓存大小
-
-#### 3.3.4 数据管理组件
-```tsx
-// apps/web/src/pages/settings/DataManagement.tsx
-
-export default function DataManagement() {
-  return (
-    <section>
-      <h3>数据库大小</h3>
-      <div>{databaseSize}</div>
-      
-      <h3>备份数据库</h3>
-      <Button onClick={backupDatabase}>备份</Button>
-      
-      <h3>恢复数据库</h3>
-      <Button onClick={restoreDatabase}>恢复</Button>
-      
-      <h3>清理数据</h3>
-      <Button onClick={cleanDatabase}>清理</Button>
-    </section>
-  );
-}
-```
-
-**实施步骤**：
-1. 创建数据管理UI
-2. 实现数据库大小显示
-3. 实现备份恢复功能
-4. 实现数据清理功能
+1. 添加设置API方法
+2. 添加数据库管理API方法
+3. 实现错误处理
+4. 添加类型定义
 
 ## 阶段4：下载管理系统（Week 4-5）
 
@@ -585,33 +669,34 @@ async def get_download_status(task_id: str):
 ```
 
 **实施步骤**：
-1. 创建download.py路由
+1. 创建`routers/download.py`
 2. 实现各个API端点
 3. 添加权限验证
 4. 实现WebSocket进度推送
 
 ### 4.4 下载前端管理
 
-#### 4.4.1 下载页面组件
+#### 4.4.1 下载页面改造
 ```tsx
-// apps/web/src/pages/DownloadsPage.tsx
+// apps/web/src/pages/HomePage.tsx (下载tab)
 
-export default function DownloadsPage() {
+export default function HomePage() {
+  const { activeTab } = useAppStore()
+  
   return (
     <div>
-      <DownloadHeader />
-      <DownloadList />
-      <DownloadStats />
+      {activeTab === 'downloads' && <DownloadsContent />}
+      {/* 其他tab */}
     </div>
-  );
+  )
 }
 ```
 
 **实施步骤**：
-1. 创建下载页面
-2. 实现下载列表
-3. 实现进度显示
-4. 实现任务控制
+1. 在DownloadsContent中添加下载列表
+2. 实现下载进度显示
+3. 实现任务控制
+4. 添加拖拽上传功能
 
 #### 4.4.2 Download Store
 ```typescript
@@ -629,66 +714,74 @@ interface DownloadStore {
   resumeDownload: (id: string) => Promise<void>;
   cancelDownload: (id: string) => Promise<void>;
   removeDownload: (id: string) => Promise<void>;
+  fetchDownloads: () => Promise<void>;
 }
 ```
 
 **实施步骤**：
-1. 创建download store
-2. 实现下载操作方法
+1. 增强现有download store
+2. 添加下载操作方法
 3. 添加WebSocket进度监听
 4. 实现状态同步
 
 ## 阶段5：完善和优化（Week 6）
 
-### 5.1 性能优化
+### 5.1 UI/UX优化
 
-#### 5.1.1 数据库优化
+#### 5.1.1 设置页面样式
+- Tab切换动画
+- 表单验证提示
+- 加载状态显示
+- 错误提示优化
+
+#### 5.1.2 下载管理UI
+- 进度条优化
+- 速度显示
+- 预计剩余时间
+- 错误状态显示
+
+### 5.2 性能优化
+
+#### 5.2.1 数据库优化
 - 添加索引
 - 优化查询
 - 实现数据分页
+- 添加缓存机制
 
-#### 5.1.2 下载优化
+#### 5.2.2 下载优化
 - 实现断点续传
 - 优化并发控制
 - 添加速度限制
-
-### 5.2 用户体验优化
-
-#### 5.2.1 UI优化
-- 添加加载动画
-- 优化错误提示
-- 实现主题切换
-
-#### 5.2.2 功能完善
-- 添加批量操作
-- 实现拖拽排序
-- 添加快捷键支持
+- 优化任务调度
 
 ### 5.3 测试和文档
 
 #### 5.3.1 测试
-- 单元测试
+- API接口测试
+- 前端组件测试
 - 集成测试
-- 端到端测试
+- 性能测试
 
 #### 5.3.2 文档
-- API文档
+- API文档更新
 - 用户手册
 - 开发文档
+- 部署文档
 
 ## 优先级建议
 
 ### 高优先级（必须实现）
-1. ✅ 数据库建设（cookies、downloads、settings表）
-2. ✅ 基础设置系统（通用、下载设置）
-3. ✅ 下载任务管理基础功能
-4. ✅ 数据库备份恢复
+1. ✅ 数据库表补充（cookies、downloads、settings）
+2. ✅ 设置页面Tab改造
+3. ✅ 下载设置功能
+4. ✅ 数据管理功能
+5. ✅ 基础下载管理
 
 ### 中优先级（重要功能）
 1. ⭐ 下载进度实时显示
 2. ⭐ 任务控制（暂停、继续、取消）
 3. ⭐ 设置导入导出
-4. ⭐ 数据清理功能
+4. ⭐ 数据库备份恢复
 
 ### 低优先级（锦上添花）
 1. 💡 高级下载选项
@@ -698,25 +791,31 @@ interface DownloadStore {
 
 ## 技术要点
 
-### 1. 数据库设计要点
+### 1. 数据库改造要点
+- 在现有users表基础上添加新表
 - 使用外键约束保证数据一致性
 - 添加索引提高查询性能
-- 实现软删除功能
-- 添加时间戳字段
+- 实现数据库迁移工具
 
-### 2. 状态管理要点
-- 使用Zustand进行状态管理
-- 实现持久化存储
+### 2. 设置页面改造要点
+- 保持现有账号管理功能
+- 添加Tab导航系统
+- 实现平滑的Tab切换
+- 保持统一的UI风格
+
+### 3. 状态管理要点
+- 扩展现有的Zustand store
+- 实现设置持久化
 - 添加错误处理
 - 实现乐观更新
 
-### 3. API设计要点
+### 4. API设计要点
 - 遵循RESTful规范
 - 实现统一的错误处理
 - 添加请求验证
-- 实现API版本控制
+- 与现有API风格保持一致
 
-### 4. 下载管理要点
+### 5. 下载管理要点
 - 使用异步任务队列
 - 实现并发控制
 - 添加进度回调
@@ -725,66 +824,79 @@ interface DownloadStore {
 ## 预期成果
 
 ### 阶段1完成后
-- ✅ 完整的数据库结构
-- ✅ 数据库备份恢复功能
-- ✅ 数据管理API
+- ✅ 完整的数据库结构（users + cookies + downloads + settings）
+- ✅ 数据库迁移工具
+- ✅ 数据库管理API
 
 ### 阶段2完成后
 - ✅ 设置系统后端
 - ✅ 设置CRUD操作
 - ✅ 设置导入导出
+- ✅ 设置API文档
 
 ### 阶段3完成后
-- ✅ 设置系统前端
-- ✅ 设置页面UI
+- ✅ 设置页面Tab改造
+- ✅ 账号管理功能保持
+- ✅ 下载设置UI
+- ✅ 数据管理UI
 - ✅ 设置状态管理
 
 ### 阶段4完成后
 - ✅ 下载管理系统
 - ✅ 下载任务管理
 - ✅ 下载进度显示
+- ✅ 下载控制功能
 
 ### 阶段5完成后
 - ✅ 完整的功能实现
+- ✅ 优秀的UI/UX
 - ✅ 性能优化
 - ✅ 测试和文档
 
 ## 风险和挑战
 
-### 1. 技术风险
+### 1. 改造风险
+- 现有功能可能受影响
+- 数据迁移可能导致数据丢失
+- UI改造可能影响用户体验
+
+### 2. 技术风险
 - yt-dlp API变化
 - 下载任务管理复杂度
 - 状态同步问题
 
-### 2. 性能风险
+### 3. 性能风险
 - 大量下载任务
 - 数据库性能瓶颈
 - 内存使用问题
 
-### 3. 用户体验风险
-- 设置过于复杂
-- 下载操作不直观
-- 错误提示不清晰
-
 ## 应对策略
 
-### 1. 技术应对
+### 1. 改造应对
+- 使用数据库迁移工具
+- 实现数据备份恢复
+- 充分测试现有功能
+- 保持向后兼容
+
+### 2. 技术应对
 - 使用成熟的下载库
 - 实现任务队列管理
 - 添加详细日志
+- 实现错误恢复
 
-### 2. 性能应对
+### 3. 性能应对
 - 实现任务限流
 - 优化数据库查询
 - 添加缓存机制
-
-### 3. 用户体验应对
-- 简化设置流程
-- 提供清晰的反馈
-- 添加帮助文档
+- 实现资源回收
 
 ## 总结
 
-本实施计划分5个阶段，逐步实现PiliNote的数据管理和下载配置功能。通过合理的时间安排和优先级控制，可以在6周内完成核心功能的开发和优化。每个阶段都有明确的目标和可验证的交付物，确保项目按计划推进。
+本实施计划基于当前项目状态，采用**改造而非重建**的策略：
 
-实施过程中需要重点关注数据库设计、状态管理、下载任务管理等关键技术点，同时注意性能优化和用户体验提升。通过充分的测试和文档编写，确保系统的稳定性和可维护性。
+1. **数据库改造**：在现有users表基础上添加cookies、downloads、settings表
+2. **设置页面改造**：在现有SettingsPage内添加Tab导航，保持账号管理功能
+3. **功能扩展**：逐步添加下载设置、数据管理等新功能
+4. **渐进式开发**：分阶段实施，确保每个阶段都能正常工作
+
+通过合理的时间安排和优先级控制，可以在6周内完成数据管理和下载配置功能的开发。每个阶段都有明确的目标和可验证的交付物，确保项目按计划推进，同时不影响现有功能的正常运行。
