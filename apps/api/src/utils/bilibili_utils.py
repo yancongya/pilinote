@@ -1,7 +1,24 @@
 # Copyright (c) 2025 PiliNote
 
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
+from enum import Enum
+
+
+class MediaType(str, Enum):
+    """媒体类型枚举"""
+    VIDEO = "video"
+    BANGUMI = "bangumi"
+    MUSIC = "music"
+    MUSIC_LIST = "music_list"
+    LESSON = "lesson"
+    WATCH_LATER = "watch_later"
+    FAVORITE = "favorite"
+    OPUS = "opus"
+    OPUS_LIST = "opus_list"
+    USER_VIDEO = "user_video"
+    USER_OPUS = "user_opus"
+    USER_AUDIO = "user_audio"
 
 
 class BilibiliIDConverter:
@@ -45,144 +62,295 @@ class BilibiliIDConverter:
 
 
 class LinkParser:
-    """B站链接解析器"""
+    """B站链接解析器 - 支持12种链接类型"""
     
     def __init__(self):
         self.converter = BilibiliIDConverter()
         
-    def parse_video_link(self, url: str) -> Dict[str, str]:
+    def parse_id(self, input_str: str) -> Dict[str, Union[str, int, MediaType, None]]:
         """
-        从各种格式的链接中提取视频ID或课程ID
+        解析B站链接，返回链接类型和ID
         
         支持的格式:
-        - 课程ID: ss360 或直接输入 360
-        - 课程链接: https://www.bilibili.com/cheese/play/ss360
-        - 直接BVid: BV1xx411c7mh
-        - 完整URL: https://www.bilibili.com/video/BV1xx411c7mh
-        - 短链接: https://b23.tv/BV1xx411c7mh
-        - AV编号: av12345678 或直接数字 12345678
-        - 带参数URL: https://www.bilibili.com/video/BV1xx411c7mh?p=2
+        视频: av\d+, BV\w{10}
+        番剧: ep\d+, ss\d+, md\d+
+        音乐: au\d+
+        歌单: am\d+
+        课程: cheese.play/ss\d+
+        稍后再看: /watchlater
+        收藏夹: space.bilibili.com/{mid}/favlist?fid={fid}
+        图文: cv\d+
+        图文合集: rl\d+
+        用户视频: space.bilibili.com/{mid}/video
+        用户图文: space.bilibili.com/{mid}/opus
+        用户音频: space.bilibili.com/{mid}/audio
+        短链接: b23.tv
         
         Returns:
             {
-                "type": "season" | "bvid" | "aid",
-                "id": "360" | "BV1xx411c7mh" | 12345678,
-                "original": "原始链接"
+                "id": str | int,  # 资源ID
+                "type": MediaType,  # 媒体类型
+                "target": int | None,  # 可选的目标ID（如收藏夹ID）
+                "original": str  # 原始链接
             }
         """
-        url = url.strip()
+        url = input_str.strip()
         
-        # 1. 处理课程链接 (优先处理，因为课程链接可能包含数字)
-        # 检查课程完整链接
-        cheese_url_match = re.search(r'bilibili\.com/cheese/play/ss(\d+)', url)
-        if cheese_url_match:
-            season_id = int(cheese_url_match.group(1))
-            return {
-                "type": "season",
-                "id": str(season_id),
-                "original": url
-            }
-        
-        # 检查课程ID格式 ss数字
-        season_match = re.search(r'^ss(\d+)$', url)
-        if season_match:
-            season_id = int(season_match.group(1))
-            return {
-                "type": "season",
-                "id": str(season_id),
-                "original": url
-            }
-        
-        # 2. 处理直接输入的BVid (必须是正好12位)
-        if url.startswith('BV') and len(url) == 12:
-            if self.converter.is_bvid(url):
-                return {
-                    "type": "bvid",
-                    "id": url,
-                    "original": url
-                }
-            else:
-                raise ValueError(f'无效的BV编号格式: {url}')
-        
-        # 3. 提取BVid (支持BV前缀的10位字符)
-        bvid_match = re.search(r'(BV[0-9A-Za-z]{10})', url)
-        if bvid_match:
-            bvid = bvid_match.group(1)
-            # 验证BV编号是否有效，且确保URL中只有这个BV编号（没有额外字符）
-            if self.converter.is_bvid(bvid) and (url == bvid or 'bilibili.com/video/' in url or 'b23.tv/' in url):
-                return {
-                    "type": "bvid",
-                    "id": bvid,
-                    "original": url
-                }
-        
-        # 4. 提取Avid (支持av前缀)
-        aid_match = re.search(r'av(\d+)', url)
-        if aid_match:
-            aid = int(aid_match.group(1))
-            return {
-                "type": "aid", 
-                "id": aid,
-                "original": url
-            }
-        
-        # 5. 处理纯数字输入（优先处理为AID）
-        if url.isdigit():
-            aid = int(url)
-            return {
-                "type": "aid",
-                "id": aid,
-                "original": url
-            }
-        
-        raise ValueError('不支持的链接格式。支持的格式包括：\n'
-                        '- 课程ID: ss360\n'
-                        '- 课程链接: https://www.bilibili.com/cheese/play/ss360\n'
-                        '- BV编号: BV1xx411c7mh\n'
-                        '- 完整URL: https://www.bilibili.com/video/BV1xx411c7mh\n'
-                        '- 短链接: https://b23.tv/BV1xx411c7mh\n'
-                        '- AV编号: av12345678 或 12345678')
-
-    def normalize_video_id(self, url: str, target_type: str = "bvid") -> str:
-        """
-        将视频ID统一转换为指定类型
-        
-        Args:
-            url: 视频链接或ID
-            target_type: 目标类型，"bvid" 或 "aid"
+        # 1. 处理ID格式 (av\d+, BV\w{10}, ep\d+, ss\d+, md\d+, au\d+, am\d+, cv\d+, rl\d+)
+        id_pattern = r'^(av\d+|BV\w{10}|ep\d+|ss\d+|md\d+|au\d+|am\d+|cv\d+|rl\d+)$'
+        id_match = re.match(id_pattern, url, re.IGNORECASE)
+        if id_match:
+            raw_id = id_match.group(0)
+            prefix = raw_id[:2].lower()
             
-        Returns:
-            转换后的视频ID
-        """
-        parsed = self.parse_video_link(url)
+            type_map = {
+                'av': MediaType.VIDEO,
+                'bv': MediaType.VIDEO,
+                'ep': MediaType.BANGUMI,
+                'ss': MediaType.BANGUMI,
+                'md': MediaType.BANGUMI,
+                'au': MediaType.MUSIC,
+                'am': MediaType.MUSIC_LIST,
+                'cv': MediaType.OPUS,
+                'rl': MediaType.OPUS_LIST,
+            }
+            
+            return {
+                "id": raw_id,
+                "type": type_map.get(prefix, MediaType.VIDEO),
+                "target": None,
+                "original": url
+            }
         
-        if parsed["type"] == target_type:
-            return parsed["id"]
-        
-        if target_type == "bvid" and parsed["type"] == "aid":
-            return self.converter.av2bv(parsed["id"])
-        elif target_type == "aid" and parsed["type"] == "bvid":
-            return str(self.converter.bv2av(parsed["id"]))
-        
-        return parsed["id"]
+        # 2. 处理URL格式
+        try:
+            # 提取URL
+            picked = re.search(
+                r'(?:https?:\/\/)?(?:[\w-]+\.)*(?:bilibili\.com|b23\.tv)\/.+',
+                url,
+                re.IGNORECASE
+            )
+            if not picked:
+                picked = re.search(
+                    r'(?:https?:\/\/)?(?:[\w-]+\.)*(?:bilibili\.com|b23\.tv)\/',
+                    url,
+                    re.IGNORECASE
+                )
+            
+            if not picked:
+                raise ValueError('不支持的链接格式')
+            
+            parsed_url = picked.group(0)
+            if not parsed_url.startswith('http'):
+                parsed_url = 'https://' + parsed_url
+            
+            from urllib.parse import urlparse
+            parsed = urlparse(parsed_url)
+            host = parsed.hostname.lower()
+            path = parsed.path
+            params = parsed.query
+            
+            # b23.tv 短链接需要重定向
+            if host == 'b23.tv':
+                # 需要通过HTTP请求获取重定向后的URL
+                import httpx
+                response = httpx.get(parsed_url, follow_redirects=True)
+                final_url = str(response.url)
+                return self.parse_id(final_url)
+            
+            if not host.endswith('bilibili.com'):
+                raise ValueError('不支持的链接格式')
+            
+            segs = path.strip('/').split('/')
+            
+            # 处理 space.bilibili.com (用户相关)
+            if host == 'space.bilibili.com':
+                if len(segs) < 2:
+                    raise ValueError('无效的用户链接')
+                
+                mid = segs[0]
+                type_ = segs[1]
+                
+                # 收藏夹
+                if type_ == 'favlist':
+                    fid_match = re.search(r'fid=(\d+)', params)
+                    fid = int(fid_match.group(1)) if fid_match else None
+                    return {
+                        "id": mid,
+                        "type": MediaType.FAVORITE,
+                        "target": fid,
+                        "original": url
+                    }
+                
+                # 用户视频
+                if type_ == 'video' or type_ == 'lists' or len(segs) == 1:
+                    list_id_match = re.search(r'/lists/(\d+)', path)
+                    list_id = int(list_id_match.group(1)) if list_id_match else None
+                    return {
+                        "id": mid,
+                        "type": MediaType.USER_VIDEO,
+                        "target": list_id,
+                        "original": url
+                    }
+                
+                # 用户图文
+                if segs[2] == 'opus' or type_ == 'article':
+                    return {
+                        "id": mid,
+                        "type": MediaType.USER_OPUS,
+                        "target": None,
+                        "original": url
+                    }
+                
+                # 用户音频
+                if segs[2] == 'audio' or type_ == 'audio':
+                    return {
+                        "id": mid,
+                        "type": MediaType.USER_AUDIO,
+                        "target": None,
+                        "original": url
+                    }
+                
+                raise ValueError('无效的用户链接')
+            
+            # 处理 www.bilibili.com
+            if len(segs) < 2:
+                raise ValueError('无效的链接格式')
+            
+            type_ = segs[0]
+            id_ = segs[1]
+            
+            # 视频
+            if re.match(r'^(BV\w{10}|av\d+)$', id_, re.IGNORECASE):
+                return {
+                    "id": id_,
+                    "type": MediaType.VIDEO,
+                    "target": None,
+                    "original": url
+                }
+            
+            # 音乐/歌单
+            if re.match(r'^(au\d+|am\d+)$', id_, re.IGNORECASE):
+                if id_.lower().startswith('au'):
+                    return {
+                        "id": id_,
+                        "type": MediaType.MUSIC,
+                        "target": None,
+                        "original": url
+                    }
+                else:
+                    return {
+                        "id": id_,
+                        "type": MediaType.MUSIC_LIST,
+                        "target": None,
+                        "original": url
+                    }
+            
+            # 图文
+            if re.match(r'^cv\d+$', id_, re.IGNORECASE) or type_ == 'opus':
+                return {
+                    "id": id_,
+                    "type": MediaType.OPUS,
+                    "target": None,
+                    "original": url
+                }
+            
+            # 稍后再看
+            if type_ == 'watchlater':
+                return {
+                    "id": "",
+                    "type": MediaType.WATCH_LATER,
+                    "target": None,
+                    "original": url
+                }
+            
+            # 番剧/课程 (检查第三段)
+            id_ = segs[2] if len(segs) > 2 else id_
+            if re.match(r'^(ep\d+|ss\d+|md\d+)$', id_, re.IGNORECASE):
+                if type_ == 'bangumi':
+                    return {
+                        "id": id_,
+                        "type": MediaType.BANGUMI,
+                        "target": None,
+                        "original": url
+                    }
+                if type_ == 'cheese':
+                    return {
+                        "id": id_,
+                        "type": MediaType.LESSON,
+                        "target": None,
+                        "original": url
+                    }
+            
+            # 图文合集
+            if re.match(r'^rl\d+$', id_, re.IGNORECASE):
+                return {
+                    "id": id_,
+                    "type": MediaType.OPUS_LIST,
+                    "target": None,
+                    "original": url
+                }
+            
+            # 处理稍后再看的带参数情况
+            type_ = segs[1]
+            if type_ == 'watchlater':
+                params_dict = dict(param.split('=') for param in params.split('&') if '=' in param)
+                aid = params_dict.get('aid') or params_dict.get('oid') or params_dict.get('bvid')
+                if aid:
+                    return {
+                        "id": aid,
+                        "type": MediaType.VIDEO,
+                        "target": None,
+                        "original": url
+                    }
+            
+            raise ValueError('不支持的链接格式')
+            
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f'链接解析失败: {e}')
 
-    def get_video_info_url(self, video_id: str, id_type: str = "bvid") -> str:
+    def get_video_info_url(self, video_id: str, media_type: MediaType) -> str:
         """
-        获取B站视频信息API URL
+        获取B站资源信息API URL
         
         Args:
-            video_id: 视频ID
-            id_type: ID类型，"season", "bvid" 或 "aid"
+            video_id: 资源ID
+            media_type: 媒体类型
             
         Returns:
             API URL字符串
         """
-        if id_type == "season":
+        if media_type == MediaType.LESSON:
+            # 课程
             return f"https://api.bilibili.com/pugv/view/web/season?season_id={video_id}"
-        elif id_type == "bvid":
+        elif media_type == MediaType.BANGUMI:
+            # 番剧
+            return f"https://api.bilibili.com/pgc/view/web/season?season_id={video_id}"
+        elif media_type == MediaType.VIDEO:
+            # 视频
             return f"https://api.bilibili.com/x/web-interface/view?bvid={video_id}"
+        elif media_type == MediaType.WATCH_LATER:
+            # 稍后再看
+            return f"https://api.bilibili.com/x/v2/history/toview"
+        elif media_type == MediaType.FAVORITE:
+            # 收藏夹
+            return f"https://api.bilibili.com/x/v3/fav/resource/list?media_id={video_id}"
+        elif media_type in [MediaType.OPUS, MediaType.OPUS_LIST]:
+            # 图文
+            return f"https://api.bilibili.com/x/article/viewinfo?cv={video_id}"
+        elif media_type == MediaType.MUSIC:
+            # 音乐
+            return f"https://api.bilibili.com/audio/music-service-c/info?sid={video_id}"
+        elif media_type == MediaType.MUSIC_LIST:
+            # 歌单
+            return f"https://api.bilibili.com/audio/music-service-c/playlist/detail?sid={video_id}"
+        elif media_type in [MediaType.USER_VIDEO, MediaType.USER_OPUS, MediaType.USER_AUDIO]:
+            # 用户内容
+            return f"https://api.bilibili.com/x/space/arc/search?mid={video_id}"
         else:
-            return f"https://api.bilibili.com/x/web-interface/view?aid={video_id}"
+            raise ValueError(f'不支持的媒体类型: {media_type}')
 
 
 # 创建全局实例
