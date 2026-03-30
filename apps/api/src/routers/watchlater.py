@@ -9,16 +9,18 @@ router = APIRouter(prefix="/api/watchlater", tags=["稍后再看"])
 
 @router.get("/list", response_model=dict)
 async def get_watch_later_list(
-    sessdata: str = Query(..., description="用户SESSDATA")
+    sessdata: str = Query(..., description="用户SESSDATA"),
+    pn: int = Query(1, ge=1, description="页码"),
+    ps: int = Query(20, ge=1, le=100, description="每页数量")
 ):
-    """获取稍后再看列表（全部） - 使用统一媒体处理器确保完整统计信息"""
+    """获取稍后再看列表（支持分页） - 使用统一媒体处理器确保完整统计信息"""
     try:
         # 使用统一媒体处理器获取稍后再看信息
         result = await media_processor.get_media_info(
             media_id="watchlater",
             media_type=MediaType.WATCH_LATER,
             sessdata=sessdata,
-            options={"ps": 1000}
+            options={"pn": pn, "ps": ps}
         )
         
         if result["success"]:
@@ -28,6 +30,8 @@ async def get_watch_later_list(
             video_list = []
             for item in media_info.list:
                 stat = item.stat or MediaStats()
+                upper = item.upper if item.upper else None
+                
                 video_list.append({
                     "id": item.aid,
                     "bvid": item.bvid,
@@ -35,9 +39,9 @@ async def get_watch_later_list(
                     "cover": item.cover,
                     "duration": item.duration,
                     "uploader": {
-                        "mid": media_info.nfo.upper.mid if media_info.nfo.upper else 0,
-                        "name": media_info.nfo.upper.name if media_info.nfo.upper else "",
-                        "face": media_info.nfo.upper.avatar if media_info.nfo.upper else ""
+                        "mid": upper.mid if upper else 0,
+                        "name": upper.name if upper else "未知",
+                        "face": upper.avatar if upper else ""
                     },
                     "view": stat.play or 0,
                     "danmaku": stat.danmaku or 0,
@@ -55,7 +59,7 @@ async def get_watch_later_list(
                 "success": True,
                 "data": {
                     "list": video_list,
-                    "total": len(video_list)
+                    "total": result.get("total", len(video_list))
                 }
             }
         else:

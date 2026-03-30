@@ -84,8 +84,11 @@ async def get_folder_detail(
             # 转换为前端需要的格式
             videos = []
             for item in media_info.list:
-                # 优先使用item的stat，如果没有则使用nfo的stat
-                stat = item.stat if item.stat else media_info.nfo.stat
+                # 使用item的stat，确保每个视频有独立的统计信息
+                stat = item.stat if item.stat else MediaStats()
+                
+                # 使用item的upper，确保每个视频有独立的上传者信息
+                upper = item.upper if item.upper else None
                 
                 videos.append({
                     "id": item.aid,
@@ -103,9 +106,9 @@ async def get_folder_detail(
                     "favorite": stat.favorite or 0,
                     "share": stat.share or 0,
                     "uploader": {
-                        "mid": media_info.nfo.upper.mid if media_info.nfo.upper else item.aid,  # 收藏夹可能没有具体的upper信息
-                        "name": media_info.nfo.upper.name if media_info.nfo.upper else "未知",
-                        "face": media_info.nfo.upper.avatar if media_info.nfo.upper else ""
+                        "mid": upper.mid if upper else 0,
+                        "name": upper.name if upper else "未知",
+                        "face": upper.avatar if upper else ""
                     }
                 })
             

@@ -155,10 +155,12 @@ class ApiService {
 
   // 稍后再看相关API
   async getWatchLaterList(
-    sessdata: string
+    sessdata: string,
+    pn: number = 1,
+    ps: number = 20
   ): Promise<ApiResponse<any>> {
     return this.request<any>(
-      `/api/watchlater/list?sessdata=${encodeURIComponent(sessdata)}`,
+      `/api/watchlater/list?sessdata=${encodeURIComponent(sessdata)}&pn=${pn}&ps=${ps}`,
       { method: 'GET' }
     );
   }

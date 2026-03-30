@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
@@ -41,7 +41,13 @@ const formatTime = (timestamp: number): string => {
 export default function WatchLaterContent() {
   const [videos, setVideos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [totalCount, setTotalCount] = useState(0)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
   
   const { user } = useAuthStore()
   const downloadStore = useDownloadStore()
@@ -53,34 +59,22 @@ export default function WatchLaterContent() {
     syncFromServer 
   } = downloadStore
 
-  // 获取稍后再看列表（带缓存）
-  const fetchVideos = useCallback(async () => {
+  // 获取稍后再看列表（移除缓存，支持分页）
+  const fetchVideos = useCallback(async (page: number = 1, isLoadMore: boolean = false, pageSize: number = 20) => {
     if (!user?.sessdata) return
     
-    // 先检查缓存
-    const cachedVideos = getWatchLaterCache()
-    if (cachedVideos) {
-      // 确保缓存中的视频对象包含所有必需字段
-      const validatedVideos = cachedVideos.map(video => ({
-        ...video,
-        comments: video.comments || '0',
-        danmaku: video.danmaku || '0',
-        likes: video.likes || '0',
-        coins: video.coins || '0',
-        favorites: video.favorites || '0',
-        shares: video.shares || '0'
-      }))
-      setVideos(validatedVideos)
-      return
+    if (isLoadMore) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
     }
-    
-    setLoading(true)
     setError('')
     
     try {
-      const response = await apiService.getWatchLaterList(user.sessdata)
+      const response = await apiService.getWatchLaterList(user.sessdata, page, pageSize)
       if (response.success && response.data) {
         const videoList = response.data.list || []
+        const total = response.data.total || 0
         
         // 格式化视频数据
         const formattedVideos = videoList.map((video: any) => ({
@@ -110,8 +104,18 @@ export default function WatchLaterContent() {
           pubtime: video.add_time
         }))
         
-        setVideos(formattedVideos)
-        setWatchLaterCache(formattedVideos) // 保存到缓存
+        setTotalCount(total)
+        
+        if (isLoadMore) {
+          setVideos(prev => {
+            const currentLength = prev.length + formattedVideos.length
+            setHasMore(currentLength < total)
+            return [...prev, ...formattedVideos]
+          })
+        } else {
+          setVideos(formattedVideos)
+          setHasMore(formattedVideos.length < total)
+        }
       } else {
         setError(response.message || '获取稍后再看列表失败')
       }
@@ -119,13 +123,44 @@ export default function WatchLaterContent() {
       setError('网络请求失败')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
-  }, [user, getWatchLaterCache, setWatchLaterCache])
+  }, [user])
 
-  // 初始加载（每次切换到该tab时都会检查缓存）
+  // 初始加载
   useEffect(() => {
-    fetchVideos()
-  }, [fetchVideos])
+    fetchVideos(1, false, 20)
+    setCurrentPage(1)
+  }, [user, fetchVideos])
+
+  // 使用Intersection Observer实现无限滚动
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || loading || loadingMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (target.isIntersecting && !loading && !loadingMore && hasMore) {
+          const nextPage = currentPage + 1
+          fetchVideos(nextPage, true, 20)
+          setCurrentPage(nextPage)
+        }
+      },
+      {
+        rootMargin: '100px',
+        threshold: 0.1
+      }
+    )
+
+    observer.observe(loadMoreRef.current)
+    observerRef.current = observer
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+    }
+  }, [currentPage, loading, loadingMore, hasMore, fetchVideos])
 
   // 同步下载列表
   useEffect(() => {
@@ -295,7 +330,7 @@ export default function WatchLaterContent() {
       <div className="section-header">
         <div className="section-title">
           <h2>稍后再看</h2>
-          <span className="video-count">共{videos.length}个视频</span>
+          <span className="video-count">共{totalCount || videos.length}个视频</span>
         </div>
       </div>
 
@@ -312,14 +347,23 @@ export default function WatchLaterContent() {
           {videos.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>暂无视频</div>
           ) : (
-            videos.map(video => (
-              <VideoListCard
-                key={video.id}
-                {...video}
-                onDownloadToggle={toggleDownload}
-                downloadStatus={getDownloadStatus(video.bvid)}
-              />
-            ))
+            <>
+              {videos.map(video => (
+                <VideoListCard
+                  key={video.id}
+                  {...video}
+                  onDownloadToggle={toggleDownload}
+                  downloadStatus={getDownloadStatus(video.bvid)}
+                />
+              ))}
+              {loadingMore && (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>加载中...</div>
+              )}
+              {!hasMore && videos.length > 0 && (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>没有更多视频了</div>
+              )}
+              {hasMore && <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />}
+            </>
           )}
         </div>
       )}

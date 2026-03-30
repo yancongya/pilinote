@@ -522,6 +522,16 @@ class MediaDataProcessor:
                     share=cnt_info.get("share", 0)
                 )
                 
+                # 提取上传者信息
+                upper_data = media.get("upper", {})
+                item_upper = None
+                if upper_data:
+                    item_upper = MediaUpper(
+                        name=upper_data.get("name", "未知"),
+                        mid=upper_data.get("mid", 0),
+                        avatar=upper_data.get("face", "")
+                    )
+                
                 item = MediaItem(
                     title=media.get("title", ""),
                     cover=media.get("cover", ""),
@@ -535,7 +545,8 @@ class MediaDataProcessor:
                     bvid=media.get("bvid", ""),
                     fid=target,
                     index=i,
-                    stat=item_stat
+                    stat=item_stat,
+                    upper=item_upper
                 )
                 items.append(item)
             
@@ -560,10 +571,14 @@ class MediaDataProcessor:
         if sessdata:
             headers["Cookie"] = f"SESSDATA={sessdata}"
         
+        # 获取分页参数
+        page = options.get("pn", 1) if options else 1
+        page_size = options.get("ps", 20) if options else 20
+        
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 f"{self.api_base}/x/v2/history/toview/web",
-                params={"ps": options.get("ps", 1000) if options else 1000},
+                params={"ps": 1000},  # 先获取全部列表
                 headers=headers
             )
             response.raise_for_status()
@@ -577,15 +592,32 @@ class MediaDataProcessor:
             
             list_data = data["data"]["list"]
             
+            # 手动实现分页
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paginated_data = list_data[start_idx:end_idx]
+            
             # 为每个视频单独获取完整统计信息
             items = []
-            for i, video in enumerate(list_data):
+            for i, video in enumerate(paginated_data):
+                # 计算全局索引
+                global_index = start_idx + i
                 # 使用HTML解析方法获取视频详情
                 bvid = video.get("bvid", "")
                 
                 # 为每个视频添加动态Referer
                 video_headers = headers.copy()
                 video_headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
+                
+                # 提取上传者信息
+                owner_data = video.get("owner", {})
+                item_upper = None
+                if owner_data:
+                    item_upper = MediaUpper(
+                        name=owner_data.get("name", "未知"),
+                        mid=owner_data.get("mid", 0),
+                        avatar=owner_data.get("face", "")
+                    )
                 
                 try:
                     # 使用HTML解析方法替代API调用
@@ -655,13 +687,14 @@ class MediaDataProcessor:
                     desc=video.get("desc", ""),
                     duration=video.get("duration", 0),
                     pubtime=video.get("pubdate", 0),
-                    is_target=(i == 0),
+                    is_target=(global_index == 0),
                     type=MediaType.VIDEO,
                     url=f"https://www.bilibili.com/video/{video.get('bvid', '')}",
                     aid=video.get("aid", 0),
                     bvid=video.get("bvid", ""),
-                    index=i,
-                    stat=stat
+                    index=global_index,
+                    stat=stat,
+                    upper=item_upper
                 )
                 items.append(item)
             
@@ -683,7 +716,8 @@ class MediaDataProcessor:
                     pn=True,
                     nfo=nfo,
                     list=items
-                )
+                ),
+                "total": len(list_data)  # 添加总数量
             }
     
     async def _process_music(self, music_id: str, sessdata: Optional[str]) -> Dict[str, Any]:

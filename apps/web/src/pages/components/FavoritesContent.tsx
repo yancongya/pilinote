@@ -123,29 +123,9 @@ export default function FavoritesContent() {
     fetchFolders()
   }, [user, getFoldersCache, setFoldersCache])
 
-  // 获取收藏夹详情（视频列表，带缓存）
+  // 获取收藏夹详情（视频列表，移除缓存）
   const fetchVideos = useCallback(async (page: number = 1, isLoadMore: boolean = false, pageSize: number = 10) => {
     if (!selectedFolder || !user?.sessdata) return
-    
-    // 第一页且不是加载更多时，检查缓存
-    if (page === 1 && !isLoadMore) {
-      const cachedVideos = getFolderVideosCache(selectedFolder.id)
-      if (cachedVideos) {
-        // 确保缓存中的视频对象包含所有必需字段
-        const validatedVideos = cachedVideos.map(video => ({
-          ...video,
-          comments: video.comments || '0',
-          danmaku: video.danmaku || '0',
-          likes: video.likes || '0',
-          coins: video.coins || '0',
-          favorites: video.favorites || '0',
-          shares: video.shares || '0'
-        }))
-        setVideos(validatedVideos)
-        setHasMore(false) // 缓存的数据假设是完整的
-        return
-      }
-    }
     
     if (isLoadMore) {
       setLoadingMore(true)
@@ -193,10 +173,6 @@ export default function FavoritesContent() {
           setVideos(formattedVideos)
           const pageSize = response.data.page_size || 10
           setHasMore(formattedVideos.length === pageSize)
-          // 保存第一页数据到缓存
-          if (page === 1) {
-            setFolderVideosCache(selectedFolder.id, formattedVideos)
-          }
         }
       } else {
         setError(response.message || '获取视频列表失败')
@@ -207,7 +183,7 @@ export default function FavoritesContent() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [selectedFolder, user, getFolderVideosCache, setFolderVideosCache])
+  }, [selectedFolder, user])
 
   // 当选中的收藏夹改变时，重新加载视频列表
   useEffect(() => {

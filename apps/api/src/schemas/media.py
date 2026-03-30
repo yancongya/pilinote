@@ -79,6 +79,7 @@ class MediaItem(BaseModel):
     rlid: Optional[int] = Field(None, description="图文列表ID")
     index: int = Field(0, description="索引")
     stat: Optional[MediaStats] = Field(None, description="统计信息")
+    upper: Optional[MediaUpper] = Field(None, description="上传者信息")
 
 
 class MediaSection(BaseModel):
