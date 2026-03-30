@@ -48,23 +48,31 @@ export default function DownloadDetailPage() {
     setError('')
     
     try {
-      // 先尝试从本地store获取
-      let downloadsByBvid = downloadStore.getDownloadsByBvid(bvid || '')
+      // 强制从服务器获取最新数据，不使用本地缓存
+      const response = await fetch(`http://localhost:8000/api/download/bvid/${bvid}`)
+      const data = await response.json()
       
-      // 如果本地没有，从服务器获取
-      if (downloadsByBvid.length === 0) {
-        const response = await fetch(`http://localhost:8000/api/download/bvid/${bvid}`)
-        const data = await response.json()
-        if (data.success && data.downloads) {
-          downloadsByBvid = data.downloads
-          // 同步到本地store
-          downloadsByBvid.forEach((item: any) => {
-            downloadStore.addDownload(item)
-          })
-        }
+      if (data.success && data.downloads) {
+        // 清空本地 store 中该 bvid 的所有记录
+        const currentDownloads = downloadStore.getDownloadsByBvid(bvid || '')
+        currentDownloads.forEach((item: any) => {
+          downloadStore.removeDownload(item.id)
+        })
+        
+        // 重新添加最新的记录
+        data.downloads.forEach((item: any) => {
+          downloadStore.addDownload(item)
+        })
+        
+        setDownloads(data.downloads)
+      } else {
+        // 清空本地 store
+        const currentDownloads = downloadStore.getDownloadsByBvid(bvid || '')
+        currentDownloads.forEach((item: any) => {
+          downloadStore.removeDownload(item.id)
+        })
+        setDownloads([])
       }
-      
-      setDownloads(downloadsByBvid)
     } catch (err) {
       setError('获取下载信息失败')
       console.error('获取下载信息失败:', err)
@@ -218,14 +226,41 @@ const handleStartBatch = async () => {
     setStartingBatch(true)
     try {
       const downloadIds = Array.from(selectedPages)
+      let deletedCount = 0
+      let notExistCount = 0
       
       for (const id of downloadIds) {
-        await fetch(`http://localhost:8000/api/download/${id}`, { method: 'DELETE' })
+        try {
+          const response = await fetch(`http://localhost:8000/api/download/${id}`, { method: 'DELETE' })
+          const data = await response.json()
+          
+          if (data.success) {
+            deletedCount++
+          } else if (data.message && data.message.includes('不存在')) {
+            // 任务不存在，直接视为已删除
+            notExistCount++
+            deletedCount++
+          } else {
+            console.error(`删除失败 ${id}:`, data.message)
+          }
+        } catch (err) {
+          console.error(`删除请求失败 ${id}:`, err)
+        }
       }
       
-      // 立即从前端列表中移除已删除的项
-      setDownloads(prev => prev.filter(d => !selectedPages.has(d.id)))
-      setSelectedPages(new Set())
+      if (deletedCount > 0) {
+        // 重新获取列表，确保前端显示与数据库一致
+        await fetchDownloads()
+        setSelectedPages(new Set())
+        
+        if (notExistCount > 0) {
+          alert(`已删除 ${deletedCount} 个下载任务（其中 ${notExistCount} 个已不存在）`)
+        } else {
+          alert(`已删除 ${deletedCount} 个下载任务`)
+        }
+      } else {
+        alert('删除失败，请稍后重试')
+      }
     } catch (err) {
       console.error('删除失败:', err)
       alert('删除失败')
@@ -241,7 +276,6 @@ const handleStartBatch = async () => {
     try {
       // 先获取当前列表
       await fetchDownloads()
-      const currentDownloads = [...downloads]
       
       // 获取视频详情
       const videoResponse = await apiService.getVideoDetail(bvid)
@@ -251,13 +285,24 @@ const handleStartBatch = async () => {
       }
       
       const pages = videoResponse.data.pages
-      const existingCids = new Set(currentDownloads.map(d => d.cid))
+      console.log('B站API返回的总分P数:', pages.length)
       
-      // 找出需要恢复的分P
-      const pagesToRestore = pages.filter((page: any) => !existingCids.has(page.cid))
+      // 获取当前显示的列表
+      const currentCids = new Set(downloads.map(d => d.cid).filter(Boolean))
+      console.log('当前显示的CIDs:', Array.from(currentCids))
+      
+      // 纯前端逻辑：找出当前列表中不存在的分P
+      const pagesToRestore = pages.filter((page: any) => {
+        const cid = page.cid
+        const notInCurrent = !currentCids.has(cid)
+        console.log(`分P ${cid}: 不在当前列表=${notInCurrent}`)
+        return notInCurrent
+      })
+      
+      console.log('需要恢复的分P数:', pagesToRestore.length)
       
       if (pagesToRestore.length > 0) {
-        if (!confirm(`发现 ${pagesToRestore.length} 个未下载的分P，是否添加到下载列表？`)) {
+        if (!confirm(`发现 ${pagesToRestore.length} 个缺失的分P，是否添加到下载列表？`)) {
           // 用户取消，只刷新现有列表
           await fetchSeriesName()
           setSelectedPages(new Set(downloads.map(d => d.id)))
