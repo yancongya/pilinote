@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { Film, Eye, MessageCircle, Heart } from 'lucide-react'
+import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { apiService } from '../../services/api'
 
 interface VideoCardProps {
   id: string
@@ -12,11 +14,17 @@ interface VideoCardProps {
   comments: string
   time: string
   progress?: number
-  durationSeconds?: number
   watched?: string
   onDownloadToggle?: (video: any, e: React.MouseEvent) => void
-  isDownloaded?: boolean
+  downloadStatus?: 'none' | 'in_list'
   showDownloadButton?: boolean
+  isSeries?: boolean
+  onVideoClick?: (video: any) => void
+  clickable?: boolean
+  showActionButtons?: boolean
+  onActionStart?: () => void
+  onActionDelete?: () => void
+  canStart?: boolean
 }
 
 export default function VideoListCard({
@@ -30,13 +38,53 @@ export default function VideoListCard({
   comments,
   time,
   progress,
-  durationSeconds,
   watched,
   onDownloadToggle,
-  isDownloaded = false,
-  showDownloadButton = true
+  downloadStatus = 'none',
+  showDownloadButton = true,
+  isSeries = false,
+  onVideoClick,
+  clickable,
+  showActionButtons = false,
+  onActionStart,
+  onActionDelete,
+  canStart = false,
 }: VideoCardProps) {
   const navigate = useNavigate()
+  
+  // 默认可点击，除非明确设置为false
+  const isClickable = clickable !== false
+  
+  // 状态管理
+  const [fetchedCoverUrl, setFetchedCoverUrl] = useState<string>('')
+  
+  // 从bvid获取封面URL
+  const getCoverUrl = (): string => {
+    if (cover && cover.trim()) {
+      return cover
+    }
+    return fetchedCoverUrl
+  }
+  
+  // 当没有封面且有bvid时，从B站API获取封面
+  useEffect(() => {
+    if (!cover || !cover.trim()) {
+      if (bvid) {
+        fetchVideoCover()
+      }
+    }
+  }, [bvid, cover])
+  
+  const fetchVideoCover = async () => {
+    try {
+      const response = await apiService.getVideoDetail(bvid)
+      if (response.success && response.data?.pic) {
+        setFetchedCoverUrl(response.data.pic)
+      }
+    } catch (error) {
+      console.error('获取视频封面失败:', error)
+    }
+  }
 
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
@@ -44,22 +92,65 @@ export default function VideoListCard({
   }
 
   const handleVideoClick = () => {
-    navigate(`/video/${bvid}`)
+    if (!isClickable) {
+      // 不可点击，不执行任何操作
+      return
+    }
+    
+    if (onVideoClick) {
+      // 如果有自定义的点击处理，执行它并阻止默认行为
+      onVideoClick({ id, bvid, title, cover, duration, uploader, views, comments, time })
+      return
+    }
+    
+    // 默认导航逻辑
+    if (isSeries) {
+      // 系列视频跳转到下载详情页
+      navigate(`/downloads/${bvid}`)
+    } else {
+      // 单个视频跳转到视频详情页
+      navigate(`/video/${bvid}`)
+    }
   }
 
   return (
     <article 
       className="video-card"
-      onClick={handleVideoClick}
-      style={{ cursor: 'pointer' }}
+      onClick={isClickable ? handleVideoClick : undefined}
+      style={{ cursor: isClickable ? 'pointer' : 'default' }}
     >
       <div className="video-card-cover">
         <div className="video-card-thumbnail">
-          {cover ? (
-            <img src={getProxyImageUrl(cover)} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <Film />
-          )}
+          {(() => {
+            const coverUrl = getCoverUrl()
+            if (!coverUrl) {
+              return (
+                <div className="thumbnail-placeholder">
+                  <Film size={48} color="#42a5f5" />
+                </div>
+              )
+            }
+            return (
+              <>
+                <img 
+                  src={getProxyImageUrl(coverUrl)} 
+                  alt={title} 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => {
+                    // 图片加载失败时显示占位符
+                    e.currentTarget.style.display = 'none'
+                    const placeholder = e.currentTarget.parentElement?.querySelector('.thumbnail-placeholder')
+                    if (placeholder) {
+                      (placeholder as HTMLElement).style.display = 'flex'
+                    }
+                  }}
+                />
+                <div className="thumbnail-placeholder" style={{ display: 'none' }}>
+                  <Film size={48} color="#42a5f5" />
+                </div>
+              </>
+            )
+          })()}
           <div className="video-duration-overlay">{duration}</div>
           {progress !== undefined && progress > 0 && (
             <div className="video-progress-overlay">
@@ -77,28 +168,71 @@ export default function VideoListCard({
           <span className="video-card-uploader">{uploader}</span>
           <span className="video-card-time">{time}</span>
           {watched && <span className="video-card-watched">{watched}</span>}
-        </div>
-        <div className="video-card-stats">
-          <span className="stat-item">
-            <Eye />
-            {views}
-          </span>
-          {(comments !== '0' && comments !== 0) && (
-            <span className="stat-item">
-              <MessageCircle />
-              {comments}
-            </span>
+          {/* 如果有操作按钮，在meta行中显示状态文本 */}
+          {showActionButtons && (
+            <span className="video-card-status">{views}</span>
+          )}
+          {/* 操作按钮 - 在元数据行中显示 */}
+          {showActionButtons && (
+            <div className="video-card-actions-inline">
+              {canStart && onActionStart && (
+                <button 
+                  className="action-icon-btn start-icon-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onActionStart()
+                  }}
+                  aria-label="开始下载"
+                >
+                  <Play size={14} />
+                </button>
+              )}
+              {onActionDelete && (
+                <button 
+                  className="action-icon-btn delete-icon-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onActionDelete()
+                  }}
+                  aria-label="删除"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
           )}
         </div>
+        {/* 只在非操作按钮模式下显示统计信息 */}
+        {!showActionButtons && (
+          <div className="video-card-stats">
+            <span className="stat-item">
+              <Eye />
+              {views}
+            </span>
+            {(comments !== '0' && comments !== '0') && (
+              <span className="stat-item">
+                <MessageCircle />
+                {comments}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       {showDownloadButton && onDownloadToggle && (
         <button
           className="video-card-download-btn"
           onClick={(e) => onDownloadToggle({ id, bvid, title, cover, duration, uploader, views, comments, time }, e)}
-          aria-label={isDownloaded ? '从下载列表移除' : '添加到下载列表'}
-          title={isDownloaded ? '已添加' : '添加到下载'}
+          aria-label={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载列表'}
+          title={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载'}
+          style={{
+            backgroundColor: downloadStatus === 'in_list' ? '#fb7299' : 'white',
+            borderColor: downloadStatus === 'in_list' ? '#fb7299' : '#ddd',
+            color: downloadStatus === 'in_list' ? 'white' : '#999',
+            cursor: 'pointer'
+          }}
         >
-          <Heart fill={isDownloaded ? "currentColor" : "none"} />
+          {downloadStatus === 'in_list' && <Download size={16} />}
+          {downloadStatus === 'none' && <Plus size={16} />}
         </button>
       )}
     </article>

@@ -339,6 +339,45 @@ async def start_download(request: StartDownloadRequest, background_tasks: Backgr
         )
 
 
+@router.post("/add", response_model=StartDownloadResponse)
+async def add_to_download_queue(request: StartDownloadRequest):
+    """
+    添加到下载队列，不立即开始下载
+    
+    此接口与POST /start的区别在于：
+    - 只创建下载任务，状态为pending
+    - 不立即启动下载
+    - 用户可以在下载管理页面批量开始下载
+    """
+    try:
+        # 创建下载任务（状态为pending，不立即下载）
+        download_id = download_service.create_download_task(
+            bvid=request.bvid,
+            title=request.title,
+            cid=request.cid,
+            aid=request.aid,
+            quality=request.quality,
+            output_format=request.output_format,
+            thumbnail_url=request.thumbnail_url,
+            duration=request.duration,
+            uploader=request.uploader,
+            uploader_mid=request.uploader_mid,
+            sessdata=request.sessdata
+        )
+        
+        return StartDownloadResponse(
+            success=True,
+            download_id=download_id,
+            message="已添加到下载列表"
+        )
+        
+    except Exception as e:
+        return StartDownloadResponse(
+            success=False,
+            message=f"添加到下载列表失败: {str(e)}"
+        )
+
+
 @router.get("/list", response_model=DownloadListResponse)
 async def get_download_list(status: Optional[str] = None):
     """
@@ -372,6 +411,66 @@ async def get_download_list(status: Optional[str] = None):
                 "started_at": download.started_at.isoformat() if download.started_at else None,
                 "completed_at": download.completed_at.isoformat() if download.completed_at else None,
                 "aid": download.aid  # 添加aid字段用于系列分组
+            })
+        
+        return DownloadListResponse(
+            success=True,
+            downloads=download_list,
+            total=len(download_list)
+        )
+        
+    except Exception as e:
+        return DownloadListResponse(
+            success=False,
+            downloads=[],
+            total=0
+        )
+
+
+@router.get("/bvid/{bvid}", response_model=DownloadListResponse)
+async def get_downloads_by_bvid(bvid: str, status: Optional[str] = None):
+    """
+    根据bvid或aid获取下载任务
+    
+    Args:
+        bvid: B站视频ID（可以是bvid或aid）
+        status: 可选，筛选特定状态的任务
+    """
+    try:
+        from src.database import SessionLocal
+        from src.models.download import Download
+        
+        with SessionLocal() as db:
+            # 尝试同时通过bvid和aid查询
+            query = db.query(Download).filter(
+                (Download.bvid == bvid) | (Download.aid == int(bvid) if bvid.isdigit() else False)
+            )
+            if status:
+                query = query.filter(Download.status == status)
+            downloads = query.order_by(Download.created_at.desc()).all()
+        
+        # 转换为字典格式
+        download_list = []
+        for download in downloads:
+            download_list.append({
+                "id": download.id,
+                "bvid": download.bvid,
+                "title": download.title,
+                "status": download.status,
+                "progress": download.progress,
+                "downloaded_bytes": download.downloaded_bytes,
+                "total_bytes": download.total_bytes,
+                "download_speed": download.download_speed,
+                "eta": download.eta,
+                "thumbnail_url": download.thumbnail_url,
+                "duration": download.duration,
+                "uploader": download.uploader,
+                "file_path": download.file_path,
+                "error_message": download.error_message,
+                "created_at": download.created_at.isoformat() if download.created_at else None,
+                "started_at": download.started_at.isoformat() if download.started_at else None,
+                "completed_at": download.completed_at.isoformat() if download.completed_at else None,
+                "aid": download.aid
             })
         
         return DownloadListResponse(
@@ -469,6 +568,64 @@ async def retry_download(download_id: str):
         return {"success": False, "message": f"重试失败: {str(e)}"}
 
 
+class BatchStartRequest(BaseModel):
+    download_ids: Optional[List[str]] = None
+    status: Optional[str] = "pending"
+
+
+class BatchStartResponse(BaseModel):
+    success: bool
+    started_count: int
+    message: Optional[str] = None
+
+
+@router.post("/start/batch", response_model=BatchStartResponse)
+async def start_batch_downloads(request: BatchStartRequest, background_tasks: BackgroundTasks):
+    """
+    批量开始下载任务
+    
+    如果提供了download_ids，则开始指定的下载任务
+    如果没有提供download_ids，则开始所有pending状态的下载任务
+    """
+    try:
+        from src.database import SessionLocal
+        from src.models.download import Download
+        
+        with SessionLocal() as db:
+            if request.download_ids:
+                # 开始指定的下载任务
+                downloads = db.query(Download).filter(
+                    Download.id.in_(request.download_ids),
+                    Download.status == "pending"
+                ).all()
+            else:
+                # 开始所有pending状态的下载任务
+                downloads = db.query(Download).filter(
+                    Download.status == request.status or "pending"
+                ).all()
+            
+            started_count = 0
+            for download in downloads:
+                try:
+                    background_tasks.add_task(download_service._process_download, download.id)
+                    started_count += 1
+                except Exception as e:
+                    print(f"启动下载任务失败: {download.id}, 错误: {e}")
+            
+            return BatchStartResponse(
+                success=True,
+                started_count=started_count,
+                message=f"已开始 {started_count} 个下载任务"
+            )
+            
+    except Exception as e:
+        return BatchStartResponse(
+            success=False,
+            started_count=0,
+            message=f"批量开始下载失败: {str(e)}"
+        )
+
+
 @router.delete("/{download_id}")
 async def delete_download(download_id: str):
     """
@@ -490,6 +647,60 @@ async def delete_download(download_id: str):
                 return {"success": True, "message": "下载任务已删除"}
             else:
                 return {"success": False, "message": "下载任务不存在"}
+            
+    except Exception as e:
+        return {"success": False, "message": f"删除失败: {str(e)}"}
+
+
+@router.post("/clear-all")
+async def clear_all_downloads():
+    """
+    清空所有下载任务
+    """
+    try:
+        deleted_count = download_service.clear_all_downloads()
+        return {
+            "success": True,
+            "message": f"已清空 {deleted_count} 个下载任务",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        return {"success": False, "message": f"清空失败: {str(e)}"}
+
+
+@router.delete("/bvid/{bvid}")
+async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
+    """
+    根据bvid删除下载任务
+    
+    Args:
+        bvid: B站视频ID
+        status: 可选，只删除特定状态的任务
+    """
+    try:
+        from src.database import SessionLocal
+        from src.models.download import Download
+        
+        with SessionLocal() as session:
+            query = session.query(Download).filter(Download.bvid == bvid)
+            if status:
+                query = query.filter(Download.status == status)
+            downloads = query.all()
+            
+            deleted_count = 0
+            for download in downloads:
+                # 先取消正在进行的下载
+                download_service.cancel_download(download.id)
+                session.delete(download)
+                deleted_count += 1
+            
+            session.commit()
+            
+            return {
+                "success": True,
+                "message": f"已删除 {deleted_count} 个下载任务",
+                "deleted_count": deleted_count
+            }
             
     except Exception as e:
         return {"success": False, "message": f"删除失败: {str(e)}"}

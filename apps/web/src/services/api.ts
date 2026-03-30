@@ -220,6 +220,50 @@ class ApiService {
       method: 'DELETE',
     });
   }
+
+  // 添加到下载列表（不立即下载）
+  async addToDownloadQueue(downloadData: {
+    bvid: string;
+    title: string;
+    cid?: number;
+    aid?: number;
+    quality?: number;
+    output_format?: string;
+    thumbnail_url?: string;
+    duration?: number;
+    uploader?: string;
+    uploader_mid?: number;
+    sessdata?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/download/add', {
+      method: 'POST',
+      body: JSON.stringify(downloadData),
+    });
+  }
+
+  // 批量开始下载
+  async startBatchDownloads(downloadIds?: string[]): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/download/start/batch', {
+      method: 'POST',
+      body: JSON.stringify(downloadIds ? { download_ids: downloadIds } : {}),
+    });
+  }
+
+  // 根据bvid获取下载任务
+  async getDownloadsByBvid(bvid: string, status?: string): Promise<ApiResponse<any>> {
+    const params = status ? `?status=${status}` : '';
+    return this.request<any>(`/api/download/bvid/${bvid}${params}`, {
+      method: 'GET',
+    });
+  }
+
+  // 根据bvid删除下载任务
+  async deleteDownloadByBvid(bvid: string, status?: string): Promise<ApiResponse<any>> {
+    const params = status ? `?status=${status}` : '';
+    return this.request<any>(`/api/download/bvid/${bvid}${params}`, {
+      method: 'DELETE',
+    });
+  }
 }
 
 export const apiService = new ApiService();

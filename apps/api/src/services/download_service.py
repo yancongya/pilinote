@@ -41,7 +41,7 @@ class DownloadService:
         """创建下载任务"""
         download_id = str(uuid.uuid4())
         
-        # 创建下载记录
+        # 创建下载记录（不预先获取大小，在下载时动态获取）
         with SessionLocal() as db:
             download = Download(
                 id=download_id,
@@ -56,6 +56,7 @@ class DownloadService:
                 uploader=uploader,
                 uploader_mid=uploader_mid,
                 sessdata=sessdata,
+                total_bytes=0,  # 初始为0，下载时更新
                 status="pending"
             )
             db.add(download)
@@ -120,6 +121,14 @@ class DownloadService:
             if status:
                 query = query.filter(Download.status == status)
             return query.order_by(Download.created_at.desc()).all()
+
+    def get_downloads_by_bvid(self, bvid: str, status: Optional[str] = None) -> list[Download]:
+        """根据bvid获取下载任务"""
+        with SessionLocal() as db:
+            query = db.query(Download).filter(Download.bvid == bvid)
+            if status:
+                query = query.filter(Download.status == status)
+            return query.order_by(Download.created_at.desc()).all()
     
     def cancel_download(self, download_id: str) -> bool:
         """取消下载任务"""
@@ -136,6 +145,14 @@ class DownloadService:
         # 更新状态
         self.update_download_status(download_id, "cancelled")
         return True
+    
+    def clear_all_downloads(self) -> int:
+        """清空所有下载任务"""
+        with SessionLocal() as db:
+            count = db.query(Download).count()
+            db.query(Download).delete()
+            db.commit()
+            return count
     
     def retry_download(self, download_id: str) -> bool:
         """重试失败的下载任务"""

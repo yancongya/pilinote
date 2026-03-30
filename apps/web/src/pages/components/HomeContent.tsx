@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { apiService } from '../../services/api'
+import { useDownloadStore } from '../../stores/download'
 import { Loader2, Plus, Eye, Check, Download } from 'lucide-react'
 
 interface VideoInfo {
   bvid: string
+  aid: number
   title: string
   desc: string
   pic: string
@@ -47,6 +49,7 @@ export default function HomeContent() {
   const [error, setError] = useState('')
   const [parseData, setParseData] = useState<ParseResponse | null>(null)
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
+  const downloadStore = useDownloadStore()
 
   const handleParseUrl = async () => {
     if (!urlInput.trim()) return
@@ -63,7 +66,7 @@ export default function HomeContent() {
         setUrlInput('')
         // 默认选中所有页面
         if (response.data.download_options.multi_part && response.data.download_options.pages) {
-          setSelectedPages(new Set(response.data.download_options.pages.map(p => p.page)))
+          setSelectedPages(new Set(response.data.download_options.pages.map((p: any) => p.page)))
         }
       } else {
         setError(response.message || '解析失败，请检查链接是否正确')
@@ -111,10 +114,19 @@ export default function HomeContent() {
       const video = parseData.data.video
       const sessdata = localStorage.getItem('sessdata')
       
+      let addedCount = 0
+      let skippedCount = 0
+      
       // 为每个选中的分P创建下载任务
       for (const pageNum of selectedPages) {
         const page = parseData.data.download_options.pages?.find((p: any) => p.page === pageNum)
         if (!page) continue
+        
+        // 检查是否已经有相同的cid在下载列表中
+        if (downloadStore.isCidInDownloadList(video.bvid, page.cid)) {
+          skippedCount++
+          continue
+        }
         
         const downloadData = {
           bvid: video.bvid,
@@ -130,19 +142,25 @@ export default function HomeContent() {
           sessdata: sessdata || undefined
         }
         
-        const response = await apiService.startDownload(downloadData)
+        const response = await apiService.addToDownloadQueue(downloadData)
         
         if (!response.success) {
           setError(`添加下载失败: ${response.message}`)
           return
         }
+        
+        addedCount++
       }
       
       // 清空解析数据
       setParseData(null)
       setSelectedPages(new Set())
       
-      alert(`已添加 ${selectedPages.size} 个视频到下载队列`)
+      if (skippedCount > 0) {
+        alert(`已添加 ${addedCount} 个视频到下载队列，跳过 ${skippedCount} 个已存在的视频`)
+      } else {
+        alert(`已添加 ${addedCount} 个视频到下载队列`)
+      }
     } catch (err) {
       setError('添加下载失败，请稍后重试')
     } finally {

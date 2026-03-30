@@ -2,19 +2,21 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
+import { useDownloadStore } from '../stores/download'
 import { ArrowLeft, Film, User } from 'lucide-react'
 
 export default function VideoDetailPage() {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
+  const downloadStore = useDownloadStore()
   const [video, setVideo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
   const [downloading, setDownloading] = useState(false)
-  const [isDownloaded, setIsDownloaded] = useState(false)
-  const [downloadTasks, setDownloadTasks] = useState<any[]>([])
-  const { sessdata } = useAuthStore()
+  const [downloadedCids, setDownloadedCids] = useState<Set<number>>(new Set())
+  const { user } = useAuthStore()
+  const sessdata = user?.sessdata
 
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
@@ -66,9 +68,6 @@ export default function VideoDetailPage() {
           if (data.pages && data.pages.length > 0) {
             setSelectedPages(new Set(data.pages.map((p: any) => p.cid)))
           }
-          
-          // 检查是否已下载
-          checkIfDownloaded(data.bvid)
         } else {
           setError(response.message || '获取视频详情失败')
         }
@@ -82,30 +81,18 @@ export default function VideoDetailPage() {
     fetchVideoDetail()
   }, [videoId, sessdata])
 
-  // 检查视频是否已下载
-  const checkIfDownloaded = async (bvid: string) => {
-    try {
-      const response = await fetch('http://localhost:8000/api/download/list')
-      const data = await response.json()
-      
-      if (data.success && data.downloads) {
-        // 只显示已完成的下载任务
-        const completedDownloads = data.downloads.filter((d: any) => 
-          d.bvid === bvid && d.status === 'completed'
-        )
-        
-        if (completedDownloads.length > 0) {
-          setIsDownloaded(true)
-          setDownloadTasks(completedDownloads)
-        } else {
-          setIsDownloaded(false)
-          setDownloadTasks([])
-        }
+  // 检查哪些分P已经在下载列表中
+  useEffect(() => {
+    if (!video || !video.pages) return
+    
+    const cidsInList = new Set<number>()
+    video.pages.forEach((page: any) => {
+      if (downloadStore.isCidInDownloadList(video.bvid, page.cid)) {
+        cidsInList.add(page.cid)
       }
-    } catch (err) {
-      console.error('检查下载状态失败:', err)
-    }
-  }
+    })
+    setDownloadedCids(cidsInList)
+  }, [video, downloadStore])
 
   const formatNumber = (num: number): string => {
     if (num >= 10000) {
@@ -180,11 +167,43 @@ export default function VideoDetailPage() {
   // 全选/取消全选
   const handleSelectAll = () => {
     if (!video?.pages) return
-    const allCids = new Set(video.pages.map((p: any) => p.cid))
+    const allCids: Set<number> = new Set(video.pages.map((p: any) => Number(p.cid)))
     if (selectedPages.size === video.pages.length) {
       setSelectedPages(new Set())
     } else {
       setSelectedPages(allCids)
+    }
+  }
+
+  // 计算选中的分P中已添加的数量
+  const getAddedCount = () => {
+    let count = 0
+    selectedPages.forEach(cid => {
+      if (downloadedCids.has(cid)) {
+        count++
+      }
+    })
+    return count
+  }
+
+  // 判断是否所有选中的分P都已添加
+  const allSelectedAdded = selectedPages.size > 0 && getAddedCount() === selectedPages.size
+
+  // 获取按钮文本
+  const getButtonText = () => {
+    if (downloading) return '添加中...'
+    
+    const addedCount = getAddedCount()
+    
+    if (video?.pages && video.pages.length > 1) {
+      // 多P视频
+      if (addedCount > 0) {
+        return `已添加 ${addedCount}/${selectedPages.size}`
+      }
+      return '添加到列表'
+    } else {
+      // 单个视频
+      return addedCount > 0 ? '已在列表中' : '添加到列表'
     }
   }
 
@@ -197,14 +216,35 @@ export default function VideoDetailPage() {
       // 获取用户SESSDATA
       const sessdata = localStorage.getItem('sessdata')
       
-      // 为每个选中的分P创建下载任务
-      for (const pageNum of selectedPages) {
-        const page = video.pages?.find((p: any) => p.page === pageNum)
+      const pagesToAdd: any[] = []
+      let skippedCount = 0
+      
+      // 收集所有需要添加的分P
+      for (const cid of selectedPages) {
+        const page = video.pages?.find((p: any) => p.cid === cid)
         if (!page) continue
         
+        // 检查是否已经有相同的cid在下载列表中
+        if (downloadStore.isCidInDownloadList(video.bvid, page.cid)) {
+          skippedCount++
+          continue
+        }
+        
+        pagesToAdd.push(page)
+      }
+      
+      if (pagesToAdd.length === 0) {
+        if (skippedCount > 0) {
+          alert(`跳过 ${skippedCount} 个已存在的视频`)
+        }
+        return
+      }
+      
+      // 并行添加所有分P
+      const addPromises = pagesToAdd.map(async (page) => {
         const downloadData = {
           bvid: video.bvid,
-          title: video.title,
+          title: page.part || `${video.title} - P${page.page}`,
           cid: page.cid,
           aid: video.aid,
           quality: 64, // 默认720P
@@ -216,15 +256,28 @@ export default function VideoDetailPage() {
           sessdata: sessdata || undefined
         }
         
-        const response = await apiService.startDownload(downloadData)
-        
-        if (!response.success) {
-          alert(`添加下载失败: ${response.message}`)
-          return
-        }
+        return apiService.addToDownloadQueue(downloadData)
+      })
+      
+      const results = await Promise.all(addPromises)
+      
+      const addedCount = results.filter(r => r.success).length
+      const failedCount = results.length - addedCount
+      
+      // 更新已下载的分P列表
+      const newlyAddedCids = pagesToAdd.filter((_, index) => results[index].success).map((page) => page.cid)
+      if (newlyAddedCids.length > 0) {
+        setDownloadedCids(prev => new Set([...prev, ...newlyAddedCids]))
       }
       
-      alert(`已添加 ${selectedPages.size} 个视频到下载队列`)
+      if (failedCount > 0) {
+        const failedResult = results.find(r => !r.success)
+        alert(`添加成功 ${addedCount} 个，失败 ${failedCount} 个。失败原因: ${failedResult?.message || '未知错误'}`)
+      } else if (skippedCount > 0) {
+        alert(`已添加 ${addedCount} 个视频到下载队列，跳过 ${skippedCount} 个已存在的视频`)
+      } else {
+        alert(`已添加 ${addedCount} 个视频到下载队列`)
+      }
     } catch (error) {
       console.error('添加下载失败:', error)
       alert('添加下载失败')
@@ -387,16 +440,7 @@ export default function VideoDetailPage() {
           textAlign: 'right',
           lineHeight: '1.3'
         }}>
-          {isDownloaded && downloadTasks.length > 0 ? (
-            <>
-              <div>共{downloadTasks.length}{video.pages && video.pages.length > 1 && `/${video.pages.length}`}个视频</div>
-              <div>总时长：{formatDuration(
-                downloadTasks.reduce((total: number, task: any) => total + (task.duration || 0), 0)
-              )}</div>
-            </>
-          ) : (
-            formatDuration(video.duration)
-          )}
+          {formatDuration(video.duration)}
         </div>
       </div>
 
@@ -452,17 +496,13 @@ export default function VideoDetailPage() {
                     fontSize: '12px',
                     color: '#999'
                   }}>
-                    {!isDownloaded && (
-                      <>
-                        <span>{formatNumber(video.view)}播放</span>
-                        <span>{formatNumber(video.danmaku)}弹幕</span>
-                        <span>{formatTime(video.pubtime)}</span>
-                      </>
-                    )}
+                    <span>{formatNumber(video.view)}播放</span>
+                    <span>{formatNumber(video.danmaku)}弹幕</span>
+                    <span>{formatTime(video.pubtime)}</span>
                   </div>
                           </div>        
                 {/* 分P信息 */}
-                {!isDownloaded && video.pages && video.pages.length > 1 && (
+                {video.pages && video.pages.length > 1 && (
                   <div style={{
                     marginBottom: '16px',
                     fontSize: '13px',
@@ -491,8 +531,7 @@ export default function VideoDetailPage() {
           </div>
         ) : null}
 
-        {/* 下载区域 - 仅在未下载时显示 */}
-        {!isDownloaded && (
+        {/* 下载区域 */}
         <div style={{
           marginTop: '24px',
           paddingTop: '16px',
@@ -555,173 +594,139 @@ export default function VideoDetailPage() {
                 maxHeight: '300px',
                 overflowY: 'auto'
               }}>
-                {video.pages.map((page: any, index: number) => (
-                  <div
-                    key={page.cid || index}
-                    onClick={() => handlePageSelect(page.cid)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '10px',
-                      background: selectedPages.has(page.cid) ? '#fff' : '#f9f9f9',
-                      borderRadius: '6px',
-                      marginBottom: index < video.pages.length - 1 ? '8px' : '0',
-                      cursor: 'pointer',
-                      border: selectedPages.has(page.cid) ? '1px solid #fb7299' : '1px solid transparent'
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedPages.has(page.cid)}
-                      readOnly
-                      style={{ width: '16px', height: '16px', marginRight: '10px' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', color: '#333', marginBottom: '4px' }}>
-                        P{page.page}: {page.part || `第${page.page}个视频`}
+                {video.pages.map((page: any, index: number) => {
+                  const isInList = downloadedCids.has(page.cid)
+                  return (
+                    <div
+                      key={page.cid || index}
+                      onClick={() => handlePageSelect(page.cid)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '10px',
+                        background: selectedPages.has(page.cid) ? '#fff' : '#f9f9f9',
+                        borderRadius: '6px',
+                        marginBottom: index < video.pages.length - 1 ? '8px' : '0',
+                        cursor: 'pointer',
+                        border: selectedPages.has(page.cid) ? '1px solid #fb7299' : '1px solid transparent',
+                        opacity: isInList && !selectedPages.has(page.cid) ? 0.6 : 1
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPages.has(page.cid)}
+                        readOnly
+                        style={{ width: '16px', height: '16px', marginRight: '10px' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '13px', color: '#333', marginBottom: '4px' }}>
+                          P{page.page}: {page.part || `第${page.page}个视频`}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#999' }}>
+                          {formatDuration(page.duration)}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        {formatDuration(page.duration)}
-                      </div>
+                      {isInList && (
+                        <span style={{
+                          fontSize: '11px',
+                          color: '#fb7299',
+                          background: '#fff5f8',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          marginLeft: '8px'
+                        }}>
+                          已添加
+                        </span>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {/* 下载按钮 */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={handleAddToDownload}
+                  disabled={downloading || selectedPages.size === 0 || allSelectedAdded}
+                  style={{
+                    flex: 1,
+                    padding: '14px',
+                    background: downloading || selectedPages.size === 0 || allSelectedAdded ? '#ccc' : '#fb7299',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: downloading || selectedPages.size === 0 || allSelectedAdded ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {getButtonText()}
+                </button>
+              </div>
+            </>
+          ) : (
+            /* 单个视频下载 */
+            <div style={{ display: 'flex', gap: '8px' }}>
               <button
                 onClick={handleAddToDownload}
-                disabled={downloading || selectedPages.size === 0}
+                disabled={downloading || allSelectedAdded}
                 style={{
-                  width: '100%',
+                  flex: 1,
                   padding: '14px',
-                  background: downloading || selectedPages.size === 0 ? '#ccc' : '#fb7299',
+                  background: downloading || allSelectedAdded ? '#ccc' : '#fb7299',
                   color: '#fff',
                   border: 'none',
                   borderRadius: '8px',
                   fontSize: '16px',
                   fontWeight: '600',
-                  cursor: downloading || selectedPages.size === 0 ? 'not-allowed' : 'pointer',
+                  cursor: downloading || allSelectedAdded ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px'
                 }}
               >
-                {downloading ? '添加中...' : `下载 ${selectedPages.size} 个视频`}
+                {getButtonText()}
               </button>
-            </>
-          ) : (
-            /* 单个视频下载 */
-            <button
-              onClick={handleAddToDownload}
-              disabled={downloading}
-              style={{
-                width: '100%',
-                padding: '14px',
-                background: downloading ? '#ccc' : '#fb7299',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: downloading ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}
-            >
-              {downloading ? '添加中...' : '下载视频'}
-            </button>
+              
+              <button
+                onClick={async () => {
+                  const downloadTasks = downloadStore.getDownloadsByBvid(video.bvid)
+                  if (downloadTasks.length > 0) {
+                    const success = await downloadStore.startBatchDownloads([downloadTasks[0].id])
+                    if (!success) {
+                      alert('开始下载失败')
+                    } else {
+                      alert('已开始下载')
+                    }
+                  }
+                }}
+                disabled={downloading}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: downloading ? '#ccc' : '#52c41a',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: downloading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {downloading ? '启动中...' : '开始下载'}
+              </button>
+            </div>
           )}
         </div>
-        )}
-
-        {/* 下载任务列表 - 仅在已下载时显示 */}
-        {isDownloaded && downloadTasks.length > 0 && (
-        <div style={{
-          marginTop: '24px',
-          paddingTop: '16px',
-          borderTop: '1px solid #f0f0f0'
-        }}>
-          <h3 style={{
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#1a1a1a',
-            marginBottom: '12px'
-          }}>
-            视频列表
-          </h3>
-
-          {downloadTasks.map((task) => (
-            <div key={task.id} style={{
-              background: '#f9f9f9',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
-              {/* 状态标识 */}
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: task.status === 'completed' ? '#4CAF50' : 
-                           task.status === 'downloading' ? '#fb7299' : 
-                           task.status === 'failed' ? '#ef5350' : '#9e9e9e'
-              }}></div>
-
-              {/* 任务信息 */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#333'
-                }}>
-                  <div style={{ 
-                    flex: 1, 
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {task.title}
-                  </div>
-                  {task.duration && task.duration > 0 && (
-                    <span style={{ 
-                      fontSize: '12px', 
-                      color: '#666',
-                      flexShrink: 0,
-                      marginLeft: 'auto'
-                    }}>
-                      {formatDuration(task.duration)}
-                    </span>
-                  )}
-                </div>
-                {task.status === 'completed' && task.file_path && (
-                  <div style={{ 
-                    fontSize: '12px', 
-                    color: '#4CAF50', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px',
-                    marginTop: '4px'
-                  }}>
-                    <span>✓</span>
-                    <span>已下载</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        )}
       </div>
     </div>
   )

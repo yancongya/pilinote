@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, X, RefreshCw, Trash } from 'lucide-react'
+import { apiService } from '../services/api'
 
 interface DownloadTask {
   id: string
@@ -38,7 +39,6 @@ interface SeriesData {
 export default function DownloadSeriesDetailPage() {
   const { seriesId } = useParams<{ seriesId: string }>()
   const navigate = useNavigate()
-  const location = useLocation()
   const [seriesData, setSeriesData] = useState<SeriesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -91,7 +91,7 @@ export default function DownloadSeriesDetailPage() {
   }
 
   // 获取状态标签
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string): string => {
     const labels: Record<string, string> = {
       pending: '等待',
       queued: '排队',
@@ -120,7 +120,22 @@ export default function DownloadSeriesDetailPage() {
         )
         
         if (seriesTasks.length > 0) {
-          const seriesName = seriesTasks[0].title.split(/[第第]|[\s_]\d+|[\s_]P\d+/i)[0].trim()
+          // 获取真实的系列名
+          let seriesName = seriesTasks[0].title
+          if (seriesTasks[0].bvid) {
+            try {
+              console.log('正在获取视频详情:', seriesTasks[0].bvid)
+              const videoResponse = await apiService.getVideoDetail(seriesTasks[0].bvid)
+              console.log('视频详情响应:', videoResponse)
+              if (videoResponse.success && videoResponse.data) {
+                seriesName = videoResponse.data.title
+                console.log('更新系列名:', seriesName)
+              }
+            } catch (error) {
+              console.error('获取视频详情失败:', error)
+              // 保持原标题
+            }
+          }
           
           // 计算总时长
           const totalDuration = seriesTasks

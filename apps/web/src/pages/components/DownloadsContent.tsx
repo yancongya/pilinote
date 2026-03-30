@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import VideoListCard from './VideoListCard'
+import { useDownloadStore } from '../../stores/download'
+import { apiService } from '../../services/api'
 
 interface DownloadTask {
   id: string
@@ -39,22 +41,14 @@ interface DownloadSeries {
 type ViewMode = 'completed' | 'downloading'
 
 export default function DownloadsContent() {
+  const downloadStore = useDownloadStore()
   const [downloads, setDownloads] = useState<DownloadTask[]>([])
   const [seriesList, setSeriesList] = useState<DownloadSeries[]>([])
-  const [viewMode, setViewMode] = useState<ViewMode>('completed')
+  const [viewMode, setViewMode] = useState<ViewMode>('downloading')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const refreshTimerRef = useRef<number | null>(null)
   const navigate = useNavigate()
-
-  // 格式化文件大小
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-  }
 
   // 格式化时长
   const formatDuration = (seconds: number): string => {
@@ -81,6 +75,68 @@ export default function DownloadsContent() {
     return `${date.getMonth() + 1}月${date.getDate()}日`
   }
 
+  // 获取状态文字
+  const getStatusText = (status: string): string => {
+    const statusMap: Record<string, string> = {
+      'pending': '等待下载',
+      'queued': '队列中',
+      'downloading': '下载中',
+      'processing': '处理中',
+      'failed': '下载失败',
+      'cancelled': '已取消'
+    }
+    return statusMap[status] || status
+  }
+
+  // 开始下载
+  const handleStartDownload = async (series: DownloadSeries) => {
+    try {
+      const downloadIds = series.tasks.map(task => task.id)
+      const response = await fetch('http://localhost:8000/api/download/start/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ download_ids: downloadIds })
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        fetchDownloads()
+      } else {
+        alert('开始下载失败: ' + (data.message || '未知错误'))
+      }
+    } catch (error) {
+      alert('开始下载失败: 网络错误')
+    }
+  }
+
+  // 删除下载任务
+  const handleDeleteDownload = async (series: DownloadSeries) => {
+    if (!confirm(`确定要删除 "${series.seriesName}" 吗？`)) {
+      return
+    }
+    
+    try {
+      const deletePromises = series.tasks.map(task => 
+        fetch(`http://localhost:8000/api/download/${task.id}`, {
+          method: 'DELETE'
+        })
+      )
+      
+      await Promise.all(deletePromises)
+      
+      // 删除后重新获取下载列表
+      fetchDownloads()
+      
+      // 同时更新全局下载状态缓存
+      // 从全局store中移除已删除的下载任务
+      series.tasks.forEach(task => {
+        downloadStore.removeDownload(task.id)
+      })
+    } catch (error) {
+      alert('删除失败: 网络错误')
+    }
+  }
+
   // 获取下载任务列表
   const fetchDownloads = useCallback(async () => {
     setLoading(true)
@@ -91,6 +147,7 @@ export default function DownloadsContent() {
       const data = await response.json()
       
       if (data.success) {
+        // 获取所有下载任务，不过滤
         setDownloads(data.downloads)
       } else {
         setError(data.message || '获取下载列表失败')
@@ -103,20 +160,20 @@ export default function DownloadsContent() {
   }, [])
 
   // 按系列分组
-  const groupDownloadsBySeries = useCallback((tasks: DownloadTask[]): DownloadSeries[] => {
+  const groupDownloadsBySeries = useCallback(async (tasks: DownloadTask[]): Promise<DownloadSeries[]> => {
     const groups: Record<string, DownloadSeries> = {}
+    const uniqueSeriesIds = new Set<string>()
     
+    // 首先按aid或bvid分组
     tasks.forEach(task => {
-      const seriesId = (task.aid || task.bvid).toString()
+      // 优先使用aid进行分组（系列视频有相同aid但不同bvid）
+      // 如果没有aid，才使用bvid
+      const seriesId = (task.aid || task.bvid)?.toString() || task.id
       
       if (!groups[seriesId]) {
-        // 提取系列名称
-        const titleParts = task.title.split(/[第第]|[\s_]\d+|[\s_]P\d+/i)
-        const seriesName = titleParts[0].trim()
-        
         groups[seriesId] = {
           seriesId,
-          seriesName,
+          seriesName: task.title, // 临时使用标题
           thumbnail_url: task.thumbnail_url,
           tasks: [],
           totalCount: 0,
@@ -125,6 +182,7 @@ export default function DownloadsContent() {
           totalDuration: 0,
           createdTime: task.created_at
         }
+        uniqueSeriesIds.add(seriesId)
       }
       
       groups[seriesId].tasks.push(task)
@@ -138,7 +196,61 @@ export default function DownloadsContent() {
       }
     })
     
-    return Object.values(groups).sort((a, b) => 
+    // 获取真实的系列名
+    for (const seriesId of uniqueSeriesIds) {
+      const firstTask = groups[seriesId].tasks[0]
+      if (firstTask.bvid) {
+        try {
+          const response = await apiService.getVideoDetail(firstTask.bvid)
+          if (response.success && response.data) {
+            // 使用视频的真实标题作为系列名
+            groups[seriesId].seriesName = response.data.title
+          }
+        } catch (error) {
+          console.error('获取视频详情失败:', error)
+          // 保持原标题
+        }
+      }
+    }
+    
+    // 检查是否有多个组有相同的seriesName（相同系列但aid不同的情况）
+    const nameMap: Record<string, string[]> = {}
+    Object.keys(groups).forEach(seriesId => {
+      const seriesName = groups[seriesId].seriesName
+      if (!nameMap[seriesName]) {
+        nameMap[seriesName] = []
+      }
+      nameMap[seriesName].push(seriesId)
+    })
+    
+    // 合并相同seriesName的组
+    const mergedGroups: Record<string, DownloadSeries> = {}
+    Object.values(nameMap).forEach((seriesIds) => {
+      if (seriesIds.length > 1) {
+        // 合并这些组
+        const mergedSeriesId = seriesIds[0]
+        const mergedSeries = groups[seriesIds[0]]
+        
+        for (let i = 1; i < seriesIds.length; i++) {
+          const series = groups[seriesIds[i]]
+          mergedSeries.tasks.push(...series.tasks)
+          mergedSeries.totalCount += series.totalCount
+          mergedSeries.completedCount += series.completedCount
+          mergedSeries.totalDuration += series.totalDuration
+          // 使用最早的时间
+          if (new Date(series.createdTime) < new Date(mergedSeries.createdTime)) {
+            mergedSeries.createdTime = series.createdTime
+          }
+        }
+        
+        mergedGroups[mergedSeriesId] = mergedSeries
+      } else {
+        // 不需要合并，直接使用
+        mergedGroups[seriesIds[0]] = groups[seriesIds[0]]
+      }
+    })
+    
+    return Object.values(mergedGroups).sort((a, b) => 
       new Date(b.createdTime).getTime() - new Date(a.createdTime).getTime()
     )
   }, [])
@@ -187,25 +299,12 @@ export default function DownloadsContent() {
       )
     }
     
-    setSeriesList(groupDownloadsBySeries(filteredDownloads))
-  }, [downloads, viewMode, groupDownloadsBySeries])
-
-  // 点击系列进入详情
-  const handleSeriesClick = (series: DownloadSeries) => {
-    // 判断是否为系列视频（aid存在且有多个任务）
-    const isSeries = series.totalCount > 1
-    
-    if (isSeries) {
-      // 系列视频：进入系列详情页
-      navigate(`/download/series/${series.seriesId}`, { 
-        state: { series }
-      })
+    if (filteredDownloads.length > 0) {
+      groupDownloadsBySeries(filteredDownloads).then(setSeriesList)
     } else {
-      // 单个视频：进入视频详情页
-      const videoId = series.tasks[0].bvid
-      navigate(`/video/${videoId}`)
+      setSeriesList([])
     }
-  }
+  }, [downloads, viewMode, groupDownloadsBySeries])
 
   // 获取状态统计
   const stats = {
@@ -255,62 +354,52 @@ export default function DownloadsContent() {
             {viewMode === 'completed' && <span className="empty-hint">去首页添加视频开始下载</span>}
           </div>
         ) : (
-          <div className="series-list">
-            {seriesList.map(series => (
-              <div 
-                key={series.seriesId} 
-                className="series-card"
-                onClick={() => handleSeriesClick(series)}
-              >
-                {/* 缩略图 */}
-                <div className="series-thumb">
-                  {series.thumbnail_url ? (
-                    <img 
-                      src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(series.thumbnail_url)}`}
-                      alt={series.seriesName}
-                      className="thumb-img"
-                    />
-                  ) : (
-                    <div className="thumb-placeholder">
-                      <span>🎬</span>
-                    </div>
-                  )}
-                  <div className="series-info-overlay">
-                    <div className="series-count">共{series.completedCount}/{series.totalCount}个视频</div>
-                    <div className="series-duration">总时长：{formatDuration(series.totalDuration)}</div>
-                  </div>
-                </div>
-
-                {/* 信息 */}
-                <div className="series-info">
-                  <h3 className="series-title">{series.seriesName}</h3>
-                  <p className="series-meta">
-                    <span>{formatTime(series.createdTime)}</span>
-                    {viewMode === 'downloading' && series.tasks.some(t => t.status === 'downloading') && (
-                      <span className="downloading-indicator">下载中</span>
-                    )}
-                  </p>
-                  {viewMode === 'downloading' && (
-                    <div className="series-progress">
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill"
-                          style={{ width: `${(series.completedCount / series.totalCount) * 100}%` }}
-                        ></div>
-                      </div>
-                      <span className="progress-text">
-                        {Math.round((series.completedCount / series.totalCount) * 100)}%
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 箭头 */}
-                <div className="series-arrow">
-                  <ChevronRight />
-                </div>
-              </div>
-            ))}
+          <div className="video-list" role="list" aria-label="视频列表">
+            {seriesList.map(series => {
+              const isSeries = series.totalCount > 1
+              const firstTask = series.tasks[0]
+              
+              // 计算系列的整体进度
+              const seriesProgress = series.totalCount > 0 
+                ? Math.round((series.completedCount / series.totalCount) * 100) 
+                : 0
+              
+              // 判断下载状态
+              const downloadStatus = isSeries 
+                ? (seriesProgress === 100 ? 'in_list' : 'in_list')
+                : (firstTask.status === 'completed' ? 'in_list' : 'in_list')
+              
+              // 单个视频或系列视频都可以点击进入详情页
+              const canClickDetail = true  // 所有视频都可以点击进入详情页
+              
+              return (
+                <VideoListCard
+                  key={series.seriesId}
+                  id={firstTask.id}
+                  bvid={firstTask.bvid || series.seriesId}
+                  title={series.seriesName}
+                  cover={firstTask.thumbnail_url || ''}
+                  duration={formatDuration(firstTask.duration || 0)}
+                  uploader={firstTask.uploader || ''}
+                  views={getStatusText(firstTask.status)}
+                  comments={formatTime(series.createdTime)}
+                  time=""
+                  progress={isSeries ? seriesProgress : firstTask.progress}
+                  downloadStatus={downloadStatus}
+                  showDownloadButton={false}
+                  isSeries={isSeries}
+                  clickable={canClickDetail}
+                  showActionButtons={true}
+                  canStart={firstTask.status === 'pending' || firstTask.status === 'failed'}
+                  onActionStart={() => handleStartDownload(series)}
+                  onActionDelete={() => handleDeleteDownload(series)}
+                  onVideoClick={() => {
+                    // 所有视频都可以进入详情页
+                    navigate(`/downloads/${series.seriesId}`)
+                  }}
+                />
+              )
+            })}
           </div>
         )}
       </div>

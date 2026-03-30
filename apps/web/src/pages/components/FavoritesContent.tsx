@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
+import { useDownloadStore } from '../../stores/download'
 import { ArrowLeft, Folder } from 'lucide-react'
 import VideoListCard from './VideoListCard'
 
@@ -34,7 +35,6 @@ const formatTime = (timestamp: number): string => {
 
 export default function FavoritesContent() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
-  const [downloadList, setDownloadList] = useState<any[]>([])
   const [folders, setFolders] = useState<any[]>([])
   const [videos, setVideos] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -47,12 +47,19 @@ export default function FavoritesContent() {
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const downloadStore = useDownloadStore()
   const { 
     getFoldersCache, 
     setFoldersCache, 
     getFolderVideosCache, 
     setFolderVideosCache 
   } = useCacheStore()
+  const { 
+    getDownloadStatus,
+    addToDownloadList, 
+    removeFromDownloadListByBvid,
+    syncFromServer 
+  } = downloadStore
 
   // 处理收藏夹选择，更新路由
   const handleSelectFolder = (folder: any) => {
@@ -152,12 +159,18 @@ export default function FavoritesContent() {
           uploader: video.uploader?.name || '未知',
           views: formatNumber(video.view),
           comments: video.comment ? formatNumber(video.comment) : '0',
-          time: formatTime(video.pubtime)
+          time: formatTime(video.pubtime),
+          // 保留原始数据用于下载
+          cid: video.cid,
+          aid: video.aid,
+          pic: video.cover,
+          originalDuration: video.duration,
+          owner: video.uploader,
+          pubtime: video.pubtime
         }))
         
         if (isLoadMore) {
           setVideos(prev => {
-            const newLength = prev.length + formattedVideos.length
             const pageSize = response.data.page_size || 10
             setHasMore(formattedVideos.length === pageSize)
             return [...prev, ...formattedVideos]
@@ -219,16 +232,153 @@ export default function FavoritesContent() {
     }
   }, [currentPage, loading, loadingMore, hasMore, selectedFolder, fetchVideos])
 
-  const isAddedToDownload = (videoId: number) => {
-    return downloadList.some(item => item.id === videoId)
-  }
+  // 同步下载列表
+  useEffect(() => {
+    // 初始同步
+    syncFromServer()
+    
+    // 每30秒同步一次
+    const interval = setInterval(() => {
+      syncFromServer()
+    }, 30000)
+    
+    return () => clearInterval(interval)
+  }, [syncFromServer])
 
-  const toggleDownload = (video: any, e: React.MouseEvent) => {
+  const toggleDownload = async (video: any, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (isAddedToDownload(video.id)) {
-      setDownloadList(downloadList.filter(item => item.id !== video.id))
-    } else {
-      setDownloadList([...downloadList, video])
+    
+    const currentStatus = getDownloadStatus(video.bvid)
+    
+    // 防止重复点击
+    const button = e.currentTarget as HTMLButtonElement
+    if (button.disabled) return
+    button.disabled = true
+    
+    try {
+      if (currentStatus === 'in_list') {
+        // 从下载列表移除
+        const success = await removeFromDownloadListByBvid(video.bvid)
+        if (!success) {
+          alert('从下载列表移除失败')
+        }
+      } else {
+        const sessdata = localStorage.getItem('sessdata')
+        
+        // 先获取视频详情，检查是否是多P视频
+        try {
+          const videoDetailResponse = await apiService.getVideoDetail(video.bvid, sessdata || undefined)
+          
+          if (videoDetailResponse.success && videoDetailResponse.data?.pages) {
+            const pages = videoDetailResponse.data.pages
+            
+            if (pages.length > 1) {
+              // 多P视频，添加所有分集
+              let addedCount = 0
+              let skippedCount = 0
+              
+              const addPromises = pages.map(async (page: any) => {
+                // 检查是否已经有相同的cid在下载列表中
+                if (downloadStore.isCidInDownloadList(video.bvid, page.cid)) {
+                  skippedCount++
+                  return { success: false, skipped: true }
+                }
+                
+                const downloadData = {
+                  bvid: video.bvid,
+                  title: page.part || `${video.title} - P${page.page}`,
+                  cid: page.cid,
+                  aid: video.aid,
+                  quality: 64,
+                  output_format: 'mp4',
+                  thumbnail_url: video.pic,
+                  duration: page.duration,
+                  uploader: video.owner?.name || '',
+                  uploader_mid: video.owner?.mid || 0,
+                  sessdata: sessdata || undefined
+                }
+                
+                return apiService.addToDownloadQueue(downloadData)
+              })
+              
+              const results = await Promise.all(addPromises)
+              
+              addedCount = results.filter(r => r.success).length
+              
+              if (skippedCount > 0) {
+                alert(`已添加 ${addedCount} 个分集到下载队列，跳过 ${skippedCount} 个已存在的分集`)
+              } else {
+                alert(`已添加 ${addedCount} 个分集到下载队列`)
+              }
+            } else {
+              // 单P视频，直接添加
+              const downloadData = {
+                bvid: video.bvid,
+                title: video.title,
+                cid: video.cid,
+                aid: video.aid,
+                quality: 64,
+                output_format: 'mp4',
+                thumbnail_url: video.pic,
+                duration: video.originalDuration,
+                uploader: video.owner?.name || '',
+                uploader_mid: video.owner?.mid || 0,
+                sessdata: sessdata || undefined
+              }
+              
+              const success = await addToDownloadList(downloadData)
+              if (!success) {
+                alert('添加到下载列表失败')
+              }
+            }
+          } else {
+            // 获取视频详情失败，降级为直接添加
+            const downloadData = {
+              bvid: video.bvid,
+              title: video.title,
+              cid: video.cid,
+              aid: video.aid,
+              quality: 64,
+              output_format: 'mp4',
+              thumbnail_url: video.pic,
+              duration: video.originalDuration,
+              uploader: video.owner?.name || '',
+              uploader_mid: video.owner?.mid || 0,
+              sessdata: sessdata || undefined
+            }
+            
+            const success = await addToDownloadList(downloadData)
+            if (!success) {
+              alert('添加到下载列表失败')
+            }
+          }
+        } catch (error) {
+          // 获取视频详情失败，降级为直接添加
+          console.error('获取视频详情失败，降级为直接添加:', error)
+          
+          const downloadData = {
+            bvid: video.bvid,
+            title: video.title,
+            cid: video.cid,
+            aid: video.aid,
+            quality: 64,
+            output_format: 'mp4',
+            thumbnail_url: video.pic,
+            duration: video.originalDuration,
+            uploader: video.owner?.name || '',
+            uploader_mid: video.owner?.mid || 0,
+            sessdata: sessdata || undefined
+          }
+          
+          const success = await addToDownloadList(downloadData)
+          if (!success) {
+            alert('添加到下载列表失败')
+          }
+        }
+      }
+    } finally {
+      // 恢复按钮状态
+      button.disabled = false
     }
   }
 
@@ -332,7 +482,7 @@ export default function FavoritesContent() {
                   key={video.id}
                   {...video}
                   onDownloadToggle={toggleDownload}
-                  isDownloaded={isAddedToDownload(video.id)}
+                  downloadStatus={getDownloadStatus(video.bvid)}
                 />
               ))}
               {loadingMore && (

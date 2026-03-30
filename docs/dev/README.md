@@ -12,6 +12,7 @@
 - [06-project-structure.md](06-project-structure.md) - 项目结构
 - [07-development-roadmap.md](07-development-roadmap.md) - 开发路线图
 - [08-reference-projects.md](08-reference-projects.md) - 参考项目索引
+- [09-download-management.md](09-download-management.md) - 下载管理功能
 
 ## 架构图
 - [pilinote_architecture.drawio](pilinote_architecture.drawio) - 系统架构设计
@@ -30,5 +31,6 @@
 2. 查看 [07-development-roadmap.md](07-development-roadmap.md) 了解开发计划
 3. 参考 [08-reference-projects.md](08-reference-projects.md) 查找具体实现
 4. 查看 [05-deployment.md](05-deployment.md) 了解环境配置和启动方法
+5. 查看 [09-download-management.md](09-download-management.md) 了解下载管理功能
 
 **重要提示**: 启动API服务器时必须使用虚拟环境，详见[部署方案](05-deployment.md)。

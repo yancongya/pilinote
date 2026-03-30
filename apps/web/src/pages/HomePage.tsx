@@ -36,10 +36,6 @@ function HomePage() {
     navigate(routes[tab] || '/home')
   }
 
-  const handleLogout = () => {
-    setShowLogoutConfirm(true)
-  }
-
   const confirmLogout = () => {
     logout()
     setShowLogoutConfirm(false)
@@ -147,7 +143,11 @@ function HomePage() {
           {activeTab === 'home' && <HomeContent />}
           {activeTab === 'favorites' && <FavoritesContent />}
           {activeTab === 'watch-later' && <WatchLaterContent />}
-          {activeTab === 'downloads' && <DownloadsContent />}
+          {activeTab === 'downloads' && (
+            <div id="downloads-panel">
+              <DownloadsContent />
+            </div>
+          )}
         </main>
       </div>
 

@@ -116,6 +116,41 @@
   - 返回: 稍后再看视频列表、观看进度、统计信息
   - 特点: B站API一次性返回所有视频，客户端分页显示
 
+### 下载管理模块 (`/api/download`)
+- `POST /api/download/add` - 添加到下载列表
+  - 参数: bvid, title, cid, aid, quality, output_format, thumbnail_url, duration, uploader, uploader_mid, sessdata
+  - 返回: 下载任务ID和状态
+  - 特点: 添加到列表不会立即开始下载，支持批量添加
+- `POST /api/download/start` - 开始单个下载
+  - 参数: bvid, title, cid, quality, output_format
+  - 返回: 下载任务信息
+- `POST /api/download/start/batch` - 批量开始下载
+  - 参数: download_ids (数组)
+  - 返回: 批量操作结果
+- `GET /api/download/list` - 获取下载列表
+  - 参数: status (可选，筛选状态)
+  - 返回: 下载任务列表
+  - 状态: pending/queued/downloading/processing/completed/failed/cancelled
+- `GET /api/download/bvid/{bvid}` - 根据bvid获取下载任务
+  - 参数: bvid, status (可选)
+  - 返回: 指定视频的所有下载任务
+- `DELETE /api/download/{id}` - 删除下载任务
+  - 参数: id (任务ID)
+  - 返回: 删除结果
+- `DELETE /api/download/bvid/{bvid}` - 根据bvid删除下载任务
+  - 参数: bvid, status (可选)
+  - 返回: 批量删除结果
+- `POST /api/download/{id}/cancel` - 取消下载
+  - 参数: id (任务ID)
+  - 返回: 取消结果
+- `POST /api/download/{id}/retry` - 重试下载
+  - 参数: id (任务ID)
+  - 返回: 重试结果
+- `POST /api/download/parse` - 解析下载链接
+  - 参数: url (视频/课程链接)
+  - 返回: 解析结果（视频信息/课程信息）
+  - 支持格式: bvid, aid, 完整URL, 课程链接(ss360)
+
 ## API响应格式
 所有后端API都遵循统一的响应格式：
 ```json
