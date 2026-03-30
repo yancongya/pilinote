@@ -131,6 +131,10 @@ class DownloadManager:
         elif download.status == DownloadStatus.PENDING.value:
             # 添加到队列
             return await self.add_task(download_id)
+        elif download.status == DownloadStatus.CANCELLED.value or download.status == DownloadStatus.FAILED.value:
+            # 重置任务状态并重新开始
+            self._update_status(download_id, DownloadStatus.PENDING.value)
+            return await self.add_task(download_id)
         else:
             logger.warning(f"Cannot start download {download_id} with status {download.status}")
             return False
@@ -375,9 +379,11 @@ class DownloadManager:
         """执行下载任务"""
         download = self._get_download(download_id)
         if not download:
+            logger.error(f"Download {download_id} not found")
             return
         
         try:
+            logger.info(f"Starting download execution for {download_id}, bvid: {download.bvid}")
             self._update_status(download_id, DownloadStatus.DOWNLOADING.value)
             
             # 导入下载引擎
@@ -385,6 +391,7 @@ class DownloadManager:
             engine = DownloadEngine()
             
             # 执行下载
+            logger.info(f"Calling download_engine.download_video for {download.bvid}")
             await engine.download_video(
                 bvid=download.bvid,
                 quality=download.quality,
@@ -396,8 +403,10 @@ class DownloadManager:
                 ),
                 pause_event=self.paused_downloads.get(download_id)
             )
+            logger.info(f"Download video completed for {download.bvid}")
             
             # 更新文件路径
+            logger.info(f"Processing files for {download_id}")
             self._update_status(download_id, DownloadStatus.PROCESSING.value)
             
             # 获取下载的文件
@@ -415,15 +424,19 @@ class DownloadManager:
                         download.file_path = video_files[0]
                         download.file_size = os.path.getsize(video_files[0])
                         db.commit()
+                        logger.info(f"Updated file path for {download_id}: {video_files[0]}")
+            else:
+                logger.warning(f"No video files found for {download_id}")
             
             self._update_status(download_id, DownloadStatus.COMPLETED.value)
+            logger.info(f"Download {download_id} completed successfully")
             
         except asyncio.CancelledError:
             self._update_status(download_id, DownloadStatus.CANCELLED.value)
             logger.info(f"Download {download_id} cancelled")
         except Exception as e:
             self._update_status(download_id, DownloadStatus.FAILED.value, str(e))
-            logger.error(f"Download {download_id} failed: {e}")
+            logger.error(f"Download {download_id} failed: {e}", exc_info=True)
         finally:
             # 从活跃任务中移除
             if download_id in self.active_downloads:

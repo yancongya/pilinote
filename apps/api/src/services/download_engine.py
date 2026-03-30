@@ -74,6 +74,10 @@ class DownloadEngine:
         if progress_callback:
             def progress_hook(d):
                 """进度回调函数"""
+                # 检查是否暂停
+                if pause_event:
+                    pause_event.wait()
+                
                 if d['status'] == 'downloading':
                     total_bytes = d.get('total_bytes', 0) or d.get('total_bytes_estimate', 0) or 0
                     downloaded_bytes = d.get('downloaded_bytes', 0) or 0

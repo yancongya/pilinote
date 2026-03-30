@@ -61,6 +61,15 @@ export default function DownloadsContent() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // 格式化文件大小
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  }
+
   // 格式化时间
   const formatTime = (timestamp: string): string => {
     const date = new Date(timestamp)
@@ -92,6 +101,14 @@ export default function DownloadsContent() {
     const success = await downloadStore.startBatchDownloads(series.tasks.map(task => task.id))
     if (!success) {
       alert('开始下载失败')
+    }
+  }
+
+  // 暂停任务
+  const handlePauseTask = async (taskId: string) => {
+    const success = await downloadStore.pauseDownload(taskId)
+    if (!success) {
+      alert('暂停失败')
     }
   }
 
@@ -344,8 +361,8 @@ export default function DownloadsContent() {
                   duration={formatDuration(firstTask.duration || 0)}
                   uploader={firstTask.uploader || ''}
                   views={getStatusText(firstTask.status)}
-                  comments={formatTime(series.createdTime)}
-                  time=""
+                  comments={`${formatFileSize(firstTask.downloaded_bytes || 0)} / ${formatFileSize(firstTask.total_bytes || 0)}`}
+                  time={firstTask.status === 'downloading' && firstTask.download_speed > 0 ? `${formatFileSize(firstTask.download_speed)}/s` : ''}
                   progress={isSeries ? seriesProgress : firstTask.progress}
                   downloadStatus={downloadStatus}
                   showDownloadButton={false}
@@ -353,7 +370,9 @@ export default function DownloadsContent() {
                   clickable={canClickDetail}
                   showActionButtons={true}
                   canStart={firstTask.status === 'pending' || firstTask.status === 'failed' || firstTask.status === 'paused'}
+                  canPause={firstTask.status === 'downloading' || firstTask.status === 'queued' || firstTask.status === 'pending' || firstTask.status === 'processing'}
                   onActionStart={() => handleStartDownload(series)}
+                  onActionPause={() => handlePauseTask(firstTask.id)}
                   onActionDelete={() => handleDeleteDownload(series)}
                   onVideoClick={() => {
                     // 所有视频都可以进入详情页

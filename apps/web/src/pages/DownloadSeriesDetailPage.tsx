@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, X, RefreshCw, Trash } from 'lucide-react'
+import { ChevronLeft, RefreshCw, Trash, Play } from 'lucide-react'
 import { apiService } from '../services/api'
 
 interface DownloadTask {
@@ -189,6 +189,24 @@ export default function DownloadSeriesDetailPage() {
   }
 
   // 操作函数
+  const handlePauseDownload = async (id: string) => {
+    try {
+      await fetch(`http://localhost:8000/api/download/${id}/pause`, { method: 'POST' })
+      fetchDownloads()
+    } catch (err) {
+      console.error('暂停下载失败:', err)
+    }
+  }
+
+  const handleResumeDownload = async (id: string) => {
+    try {
+      await fetch(`http://localhost:8000/api/download/${id}/resume`, { method: 'POST' })
+      fetchDownloads()
+    } catch (err) {
+      console.error('继续下载失败:', err)
+    }
+  }
+
   const handleCancelDownload = async (id: string) => {
     try {
       await fetch(`http://localhost:8000/api/download/${id}/cancel`, { method: 'POST' })
@@ -307,7 +325,7 @@ export default function DownloadSeriesDetailPage() {
                 </p>
 
                 {/* 进度条 */}
-                {(task.status === 'downloading' || task.status === 'queued' || task.status === 'pending' || task.status === 'processing') && (
+                {(task.status === 'downloading' || task.status === 'queued' || task.status === 'pending' || task.status === 'processing' || task.status === 'paused') && (
                   <div className="task-progress">
                     <div className="progress-bar">
                       <div 
@@ -324,15 +342,18 @@ export default function DownloadSeriesDetailPage() {
                           </span>
                         </>
                       )}
-                      {task.download_speed > 0 && (
+                      {task.download_speed > 0 && task.status === 'downloading' && (
                         <span className="progress-speed">
                           {formatFileSize(task.download_speed)}/s
                         </span>
                       )}
-                      {task.eta > 0 && (
+                      {task.eta > 0 && task.status === 'downloading' && (
                         <span className="progress-eta">
                           ETA: {Math.floor(task.eta)}s
                         </span>
+                      )}
+                      {task.status === 'paused' && (
+                        <span className="progress-status">已暂停</span>
                       )}
                     </div>
                   </div>
@@ -358,27 +379,65 @@ export default function DownloadSeriesDetailPage() {
               {/* 操作按钮 */}
               <div className="task-actions">
                 {task.status === 'downloading' || task.status === 'queued' || task.status === 'pending' || task.status === 'processing' ? (
-                  <button 
-                    className="action-btn cancel-btn"
-                    onClick={() => handleCancelDownload(task.id)}
-                  >
-                    <X />
-                  </button>
+                  <>
+                    <button 
+                      className="action-btn pause-btn"
+                      onClick={() => handlePauseDownload(task.id)}
+                      title="暂停"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <button 
+                      className="action-btn delete-btn"
+                      onClick={() => handleDeleteDownload(task.id)}
+                      title="删除"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </>
+                ) : task.status === 'paused' ? (
+                  <>
+                    <button 
+                      className="action-btn resume-btn"
+                      onClick={() => handleResumeDownload(task.id)}
+                      title="继续"
+                    >
+                      <Play size={14} />
+                    </button>
+                    <button 
+                      className="action-btn delete-btn"
+                      onClick={() => handleDeleteDownload(task.id)}
+                      title="删除"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </>
                 ) : task.status === 'failed' ? (
+                  <>
+                    <button 
+                      className="action-btn retry-btn"
+                      onClick={() => handleRetryDownload(task.id)}
+                      title="重试"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <button 
+                      className="action-btn delete-btn"
+                      onClick={() => handleDeleteDownload(task.id)}
+                      title="删除"
+                    >
+                      <Trash size={14} />
+                    </button>
+                  </>
+                ) : task.status === 'completed' ? (
                   <button 
-                    className="action-btn retry-btn"
-                    onClick={() => handleRetryDownload(task.id)}
+                    className="action-btn delete-btn"
+                    onClick={() => handleDeleteDownload(task.id)}
+                    title="删除"
                   >
-                    <RefreshCw />
+                    <Trash size={14} />
                   </button>
                 ) : null}
-                
-                <button 
-                  className="action-btn delete-btn"
-                  onClick={() => handleDeleteDownload(task.id)}
-                >
-                  <Trash />
-                </button>
               </div>
             </div>
           ))

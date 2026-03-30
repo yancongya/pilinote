@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare } from 'lucide-react'
+import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
 
@@ -29,8 +29,10 @@ interface VideoCardProps {
   clickable?: boolean
   showActionButtons?: boolean
   onActionStart?: () => void
+  onActionPause?: () => void
   onActionDelete?: () => void
   canStart?: boolean
+  canPause?: boolean
 }
 
 export default function VideoListCard({
@@ -58,8 +60,10 @@ export default function VideoListCard({
   clickable,
   showActionButtons = false,
   onActionStart,
+  onActionPause,
   onActionDelete,
   canStart = false,
+  canPause = false,
 }: VideoCardProps) {
   const navigate = useNavigate()
   
@@ -196,6 +200,18 @@ export default function VideoListCard({
                   aria-label="开始下载"
                 >
                   <Play size={14} />
+                </button>
+              )}
+              {canPause && onActionPause && (
+                <button 
+                  className="action-icon-btn pause-icon-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onActionPause()
+                  }}
+                  aria-label="暂停下载"
+                >
+                  <RefreshCw size={14} />
                 </button>
               )}
               {onActionDelete && (
