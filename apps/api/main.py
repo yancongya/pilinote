@@ -8,6 +8,7 @@ from src.routers.favorites import router as favorites_router
 from src.routers.video import router as video_router
 from src.routers.watchlater import router as watchlater_router
 from src.routers.download import router as download_router
+from src.routers.settings import router as settings_router
 from src.services.scheduler_service import scheduler_service
 
 Base.metadata.create_all(bind=engine)
@@ -43,6 +44,7 @@ app.include_router(favorites_router)
 app.include_router(video_router)
 app.include_router(watchlater_router)
 app.include_router(download_router)
+app.include_router(settings_router)
 
 
 @app.get("/")
