@@ -26,11 +26,278 @@
 - 视频详情: `/x/web-interface/view`
   - 参数: bvid 或 aid
   - 返回: 完整视频信息（标题、封面、UP主、统计数据、分P信息等）
+  - **注意**: 由于B站加强反爬虫机制，此接口可能返回412错误
+- **HTML解析方法**: 视频页面数据提取
+  - 目标: `https://www.bilibili.com/video/{bvid}`
+  - 方法: 解析页面HTML中的`__INITIAL_STATE__`数据
+  - 优势: 绕过API限制，获取完整数据
+  - 数据字段: videoData, videoData.stat, videoData.owner等
 - 视频播放地址: `/x/player/wbi/playurl`
 - 字幕列表: `/x/player/wbi/v2`
 - 弹幕: `/x/v1/dm/list.so`
 
-## 已实现的后端API
+## 统计信息获取（薯片数据）
+
+### 统一统计信息结构
+所有视频资源的统计信息都包含以下7项数据：
+```typescript
+interface MediaStats {
+  play: number;      // 播放量
+  danmaku: number;   // 弹幕数
+  reply: number;     // 评论数
+  like: number;      // 点赞数
+  coin: number;      // 投币数
+  favorite: number;  // 收藏数
+  share: number;     // 转发数
+}
+```
+
+### 统计信息获取方式
+
+#### 1. HTML解析方法（推荐）
+**适用场景**: 视频详情获取
+**优势**: 绕过API限制，获取完整7项统计信息
+
+**实现流程**:
+```python
+async def get_video_stats_from_html(bvid: str) -> Dict[str, Any]:
+    # 1. 获取视频页面HTML
+    url = f"https://www.bilibili.com/video/{bvid}"
+    response = await client.get(url, headers=headers)
+    html = response.text
+    
+    # 2. 从HTML中提取__INITIAL_STATE__数据
+    patterns = [
+        r'__INITIAL_STATE__\s*=\s*({.*?});',
+        r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
+        r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'
+    ]
+    
+    # 3. 解析JSON数据
+    state_data = json.loads(match.group(1))
+    video_data = state_data['videoData']
+    
+    # 4. 提取统计信息
+    stat = video_data.get('stat', {})
+    return {
+        'play': stat.get('view', 0),
+        'danmaku': stat.get('danmaku', 0),
+        'reply': stat.get('reply', 0),
+        'like': stat.get('like', 0),
+        'coin': stat.get('coin', 0),
+        'favorite': stat.get('favorite', 0),
+        'share': stat.get('share', 0)
+    }
+```
+
+#### 2. API方法（备用）
+**适用场景**: 番剧、课程等特殊类型
+**注意**: 可能受到B站API限制
+
+**实现流程**:
+```python
+async def get_video_stats_from_api(bvid: str) -> Dict[str, Any]:
+    response = await client.get(
+        "https://api.bilibili.com/x/web-interface/view",
+        params={"bvid": bvid},
+        headers=headers
+    )
+    data = response.json()
+    video_data = data['data']
+    stat = video_data.get('stat', {})
+    return {
+        'play': stat.get('view', 0),
+        'danmaku': stat.get('danmaku', 0),
+        'reply': stat.get('reply', 0),
+        'like': stat.get('like', 0),
+        'coin': stat.get('coin', 0),
+        'favorite': stat.get('favorite', 0),
+        'share': stat.get('share', 0)
+    }
+```
+
+#### 3. 收藏夹API方法
+**适用场景**: 收藏夹列表
+**数据来源**: 收藏夹详情API的`cnt_info`字段
+
+**实现流程**:
+```python
+def get_video_stats_from_favlist(media: Dict) -> Dict[str, Any]:
+    cnt_info = media.get('cnt_info', {})
+    return {
+        'play': cnt_info.get('play', 0),
+        'danmaku': cnt_info.get('danmaku', 0),
+        'reply': cnt_info.get('reply', 0),
+        'like': cnt_info.get('like', 0),
+        'coin': cnt_info.get('coin', 0),
+        'favorite': cnt_info.get('collect', 0),  # 收藏夹使用collect字段
+        'share': cnt_info.get('share', 0)
+    }
+```
+
+### 统一数据处理组件
+
+#### MediaDataProcessor类
+**功能**: 统一处理所有媒体类型的数据获取
+**位置**: `apps/api/src/services/media_processor.py`
+
+**核心方法**:
+```python
+class MediaDataProcessor:
+    async def get_media_info(
+        self, 
+        media_id: str, 
+        media_type: MediaType,
+        sessdata: Optional[str] = None,
+        options: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """统一的媒体数据获取接口"""
+        if media_type == MediaType.VIDEO:
+            return await self._process_video(media_id, sessdata)
+        elif media_type == MediaType.BANGUMI:
+            return await self._process_bangumi(media_id, sessdata)
+        # ... 其他媒体类型
+```
+
+#### 数据结构
+```python
+class MediaStats(BaseModel):
+    """媒体统计信息 - 统一的7项统计数据"""
+    play: Optional[int] = Field(None, description="播放量")
+    danmaku: Optional[int] = Field(None, description="弹幕数")
+    reply: Optional[int] = Field(None, description="评论数")
+    like: Optional[int] = Field(None, description="点赞数")
+    coin: Optional[int] = Field(None, description="投币数")
+    favorite: Optional[int] = Field(None, description="收藏数")
+    share: Optional[int] = Field(None, description="转发数")
+
+class MediaInfo(BaseModel):
+    """媒体信息容器 - 统一的媒体数据结构"""
+    type: MediaType = Field(..., description="媒体类型")
+    id: str = Field(..., description="媒体ID")
+    pn: bool = Field(False, description="是否支持分页")
+    nfo: MediaNfo = Field(..., description="媒体元数据")
+    list: List[MediaItem] = Field(default_factory=list, description="媒体项目列表")
+```
+
+### 反爬虫绕过技术
+
+#### 1. 请求头优化
+```python
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Referer": f"https://www.bilibili.com/video/{bvid}",  # 动态Referer
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "Origin": "https://www.bilibili.com"
+}
+```
+
+#### 2. Cookie设置
+```python
+default_cookies = {
+    "buvid3": "B4F1A8F7-6F1B-4B1E-8C9A-123456789012",
+    "buvid4": "B4F1A8F7-6F1B-4B1E-8C9A-123456789012-1700000000",
+    "_uuid": "B4F1A8F7-6F1B-4B1E-8C9A-123456789012"
+}
+```
+
+#### 3. HTML解析优势
+- ✅ 绕过API反爬虫机制
+- ✅ 获取完整的7项统计信息
+- ✅ 包含视频元数据和UP主信息
+- ✅ 支持分P视频信息
+- ✅ 稳定性高，不容易被限制
+
+### 前端统计信息显示
+
+#### 显示逻辑
+```typescript
+// 所有统计信息都显示，即使数值为0
+<div className="video-card-stats">
+  <span className="stat-item" title="播放量">
+    <Eye />
+    {views}
+  </span>
+  <span className="stat-item" title="弹幕数">
+    <MessageSquare />
+    {danmaku}
+  </span>
+  <span className="stat-item" title="评论数">
+    <MessageCircle />
+    {comments}
+  </span>
+  <span className="stat-item" title="点赞数">
+    <ThumbsUp />
+    {likes}
+  </span>
+  <span className="stat-item" title="投币数">
+    <Coins />
+    {coins}
+  </span>
+  <span className="stat-item" title="收藏数">
+    <Star />
+    {favorites}
+  </span>
+  <span className="stat-item" title="转发数">
+    <Share2 />
+    {shares}
+  </span>
+</div>
+```
+
+#### 数据格式化
+```typescript
+// 数字格式化（万级显示）
+const formatNumber = (num: number): string => {
+  if (num >= 10000) {
+    return `${(num / 10000).toFixed(1)}万`
+  }
+  return num.toString()
+}
+
+// 示例结果
+formatNumber(165939)  // "16.6万"
+formatNumber(4358)    // "4358"
+formatNumber(0)       // "0"
+```
+
+### 测试验证
+
+#### 单元测试
+```python
+# 测试视频统计信息获取
+async def test_video_stats():
+    result = await media_processor.get_media_info('BV1PS4y1m79X', MediaType.VIDEO, None)
+    assert result['success'] == True
+    stat = result['data'].nfo.stat
+    assert stat.play == 165939
+    assert stat.danmaku == 229
+    assert stat.reply == 338
+    assert stat.like == 4358
+    assert stat.coin == 1440
+    assert stat.favorite == 6362
+    assert stat.share == 1363
+```
+
+#### 集成测试
+```bash
+# 测试完整的视频解析流程
+./venv/bin/python final_test.py
+
+# 测试HTML解析方法
+./venv/bin/python verify_html_method.py
+
+# 测试API兼容性
+./venv/bin/python test_video_detail.py
+```
+
+### 已实现的后端API
 
 ### 认证模块 (`/api/auth`)
 - `GET /api/auth/qrcode` - 获取登录二维码
@@ -406,3 +673,6 @@ curl -X POST http://localhost:8000/api/download/parse \
 - ✅ **用户空间解析**: 支持用户视频/图文/音频列表
 - ✅ **错误处理优化**: 完善的错误处理和用户友好提示
 - ✅ **测试覆盖**: 20个测试用例100%通过
+- ✅ **HTML解析方法**: 实现HTML页面数据提取绕过API限制
+- ✅ **完整统计信息**: 统一7项统计数据获取（播放量、弹幕数、评论数、点赞数、投币数、收藏数、转发数）
+- ✅ **反爬虫绕过**: 解决B站API 412 Precondition Failed错误

@@ -63,7 +63,12 @@ export default function WatchLaterContent() {
       // 确保缓存中的视频对象包含所有必需字段
       const validatedVideos = cachedVideos.map(video => ({
         ...video,
-        comments: video.comments || '0' // 确保评论字段存在
+        comments: video.comments || '0',
+        danmaku: video.danmaku || '0',
+        likes: video.likes || '0',
+        coins: video.coins || '0',
+        favorites: video.favorites || '0',
+        shares: video.shares || '0'
       }))
       setVideos(validatedVideos)
       return
@@ -89,7 +94,12 @@ export default function WatchLaterContent() {
           watched: formatProgress(video.progress, video.duration),
           uploader: video.uploader?.name || '未知',
           views: formatNumber(video.view),
+          danmaku: video.danmaku ? formatNumber(video.danmaku) : '0',
           comments: video.comment ? formatNumber(video.comment) : '0',
+          likes: video.like ? formatNumber(video.like) : '0',
+          coins: video.coin ? formatNumber(video.coin) : '0',
+          favorites: video.favorite ? formatNumber(video.favorite) : '0',
+          shares: video.share ? formatNumber(video.share) : '0',
           time: formatTime(video.add_time),
           // 保留原始数据用于下载
           cid: video.cid,

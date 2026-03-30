@@ -1,27 +1,13 @@
+# Copyright (c) 2025 PiliNote
+
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
 from typing import Optional
-import httpx
+
+from src.services.media_processor import media_processor
+from src.utils.bilibili_utils import LinkParser, MediaType
 
 router = APIRouter(prefix="/api/video", tags=["video"])
 
-class VideoDetailResponse(BaseModel):
-    bvid: str
-    aid: int
-    title: str
-    desc: str
-    pic: str
-    owner: dict
-    stat: dict
-    cid: int
-    duration: int
-    pubdate: int
-    pages: Optional[list] = None
-    dimension: Optional[dict] = None
-    rights: Optional[dict] = None
-    descV2: Optional[list] = None
-    staff: Optional[list] = None
-    ugcSeason: Optional[dict] = None
 
 @router.get("/{video_id}")
 async def get_video_detail(
@@ -29,85 +15,67 @@ async def get_video_detail(
     sessdata: Optional[str] = Query(None, description="B站SESSDATA for authenticated requests")
 ):
     """
-    获取视频详情
+    获取视频详情 - 使用统一媒体处理器
     
     Args:
         video_id: 视频ID (bvid或aid)
         sessdata: 可选的SESSDATA用于认证请求
     
     Returns:
-        视频详情信息
+        视频详情信息（包含完整的7项统计数据）
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.bilibili.com"
-    }
-    
-    if sessdata:
-        headers["Cookie"] = f"SESSDATA={sessdata}"
-    
-    # 判断是bvid还是aid
-    if video_id.startswith("BV"):
-        params = {"bvid": video_id}
-    else:
-        params = {"aid": video_id}
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            response = await client.get(
-                "https://api.bilibili.com/x/web-interface/view",
-                params=params,
-                headers=headers
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            if data["code"] != 0:
-                return {
-                    "success": False,
-                    "message": data.get("message", "获取视频详情失败"),
-                    "code": data["code"]
-                }
-            
-            video_data = data["data"]
-            
+    try:
+        # 使用统一媒体处理器获取视频信息
+        result = await media_processor.get_media_info(
+            media_id=video_id,
+            media_type=MediaType.VIDEO,
+            sessdata=sessdata
+        )
+        
+        if result["success"]:
+            media_info = result["data"]
+            # 转换为兼容格式
             return {
                 "success": True,
                 "data": {
-                    "bvid": video_data["bvid"],
-                    "aid": video_data["aid"],
-                    "title": video_data["title"],
-                    "desc": video_data["desc"],
-                    "pic": video_data["pic"],
+                    "bvid": media_info.nfo.url.split("/")[-1],
+                    "aid": media_info.list[0].aid if media_info.list else 0,
+                    "title": media_info.nfo.showtitle or "",
+                    "desc": media_info.nfo.intro or "",
+                    "pic": media_info.nfo.thumbs[0].url if media_info.nfo.thumbs else "",
                     "owner": {
-                        "mid": video_data["owner"]["mid"],
-                        "name": video_data["owner"]["name"],
-                        "face": video_data["owner"]["face"]
+                        "mid": media_info.nfo.upper.mid if media_info.nfo.upper else 0,
+                        "name": media_info.nfo.upper.name if media_info.nfo.upper else "",
+                        "face": media_info.nfo.upper.avatar if media_info.nfo.upper else ""
                     },
                     "stat": {
-                        "view": video_data["stat"]["view"],
-                        "danmaku": video_data["stat"]["danmaku"],
-                        "reply": video_data["stat"]["reply"],
-                        "favorite": video_data["stat"]["favorite"],
-                        "coin": video_data["stat"]["coin"],
-                        "share": video_data["stat"]["share"],
-                        "like": video_data["stat"]["like"]
+                        "view": media_info.nfo.stat.play or 0,
+                        "danmaku": media_info.nfo.stat.danmaku or 0,
+                        "reply": media_info.nfo.stat.reply or 0,
+                        "like": media_info.nfo.stat.like or 0,
+                        "coin": media_info.nfo.stat.coin or 0,
+                        "favorite": media_info.nfo.stat.favorite or 0,
+                        "share": media_info.nfo.stat.share or 0
                     },
-                    "cid": video_data["cid"],
-                    "duration": video_data["duration"],
-                    "pubdate": video_data["pubdate"],
-                    "pages": video_data.get("pages"),
-                    "dimension": video_data.get("dimension"),
-                    "rights": video_data.get("rights"),
-                    "descV2": video_data.get("desc_v2"),
-                    "staff": video_data.get("staff"),
-                    "ugcSeason": video_data.get("ugc_season")
+                    "cid": media_info.list[0].cid if media_info.list else 0,
+                    "duration": media_info.nfo.thumbs[0].url if media_info.nfo.thumbs else 0,  # 临时使用
+                    "pubdate": media_info.nfo.premiered or 0,
+                    "pages": [
+                        {
+                            "page": item.index + 1,
+                            "cid": item.cid,
+                            "part": item.title,
+                            "duration": item.duration
+                        }
+                        for item in media_info.list
+                    ]
                 }
             }
+        else:
+            return result
             
-        except httpx.HTTPError as e:
-            return {
-                "success": False,
-                "message": f"获取视频数据失败: {str(e)}",
-                "code": 500
-            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"获取视频详情失败: {str(e)}"
+        }

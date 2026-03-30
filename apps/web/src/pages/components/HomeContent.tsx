@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { apiService } from '../../services/api'
 import { useDownloadStore } from '../../stores/download'
-import { Loader2, Eye, Check, Download } from 'lucide-react'
+import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
 
 interface VideoInfo {
   bvid: string
@@ -18,6 +18,11 @@ interface VideoInfo {
   stat: {
     view: number
     danmaku: number
+    reply: number
+    like: number
+    coin: number
+    favorite: number
+    share: number
   }
 }
 
@@ -256,10 +261,46 @@ export default function HomeContent() {
                   className="uploader-avatar"
                 />
                 <span className="uploader-name">{videoInfo.owner.name}</span>
-                <span className="stat-item">
+                <span className="stat-item" title="播放量">
                   <Eye />
                   {formatNumber(videoInfo.stat.view)}
                 </span>
+                {videoInfo.stat.danmaku !== undefined && (
+                  <span className="stat-item" title="弹幕数">
+                    <MessageSquare />
+                    {formatNumber(videoInfo.stat.danmaku)}
+                  </span>
+                )}
+                {videoInfo.stat.reply !== undefined && (
+                  <span className="stat-item" title="评论数">
+                    <MessageCircle />
+                    {formatNumber(videoInfo.stat.reply)}
+                  </span>
+                )}
+                {videoInfo.stat.like !== undefined && (
+                  <span className="stat-item" title="点赞数">
+                    <ThumbsUp />
+                    {formatNumber(videoInfo.stat.like)}
+                  </span>
+                )}
+                {videoInfo.stat.coin !== undefined && (
+                  <span className="stat-item" title="投币数">
+                    <Coins />
+                    {formatNumber(videoInfo.stat.coin)}
+                  </span>
+                )}
+                {videoInfo.stat.favorite !== undefined && (
+                  <span className="stat-item" title="收藏数">
+                    <Star />
+                    {formatNumber(videoInfo.stat.favorite)}
+                  </span>
+                )}
+                {videoInfo.stat.share !== undefined && (
+                  <span className="stat-item" title="转发数">
+                    <Share2 />
+                    {formatNumber(videoInfo.stat.share)}
+                  </span>
+                )}
               </div>
             </div>
             <p className="video-description">{videoInfo.desc}</p>

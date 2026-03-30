@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2 } from 'lucide-react'
+import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
 
@@ -13,6 +13,12 @@ interface VideoCardProps {
   views: string
   comments: string
   time: string
+  // 新增统计字段
+  danmaku?: string
+  likes?: string
+  coins?: string
+  favorites?: string
+  shares?: string
   progress?: number
   watched?: string
   onDownloadToggle?: (video: any, e: React.MouseEvent) => void
@@ -37,6 +43,11 @@ export default function VideoListCard({
   views,
   comments,
   time,
+  danmaku,
+  likes,
+  coins,
+  favorites,
+  shares,
   progress,
   watched,
   onDownloadToggle,
@@ -205,14 +216,44 @@ export default function VideoListCard({
         {/* 只在非操作按钮模式下显示统计信息 */}
         {!showActionButtons && (
           <div className="video-card-stats">
-            <span className="stat-item">
+            <span className="stat-item" title="播放量">
               <Eye />
               {views}
             </span>
-            {(comments !== '0' && comments !== '0') && (
-              <span className="stat-item">
+            {danmaku !== undefined && (
+              <span className="stat-item" title="弹幕数">
+                <MessageSquare />
+                {danmaku}
+              </span>
+            )}
+            {comments !== undefined && (
+              <span className="stat-item" title="评论数">
                 <MessageCircle />
                 {comments}
+              </span>
+            )}
+            {likes !== undefined && (
+              <span className="stat-item" title="点赞数">
+                <ThumbsUp />
+                {likes}
+              </span>
+            )}
+            {coins !== undefined && (
+              <span className="stat-item" title="投币数">
+                <Coins />
+                {coins}
+              </span>
+            )}
+            {favorites !== undefined && (
+              <span className="stat-item" title="收藏数">
+                <Star />
+                {favorites}
+              </span>
+            )}
+            {shares !== undefined && (
+              <span className="stat-item" title="转发数">
+                <Share2 />
+                {shares}
               </span>
             )}
           </div>

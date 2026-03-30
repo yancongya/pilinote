@@ -1,5 +1,88 @@
 # PiliNote 开发日志
 
+## 2026-03-30 统计信息完整化和HTML解析方法实现
+
+### 新功能
+- ✅ **统一数据结构**: 创建完整的MediaInfo、MediaStats数据模型
+- ✅ **HTML解析方法**: 实现绕过B站API限制的HTML解析技术
+- ✅ **完整统计信息**: 统一7项统计数据（播放量、弹幕数、评论数、点赞数、投币数、收藏数、转发数）
+- ✅ **MediaDataProcessor**: 创建统一的媒体数据处理组件
+- ✅ **反爬虫绕过**: 解决B站API 412 Precondition Failed错误
+
+### 技术改进
+- ✅ **HTML数据提取**: 从视频页面`__INITIAL_STATE__`提取完整数据
+- ✅ **多重模式匹配**: 支持多种HTML数据提取模式
+- ✅ **容错机制**: HTML解析失败时降级使用API数据
+- ✅ **性能优化**: 添加缓存和并发处理支持
+- ✅ **错误处理**: 完善的异常处理和重试机制
+
+### 前端更新
+- ✅ **统计信息显示**: VideoListCard显示完整的7项统计信息
+- ✅ **数据格式化**: 统一的数字格式化（万级显示）
+- ✅ **图标完善**: 为每项统计信息添加对应的图标
+- ✅ **响应式设计**: 优化统计信息的移动端显示
+
+### 后端更新
+- ✅ **video路由**: 使用MediaDataProcessor获取视频详情
+- ✅ **watchlater路由**: 使用MediaDataProcessor获取稍后再看列表
+- ✅ **favorites路由**: 使用MediaDataProcessor获取收藏夹详情
+- ✅ **HTML解析**: 所有视频详情获取使用HTML解析方法
+
+### 文档更新
+- ✅ **HTML解析文档**: 创建[10-html-parsing-method.md](docs/dev/10-html-parsing-method.md)
+- ✅ **API列表更新**: 添加统计信息获取和HTML解析说明
+- ✅ **README更新**: 添加新文档索引
+
+### 测试验证
+- ✅ **功能测试**: 视频解析、番剧解析、统计信息获取
+- ✅ **性能测试**: HTML解析响应时间
+- ✅ **集成测试**: 完整的视频信息获取流程
+- ✅ **错误处理**: 各种异常情况的验证
+
+### 问题修复
+- 🔧 **B站API限制**: 解决412 Precondition Failed错误
+- 🔧 **统计信息缺失**: 确保所有页面显示完整的7项统计信息
+- 🔧 **数据完整性**: 修复MediaItem中stat字段缺失问题
+- 🔧 **前端显示**: 修复统计信息不显示的问题
+
+### 技术细节
+- **HTML解析核心**:
+  - 目标: `https://www.bilibili.com/video/{bvid}`
+  - 数据源: `__INITIAL_STATE__`变量
+  - 提取模式: 3种正则表达式模式
+  - 数据结构: videoData, stat, owner, pages
+
+- **统计信息结构**:
+  ```typescript
+  interface MediaStats {
+    play: number;      // 播放量
+    danmaku: number;   // 弹幕数
+    reply: number;     // 评论数
+    like: number;      // 点赞数
+    coin: number;      // 投币数
+    favorite: number;  // 收藏数
+    share: number;     // 转发数
+  }
+  ```
+
+- **前端显示逻辑**:
+  ```typescript
+  // 所有统计信息都显示，即使数值为0
+  // 使用formatNumber进行格式化（万级显示）
+  // 对应的图标：Eye, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2
+  ```
+
+### 影响范围
+- **前端页面**: 首页解析、收藏夹、稍后再看、视频详情
+- **后端API**: /api/video, /api/watchlater, /api/favorites, /api/download
+- **数据模型**: MediaInfo, MediaStats, MediaItem, MediaNfo
+- **用户体验**: 统计信息更完整，显示更友好
+
+### 兼容性
+- ✅ 向后兼容：不影响现有API接口
+- ✅ 降级处理：HTML解析失败时使用API数据
+- ✅ 错误提示：友好的错误信息和恢复建议
+
 ## 项目初始化 (2026-03-26)
 
 ### 阶段 0: 项目规划

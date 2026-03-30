@@ -323,7 +323,10 @@ async def parse_link(request: ParseLinkRequest):
                 
                 # 获取第一个视频的详情
                 first_video_url = f"https://api.bilibili.com/x/web-interface/view?bvid={first_bvid}"
-                first_video_response = await client.get(first_video_url, headers=headers)
+                # 添加动态Referer以绕过B站反爬虫机制
+                parse_headers = headers.copy()
+                parse_headers["Referer"] = f"https://www.bilibili.com/video/{first_bvid}"
+                first_video_response = await client.get(first_video_url, headers=parse_headers)
                 first_video_data = first_video_response.json()
                 
                 if first_video_data.get("code") == 0:
@@ -395,7 +398,10 @@ async def parse_link(request: ParseLinkRequest):
                 
                 # 获取第一个视频的详情
                 first_video_url = f"https://api.bilibili.com/x/web-interface/view?bvid={first_bvid}"
-                first_video_response = await client.get(first_video_url, headers=headers)
+                # 添加动态Referer以绕过B站反爬虫机制
+                parse_headers = headers.copy()
+                parse_headers["Referer"] = f"https://www.bilibili.com/video/{first_bvid}"
+                first_video_response = await client.get(first_video_url, headers=parse_headers)
                 first_video_data = first_video_response.json()
                 
                 if first_video_data.get("code") == 0:
@@ -562,7 +568,10 @@ async def parse_link(request: ParseLinkRequest):
                 
                 # 获取第一个视频的详情
                 first_video_url = f"https://api.bilibili.com/x/web-interface/view?bvid={first_bvid}"
-                first_video_response = await client.get(first_video_url, headers=headers)
+                # 添加动态Referer以绕过B站反爬虫机制
+                parse_headers = headers.copy()
+                parse_headers["Referer"] = f"https://www.bilibili.com/video/{first_bvid}"
+                first_video_response = await client.get(first_video_url, headers=parse_headers)
                 first_video_data = first_video_response.json()
                 
                 if first_video_data.get("code") == 0:
