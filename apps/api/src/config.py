@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    database_url: str = "sqlite:///./pilinote.db"
+    database_url: str = "sqlite:///./data/pilinote.db"
 
     secret_key: str = "pilinote-secret-key"
     algorithm: str = "HS256"
