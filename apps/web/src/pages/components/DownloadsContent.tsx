@@ -218,25 +218,36 @@ export default function DownloadsContent() {
         groups[seriesId].totalSize += task.total_bytes
       }
       
+      // 累加时长（所有任务）
+      if (task.duration) {
+        groups[seriesId].totalDuration += task.duration
+      }
+      
       if (task.status === 'completed') {
         groups[seriesId].completedCount++
-        if (task.duration) {
-          groups[seriesId].totalDuration += task.duration
-        }
       }
     })
     
     // 提取合集名称：对于系列视频，从标题中提取合集名称（去掉【Part X】）
     for (const seriesId in groups) {
       const series = groups[seriesId]
-      if (series.totalCount > 1) {
-        // 从第一个任务的标题中提取合集名称
-        const firstTitle = series.tasks[0]?.title || ''
-        // 去掉【Part X】前缀
-        const seriesName = firstTitle.replace(/【Part \d+】/, '').trim()
-        if (seriesName && seriesName.length > 0) {
-          series.seriesName = seriesName
+      // 对任务按标题排序，确保第一个是 Part 1
+      const sortedTasks = [...series.tasks].sort((a, b) => {
+        // 提取 Part 编号
+        const matchA = a.title.match(/【Part (\d+)】/)
+        const matchB = b.title.match(/【Part (\d+)】/)
+        if (matchA && matchB) {
+          return parseInt(matchA[1]) - parseInt(matchB[1])
         }
+        return a.title.localeCompare(b.title)
+      })
+      
+      // 从排序后的第一个任务中提取合集名称
+      const firstTitle = sortedTasks[0]?.title || ''
+      // 去掉【Part X】前缀
+      const seriesName = firstTitle.replace(/【Part \d+】/, '').trim()
+      if (seriesName && seriesName.length > 0) {
+        series.seriesName = seriesName
       }
     }
     
