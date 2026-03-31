@@ -2,6 +2,7 @@ import os
 import uuid
 import asyncio
 import logging
+import shutil
 from datetime import datetime
 from typing import Dict, Optional, Callable
 from pathlib import Path
@@ -20,9 +21,26 @@ class DownloadService:
     def __init__(self):
         # 存储活跃的下载任务
         self.active_downloads: Dict[str, asyncio.Task] = {}
-        # 下载目录
-        self.download_dir = Path("downloads")
-        self.download_dir.mkdir(exist_ok=True)
+        
+        # 从设置中读取路径配置
+        try:
+            from src.services.settings_service import SettingsService
+            from src.database import SessionLocal
+            
+            with SessionLocal() as db:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                self.download_dir = Path(settings.storage.download_path)
+                self.temp_dir = Path(settings.storage.temp_path)
+        except Exception as e:
+            logger.warning(f"Failed to load settings, using default paths: {e}")
+            self.download_dir = Path("downloads")
+            self.temp_dir = Path("temp")
+        
+        # 创建目录
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
+        
         # 最大并发下载数
         self.max_concurrent = 3
         # 下载队列
@@ -48,6 +66,12 @@ class DownloadService:
         """更新下载引擎的设置（当设置改变时调用）"""
         self.download_engine = self._create_download_engine()
         logger.info("Download engine settings updated")
+    
+    def _create_temp_download_dir(self, download_id: str) -> Path:
+        """创建临时下载目录"""
+        temp_download_dir = self.temp_dir / download_id
+        temp_download_dir.mkdir(parents=True, exist_ok=True)
+        return temp_download_dir
     
     def create_download_task(
         self,
@@ -242,39 +266,185 @@ class DownloadService:
                 next_id = self.download_queue.pop(0)
                 asyncio.create_task(self._process_download(next_id))
     
+    async def _process_completed_download(
+        self,
+        download_id: str,
+        temp_dir: Path,
+        final_dir: Path,
+        storage_settings
+    ):
+        """
+        处理已完成的下载 - 移动文件并清理
+        
+        Args:
+            download_id: 下载任务ID
+            temp_dir: 临时目录
+            final_dir: 最终目录
+            storage_settings: 存储设置
+        """
+        import shutil
+        try:
+            # 确保最终目录存在
+            final_dir.mkdir(parents=True, exist_ok=True)
+            
+            # 移动临时目录中的所有内容到最终目录
+            for item in temp_dir.iterdir():
+                dest = final_dir / item.name
+                
+                # 处理文件名冲突
+                if dest.exists():
+                    # 如果目标文件已存在，添加时间戳后缀
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    if dest.is_file():
+                        stem = dest.stem
+                        suffix = dest.suffix
+                        dest = final_dir / f"{stem}_{timestamp}{suffix}"
+                    else:
+                        dest = final_dir / f"{item.name}_{timestamp}"
+                
+                # 移动文件或目录
+                shutil.move(str(item), str(dest))
+                logger.info(f"Moved {item.name} to {dest}")
+            
+            # 更新数据库中的文件路径
+            with SessionLocal() as db:
+                download = db.query(Download).filter(Download.id == download_id).first()
+                if download and download.temp_file_path:
+                    # 更新文件路径为最终路径
+                    temp_file = Path(download.temp_file_path)
+                    final_file = final_dir / temp_file.name
+                    download.file_path = str(final_file)
+                    download.temp_file_path = None  # 清除临时路径
+                    db.commit()
+            
+            # 根据设置清理临时目录
+            if storage_settings and storage_settings.auto_cleanup:
+                await self._cleanup_temp_dir(temp_dir)
+                logger.info(f"Auto-cleaned temp directory: {temp_dir}")
+            else:
+                # 保留临时目录，但重命名为 .temp 后缀
+                backup_dir = temp_dir.parent / (temp_dir.name + '.temp')
+                if backup_dir.exists():
+                    shutil.rmtree(str(backup_dir))
+                shutil.move(str(temp_dir), str(backup_dir))
+                logger.info(f"Kept temp directory at: {backup_dir}")
+                
+        except Exception as e:
+            logger.error(f"Failed to process completed download: {e}")
+            raise
+    
+    async def _handle_failed_or_cancelled_download(
+        self,
+        download_id: str,
+        temp_dir: Path,
+        storage_settings,
+        status: str
+    ):
+        """
+        处理失败或取消的下载
+        
+        Args:
+            download_id: 下载任务ID
+            temp_dir: 临时目录
+            storage_settings: 存储设置
+            status: 任务状态（"failed" 或 "cancelled"）
+        """
+        import shutil
+        try:
+            # 根据设置决定是否保留临时文件
+            if storage_settings and storage_settings.keep_failed:
+                # 保留临时文件，重命名以便识别
+                suffix = '.failed' if status == 'failed' else '.cancelled'
+                backup_dir = temp_dir.parent / (temp_dir.name + suffix)
+                
+                if backup_dir.exists():
+                    shutil.rmtree(str(backup_dir))
+                
+                shutil.move(str(temp_dir), str(backup_dir))
+                logger.info(f"Kept {status} download files at: {backup_dir}")
+                
+                # 更新数据库中的文件路径
+                with SessionLocal() as db:
+                    download = db.query(Download).filter(Download.id == download_id).first()
+                    if download and download.temp_file_path:
+                        # 更新文件路径为保留路径
+                        temp_file = Path(download.temp_file_path)
+                        final_file = backup_dir / temp_file.name
+                        download.file_path = str(final_file)
+                        download.temp_file_path = None  # 清除临时路径
+                        db.commit()
+            else:
+                # 清理临时文件
+                await self._cleanup_temp_dir(temp_dir)
+                logger.info(f"Cleaned up {status} download files")
+                
+        except Exception as e:
+            logger.error(f"Failed to handle {status} download: {e}")
+    
+    async def _cleanup_temp_dir(self, temp_dir: Path):
+        """
+        清理临时目录
+        
+        Args:
+            temp_dir: 要清理的临时目录
+        """
+        import shutil
+        try:
+            if temp_dir.exists():
+                shutil.rmtree(str(temp_dir))
+                logger.info(f"Cleaned up temp directory: {temp_dir}")
+        except Exception as e:
+            logger.error(f"Failed to clean up temp directory {temp_dir}: {e}")
+    
     async def _download_video(self, download_id: str):
         """执行视频下载"""
         download = self.get_download(download_id)
         if not download:
             return
         
-        # 确定输出目录名称
-        import re
-        if download.aid:
-            # 系列视频：使用合集名称作为目录名
-            # 从标题中提取合集名称（去掉【Part X】前缀）
-            series_name = re.sub(r'【Part \d+】', '', download.title).strip()
-            safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', series_name).strip()
-            if not safe_title:
-                safe_title = f"series_{download.aid}"
-        else:
-            # 单个视频：使用完整标题
-            safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
-            if not safe_title:
-                safe_title = "video"
-        
-        # 创建视频专属目录（使用合集名称）
-        video_dir = self.download_dir / safe_title
-        video_dir.mkdir(exist_ok=True)
-        
-        # 导入下载引擎
+        # 获取当前设置
         try:
-            # 使用下载引擎下载视频，传递所有参数
+            from src.services.settings_service import SettingsService
+            from src.database import SessionLocal
+            
+            with SessionLocal() as db:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                storage_settings = settings.storage
+        except Exception as e:
+            logger.warning(f"Failed to load settings: {e}")
+            # 使用默认设置
+            from src.schemas.settings import StorageSettings
+            storage_settings = StorageSettings()
+        
+        # 创建临时下载目录
+        temp_download_dir = self._create_temp_download_dir(download_id)
+        
+        try:
+            # 确定输出目录名称
+            import re
+            if download.aid:
+                # 系列视频：使用合集名称作为目录名
+                series_name = re.sub(r'【Part \d+】', '', download.title).strip()
+                safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', series_name).strip()
+                if not safe_title:
+                    safe_title = f"series_{download.aid}"
+            else:
+                # 单个视频：使用完整标题
+                safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
+                if not safe_title:
+                    safe_title = "video"
+            
+            # 创建视频专属目录（在临时目录中）
+            video_dir = temp_download_dir / safe_title
+            video_dir.mkdir(exist_ok=True)
+            
+            # 使用下载引擎下载视频到临时目录
             await self.download_engine.download_video(
                 bvid=download.bvid,
                 quality=download.quality,
                 output_format=download.output_format,
-                output_path=str(video_dir),
+                output_path=str(video_dir),  # 下载到临时目录
                 sessdata=download.sessdata,
                 progress_callback=lambda bvid, progress, downloaded_bytes, total_bytes, download_speed, eta: 
                     self.update_download_progress(
@@ -291,15 +461,40 @@ class DownloadService:
             )
             
             # 获取下载的文件路径
-            # 只选择视频文件，排除cookie文件
             video_files = [f for f in video_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
             if video_files:
-                download.file_path = str(video_files[0])
+                # 此时文件还在临时目录，暂时保存临时路径
+                download.temp_file_path = str(video_files[0])
                 download.file_size = video_files[0].stat().st_size
+            
+            # 处理已完成的下载（移动文件到最终目录）
+            await self._process_completed_download(
+                download_id=download_id,
+                temp_dir=temp_download_dir,
+                final_dir=self.download_dir,
+                storage_settings=storage_settings
+            )
             
             self.update_download_status(download_id, "completed")
             
+        except asyncio.CancelledError:
+            # 下载被取消
+            await self._handle_failed_or_cancelled_download(
+                download_id=download_id,
+                temp_dir=temp_download_dir,
+                storage_settings=storage_settings,
+                status="cancelled"
+            )
+            self.update_download_status(download_id, "cancelled")
+            
         except Exception as e:
+            # 下载失败
+            await self._handle_failed_or_cancelled_download(
+                download_id=download_id,
+                temp_dir=temp_download_dir,
+                storage_settings=storage_settings,
+                status="failed"
+            )
             self.update_download_status(download_id, "failed", str(e))
             raise
 
