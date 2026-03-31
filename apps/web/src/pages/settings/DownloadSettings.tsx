@@ -2,19 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSettingsStore } from '../../stores/settings'
 import { Download, HardDrive, Gauge, Monitor, Music, RotateCcw, Check } from 'lucide-react'
 
-// 防抖函数
-function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null
-  return function executedFunction(...args: Parameters<T>) {
-    const later = () => {
-      timeout = null
-      func(...args)
-    }
-    if (timeout) clearTimeout(timeout)
-    timeout = setTimeout(later, wait)
-  }
-}
-
 export default function DownloadSettings() {
   const { settings, loading, error, updateSettings, resetSettings } = useSettingsStore()
   const [saveMessage, setSaveMessage] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
@@ -36,9 +23,18 @@ export default function DownloadSettings() {
     }, 2000)
   }, [])
 
+  // Debounce函数：延迟执行，避免频繁保存
+  const debounce = useCallback((func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout
+    return (...args: any[]) => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => func(...args), delay)
+    }
+  }, [])
+
   if (!settings) {
     return (
-      <div 
+      <div
         className="download-loading-state"
         role="status"
         aria-live="polite"

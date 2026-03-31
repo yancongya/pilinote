@@ -1,5 +1,100 @@
 # PiliNote 开发日志
 
+## 2026-03-31 设置自动保存和状态切换修复（阶段3后续）
+
+### 🎯 修复内容
+
+#### ✅ 修复1：设置自动保存功能
+- **问题：** 数据管理和下载设置修改后没有保存提示，页面刷新后设置丢失
+- **解决方案：**
+  - 实现防抖机制（1秒延迟）避免频繁保存请求
+  - 添加保存成功提示消息（绿色toast，2秒自动消失）
+  - 所有输入框和复选框支持实时自动保存
+  - 添加保存状态指示（保存中显示旋转图标）
+
+#### ✅ 修复2：数据管理tab复选框状态切换
+- **问题：** 点击复选框后状态无法切换，显示"设置已保存"但UI未更新
+- **根本原因：**
+  - `handleUpdate`方法只传递单个字段，导致后端更新时丢失其他storage字段
+  - 后端`SettingsService.update_settings`缺少storage字段前缀
+  - `str_value`变量未正确初始化
+- **解决方案：**
+  - 修复`handleUpdate`方法，使用`...settings.storage`合并所有字段
+  - 修复后端`update_settings`方法，为storage字段添加正确前缀
+  - 修复str_value变量初始化问题
+
+#### ✅ 修复3：下载设置tab防抖功能
+- **问题：** 快速修改设置时每次都触发保存请求，防抖机制失效
+- **根本原因：**
+  - `handleUpdate`依赖项包含`settings`，每次设置改变时重新创建函数，导致防抖失效
+  - `debounce`函数实现问题（全局函数 vs 组件内部函数）
+- **解决方案：**
+  - 从`handleUpdate`依赖项中移除`settings`，改用`useSettingsStore.getState()`获取最新值
+  - 将`debounce`函数移到组件内部，使用`useCallback`确保稳定性
+  - 从`handleUpdate`依赖项中移除`debounce`，防止函数重新创建
+
+### 🎨 前端修改
+
+#### StorageSettings.tsx
+- 添加防抖机制（1秒延迟）
+- 添加保存成功提示消息
+- 修复handleUpdate方法，正确合并storage字段
+- 添加保存状态指示（旋转图标）
+
+#### DownloadSettings.tsx
+- 添加防抖机制（1秒延迟）
+- 添加保存成功提示消息
+- 修复debounce函数实现（移到组件内部）
+- 修复handleUpdate依赖项（移除settings和debounce）
+
+#### index.css
+- 添加保存成功提示样式（`.save-message`）
+- 添加保存状态指示样式（`.storage-form-saving`）
+- 添加动画效果（旋转、淡入淡出）
+
+### 🔧 后端修改
+
+#### settings_service.py
+- 修复`update_settings`方法：
+  - 修复str_value变量初始化问题
+  - 为download字段添加`download.`前缀
+  - 为storage字段添加`storage.`前缀
+  - 正确处理布尔值和嵌套字典
+
+### ✅ 测试结果
+
+#### 数据管理tab测试
+- ✅ 复选框可以正常切换
+- ✅ 防抖功能正常（快速点击只保存最后一次）
+- ✅ 保存提示显示正常
+- ✅ 数据持久化正常（刷新页面后设置保持）
+
+#### 下载设置tab测试
+- ✅ 基本功能正常（所有字段修改和保存）
+- ✅ 数据持久化正常（刷新页面后设置保持）
+- ✅ 控制台无错误
+- ⚠️ 防抖功能需要进一步验证
+
+### 📝 代码变更统计
+
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/web/src/pages/settings/StorageSettings.tsx | +12 | 12 | 0 |
+| apps/web/src/pages/settings/DownloadSettings.tsx | +25 | 25 | 5 |
+| apps/api/src/services/settings_service.py | +79 | 79 | 23 |
+| apps/web/src/index.css | +50 | 50 | 0 |
+| **总计** | **+166** | **166** | **28** |
+
+### 🚀 Git提交记录
+
+```
+35dedc9 fix: 修复设置状态切换问题 - 移除settings依赖避免防抖失效
+2d25ff1 fix: 修复设置更新和保存提示问题
+189f550 feat: 实现设置自动保存功能
+```
+
+---
+
 ## 2026-03-30 下载管理系统完成（阶段4）
 
 ### 🎯 后端开发（阶段4核心功能）
