@@ -179,7 +179,7 @@ export default function VideoListCard({
               </>
             )
           })()}
-          {duration && <div className="video-duration-overlay">{duration}</div>}
+          <div className="video-duration-overlay">{duration}</div>
           {/* Bilibili风格：系列视频显示集数 */}
           {isSeries && seriesCount && (
             <div className="video-series-count-overlay">
