@@ -219,8 +219,23 @@ class DownloadService:
         if not download:
             return
         
-        # 创建视频专属目录
-        video_dir = self.download_dir / download_id
+        # 确定输出目录名称
+        import re
+        if download.aid:
+            # 系列视频：使用合集名称作为目录名
+            # 从标题中提取合集名称（去掉【Part X】前缀）
+            series_name = re.sub(r'【Part \d+】', '', download.title).strip()
+            safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', series_name).strip()
+            if not safe_title:
+                safe_title = f"series_{download.aid}"
+        else:
+            # 单个视频：使用完整标题
+            safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
+            if not safe_title:
+                safe_title = "video"
+        
+        # 创建视频专属目录（使用合集名称）
+        video_dir = self.download_dir / safe_title
         video_dir.mkdir(exist_ok=True)
         
         # 构建yt-dlp配置
