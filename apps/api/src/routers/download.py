@@ -1084,6 +1084,9 @@ async def delete_download(download_id: str):
         import shutil
         from src.database import SessionLocal
         from src.models.download import Download
+        import logging
+        
+        logger = logging.getLogger(__name__)
         
         # 先取消正在进行的下载
         download_service.cancel_download(download_id)
@@ -1092,14 +1095,32 @@ async def delete_download(download_id: str):
         with SessionLocal() as session:
             download = session.query(Download).filter(Download.id == download_id).first()
             if download:
-                # 删除文件和目录
-                download_dir = f"downloads/{download_id}"
-                if os.path.exists(download_dir):
-                    try:
-                        shutil.rmtree(download_dir)
-                        logger.info(f"Deleted download directory: {download_dir}")
-                    except Exception as e:
-                        logger.error(f"Failed to delete directory {download_dir}: {e}")
+                # 删除文件和目录 - 使用file_path字段
+                if download.file_path:
+                    file_path = download.file_path
+                    if os.path.exists(file_path):
+                        try:
+                            # 如果是文件，直接删除
+                            if os.path.isfile(file_path):
+                                os.remove(file_path)
+                                logger.info(f"Deleted file: {file_path}")
+                            # 如果是目录，递归删除
+                            elif os.path.isdir(file_path):
+                                shutil.rmtree(file_path)
+                                logger.info(f"Deleted directory: {file_path}")
+                            
+                            # 检查父目录是否为空，如果是则删除
+                            parent_dir = os.path.dirname(file_path)
+                            if parent_dir and os.path.exists(parent_dir):
+                                try:
+                                    # 尝试删除父目录（仅当为空时）
+                                    os.rmdir(parent_dir)
+                                    logger.info(f"Deleted empty parent directory: {parent_dir}")
+                                except OSError:
+                                    # 目录不为空，忽略错误
+                                    pass
+                        except Exception as e:
+                            logger.error(f"Failed to delete {file_path}: {e}")
                 
                 session.delete(download)
                 session.commit()
@@ -1141,6 +1162,9 @@ async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
         import shutil
         from src.database import SessionLocal
         from src.models.download import Download
+        import logging
+        
+        logger = logging.getLogger(__name__)
         
         with SessionLocal() as session:
             query = session.query(Download).filter(Download.bvid == bvid)
@@ -1149,31 +1173,56 @@ async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
             downloads = query.all()
             
             deleted_count = 0
-            deleted_dirs = []
+            deleted_files = []
             for download in downloads:
                 # 先取消正在进行的下载
                 download_service.cancel_download(download.id)
                 
-                # 删除文件和目录
-                download_dir = f"downloads/{download.id}"
-                if os.path.exists(download_dir):
-                    try:
-                        shutil.rmtree(download_dir)
-                        deleted_dirs.append(download_dir)
-                        logger.info(f"Deleted download directory: {download_dir}")
-                    except Exception as e:
-                        logger.error(f"Failed to delete directory {download_dir}: {e}")
+                # 删除文件和目录 - 使用file_path字段
+                if download.file_path:
+                    file_path = download.file_path
+                    if os.path.exists(file_path):
+                        try:
+                            # 如果是文件，直接删除
+                            if os.path.isfile(file_path):
+                                os.remove(file_path)
+                                deleted_files.append(file_path)
+                                logger.info(f"Deleted file: {file_path}")
+                            # 如果是目录，递归删除
+                            elif os.path.isdir(file_path):
+                                shutil.rmtree(file_path)
+                                deleted_files.append(file_path)
+                                logger.info(f"Deleted directory: {file_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to delete {file_path}: {e}")
                 
                 session.delete(download)
                 deleted_count += 1
             
             session.commit()
             
+            # 清理空目录
+            try:
+                downloads_dir = "downloads"
+                if os.path.exists(downloads_dir):
+                    for item in os.listdir(downloads_dir):
+                        item_path = os.path.join(downloads_dir, item)
+                        if os.path.isdir(item_path):
+                            try:
+                                # 尝试删除空目录
+                                os.rmdir(item_path)
+                                logger.info(f"Deleted empty directory: {item_path}")
+                            except OSError:
+                                # 目录不为空，忽略错误
+                                pass
+            except Exception as e:
+                logger.error(f"Failed to cleanup empty directories: {e}")
+            
             return {
                 "success": True,
                 "message": f"已删除 {deleted_count} 个下载任务",
                 "deleted_count": deleted_count,
-                "deleted_directories": deleted_dirs
+                "deleted_files": deleted_files
             }
             
     except Exception as e:
