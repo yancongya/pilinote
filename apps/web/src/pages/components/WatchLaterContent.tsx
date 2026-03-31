@@ -222,8 +222,8 @@ export default function WatchLaterContent() {
                   output_format: 'mp4',
                   thumbnail_url: video.cover,
                   duration: page.duration,
-                  uploader: video.uploader?.name || video.owner?.name || '',
-                  uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
+                  uploader: video.uploader?.name || videoDetailData.owner?.name || '',
+                  uploader_mid: video.uploader?.mid || videoDetailData.owner?.mid || 0,
                   sessdata: sessdata || undefined
                 }
                 
@@ -250,8 +250,8 @@ export default function WatchLaterContent() {
                 output_format: 'mp4',
                 thumbnail_url: video.cover,
                 duration: video.originalDuration || videoDetailData.duration || pages[0]?.duration,
-                uploader: video.uploader?.name || video.owner?.name || '',
-                uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
+                uploader: video.uploader?.name || videoDetailData.owner?.name || '',
+                uploader_mid: video.uploader?.mid || videoDetailData.owner?.mid || 0,
                 sessdata: sessdata || undefined
               }
               
