@@ -57,7 +57,7 @@ export default function DownloadsContent() {
 
   // 格式化时长
   const formatDuration = (seconds: number | undefined | null): string => {
-    if (seconds === undefined || seconds === null || seconds === 0) return ''
+    if (seconds === undefined || seconds === null || seconds === 0) return '0:00'
     const hours = Math.floor(seconds / 3600)
     const mins = Math.floor((seconds % 3600) / 60)
     const secs = Math.floor(seconds % 60)
@@ -209,6 +209,13 @@ export default function DownloadsContent() {
       groups[seriesId].tasks.push(task)
       groups[seriesId].totalCount++
       
+      // 累加文件大小
+      if (task.file_size) {
+        groups[seriesId].totalSize += task.file_size
+      } else if (task.total_bytes) {
+        groups[seriesId].totalSize += task.total_bytes
+      }
+      
       if (task.status === 'completed') {
         groups[seriesId].completedCount++
         if (task.duration) {
@@ -234,8 +241,8 @@ export default function DownloadsContent() {
             commonPrefix = commonPrefix.substring(0, j)
           }
           
-          // 如果公共前缀太短，使用第一个任务的标题
-          if (commonPrefix.length > 5) {
+          // 如果公共前缀太短（<10字符），或者包含特殊字符，使用第一个任务的标题
+          if (commonPrefix.length >= 10 && !commonPrefix.includes('【')) {
             series.seriesName = commonPrefix.trim()
           }
         }
