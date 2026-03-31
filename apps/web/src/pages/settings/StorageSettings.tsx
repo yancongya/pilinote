@@ -1,21 +1,47 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { Database, Trash2, Upload, Download, RefreshCw, HardDrive, Folder, CheckSquare2, AlertCircle } from 'lucide-react'
+import { 
+  Database, 
+  Trash2, 
+  Upload, 
+  Download, 
+  RefreshCw, 
+  HardDrive, 
+  Folder, 
+  CheckSquare2, 
+  AlertCircle,
+  FolderOpen,
+  FileVideo,
+  Settings as SettingsIcon,
+  Zap
+} from 'lucide-react'
+
+interface CacheInfo {
+  exists: boolean
+  path: string
+  size: number
+  size_formatted: string
+  file_count: number
+}
+
+interface CacheData {
+  [key: string]: CacheInfo
+}
 
 export default function StorageSettings() {
   const { settings, loading, error, updateSettings, resetSettings, exportSettings, importSettings } = useSettingsStore()
-  const [exportData, setExportData] = useState('')
-  const [showExport, setShowExport] = useState(false)
-  const [clearingCache, setClearingCache] = useState(false)
+  const [cacheData, setCacheData] = useState<CacheData>({})
   const [storageInfo, setStorageInfo] = useState({
     totalSizeFormatted: '0 B',
     fileCount: 0,
     directoryCount: 0
   })
+  const [clearingCache, setClearingCache] = useState<string | null>(null)
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
     fetchStorageInfo()
+    fetchCacheInfo()
   }, [])
 
   const fetchStorageInfo = async () => {
@@ -35,45 +61,132 @@ export default function StorageSettings() {
     }
   }
 
+  const fetchCacheInfo = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/settings/cache-info')
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        setCacheData(data.data)
+      }
+    } catch (error) {
+      console.error('获取缓存信息失败:', error)
+    }
+  }
+
   const handleClearCache = async (cacheType: string) => {
-    if (cacheType === 'downloads') {
-      if (!confirm('确定要清理所有下载文件吗？此操作不可恢复！')) {
-        return
-      }
-    } else if (cacheType === 'all') {
-      if (!confirm('确定要清理所有缓存吗？此操作不可恢复！')) {
-        return
-      }
+    const confirmMessages = {
+      downloads: '确定要清理所有下载文件吗？此操作不可恢复！',
+      log: '确定要清理日志缓存吗？',
+      temp: '确定要清理临时缓存吗？',
+      webview: '确定要清理WebView缓存吗？',
+      database: '确定要清理数据库缓存吗？',
+      all: '确定要清理所有缓存吗？此操作不可恢复！'
     }
     
-    setClearingCache(true)
+    if (!confirm(confirmMessages[cacheType as keyof typeof confirmMessages] || '确定要清理此缓存吗？')) {
+      return
+    }
+    
+    setClearingCache(cacheType)
     try {
-      const response = await fetch(`http://localhost:8000/api/settings/clear-cache?cache_type=${cacheType}`, {
+      const response = await fetch(`http://localhost:8000/api/settings/clear-cache/${cacheType}`, {
         method: 'POST'
       })
       const data = await response.json()
       
       if (data.success) {
         alert(data.message || '清理成功')
-        // 重新获取存储信息
+        // 重新获取存储和缓存信息
         fetchStorageInfo()
+        fetchCacheInfo()
       } else {
         alert('清理失败: ' + (data.message || 'Unknown error'))
       }
     } catch (error) {
       alert('清理失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
     } finally {
-      setClearingCache(false)
+      setClearingCache(null)
     }
+  }
+
+  const handleOpenCache = async (cacheType: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/settings/open-cache/${cacheType}`, {
+        method: 'POST'
+      })
+      const data = await response.json()
+      
+      if (!data.success) {
+        alert('打开缓存目录失败: ' + (data.message || 'Unknown error'))
+      }
+    } catch (error) {
+      alert('打开缓存目录失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    }
+  }
+
+  const handleExportDatabase = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/settings/database/export')
+      const data = await response.json()
+      
+      if (data.success) {
+        alert(`数据库导出成功: ${data.filename}`)
+        // 重新获取缓存信息
+        fetchCacheInfo()
+      } else {
+        alert('导出失败: ' + (data.message || 'Unknown error'))
+      }
+    } catch (error) {
+      alert('导出失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    }
+  }
+
+  const handleImportDatabase = async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.db'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (file) {
+        if (!confirm(`确定要导入数据库文件 "${file.name}" 吗？\n\n此操作将替换当前数据库，建议先备份！`)) {
+          return
+        }
+        
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          // 由于需要上传文件，这里需要修改API或使用文件路径
+          alert('请选择数据库文件所在路径，然后使用文件路径导入功能')
+          
+          // 临时方案：提示用户使用文件路径
+          const filePath = prompt('请输入数据库文件的完整路径：')
+          if (filePath) {
+            const response = await fetch(`http://localhost:8000/api/settings/database/import?file_path=${encodeURIComponent(filePath)}`, {
+              method: 'POST'
+            })
+            const data = await response.json()
+            
+            if (data.success) {
+              alert('导入成功: ' + (data.backup_path ? `已备份到 ${data.backup_path}` : ''))
+              // 重新获取缓存信息
+              fetchCacheInfo()
+            } else {
+              alert('导入失败: ' + (data.message || 'Unknown error'))
+            }
+          }
+        } catch (error) {
+          alert('导入失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
+        }
+      }
+    }
+    input.click()
   }
 
   if (!settings) {
     return (
-      <div 
-        className="storage-loading-state"
-        role="status"
-        aria-live="polite"
-      >
+      <div className="storage-loading-state">
         <p className="storage-loading-text">加载中...</p>
       </div>
     )
@@ -88,62 +201,27 @@ export default function StorageSettings() {
     })
   }
 
+  const handleUpdateSidecar = async (tool: string, value: string) => {
+    const sidecar = settings.storage.sidecar || {}
+    await updateSettings({
+      storage: {
+        ...settings.storage,
+        sidecar: {
+          ...sidecar,
+          [tool]: value,
+        },
+      },
+    })
+  }
+
   const handleReset = async () => {
     if (confirm('确定要重置存储设置吗？')) {
       await resetSettings('storage')
     }
   }
 
-  const handleExport = async () => {
-    try {
-      const data = await exportSettings()
-      setExportData(data)
-      setShowExport(true)
-    } catch (error) {
-      alert('导出失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
-    }
-  }
-
-  const handleImport = async () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        try {
-          const text = await file.text()
-          await importSettings(text)
-          alert('导入成功')
-        } catch (error) {
-          alert('导入失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
-        }
-      }
-    }
-    input.click()
-  }
-
-  const handleDownloadExport = () => {
-    const blob = new Blob([exportData], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `pilinote-settings-${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    setShowExport(false)
-  }
-
   return (
     <div className="storage-settings-new">
-      {/* 页面标题 */}
-      <div className="storage-header">
-        <Database className="storage-header-icon" />
-        <h2 className="storage-header-title">数据管理</h2>
-      </div>
-
       {/* 存储信息卡片 */}
       <div className="storage-info-card-new">
         <div className="storage-info-header">
@@ -175,9 +253,12 @@ export default function StorageSettings() {
         </div>
       </div>
 
-      {/* 存储设置 */}
+      {/* 路径设置 */}
       <div className="storage-section">
-        <h3 className="storage-section-title">存储设置</h3>
+        <h3 className="storage-section-title">路径设置</h3>
+        <p className="storage-section-desc">
+          "临时文件"存储未下载完毕的文件，经过处理后转移至"输出文件"。
+        </p>
         
         <div className="storage-form-item">
           <label className="storage-form-label" htmlFor="download-path-input">
@@ -188,15 +269,8 @@ export default function StorageSettings() {
             id="download-path-input"
             type="text"
             className="storage-form-input"
-            value={settings.storage.download_path || settings.download?.download_path || './downloads'}
-            onChange={(e) => {
-              // 优先更新 storage.download_path，如果不存在则更新 download.download_path
-              if (settings.storage) {
-                handleUpdate('download_path', e.target.value)
-              } else {
-                handleUpdate('download_path', e.target.value)
-              }
-            }}
+            value={settings.storage.download_path || './downloads'}
+            onChange={(e) => handleUpdate('download_path', e.target.value)}
             disabled={loading}
             placeholder="./downloads"
             aria-label="输入下载路径"
@@ -212,7 +286,7 @@ export default function StorageSettings() {
             id="temp-path-input"
             type="text"
             className="storage-form-input"
-            value={settings.storage.temp_path}
+            value={settings.storage.temp_path || './temp'}
             onChange={(e) => handleUpdate('temp_path', e.target.value)}
             disabled={loading}
             placeholder="./temp"
@@ -249,25 +323,128 @@ export default function StorageSettings() {
         </div>
       </div>
 
+      {/* 自定义执行路径 */}
+      <div className="storage-section">
+        <h3 className="storage-section-title">自定义执行路径</h3>
+        <p className="storage-section-desc">
+          此处可以自定义各 Sidecar 的执行路径，请注意权限等问题。重启后生效。
+        </p>
+        
+        <div className="storage-form-item">
+          <label className="storage-form-label" htmlFor="ffmpeg-path-input">
+            <FileVideo className="storage-form-icon" />
+            <span className="storage-form-text">FFmpeg 路径</span>
+          </label>
+          <input
+            id="ffmpeg-path-input"
+            type="text"
+            className="storage-form-input"
+            value={settings.storage.sidecar?.ffmpeg || 'ffmpeg'}
+            onChange={(e) => handleUpdateSidecar('ffmpeg', e.target.value)}
+            disabled={loading}
+            placeholder="ffmpeg"
+            aria-label="输入FFmpeg路径"
+          />
+        </div>
+
+        <div className="storage-form-item">
+          <label className="storage-form-label" htmlFor="aria2c-path-input">
+            <Zap className="storage-form-icon" />
+            <span className="storage-form-text">Aria2c 路径</span>
+          </label>
+          <input
+            id="aria2c-path-input"
+            type="text"
+            className="storage-form-input"
+            value={settings.storage.sidecar?.aria2c || 'aria2c'}
+            onChange={(e) => handleUpdateSidecar('aria2c', e.target.value)}
+            disabled={loading}
+            placeholder="aria2c"
+            aria-label="输入Aria2c路径"
+          />
+        </div>
+
+        <div className="storage-form-item">
+          <label className="storage-form-label" htmlFor="danmakufactory-path-input">
+            <SettingsIcon className="storage-form-icon" />
+            <span className="storage-form-text">Danmakufactory 路径</span>
+          </label>
+          <input
+            id="danmakufactory-path-input"
+            type="text"
+            className="storage-form-input"
+            value={settings.storage.sidecar?.danmakufactory || 'danmakufactory'}
+            onChange={(e) => handleUpdateSidecar('danmakufactory', e.target.value)}
+            disabled={loading}
+            placeholder="danmakufactory"
+            aria-label="输入Danmakufactory路径"
+          />
+        </div>
+      </div>
+
       {/* 缓存管理 */}
       <div className="storage-section">
-        <h3 className="storage-section-title">缓存管理</h3>
+        <h3 className="storage-section-title">缓存</h3>
+        <p className="storage-section-desc">
+          数据库存储配置、登录信息、下载记录等数据。
+        </p>
         
-        <div className="storage-actions-grid">
-          <button 
-            className="storage-action-btn storage-action-btn-warning"
-            onClick={() => handleClearCache('downloads')}
-            disabled={clearingCache || loading}
-            aria-label="清理下载文件"
-          >
-            <Trash2 className="storage-action-icon" />
-            <span className="storage-action-text">清理下载文件</span>
-          </button>
-          
-          <button 
+        <div className="cache-items-grid">
+          {['log', 'temp', 'webview', 'database'].map((cacheType) => {
+            const cacheInfo = cacheData[cacheType] || { size_formatted: '0 B', file_count: 0, exists: false }
+            const cacheLabels = {
+              log: '日志缓存',
+              temp: '临时缓存',
+              webview: 'WebView缓存',
+              database: '数据库缓存'
+            }
+            
+            return (
+              <div key={cacheType} className="cache-item-card">
+                <div className="cache-item-header">
+                  <Database className="cache-item-icon" />
+                  <div className="cache-item-info">
+                    <span className="cache-item-name">{cacheLabels[cacheType as keyof typeof cacheLabels]}</span>
+                    <span className="cache-item-size">{cacheInfo.size_formatted}</span>
+                  </div>
+                </div>
+                <div className="cache-item-stats">
+                  <span className="cache-item-file-count">{cacheInfo.file_count} 个文件</span>
+                </div>
+                <div className="cache-item-actions">
+                  <button
+                    className="cache-item-btn cache-item-btn-secondary"
+                    onClick={() => handleOpenCache(cacheType)}
+                    disabled={loading}
+                    aria-label={`打开${cacheLabels[cacheType as keyof typeof cacheLabels]}目录`}
+                  >
+                    <FolderOpen className="cache-item-btn-icon" />
+                    <span className="cache-item-btn-text">打开目录</span>
+                  </button>
+                  <button
+                    className="cache-item-btn cache-item-btn-warning"
+                    onClick={() => handleClearCache(cacheType)}
+                    disabled={clearingCache === cacheType || loading}
+                    aria-label={`清理${cacheLabels[cacheType as keyof typeof cacheLabels]}`}
+                  >
+                    {clearingCache === cacheType ? (
+                      <RefreshCw className="cache-item-btn-icon cache-item-btn-icon-spinning" />
+                    ) : (
+                      <Trash2 className="cache-item-btn-icon" />
+                    )}
+                    <span className="cache-item-btn-text">清理</span>
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="cache-actions">
+          <button
             className="storage-action-btn storage-action-btn-danger"
             onClick={() => handleClearCache('all')}
-            disabled={clearingCache || loading}
+            disabled={clearingCache === 'all' || loading}
             aria-label="清理所有缓存"
           >
             <AlertCircle className="storage-action-icon" />
@@ -276,32 +453,35 @@ export default function StorageSettings() {
         </div>
       </div>
 
-      {/* 数据备份 */}
+      {/* 数据库管理 */}
       <div className="storage-section">
-        <h3 className="storage-section-title">数据备份</h3>
+        <h3 className="storage-section-title">数据库管理</h3>
+        <p className="storage-section-desc">
+          管理数据库文件，包括备份和恢复功能。
+        </p>
         
         <div className="storage-actions-grid">
-          <button 
+          <button
             className="storage-action-btn storage-action-btn-primary"
-            onClick={handleExport}
+            onClick={handleExportDatabase}
             disabled={loading}
-            aria-label="导出设置"
+            aria-label="导出数据库"
           >
             <Download className="storage-action-icon" />
-            <span className="storage-action-text">导出设置</span>
+            <span className="storage-action-text">导出数据库</span>
           </button>
           
-          <button 
+          <button
             className="storage-action-btn storage-action-btn-primary"
-            onClick={handleImport}
+            onClick={handleImportDatabase}
             disabled={loading}
-            aria-label="导入设置"
+            aria-label="导入数据库"
           >
             <Upload className="storage-action-icon" />
-            <span className="storage-action-text">导入设置</span>
+            <span className="storage-action-text">导入数据库</span>
           </button>
 
-          <button 
+          <button
             className="storage-action-btn storage-action-btn-secondary"
             onClick={handleReset}
             disabled={loading}
@@ -312,50 +492,6 @@ export default function StorageSettings() {
           </button>
         </div>
       </div>
-
-      {/* 导出设置对话框 */}
-      {showExport && (
-        <div 
-          className="settings-modal-overlay"
-          onClick={() => setShowExport(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="export-settings-title"
-        >
-          <div 
-            className="settings-modal-panel settings-modal-panel-large"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="settings-modal-header">
-              <h3 id="export-settings-title" className="settings-modal-title">导出的设置</h3>
-            </div>
-            <div className="settings-modal-body">
-              <textarea
-                value={exportData}
-                readOnly
-                className="settings-modal-textarea"
-                aria-label="导出的设置内容"
-              />
-            </div>
-            <div className="settings-modal-footer">
-              <button
-                className="settings-modal-button settings-modal-button-cancel"
-                onClick={() => setShowExport(false)}
-                aria-label="关闭导出设置"
-              >
-                关闭
-              </button>
-              <button
-                className="settings-modal-button settings-modal-button-confirm"
-                onClick={handleDownloadExport}
-                aria-label="下载导出文件"
-              >
-                下载文件
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

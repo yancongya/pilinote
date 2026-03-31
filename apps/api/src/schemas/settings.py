@@ -28,14 +28,15 @@ class DownloadSettings(BaseModel):
     max_concurrent: int = Field(default=3, ge=1, le=5, description="Max concurrent downloads")
     speed_limit: int = Field(default=0, ge=0, description="Speed limit (KB/s), 0 means no limit")
     output_format: str = Field(default="mp4", description="Output format")
-    download_path: str = Field(default="./downloads", description="Download path")
 
 
 class StorageSettings(BaseModel):
     """Storage settings"""
+    download_path: str = Field(default="./downloads", description="Download directory path")
     temp_path: str = Field(default="./temp", description="Temporary file path")
     auto_cleanup: bool = Field(default=True, description="Auto cleanup temp files")
     keep_failed: bool = Field(default=False, description="Keep failed tasks")
+    sidecar: Optional[Dict[str, str]] = Field(default=None, description="Sidecar tool paths (ffmpeg, aria2c, danmakufactory)")
 
 
 class GeneralSettings(BaseModel):
