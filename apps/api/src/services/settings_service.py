@@ -107,29 +107,38 @@ class SettingsService:
                 if key == 'sidecar' and isinstance(value, dict):
                     # 将 sidecar 字典转换为 JSON 字符串存储
                     str_value = json.dumps(value)
-                elif isinstance(value, bool):
-                    str_value = str(value).lower()
-                elif isinstance(value, dict):
-                    # 处理其他嵌套字典
-                    str_value = json.dumps(value)
+                    # 使用正确的键名 storage.sidecar
+                    db_key = 'storage.sidecar'
                 else:
-                    str_value = str(value)
-                
-                setting = self.get_setting(key)
+                    # 为storage字段添加前缀
+                    if key in ['download_path', 'temp_path', 'auto_cleanup', 'keep_failed']:
+                        db_key = f'storage.{key}'
+                    elif isinstance(value, bool):
+                        str_value = str(value).lower()
+                        db_key = key
+                    elif isinstance(value, dict):
+                        # 处理其他嵌套字典
+                        str_value = json.dumps(value)
+                        db_key = key
+                    else:
+                        str_value = str(value)
+                        db_key = key
+
+                setting = self.get_setting(db_key)
                 if setting:
                     setting.value = str_value
                     setting.updated_at = datetime.utcnow()
                 else:
                     # Create new setting if not exists
                     new_setting = Setting(
-                        key=key,
+                        key=db_key,
                         value=str_value,
                         type=type(value).__name__,
-                        category=key.split('.')[0],
-                        description=f"Setting for {key}"
+                        category=db_key.split('.')[0],
+                        description=f"Setting for {db_key}"
                     )
                     self.db.add(new_setting)
-            
+
             self.db.commit()
             return True
         except Exception as e:

@@ -80,29 +80,29 @@ async def get_settings_list(
 async def update_settings(settings_update: SettingsUpdate, db: Session = Depends(get_db)):
     """
     Update system settings
-    
+
     Args:
         settings_update: Settings to update (download, storage, general)
-    
+
     Returns:
         Updated settings object
     """
     try:
         service = SettingsService(db)
-        
+
         # 更新下载设置
         if settings_update.download:
             service.update_settings(settings_update.download)
-        
+
         # 更新存储设置（包含sidecar）
         if settings_update.storage:
             service.update_settings(settings_update.storage)
-            
+
             # 如果更新了sidecar，刷新下载引擎
             if 'sidecar' in settings_update.storage:
                 from src.services.download_service import download_service
                 download_service.update_engine_settings()
-        
+
         # 更新通用设置
         if settings_update.general:
             service.update_settings(settings_update.general)

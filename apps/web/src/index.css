@@ -8113,3 +8113,84 @@ body {
     border-width: 2px;
   }
 }
+
+/* 设置保存成功提示 */
+.save-message {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+  min-width: 200px;
+}
+
+.save-message-success {
+  border-left: 4px solid #10B981;
+  color: #10B981;
+}
+
+.save-message-error {
+  border-left: 4px solid #EF4444;
+  color: #EF4444;
+}
+
+.save-message-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.save-message-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 设置保存状态指示器 */
+.storage-form-saving {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #667eea;
+  animation: spin 1s linear infinite;
+}
+
+.storage-form-saving-spin {
+  animation: spin 1s linear infinite;
+}
+
+.storage-form-input-saving {
+  padding-right: 40px;
+  border-color: #667eea;
+  background-color: #F8FAFC;
+}
+
+@keyframes spin {
+  from {
+    transform: translateY(-50%) rotate(0deg);
+  }
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}

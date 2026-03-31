@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSettingsStore } from '../../stores/settings'
 import { 
   Database, 
@@ -13,7 +13,8 @@ import {
   FolderOpen,
   FileVideo,
   Settings as SettingsIcon,
-  Zap
+  Zap,
+  Check
 } from 'lucide-react'
 
 interface CacheInfo {
@@ -37,6 +38,12 @@ export default function StorageSettings() {
     directoryCount: 0
   })
   const [clearingCache, setClearingCache] = useState<string | null>(null)
+  const [saveMessage, setSaveMessage] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  const [savingFields, setSavingFields] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
@@ -192,27 +199,68 @@ export default function StorageSettings() {
     )
   }
 
-  const handleUpdate = async (field: string, value: any) => {
-    await updateSettings({
-      storage: {
-        ...settings.storage,
-        [field]: value,
-      },
-    })
-  }
+  // Debounce函数：延迟执行，避免频繁保存
+  const debounce = useCallback((func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout
+    return (...args: any[]) => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => func(...args), delay)
+    }
+  }, [])
 
-  const handleUpdateSidecar = async (tool: string, value: string) => {
-    const sidecar = settings.storage.sidecar || {}
-    await updateSettings({
-      storage: {
-        ...settings.storage,
-        sidecar: {
-          ...sidecar,
-          [tool]: value,
+  // 显示保存消息
+  const showSaveMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setSaveMessage({ show: true, message, type })
+    setTimeout(() => setSaveMessage({ show: false, message: '', type: 'success' }), 2000)
+  }, [])
+
+  // 处理设置更新（带debounce）
+  const handleUpdate = useCallback(debounce(async (field: string, value: any) => {
+    setSavingFields(prev => new Set(prev).add(field))
+    try {
+      await updateSettings({
+        storage: {
+          [field]: value,
         },
-      },
-    })
-  }
+      })
+      showSaveMessage('设置已保存', 'success')
+    } catch (error) {
+      showSaveMessage('保存失败', 'error')
+      console.error('更新设置失败:', error)
+    } finally {
+      setSavingFields(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(field)
+        return newSet
+      })
+    }
+  }, 1000), [settings, updateSettings, debounce, showSaveMessage])
+
+  // 处理sidecar更新（带debounce）
+  const handleUpdateSidecar = useCallback(debounce(async (tool: string, value: string) => {
+    setSavingFields(prev => new Set(prev).add(`sidecar_${tool}`))
+    try {
+      const sidecar = settings.storage.sidecar || {}
+      await updateSettings({
+        storage: {
+          sidecar: {
+            ...sidecar,
+            [tool]: value,
+          },
+        },
+      })
+      showSaveMessage('设置已保存', 'success')
+    } catch (error) {
+      showSaveMessage('保存失败', 'error')
+      console.error('更新sidecar失败:', error)
+    } finally {
+      setSavingFields(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(`sidecar_${tool}`)
+        return newSet
+      })
+    }
+  }, 1000), [settings, updateSettings, debounce, showSaveMessage])
 
   const handleReset = async () => {
     if (confirm('确定要重置存储设置吗？')) {
@@ -222,6 +270,17 @@ export default function StorageSettings() {
 
   return (
     <div className="storage-settings-new">
+      {/* 保存成功提示 */}
+      {saveMessage.show && (
+        <div className={`save-message save-message-${saveMessage.type}`}>
+          {saveMessage.type === 'success' ? (
+            <Check className="save-message-icon" />
+          ) : (
+            <AlertCircle className="save-message-icon" />
+          )}
+          <span className="save-message-text">{saveMessage.message}</span>
+        </div>
+      )}
       {/* 存储信息卡片 */}
       <div className="storage-info-card-new">
         <div className="storage-info-header">
@@ -264,11 +323,14 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="download-path-input">
             <Folder className="storage-form-icon" />
             <span className="storage-form-text">下载路径</span>
+            {savingFields.has('download_path') && (
+              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
+            )}
           </label>
           <input
             id="download-path-input"
             type="text"
-            className="storage-form-input"
+            className={`storage-form-input ${savingFields.has('download_path') ? 'storage-form-input-saving' : ''}`}
             value={settings.storage.download_path || './downloads'}
             onChange={(e) => handleUpdate('download_path', e.target.value)}
             disabled={loading}
@@ -276,16 +338,19 @@ export default function StorageSettings() {
             aria-label="输入下载路径"
           />
         </div>
-        
+
         <div className="storage-form-item">
           <label className="storage-form-label" htmlFor="temp-path-input">
             <Database className="storage-form-icon" />
             <span className="storage-form-text">临时文件路径</span>
+            {savingFields.has('temp_path') && (
+              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
+            )}
           </label>
           <input
             id="temp-path-input"
             type="text"
-            className="storage-form-input"
+            className={`storage-form-input ${savingFields.has('temp_path') ? 'storage-form-input-saving' : ''}`}
             value={settings.storage.temp_path || './temp'}
             onChange={(e) => handleUpdate('temp_path', e.target.value)}
             disabled={loading}
@@ -334,11 +399,14 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="ffmpeg-path-input">
             <FileVideo className="storage-form-icon" />
             <span className="storage-form-text">FFmpeg 路径</span>
+            {savingFields.has('sidecar_ffmpeg') && (
+              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
+            )}
           </label>
           <input
             id="ffmpeg-path-input"
             type="text"
-            className="storage-form-input"
+            className={`storage-form-input ${savingFields.has('sidecar_ffmpeg') ? 'storage-form-input-saving' : ''}`}
             value={settings.storage.sidecar?.ffmpeg || 'ffmpeg'}
             onChange={(e) => handleUpdateSidecar('ffmpeg', e.target.value)}
             disabled={loading}
@@ -351,11 +419,14 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="aria2c-path-input">
             <Zap className="storage-form-icon" />
             <span className="storage-form-text">Aria2c 路径</span>
+            {savingFields.has('sidecar_aria2c') && (
+              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
+            )}
           </label>
           <input
             id="aria2c-path-input"
             type="text"
-            className="storage-form-input"
+            className={`storage-form-input ${savingFields.has('sidecar_aria2c') ? 'storage-form-input-saving' : ''}`}
             value={settings.storage.sidecar?.aria2c || 'aria2c'}
             onChange={(e) => handleUpdateSidecar('aria2c', e.target.value)}
             disabled={loading}
@@ -368,11 +439,14 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="danmakufactory-path-input">
             <SettingsIcon className="storage-form-icon" />
             <span className="storage-form-text">Danmakufactory 路径</span>
+            {savingFields.has('sidecar_danmakufactory') && (
+              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
+            )}
           </label>
           <input
             id="danmakufactory-path-input"
             type="text"
-            className="storage-form-input"
+            className={`storage-form-input ${savingFields.has('sidecar_danmakufactory') ? 'storage-form-input-saving' : ''}`}
             value={settings.storage.sidecar?.danmakufactory || 'danmakufactory'}
             onChange={(e) => handleUpdateSidecar('danmakufactory', e.target.value)}
             disabled={loading}
