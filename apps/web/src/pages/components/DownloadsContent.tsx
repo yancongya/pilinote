@@ -69,9 +69,9 @@ export default function DownloadsContent() {
 
   // 格式化文件大小
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B'
+    if (!bytes || bytes === 0) return '0 B'
     const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
   }
@@ -132,15 +132,6 @@ export default function DownloadsContent() {
     
     // 删除后重新获取下载列表
     fetchDownloads()
-  }
-
-  // 格式化文件大小
-  const formatFileSize = (bytes: number): string => {
-    if (!bytes || bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
   }
 
   // 获取存储信息
@@ -227,7 +218,7 @@ export default function DownloadsContent() {
       const firstTask = groups[seriesId].tasks[0]
       if (firstTask.bvid) {
         try {
-          const response = await fetch(`http://localhost:8000/api/video/detail/${firstTask.bvid}`)
+          const response = await fetch(`http://localhost:8000/api/video/${firstTask.bvid}`)
           const data = await response.json()
           if (data.success && data.data) {
             groups[seriesId].seriesName = data.data.title

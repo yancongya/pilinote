@@ -853,6 +853,7 @@ async def get_download_list(status: Optional[str] = None):
                 "duration": download.duration,
                 "uploader": download.uploader,
                 "file_path": download.file_path,
+                "file_size": download.file_size,
                 "error_message": download.error_message,
                 "created_at": download.created_at.isoformat() if download.created_at else None,
                 "started_at": download.started_at.isoformat() if download.started_at else None,
