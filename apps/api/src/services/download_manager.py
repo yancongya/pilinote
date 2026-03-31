@@ -2,6 +2,7 @@
 下载管理器 - 管理下载任务队列、并发控制和任务状态
 """
 import asyncio
+import re
 import logging
 from datetime import datetime
 from typing import Dict, Optional, List, Callable
