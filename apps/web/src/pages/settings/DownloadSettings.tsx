@@ -52,9 +52,13 @@ export default function DownloadSettings() {
   const handleUpdate = useCallback(debounce(async (field: string, value: any) => {
     setSavingFields(prev => new Set(prev).add(field))
     try {
+      const currentSettings = useSettingsStore.getState().settings
+      if (!currentSettings?.download) {
+        throw new Error('Settings not loaded')
+      }
       await updateSettings({
         download: {
-          ...settings.download,
+          ...currentSettings.download,
           [field]: value,
         },
       })
@@ -69,7 +73,7 @@ export default function DownloadSettings() {
         return newSet
       })
     }
-  }, 1000), [settings, updateSettings, showSaveMessage])
+  }, 1000), [updateSettings, showSaveMessage])
 
   const handleReset = async () => {
     if (confirm('确定要重置下载设置吗？')) {

@@ -218,8 +218,13 @@ export default function StorageSettings() {
   const handleUpdate = useCallback(debounce(async (field: string, value: any) => {
     setSavingFields(prev => new Set(prev).add(field))
     try {
+      const currentSettings = useSettingsStore.getState().settings
+      if (!currentSettings?.storage) {
+        throw new Error('Settings not loaded')
+      }
       await updateSettings({
         storage: {
+          ...currentSettings.storage,
           [field]: value,
         },
       })
@@ -234,7 +239,7 @@ export default function StorageSettings() {
         return newSet
       })
     }
-  }, 1000), [settings, updateSettings, debounce, showSaveMessage])
+  }, 1000), [updateSettings, showSaveMessage])
 
   // 处理sidecar更新（带debounce）
   const handleUpdateSidecar = useCallback(debounce(async (tool: string, value: string) => {
