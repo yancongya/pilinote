@@ -65,6 +65,8 @@ class StartDownloadRequest(BaseModel):
     uploader: Optional[str] = None
     uploader_mid: Optional[int] = None
     sessdata: Optional[str] = None
+    audio_bitrate: Optional[int] = 192
+    codec: Optional[str] = 'avc'
 
 
 class StartDownloadResponse(BaseModel):
@@ -767,7 +769,9 @@ async def start_download(request: StartDownloadRequest, background_tasks: Backgr
             duration=request.duration,
             uploader=request.uploader,
             uploader_mid=request.uploader_mid,
-            sessdata=request.sessdata
+            sessdata=request.sessdata,
+            audio_bitrate=request.audio_bitrate,
+            codec=request.codec
         )
         
         # 在后台启动下载任务
@@ -809,7 +813,9 @@ async def add_to_download_queue(request: StartDownloadRequest):
             duration=request.duration,
             uploader=request.uploader,
             uploader_mid=request.uploader_mid,
-            sessdata=request.sessdata
+            sessdata=request.sessdata,
+            audio_bitrate=request.audio_bitrate,
+            codec=request.codec
         )
         
         return StartDownloadResponse(
@@ -858,7 +864,10 @@ async def get_download_list(status: Optional[str] = None):
                 "created_at": download.created_at.isoformat() if download.created_at else None,
                 "started_at": download.started_at.isoformat() if download.started_at else None,
                 "completed_at": download.completed_at.isoformat() if download.completed_at else None,
-                "aid": download.aid  # 添加aid字段用于系列分组
+                "aid": download.aid,  # 添加aid字段用于系列分组
+                "quality": download.quality,  # 添加质量字段
+                "audio_bitrate": download.audio_bitrate,  # 添加音频码率字段
+                "codec": download.codec  # 添加编码格式字段
             })
         
         return DownloadListResponse(

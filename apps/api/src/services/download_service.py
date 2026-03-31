@@ -8,6 +8,7 @@ import yt_dlp
 
 from src.database import SessionLocal
 from src.models.download import Download
+from src.services.download_engine import DownloadEngine
 
 
 class DownloadService:
@@ -23,6 +24,8 @@ class DownloadService:
         self.max_concurrent = 3
         # 下载队列
         self.download_queue = []
+        # 下载引擎实例
+        self.download_engine = DownloadEngine()
     
     def create_download_task(
         self,
@@ -36,7 +39,9 @@ class DownloadService:
         duration: Optional[int] = None,
         uploader: Optional[str] = None,
         uploader_mid: Optional[int] = None,
-        sessdata: Optional[str] = None
+        sessdata: Optional[str] = None,
+        audio_bitrate: Optional[int] = 192,
+        codec: Optional[str] = 'avc'
     ) -> str:
         """创建下载任务"""
         download_id = str(uuid.uuid4())
@@ -51,6 +56,8 @@ class DownloadService:
                 aid=aid,
                 quality=quality,
                 output_format=output_format,
+                audio_bitrate=audio_bitrate,
+                codec=codec,
                 thumbnail_url=thumbnail_url,
                 duration=duration,
                 uploader=uploader,
@@ -238,61 +245,28 @@ class DownloadService:
         video_dir = self.download_dir / safe_title
         video_dir.mkdir(exist_ok=True)
         
-        # 构建yt-dlp配置
-        def progress_hook(d: Dict):
-            """进度回调函数"""
-            if d['status'] == 'downloading':
-                total_bytes = d.get('total_bytes', 0) or 0
-                downloaded_bytes = d.get('downloaded_bytes', 0) or 0
-                
-                # 计算进度百分比
-                if total_bytes > 0:
-                    progress = (downloaded_bytes / total_bytes) * 100
-                else:
-                    progress = 0.0
-                
-                # 获取速度和ETA，处理None值
-                speed = d.get('speed') or 0
-                download_speed = speed / 1024 if speed else 0.0
-                eta = d.get('eta') or 0
-                
-                self.update_download_progress(
-                    download_id,
-                    progress,
-                    downloaded_bytes,
-                    total_bytes,
-                    download_speed,
-                    eta
-                )
-            elif d['status'] == 'finished':
-                self.update_download_progress(download_id, 100.0)
-        
-        # 使用更灵活的格式选择，兼容B站视频格式
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',  # 最适合B站的格式选择
-            'outtmpl': str(video_dir / '%(title)s.%(ext)s'),
-            'progress_hooks': [progress_hook],
-            'quiet': False,
-            'no_warnings': False,
-            'merge_output_format': 'mp4',  # 输出为MP4
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': 'mp4',
-            }],
-        }
-        
-        # 添加SESSDATA
-        if download.sessdata:
-            # 创建临时cookie文件
-            cookie_file = video_dir / 'cookies.txt'
-            with open(cookie_file, 'w') as f:
-                f.write(f".bilibili.com\tTRUE\t/\tFALSE\t0\tSESSDATA\t{download.sessdata}\n")
-            ydl_opts['cookiefile'] = str(cookie_file)
-        
+        # 导入下载引擎
         try:
-            # 执行下载
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([f'https://www.bilibili.com/video/{download.bvid}'])
+            # 使用下载引擎下载视频，传递所有参数
+            await self.download_engine.download_video(
+                bvid=download.bvid,
+                quality=download.quality,
+                output_format=download.output_format,
+                output_path=str(video_dir),
+                sessdata=download.sessdata,
+                progress_callback=lambda bvid, progress, downloaded_bytes, total_bytes, download_speed, eta: 
+                    self.update_download_progress(
+                        download_id,
+                        progress,
+                        downloaded_bytes,
+                        total_bytes,
+                        download_speed,
+                        eta
+                    ),
+                cid=download.cid,
+                audio_bitrate=download.audio_bitrate,
+                codec=download.codec
+            )
             
             # 获取下载的文件路径
             # 只选择视频文件，排除cookie文件

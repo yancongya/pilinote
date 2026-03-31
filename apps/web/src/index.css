@@ -6509,3 +6509,1445 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ==========================================
+   重新设计的设置页面样式 (PiliNote v2)
+   基于 Soft UI Evolution 设计系统
+   ========================================== */
+
+/* 设置页面主容器 */
+.settings-page-new {
+  min-height: 100vh;
+  background: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+}
+
+/* 顶部导航栏 */
+.settings-header-new {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  padding-top: max(16px, env(safe-area-inset-top, 16px));
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.settings-back-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: transparent;
+  color: #2563EB;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-back-button:hover {
+  background: rgba(37, 99, 235, 0.08);
+  transform: translateX(-2px);
+}
+
+.settings-back-button:active {
+  transform: translateX(0);
+}
+
+.settings-back-button:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.settings-back-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-back-text {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-title-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.settings-title-icon {
+  width: 24px;
+  height: 24px;
+  color: #2563EB;
+}
+
+.settings-header-spacer {
+  width: 44px;
+}
+
+/* 分段控制器 Tab 导航 */
+.settings-segmented-control {
+  padding: 16px 20px;
+  background: white;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.settings-segmented-track {
+  display: flex;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 12px;
+  gap: 4px;
+}
+
+.settings-segment-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: transparent;
+  color: #64748B;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  position: relative;
+}
+
+.settings-segment-button:hover:not(.active) {
+  color: #2563EB;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.settings-segment-button.active {
+  background: white;
+  color: #2563EB;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  font-weight: 700;
+}
+
+.settings-segment-button:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.settings-segment-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-segment-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 设置内容区域 */
+.settings-content-new {
+  flex: 1;
+  padding: 20px;
+  max-width: 768px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* 错误提示 Toast */
+.settings-error-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+  animation: slideDown 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-error-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #DC2626;
+}
+
+.settings-error-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  background: transparent;
+  border: none;
+  color: #DC2626;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-error-close:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.settings-error-close:focus-visible {
+  outline: 2px solid #DC2626;
+  outline-offset: 2px;
+}
+
+/* 底部操作区域 */
+.settings-footer {
+  padding: 16px 20px;
+  max-width: 768px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 应用信息卡片 */
+.settings-info-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.settings-info-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.settings-info-icon {
+  width: 20px;
+  height: 20px;
+  color: #64748B;
+}
+
+.settings-info-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-info-label {
+  font-size: 13px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.settings-info-value {
+  font-size: 15px;
+  color: #1E293B;
+  font-weight: 600;
+}
+
+/* 退出登录按钮 */
+.settings-logout-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 24px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 52px;
+  min-width: 44px;
+  touch-action: manipulation;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.1);
+}
+
+.settings-logout-button:hover {
+  background: #FECACA;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 68, 0.2);
+}
+
+.settings-logout-button:active {
+  transform: translateY(0);
+}
+
+.settings-logout-button:focus-visible {
+  outline: 2px solid #DC2626;
+  outline-offset: 2px;
+}
+
+.settings-logout-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-logout-text {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 通用模态框 */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.settings-modal-panel {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 100%;
+  overflow: hidden;
+  animation: scaleIn 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-modal-panel-large {
+  max-width: 500px;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.settings-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.settings-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.settings-modal-body {
+  padding: 24px;
+}
+
+.settings-modal-text {
+  margin: 0;
+  font-size: 15px;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.settings-modal-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  resize: vertical;
+  background: #F8FAFC;
+}
+
+.settings-modal-textarea:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.settings-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #E2E8F0;
+  justify-content: flex-end;
+}
+
+.settings-modal-button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+.settings-modal-button-cancel {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.settings-modal-button-cancel:hover {
+  background: #E2E8F0;
+  color: #475569;
+}
+
+.settings-modal-button-confirm {
+  background: #2563EB;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+.settings-modal-button-confirm:hover {
+  background: #1D4ED8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.settings-modal-button-danger {
+  background: #DC2626;
+  color: white;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
+.settings-modal-button-danger:hover {
+  background: #B91C1C;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.settings-modal-button:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.settings-modal-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   AccountsSettings 组件样式
+   ========================================== */
+
+.accounts-settings-new {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.accounts-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.accounts-header-icon {
+  width: 24px;
+  height: 24px;
+  color: #2563EB;
+}
+
+.accounts-header-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.accounts-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #64748B;
+}
+
+.accounts-loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
+  animation: spin 1s linear infinite;
+}
+
+.accounts-loading-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748B;
+}
+
+.accounts-list-new {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.accounts-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  border: 2px solid transparent;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accounts-card:not(.active) {
+  cursor: pointer;
+}
+
+.accounts-card:not(.active):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #2563EB;
+}
+
+.accounts-card.active {
+  border-color: #2563EB;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.02) 0%, rgba(59, 130, 246, 0.02) 100%);
+  cursor: default;
+}
+
+.accounts-card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.accounts-card-avatar {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #E2E8F0;
+}
+
+.accounts-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.accounts-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.accounts-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1E293B;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accounts-card-active-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  color: white;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.accounts-card-active-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.accounts-card-id {
+  font-size: 13px;
+  color: #64748B;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accounts-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.accounts-card-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  background: #F1F5F9;
+  color: #64748B;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.accounts-card-action-btn:hover:not(:disabled) {
+  background: #E2E8F0;
+  transform: scale(1.05);
+}
+
+.accounts-card-action-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.accounts-card-action-btn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.accounts-card-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.accounts-card-refresh-btn:hover:not(:disabled) {
+  color: #2563EB;
+}
+
+.accounts-card-delete-btn {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.accounts-card-delete-btn:hover:not(:disabled) {
+  background: #FECACA;
+  color: #B91C1C;
+}
+
+.accounts-card-action-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.accounts-card-action-icon-spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* ==========================================
+   DownloadSettings 组件样式
+   ========================================== */
+
+.download-settings-new {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.download-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.download-header-icon {
+  width: 24px;
+  height: 24px;
+  color: #2563EB;
+}
+
+.download-header-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.download-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #64748B;
+}
+
+.download-loading-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748B;
+}
+
+.download-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.download-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.download-form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.download-form-icon {
+  width: 18px;
+  height: 18px;
+  color: #64748B;
+}
+
+.download-form-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.download-form-select,
+.download-form-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1E293B;
+  background: white;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 48px;
+}
+
+.download-form-select:hover,
+.download-form-input:hover {
+  border-color: #CBD5E1;
+}
+
+.download-form-select:focus,
+.download-form-input:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.download-form-select:disabled,
+.download-form-input:disabled {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.download-form-hint {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 500;
+  margin: 0;
+}
+
+.download-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.download-reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #FEE2E2;
+  color: #DC2626;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+.download-reset-btn:hover:not(:disabled) {
+  background: #FECACA;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220, 38, 68, 0.2);
+}
+
+.download-reset-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.download-reset-btn:focus-visible {
+  outline: 2px solid #DC2626;
+  outline-offset: 2px;
+}
+
+.download-reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.download-reset-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* ==========================================
+   StorageSettings 组件样式
+   ========================================== */
+
+.storage-settings-new {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.storage-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.storage-header-icon {
+  width: 24px;
+  height: 24px;
+  color: #2563EB;
+}
+
+.storage-header-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.storage-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #64748B;
+}
+
+.storage-loading-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748B;
+}
+
+/* 存储信息卡片 */
+.storage-info-card-new {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.storage-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.storage-info-header-icon {
+  width: 20px;
+  height: 20px;
+  color: #2563EB;
+}
+
+.storage-info-header-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.storage-info-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding: 0;
+}
+
+.storage-info-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 16px;
+  border-right: 1px solid #E2E8F0;
+}
+
+.storage-info-stat:last-child {
+  border-right: none;
+}
+
+.storage-info-stat-icon {
+  width: 24px;
+  height: 24px;
+  color: #64748B;
+}
+
+.storage-info-stat-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.storage-info-stat-label {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+.storage-info-stat-value {
+  font-size: 18px;
+  color: #1E293B;
+  font-weight: 700;
+}
+
+/* 存储设置区域 */
+.storage-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.storage-section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.storage-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.storage-form-icon {
+  width: 18px;
+  height: 18px;
+  color: #64748B;
+}
+
+.storage-form-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.storage-form-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1E293B;
+  background: white;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 48px;
+}
+
+.storage-form-input:hover {
+  border-color: #CBD5E1;
+}
+
+.storage-form-input:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.storage-form-input:disabled {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.storage-checkbox-item {
+  display: flex;
+  align-items: center;
+}
+
+.storage-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.storage-checkbox-input {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  cursor: pointer;
+  accent-color: #2563EB;
+}
+
+.storage-checkbox-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+}
+
+/* 存储操作按钮网格 */
+.storage-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.storage-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 80px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+.storage-action-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.storage-action-text {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.storage-action-btn-primary {
+  background: #2563EB;
+  color: white;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+.storage-action-btn-primary:hover:not(:disabled) {
+  background: #1D4ED8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.storage-action-btn-secondary {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+.storage-action-btn-secondary:hover:not(:disabled) {
+  background: #E2E8F0;
+  color: #475569;
+  transform: translateY(-1px);
+}
+
+.storage-action-btn-warning {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.storage-action-btn-warning:hover:not(:disabled) {
+  background: #FDE68A;
+  color: #B45309;
+  transform: translateY(-1px);
+}
+
+.storage-action-btn-danger {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+
+.storage-action-btn-danger:hover:not(:disabled) {
+  background: #FECACA;
+  color: #B91C1C;
+  transform: translateY(-1px);
+}
+
+.storage-action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.storage-action-btn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.storage-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ==========================================
+   移动端响应式优化
+   ========================================== */
+
+@media (max-width: 640px) {
+  /* 主页面优化 */
+  .settings-header-new {
+    padding: 14px 16px;
+    padding-top: max(14px, env(safe-area-inset-top, 14px));
+  }
+
+  .settings-back-button {
+    padding: 8px 12px;
+  }
+
+  .settings-title-new {
+    font-size: 18px;
+  }
+
+  .settings-title-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* 分段控制器优化 */
+  .settings-segmented-control {
+    padding: 12px 16px;
+  }
+
+  .settings-segment-button {
+    padding: 10px 12px;
+    min-height: 40px;
+  }
+
+  .settings-segment-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .settings-segment-label {
+    font-size: 13px;
+  }
+
+  /* 内容区域优化 */
+  .settings-content-new {
+    padding: 16px;
+  }
+
+  /* 底部操作区域优化 */
+  .settings-footer {
+    padding: 16px;
+  }
+
+  /* 模态框优化 */
+  .settings-modal-panel,
+  .settings-modal-panel-large {
+    max-width: calc(100% - 40px);
+    margin: 20px;
+  }
+
+  .settings-modal-header {
+    padding: 16px 20px;
+  }
+
+  .settings-modal-title {
+    font-size: 16px;
+  }
+
+  .settings-modal-body {
+    padding: 20px;
+  }
+
+  .settings-modal-text {
+    font-size: 14px;
+  }
+
+  .settings-modal-textarea {
+    min-height: 150px;
+  }
+
+  .settings-modal-footer {
+    padding: 12px 20px;
+    flex-direction: column;
+  }
+
+  .settings-modal-button {
+    width: 100%;
+  }
+
+  /* 账号设置优化 */
+  .accounts-header-title {
+    font-size: 18px;
+  }
+
+  .accounts-card {
+    padding: 14px;
+  }
+
+  .accounts-card-avatar {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .accounts-card-name {
+    font-size: 14px;
+  }
+
+  .accounts-card-id {
+    font-size: 12px;
+  }
+
+  .accounts-card-action-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .accounts-card-action-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* 下载设置优化 */
+  .download-header-title {
+    font-size: 18px;
+  }
+
+  .download-form-select,
+  .download-form-input {
+    padding: 12px 14px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .download-actions {
+    justify-content: stretch;
+  }
+
+  .download-reset-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* 存储设置优化 */
+  .storage-header-title {
+    font-size: 18px;
+  }
+
+  .storage-info-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .storage-info-stat {
+    border-right: none;
+    border-bottom: 1px solid #E2E8F0;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 16px;
+  }
+
+  .storage-info-stat:last-child {
+    border-bottom: none;
+  }
+
+  .storage-info-stat-content {
+    align-items: flex-end;
+  }
+
+  .storage-section {
+    padding: 16px;
+  }
+
+  .storage-section-title {
+    font-size: 15px;
+  }
+
+  .storage-form-input {
+    padding: 12px 14px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .storage-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .storage-action-btn {
+    min-height: 60px;
+  }
+}
+
+/* ==========================================
+   平板端适配
+   ========================================== */
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .settings-content-new {
+    padding: 24px;
+  }
+
+  .settings-footer {
+    padding: 20px 24px;
+  }
+
+  .settings-info-item {
+    padding: 20px;
+  }
+}
+
+/* ==========================================
+   减少动画偏好支持
+   ========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-back-button,
+  .settings-logout-button,
+  .accounts-card,
+  .accounts-card-action-btn,
+  .download-reset-btn,
+  .storage-action-btn,
+  .settings-modal-button {
+    transition: none;
+  }
+
+  .settings-back-button:hover,
+  .settings-logout-button:hover,
+  .accounts-card:hover,
+  .accounts-card-action-btn:hover,
+  .download-reset-btn:hover,
+  .storage-action-btn:hover,
+  .settings-modal-button:hover {
+    transform: none;
+  }
+
+  .settings-modal-overlay,
+  .settings-modal-panel,
+  .settings-modal-panel-large,
+  .settings-error-toast {
+    animation: none;
+  }
+}
+
+/* ==========================================
+   高对比度模式支持
+   ========================================== */
+
+@media (prefers-contrast: high) {
+  .settings-back-button,
+  .settings-logout-button,
+  .accounts-card,
+  .download-reset-btn,
+  .storage-action-btn,
+  .settings-modal-button {
+    border: 2px solid currentColor;
+  }
+
+  .accounts-card.active {
+    border-width: 3px;
+  }
+
+  .settings-segment-button.active {
+    border-width: 2px;
+  }
+}

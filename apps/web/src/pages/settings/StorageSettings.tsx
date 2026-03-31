@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { Database, Trash2, Upload, Download, RefreshCw } from 'lucide-react'
+import { Database, Trash2, Upload, Download, RefreshCw, HardDrive, Folder, CheckSquare2, AlertCircle } from 'lucide-react'
 
 export default function StorageSettings() {
   const { settings, loading, error, updateSettings, resetSettings, exportSettings, importSettings } = useSettingsStore()
@@ -68,7 +68,15 @@ export default function StorageSettings() {
   }
 
   if (!settings) {
-    return <div className="loading-state">加载中...</div>
+    return (
+      <div 
+        className="storage-loading-state"
+        role="status"
+        aria-live="polite"
+      >
+        <p className="storage-loading-text">加载中...</p>
+      </div>
+    )
   }
 
   const handleUpdate = async (field: string, value: any) => {
@@ -129,154 +137,218 @@ export default function StorageSettings() {
   }
 
   return (
-    <div className="storage-settings">
-      <h2 className="settings-title">
-        <Database />
-        数据管理
-      </h2>
+    <div className="storage-settings-new">
+      {/* 页面标题 */}
+      <div className="storage-header">
+        <Database className="storage-header-icon" />
+        <h2 className="storage-header-title">数据管理</h2>
+      </div>
 
-      {error && (
-        <div className="error-message">{error}</div>
-      )}
-
-      <div className="settings-group">
-        <h3>存储设置</h3>
-        
-        {/* 存储信息显示 */}
-        <div className="storage-info-panel">
-          <div className="storage-stat">
-            <span className="storage-stat-label">占用空间</span>
-            <span className="storage-stat-value">{storageInfo.totalSizeFormatted}</span>
+      {/* 存储信息卡片 */}
+      <div className="storage-info-card-new">
+        <div className="storage-info-header">
+          <HardDrive className="storage-info-header-icon" />
+          <h3 className="storage-info-header-title">存储概览</h3>
+        </div>
+        <div className="storage-info-stats">
+          <div className="storage-info-stat">
+            <Folder className="storage-info-stat-icon" />
+            <div className="storage-info-stat-content">
+              <span className="storage-info-stat-label">占用空间</span>
+              <span className="storage-info-stat-value">{storageInfo.totalSizeFormatted}</span>
+            </div>
           </div>
-          <div className="storage-stat">
-            <span className="storage-stat-label">文件数量</span>
-            <span className="storage-stat-value">{storageInfo.fileCount}</span>
+          <div className="storage-info-stat">
+            <Database className="storage-info-stat-icon" />
+            <div className="storage-info-stat-content">
+              <span className="storage-info-stat-label">文件数量</span>
+              <span className="storage-info-stat-value">{storageInfo.fileCount}</span>
+            </div>
           </div>
-          <div className="storage-stat">
-            <span className="storage-stat-label">视频数量</span>
-            <span className="storage-stat-value">{storageInfo.directoryCount}</span>
+          <div className="storage-info-stat">
+            <CheckSquare2 className="storage-info-stat-icon" />
+            <div className="storage-info-stat-content">
+              <span className="storage-info-stat-label">视频数量</span>
+              <span className="storage-info-stat-value">{storageInfo.directoryCount}</span>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* 存储设置 */}
+      <div className="storage-section">
+        <h3 className="storage-section-title">存储设置</h3>
         
-        <div className="setting-item">
-          <label>
-            <Database />
-            临时文件路径
+        <div className="storage-form-item">
+          <label className="storage-form-label" htmlFor="download-path-input">
+            <Folder className="storage-form-icon" />
+            <span className="storage-form-text">下载路径</span>
           </label>
           <input
+            id="download-path-input"
             type="text"
+            className="storage-form-input"
+            value={settings.storage.download_path || settings.download?.download_path || './downloads'}
+            onChange={(e) => {
+              // 优先更新 storage.download_path，如果不存在则更新 download.download_path
+              if (settings.storage) {
+                handleUpdate('download_path', e.target.value)
+              } else {
+                handleUpdate('download_path', e.target.value)
+              }
+            }}
+            disabled={loading}
+            placeholder="./downloads"
+            aria-label="输入下载路径"
+          />
+        </div>
+        
+        <div className="storage-form-item">
+          <label className="storage-form-label" htmlFor="temp-path-input">
+            <Database className="storage-form-icon" />
+            <span className="storage-form-text">临时文件路径</span>
+          </label>
+          <input
+            id="temp-path-input"
+            type="text"
+            className="storage-form-input"
             value={settings.storage.temp_path}
             onChange={(e) => handleUpdate('temp_path', e.target.value)}
             disabled={loading}
             placeholder="./temp"
+            aria-label="输入临时文件路径"
           />
         </div>
 
-        <div className="setting-item">
-          <label className="checkbox-label">
+        <div className="storage-checkbox-item">
+          <label className="storage-checkbox-label">
             <input
               type="checkbox"
+              className="storage-checkbox-input"
               checked={settings.storage.auto_cleanup}
               onChange={(e) => handleUpdate('auto_cleanup', e.target.checked)}
               disabled={loading}
+              aria-label="自动清理临时文件"
             />
-            <span>自动清理临时文件</span>
+            <span className="storage-checkbox-text">自动清理临时文件</span>
           </label>
         </div>
 
-        <div className="setting-item">
-          <label className="checkbox-label">
+        <div className="storage-checkbox-item">
+          <label className="storage-checkbox-label">
             <input
               type="checkbox"
+              className="storage-checkbox-input"
               checked={settings.storage.keep_failed}
               onChange={(e) => handleUpdate('keep_failed', e.target.checked)}
               disabled={loading}
+              aria-label="保留失败的任务"
             />
-            <span>保留失败的任务</span>
+            <span className="storage-checkbox-text">保留失败的任务</span>
           </label>
         </div>
       </div>
 
-      <div className="settings-group">
-        <h3>缓存管理</h3>
+      {/* 缓存管理 */}
+      <div className="storage-section">
+        <h3 className="storage-section-title">缓存管理</h3>
         
-        <div className="data-actions">
+        <div className="storage-actions-grid">
           <button 
-            className="action-button cache-button"
+            className="storage-action-btn storage-action-btn-warning"
             onClick={() => handleClearCache('downloads')}
             disabled={clearingCache || loading}
+            aria-label="清理下载文件"
           >
-            <Trash2 />
-            清理下载文件
+            <Trash2 className="storage-action-icon" />
+            <span className="storage-action-text">清理下载文件</span>
           </button>
           
           <button 
-            className="action-button cache-button danger-button"
+            className="storage-action-btn storage-action-btn-danger"
             onClick={() => handleClearCache('all')}
             disabled={clearingCache || loading}
+            aria-label="清理所有缓存"
           >
-            <RefreshCw />
-            清理所有缓存
+            <AlertCircle className="storage-action-icon" />
+            <span className="storage-action-text">清理所有缓存</span>
           </button>
         </div>
       </div>
 
-      <div className="settings-group">
-        <h3>数据备份</h3>
+      {/* 数据备份 */}
+      <div className="storage-section">
+        <h3 className="storage-section-title">数据备份</h3>
         
-        <div className="data-actions">
+        <div className="storage-actions-grid">
           <button 
-            className="action-button"
+            className="storage-action-btn storage-action-btn-primary"
             onClick={handleExport}
             disabled={loading}
+            aria-label="导出设置"
           >
-            <Download />
-            导出设置
+            <Download className="storage-action-icon" />
+            <span className="storage-action-text">导出设置</span>
           </button>
           
           <button 
-            className="action-button"
+            className="storage-action-btn storage-action-btn-primary"
             onClick={handleImport}
             disabled={loading}
+            aria-label="导入设置"
           >
-            <Upload />
-            导入设置
+            <Upload className="storage-action-icon" />
+            <span className="storage-action-text">导入设置</span>
           </button>
 
           <button 
-            className="action-button reset-button"
+            className="storage-action-btn storage-action-btn-secondary"
             onClick={handleReset}
             disabled={loading}
+            aria-label="重置存储设置"
           >
-            <RefreshCw />
-            重置存储设置
+            <RefreshCw className="storage-action-icon" />
+            <span className="storage-action-text">重置存储设置</span>
           </button>
         </div>
       </div>
 
+      {/* 导出设置对话框 */}
       {showExport && (
-        <div className="modal-overlay" onClick={() => setShowExport(false)}>
-          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>导出的设置</h3>
+        <div 
+          className="settings-modal-overlay"
+          onClick={() => setShowExport(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="export-settings-title"
+        >
+          <div 
+            className="settings-modal-panel settings-modal-panel-large"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="settings-modal-header">
+              <h3 id="export-settings-title" className="settings-modal-title">导出的设置</h3>
             </div>
-            <div className="modal-body">
+            <div className="settings-modal-body">
               <textarea
                 value={exportData}
                 readOnly
-                className="export-textarea"
+                className="settings-modal-textarea"
+                aria-label="导出的设置内容"
               />
             </div>
-            <div className="modal-footer">
+            <div className="settings-modal-footer">
               <button
-                className="modal-btn cancel-btn"
+                className="settings-modal-button settings-modal-button-cancel"
                 onClick={() => setShowExport(false)}
+                aria-label="关闭导出设置"
               >
                 关闭
               </button>
               <button
-                className="modal-btn confirm-btn"
+                className="settings-modal-button settings-modal-button-confirm"
                 onClick={handleDownloadExport}
+                aria-label="下载导出文件"
               >
                 下载文件
               </button>

@@ -36,7 +36,9 @@ class DownloadEngine:
         sessdata: Optional[str] = None,
         progress_callback: Optional[Callable] = None,
         pause_event: Optional[asyncio.Event] = None,
-        cid: Optional[int] = None
+        cid: Optional[int] = None,
+        audio_bitrate: Optional[int] = 192,
+        codec: Optional[str] = 'avc'
     ):
         """
         下载视频
@@ -49,25 +51,34 @@ class DownloadEngine:
             sessdata: 用户SESSDATA
             progress_callback: 进度回调函数
             pause_event: 暂停事件
+            cid: 视频分P ID
+            audio_bitrate: 音频码率 (64/128/132/192/30232/30251/30250)
+            codec: 视频编码 (avc/hevc/av1/vp9)
         """
         # 创建输出目录
         output_dir = Path(output_path)
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 根据质量构建格式选择
-        format_str = self._build_format_string(quality)
+        # 根据质量、编码和音频码率构建格式选择
+        format_str = self._build_format_string(quality, codec, audio_bitrate)
+        
+        # 构建后处理器配置
+        postprocessors = []
+        
+        # 添加视频转换器（仅当需要转换格式时）
+        postprocessors.append({
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': output_format,
+        })
         
         # 构建yt-dlp配置
         ydl_opts = {
             'format': format_str,
             'outtmpl': str(output_dir / '%(title)s.%(ext)s'),
-            'quiet': False,  # 启用日志输出
+            'quiet': False,
             'no_warnings': True,
             'merge_output_format': output_format,
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': output_format,
-            }],
+            'postprocessors': postprocessors,
             'progress_hooks': [],
         }
         
@@ -77,6 +88,8 @@ class DownloadEngine:
             logger.info(f"Downloading specific part: cid={cid}")
         else:
             logger.info(f"Downloading all parts for bvid={bvid}")
+        
+        logger.info(f"Download parameters: quality={quality}, codec={codec}, audio_bitrate={audio_bitrate}, format={output_format}")
         
         # 添加进度回调
         if progress_callback:
@@ -124,7 +137,7 @@ class DownloadEngine:
         
         try:
             # 执行下载
-            logger.info(f"Starting download: {bvid}, quality: {quality}, format: {output_format}")
+            logger.info(f"Starting download: {bvid}")
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 # 在单独的线程中运行下载以避免阻塞
@@ -198,12 +211,14 @@ class DownloadEngine:
         if process.returncode != 0:
             raise Exception(f"Format conversion failed: {stderr.decode()}")
     
-    def _build_format_string(self, quality: int) -> str:
+    def _build_format_string(self, quality: int, codec: str = 'avc', audio_bitrate: Optional[int] = 192) -> str:
         """
-        根据质量构建yt-dlp格式字符串
+        根据质量、编码和音频码率构建yt-dlp格式字符串
         
         Args:
             quality: 视频质量代码
+            codec: 视频编码格式
+            audio_bitrate: 音频码率（64/128/132/192/30232/30251/30250）
             
         Returns:
             格式字符串
@@ -218,16 +233,51 @@ class DownloadEngine:
             116: 2160  # 4K 超清
         }
         
+        # B站编码格式到codec的映射
+        codec_map = {
+            'avc': 'avc1',    # H.264
+            'hevc': 'hevc',   # H.265
+            'av1': 'av01',    # AV1
+            'vp9': 'vp09',    # VP9
+        }
+        
+        # B站音频码率到格式ID的映射
+        # 注意：这些ID是根据实际视频的可用音频流确定的
+        audio_format_map = {
+            64: '30216',      # 64K - 低质量音频
+            128: '30216',     # 128K - 标准质量（使用最低可用）
+            132: '30216',     # 132K - 高质量
+            192: '30280',     # 192K - 高质量
+            30232: '30232',   # 杜比全景声320K
+            30251: '30280',   # Hi-Res 无损（使用最高可用）
+            30250: '30280',   # 无损FLAC（使用最高可用）
+        }
+        
         height = quality_map.get(quality, 720)
+        video_codec = codec_map.get(codec, 'avc1')
+        audio_format_id = audio_format_map.get(audio_bitrate, '30280')
         
-        # 构建格式字符串，优先选择指定高度的MP4格式
-        # 格式说明：
-        # bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a] - 选择最佳MP4视频（<=720P）+ 最佳音频
-        # bestvideo[height<=720]+bestaudio - 选择最佳视频（<=720P）+ 最佳音频
-        # best[ext=mp4] - 选择最佳MP4格式
-        # best - 选择最佳格式
+        # 构建格式字符串
+        # 优先选择指定的视频编码和音频质量
+        # 音频质量通过指定格式ID来实现
+        if audio_bitrate >= 30232:
+            # 高质量音频：使用指定的音频格式ID
+            format_str = (f'bestvideo[ext=mp4][height<={height}][vcodec~={video_codec}]+{audio_format_id}/'
+                         f'bestvideo[height<={height}][vcodec~={video_codec}]+{audio_format_id}/'
+                         f'bestvideo[ext=mp4][height<={height}]+{audio_format_id}/'
+                         f'bestvideo[height<={height}]+{audio_format_id}/'
+                         f'bestvideo[ext=mp4][height<={height}][vcodec~={video_codec}]+bestaudio[ext=m4a]/'
+                         f'bestvideo[height<={height}][vcodec~={video_codec}]+bestaudio/'
+                         f'bestvideo[ext=mp4][height<={height}]+bestaudio[ext=m4a]/'
+                         f'bestvideo[height<={height}]+bestaudio/best[ext=mp4]/best')
+        else:
+            # 普通音频：使用bestaudio
+            format_str = (f'bestvideo[ext=mp4][height<={height}][vcodec~={video_codec}]+bestaudio[ext=m4a]/'
+                         f'bestvideo[height<={height}][vcodec~={video_codec}]+bestaudio/'
+                         f'bestvideo[ext=mp4][height<={height}]+bestaudio[ext=m4a]/'
+                         f'bestvideo[height<={height}]+bestaudio/best[ext=mp4]/best')
         
-        format_str = f'bestvideo[ext=mp4][height<={height}]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[ext=mp4]/best'
+        logger.debug(f"Built format string: {format_str} (quality={quality}, codec={codec}, audio_bitrate={audio_bitrate})")
         
         return format_str
     

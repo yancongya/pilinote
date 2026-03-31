@@ -22,6 +22,9 @@ interface DownloadItem {
   completed_at: string | null
   aid: number | null
   cid: number | null
+  quality: number | null
+  audio_bitrate: number | null
+  codec: string | null
 }
 
 interface DownloadState {
