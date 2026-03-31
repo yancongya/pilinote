@@ -4867,6 +4867,7 @@ body {
   font-weight: 600;
   backdrop-filter: blur(4px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
 }
 
 .video-card:hover .video-duration-overlay {
@@ -4910,6 +4911,7 @@ body {
   align-items: center;
   gap: 2px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
 }
 
 .video-card:hover .video-series-count-overlay {
