@@ -34,60 +34,93 @@ class SettingsService:
     def get_settings(self) -> Settings:
         """Get all settings grouped by category"""
         all_settings = self.get_all_settings()
-        
-        # Extract download settings
-        download_settings = DownloadSettings(
-            default_quality=int(all_settings.get('download.default_quality', Setting()).value),
-            max_concurrent=int(all_settings.get('download.max_concurrent', Setting()).value),
-            speed_limit=int(all_settings.get('download.speed_limit', Setting()).value),
-            output_format=all_settings.get('download.output_format', Setting()).value
-        )
-        
-        # Extract storage settings - 修复 download_path 和 sidecar
-        storage_settings_dict = {
-            'download_path': all_settings.get('storage.download_path', Setting()).value if all_settings.get('storage.download_path') else './downloads',
-            'temp_path': all_settings.get('storage.temp_path', Setting()).value if all_settings.get('storage.temp_path') else './temp',
-            'auto_cleanup': all_settings.get('storage.auto_cleanup', Setting()).value.lower() in ('true', '1', 'yes'),
-            'keep_failed': all_settings.get('storage.keep_failed', Setting()).value.lower() in ('true', '1', 'yes')
+
+        # 提取video设置
+        video_settings = {
+            'default_quality': int(self._get_setting_value(all_settings, 'download.video.default_quality', 64)),
+            'audio_bitrate': int(self._get_setting_value(all_settings, 'download.video.audio_bitrate', 192)),
+            'codec': self._get_setting_value(all_settings, 'download.video.codec', 'avc'),
+            'output_format': self._get_setting_value(all_settings, 'download.video.output_format', 'mp4')
         }
-        
-        # 读取 sidecar 设置
+
+        # 提取metadata设置
+        metadata_settings = {
+            'enable_nfo': self._get_setting_value(all_settings, 'download.metadata.enable_nfo', True),
+            'enable_subtitle': self._get_setting_value(all_settings, 'download.metadata.enable_subtitle', True),
+            'enable_danmaku': self._get_setting_value(all_settings, 'download.metadata.enable_danmaku', False),
+            'danmaku_format': self._get_setting_value(all_settings, 'download.metadata.danmaku_format', 'xml'),
+            'enable_cover': self._get_setting_value(all_settings, 'download.metadata.enable_cover', True),
+            'enable_avatar': self._get_setting_value(all_settings, 'download.metadata.enable_avatar', False),
+            'block_pcdn': self._get_setting_value(all_settings, 'download.metadata.block_pcdn', True)
+        }
+
+        # 构建download设置
+        download_settings = DownloadSettings(
+            video=video_settings,
+            max_concurrent=int(self._get_setting_value(all_settings, 'download.max_concurrent', 3)),
+            speed_limit=int(self._get_setting_value(all_settings, 'download.speed_limit', 0)),
+            metadata=metadata_settings
+        )
+
+        # 提取storage设置
+        storage_settings_dict = {
+            'download_path': self._get_setting_value(all_settings, 'storage.download_path', './downloads'),
+            'temp_path': self._get_setting_value(all_settings, 'storage.temp_path', './temp'),
+            'auto_cleanup': self._get_setting_value(all_settings, 'storage.auto_cleanup', True),
+            'keep_failed': self._get_setting_value(all_settings, 'storage.keep_failed', False)
+        }
+
+        # 读取sidecar设置
         sidecar_setting = all_settings.get('storage.sidecar')
         if sidecar_setting:
             try:
-                # 尝试解析 JSON
                 sidecar_dict = json.loads(sidecar_setting.value)
                 storage_settings_dict['sidecar'] = sidecar_dict
             except json.JSONDecodeError:
-                # 如果解析失败，使用默认值
                 storage_settings_dict['sidecar'] = {
                     'ffmpeg': 'ffmpeg',
                     'aria2c': 'aria2c',
                     'danmakufactory': 'danmakufactory'
                 }
         else:
-            # 如果没有 sidecar 设置，使用默认值
             storage_settings_dict['sidecar'] = {
                 'ffmpeg': 'ffmpeg',
                 'aria2c': 'aria2c',
                 'danmakufactory': 'danmakufactory'
             }
-        
+
         storage_settings = StorageSettings(**storage_settings_dict)
-        
-        # Extract general settings
+
+        # 提取general设置
         general_settings = GeneralSettings(
-            theme=all_settings.get('general.theme', Setting()).value,
-            language=all_settings.get('general.language', Setting()).value,
-            auto_download=all_settings.get('general.auto_download', Setting()).value.lower() in ('true', '1', 'yes'),
-            clipboard_monitor=all_settings.get('general.clipboard_monitor', Setting()).value.lower() in ('true', '1', 'yes')
+            theme=self._get_setting_value(all_settings, 'general.theme', 'auto'),
+            language=self._get_setting_value(all_settings, 'general.language', 'zh-CN'),
+            auto_download=self._get_setting_value(all_settings, 'general.auto_download', False),
+            clipboard_monitor=self._get_setting_value(all_settings, 'general.clipboard_monitor', False)
         )
-        
+
         return Settings(
             download=download_settings,
             storage=storage_settings,
             general=general_settings
         )
+
+    def _get_setting_value(self, all_settings: Dict[str, Setting], key: str, default: Any = None):
+        """Get setting value with default"""
+        setting = all_settings.get(key)
+        if not setting:
+            return default
+
+        value = setting.value
+        # 转换布尔值
+        if isinstance(default, bool):
+            return value.lower() in ('true', '1', 'yes')
+        # 转换整数
+        elif isinstance(default, int):
+            return int(value)
+        # 其他类型直接返回
+        else:
+            return value
     
     def update_setting(self, key: str, value: str) -> Optional[Setting]:
         """Update a single setting"""
@@ -102,55 +135,59 @@ class SettingsService:
     def update_settings(self, settings_dict: Dict[str, Any]) -> bool:
         """Update multiple settings"""
         try:
-            for key, value in settings_dict.items():
-                # 初始化str_value和db_key
-                str_value = str(value)
-                db_key = key
-                
-                # 处理嵌套的 sidecar 字段
-                if key == 'sidecar' and isinstance(value, dict):
-                    # 将 sidecar 字典转换为 JSON 字符串存储
-                    str_value = json.dumps(value)
-                    # 使用正确的键名 storage.sidecar
-                    db_key = 'storage.sidecar'
-                # 为storage字段添加前缀
-                elif key in ['download_path', 'temp_path', 'auto_cleanup', 'keep_failed']:
-                    db_key = f'storage.{key}'
-                # 为download字段添加前缀
-                elif key in ['default_quality', 'max_concurrent', 'speed_limit', 'output_format']:
-                    db_key = f'download.{key}'
-                # 处理布尔值
-                elif isinstance(value, bool):
-                    str_value = str(value).lower()
-                # 处理嵌套字典
-                elif isinstance(value, dict):
-                    str_value = json.dumps(value)
-                    db_key = key
-                # 其他类型保持原样
+            # 处理嵌套的settings_dict
+            for category, category_dict in settings_dict.items():
+                if isinstance(category_dict, dict):
+                    for sub_key, value in category_dict.items():
+                        if isinstance(value, dict):
+                            # 处理二级嵌套（如download.video和download.metadata）
+                            for nested_key, nested_value in value.items():
+                                self._update_single_setting(
+                                    f'{category}.{sub_key}.{nested_key}',
+                                    nested_value
+                                )
+                        else:
+                            # 处理一级字段（如download.max_concurrent）
+                            self._update_single_setting(
+                                f'{category}.{sub_key}',
+                                value
+                            )
                 else:
-                    str_value = str(value)
-                    db_key = key
-
-                setting = self.get_setting(db_key)
-                if setting:
-                    setting.value = str_value
-                    setting.updated_at = datetime.utcnow()
-                else:
-                    # Create new setting if not exists
-                    new_setting = Setting(
-                        key=db_key,
-                        value=str_value,
-                        type=type(value).__name__,
-                        category=db_key.split('.')[0],
-                        description=f"Setting for {db_key}"
-                    )
-                    self.db.add(new_setting)
+                    # 处理非嵌套字段
+                    self._update_single_setting(category, category_dict)
 
             self.db.commit()
             return True
         except Exception as e:
             self.db.rollback()
             raise e
+
+    def _update_single_setting(self, db_key: str, value: Any):
+        """Update a single setting"""
+        # 转换值为字符串
+        if isinstance(value, bool):
+            str_value = str(value).lower()
+        elif isinstance(value, dict):
+            str_value = json.dumps(value)
+        else:
+            str_value = str(value)
+
+        # 获取或创建设置
+        setting = self.get_setting(db_key)
+        if setting:
+            setting.value = str_value
+            setting.updated_at = datetime.utcnow()
+        else:
+            # 创建新设置
+            category = db_key.split('.')[0]
+            new_setting = Setting(
+                key=db_key,
+                value=str_value,
+                type=type(value).__name__,
+                category=category,
+                description=f"Setting for {db_key}"
+            )
+            self.db.add(new_setting)
     
     def reset_settings(self, category: Optional[str] = None) -> bool:
         """Reset settings to default values"""
@@ -202,10 +239,19 @@ class SettingsService:
         try:
             # 下载设置默认值
             download_defaults = {
-                'download.default_quality': '80',
+                'download.video.default_quality': '64',
+                'download.video.audio_bitrate': '192',
+                'download.video.codec': 'avc',
+                'download.video.output_format': 'mp4',
                 'download.max_concurrent': '3',
                 'download.speed_limit': '0',
-                'download.output_format': 'mp4',
+                'download.metadata.enable_nfo': 'true',
+                'download.metadata.enable_subtitle': 'true',
+                'download.metadata.enable_danmaku': 'false',
+                'download.metadata.danmaku_format': 'xml',
+                'download.metadata.enable_cover': 'true',
+                'download.metadata.enable_avatar': 'false',
+                'download.metadata.block_pcdn': 'true',
             }
             
             # 存储设置默认值

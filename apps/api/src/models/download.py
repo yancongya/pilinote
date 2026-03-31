@@ -48,7 +48,7 @@ class Download(Base):
 
     cid = Column(Integer)  # 视频CID
 
-    aid = Column(Integer)  # 视频AID
+    aid = Column(Integer, nullable=True)  # 视频AID（用于系列视频）
 
     quality = Column(Integer, default=64)  # 视频质量 (16=360P, 32=480P, 64=720P, 80=1080P, 112=1080P+, 116=4K)
 
@@ -69,6 +69,22 @@ class Download(Base):
     uploader = Column(String(100))  # UP主名称
 
     uploader_mid = Column(Integer)  # UP主 MID
+
+    # 元数据设置
+
+    enable_nfo = Column(Integer, default=1)  # 启用NFO元数据文件 (0=false, 1=true)
+
+    enable_subtitle = Column(Integer, default=1)  # 下载字幕 (0=false, 1=true)
+
+    enable_danmaku = Column(Integer, default=0)  # 下载弹幕 (0=false, 1=true)
+
+    danmaku_format = Column(String(10), default="xml")  # 弹幕格式 (xml/ass/srt)
+
+    enable_cover = Column(Integer, default=1)  # 下载封面图片 (0=false, 1=true)
+
+    enable_avatar = Column(Integer, default=0)  # 下载UP主头像 (0=false, 1=true)
+
+    block_pcdn = Column(Integer, default=1)  # 阻止PCDN (0=false, 1=true)
 
     
 

@@ -22,12 +22,43 @@ class SettingResponse(BaseModel):
         from_attributes = True
 
 
+class VideoSettings(BaseModel):
+    """Video quality settings"""
+    default_quality: int = Field(
+        default=64,
+        description="Default video quality (16=360P, 32=480P, 64=720P, 80=1080P, 112=1080P+, 116=4K)"
+    )
+    audio_bitrate: int = Field(
+        default=192,
+        description="Audio bitrate (64/128/132/192/30232/30251/30250)"
+    )
+    codec: str = Field(
+        default="avc",
+        description="Video codec (avc/hevc/av1/vp9)"
+    )
+    output_format: str = Field(
+        default="mp4",
+        description="Output format (mp4/flv/mkv/webm)"
+    )
+
+
+class MetadataSettings(BaseModel):
+    """Metadata settings"""
+    enable_nfo: bool = Field(default=True, description="Enable NFO metadata file")
+    enable_subtitle: bool = Field(default=True, description="Download subtitles")
+    enable_danmaku: bool = Field(default=False, description="Download danmaku")
+    danmaku_format: str = Field(default="xml", description="Danmaku format (xml/ass/srt)")
+    enable_cover: bool = Field(default=True, description="Download cover image")
+    enable_avatar: bool = Field(default=False, description="Download uploader avatar")
+    block_pcdn: bool = Field(default=True, description="Block PCDN nodes")
+
+
 class DownloadSettings(BaseModel):
     """Download settings"""
-    default_quality: int = Field(default=80, description="Default video quality (80=1080P)")
+    video: VideoSettings = Field(default_factory=VideoSettings)
     max_concurrent: int = Field(default=3, ge=1, le=5, description="Max concurrent downloads")
     speed_limit: int = Field(default=0, ge=0, description="Speed limit (KB/s), 0 means no limit")
-    output_format: str = Field(default="mp4", description="Output format")
+    metadata: MetadataSettings = Field(default_factory=MetadataSettings)
 
 
 class StorageSettings(BaseModel):
