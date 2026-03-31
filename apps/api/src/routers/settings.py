@@ -189,9 +189,13 @@ async def clear_cache(
         
         logger = logging.getLogger(__name__)
         
+        # 从设置中获取下载路径
+        settings_service = SettingsService(db)
+        settings = settings_service.get_settings()
+        downloads_dir = settings.storage.download_path if settings.storage else "./downloads"
+        
         if cache_type == "downloads":
             # 清理下载文件
-            downloads_dir = "downloads"
             if os.path.exists(downloads_dir):
                 # 只清理文件，保留目录结构
                 deleted_files = 0
@@ -240,7 +244,6 @@ async def clear_cache(
             deleted_size = 0
             
             # 清理下载文件
-            downloads_dir = "downloads"
             if os.path.exists(downloads_dir):
                 for download_id in os.listdir(downloads_dir):
                     download_path = os.path.join(downloads_dir, download_id)
@@ -293,7 +296,11 @@ async def get_storage_info(db: Session = Depends(get_db)):
     try:
         import os
         
-        downloads_dir = "downloads"
+        # 从设置中获取下载路径
+        settings_service = SettingsService(db)
+        settings = settings_service.get_settings()
+        downloads_dir = settings.storage.download_path if settings.storage else "./downloads"
+        
         total_size = 0
         file_count = 0
         directory_count = 0
@@ -426,6 +433,11 @@ async def clear_cache_by_type(
         
         logger = logging.getLogger(__name__)
         
+        # 从设置中获取下载路径
+        settings_service = SettingsService(db)
+        settings = settings_service.get_settings()
+        downloads_dir = settings.storage.download_path if settings.storage else "./downloads"
+        
         valid_cache_types = ["log", "temp", "webview", "database", "downloads", "all"]
         
         if cache_type not in valid_cache_types:
@@ -438,7 +450,7 @@ async def clear_cache_by_type(
             # 清理所有缓存
             deleted_files = 0
             deleted_size = 0
-            cache_dirs = ["logs", "temp", "webview_cache", "data", "downloads"]
+            cache_dirs = ["logs", "temp", "webview_cache", "data", downloads_dir]
             
             for cache_dir in cache_dirs:
                 if os.path.exists(cache_dir):
@@ -479,7 +491,7 @@ async def clear_cache_by_type(
             "temp": "temp",
             "webview": "webview_cache",
             "database": "data",
-            "downloads": "downloads"
+            "downloads": downloads_dir
         }
         
         cache_dir = cache_dirs_map[cache_type]
@@ -521,7 +533,7 @@ async def clear_cache_by_type(
 
 
 @router.post("/open-cache/{cache_type}")
-async def open_cache_directory(cache_type: str):
+async def open_cache_directory(cache_type: str, db: Session = Depends(get_db)):
     """
     Open cache directory in file explorer
     
@@ -536,12 +548,17 @@ async def open_cache_directory(cache_type: str):
         import platform
         import subprocess
         
+        # 从设置中获取下载路径
+        settings_service = SettingsService(db)
+        settings = settings_service.get_settings()
+        downloads_dir = settings.storage.download_path if settings.storage else "./downloads"
+        
         cache_dirs_map = {
             "log": "logs",
             "temp": "temp",
             "webview": "webview_cache",
             "database": "data",
-            "downloads": "downloads"
+            "downloads": downloads_dir
         }
         
         if cache_type not in cache_dirs_map:
