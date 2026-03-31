@@ -217,6 +217,31 @@ export default function DownloadsContent() {
       }
     })
     
+    // 提取合集名称：对于系列视频，从多个标题中提取公共部分
+    for (const seriesId in groups) {
+      const series = groups[seriesId]
+      if (series.totalCount > 1 && series.tasks.length > 1) {
+        // 尝试从多个标题中提取公共前缀
+        const titles = series.tasks.map(t => t.title).filter(Boolean)
+        if (titles.length > 1) {
+          // 找到最长的公共前缀
+          let commonPrefix = titles[0]
+          for (let i = 1; i < titles.length; i++) {
+            let j = 0
+            while (j < commonPrefix.length && j < titles[i].length && commonPrefix[j] === titles[i][j]) {
+              j++
+            }
+            commonPrefix = commonPrefix.substring(0, j)
+          }
+          
+          // 如果公共前缀太短，使用第一个任务的标题
+          if (commonPrefix.length > 5) {
+            series.seriesName = commonPrefix.trim()
+          }
+        }
+      }
+    }
+    
     // 检查是否有多个组有相同的seriesName（相同系列但aid不同的情况）
     const nameMap: Record<string, string[]> = {}
     Object.keys(groups).forEach(seriesId => {

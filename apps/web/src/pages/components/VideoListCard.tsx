@@ -179,7 +179,8 @@ export default function VideoListCard({
               </>
             )
           })()}
-          <div className="video-duration-overlay">{duration}</div>
+          {/* Bilibili风格：单个视频显示时长，系列视频不显示 */}
+          {!isSeries && duration && <div className="video-duration-overlay">{duration}</div>}
           {/* Bilibili风格：系列视频显示集数 */}
           {isSeries && seriesCount && (
             <div className="video-series-count-overlay">
@@ -203,19 +204,10 @@ export default function VideoListCard({
           <span className="video-card-uploader">{uploader}</span>
           <span className="video-card-time">{time}</span>
           {watched && <span className="video-card-watched">{watched}</span>}
-          {/* Bilibili风格：替换状态文本为文件大小或系列数量 */}
+          {/* Bilibili风格：显示文件大小 */}
           {showActionButtons && (
             <span className="video-card-file-size">
-              {isSeries && seriesCount ? (
-                <>
-                  <Users size={12} />
-                  <span>{seriesCount}集</span>
-                </>
-              ) : fileSize !== undefined ? (
-                formatFileSize(fileSize)
-              ) : (
-                views
-              )}
+              {fileSize !== undefined ? formatFileSize(fileSize) : views}
             </span>
           )}
           {/* 操作按钮 - 在元数据行中显示 */}
