@@ -34,6 +34,31 @@
   - 数据字段: videoData, videoData.stat, videoData.owner等
 - 视频播放地址: `/x/player/wbi/playurl`
 - 字幕列表: `/x/player/wbi/v2`
+  - 参数: aid, cid
+  - 返回: 播放器信息，包含字幕列表
+  - 字幕数据结构:
+    ```typescript
+    {
+      "subtitle": {
+        "subtitles": [
+          {
+            "id": 123456,
+            "lan": "zh-CN",
+            "lan_doc": "中文（中国）",
+            "subtitle_url": "//i0.hdslb.com/bfs/subtitle/...",
+            "author": {
+              "mid": 123456,
+              "name": "UP主名称"
+            }
+          }
+        ]
+      }
+    }
+    ```
+  - **AI字幕**: 语言代码为 `ai-zh`（中文AI）或 `ai-en`（英文AI）
+  - **需要WBI签名**: 此接口需要WBI签名才能正常访问
+  - **字幕下载**: 需要先获取字幕URL，然后下载JSON格式字幕
+  - **格式转换**: B站JSON格式 → SRT格式（00:00:00,000）
 - 弹幕: `/x/v1/dm/list.so`
 
 ## 统计信息获取（薯片数据）

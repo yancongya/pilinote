@@ -1008,3 +1008,106 @@ const pagesToRestore = pages.filter((page: any) => {
 - ✅ NFO文件格式正确，包含完整元数据
 - ✅ 互动评分计算准确
 - ✅ 支持单P和多P视频
+
+### 2026-03-31 字幕下载功能实现
+
+#### 功能描述
+- ✅ 实现完整的字幕下载功能
+- ✅ 支持普通字幕和AI字幕
+- ✅ 使用WBI签名获取播放器信息（完全复刻BiliTools）
+- ✅ 自动转换为SRT格式
+- ✅ 支持多语言字幕下载
+- ✅ 文件命名：视频文件名.语言代码.srt
+
+#### 技术实现
+
+##### BilibiliService.get_player_info()
+- 使用WBI签名获取播放器信息
+- 包含字幕列表（支持AI字幕）
+- 完全复刻BiliTools实现
+
+##### DownloadService字幕下载方法
+- `_get_subtitles()`: 获取字幕列表
+- `_convert_to_srt()`: 将B站JSON格式转换为SRT格式
+- `_download_subtitle()`: 下载指定语言字幕
+- 时间格式：00:00:00,000（精确到毫秒）
+- 编码：UTF-8
+
+##### 集成到下载流程
+- 在`_process_completed_download`中自动下载字幕
+- 支持下载所有可用字幕（多语言）
+- 独立的错误处理，失败不影响其他字幕
+
+#### 字幕语言代码
+- `zh-CN`: 简体中文字幕
+- `zh-TW`: 繁体中文字幕
+- `en-US`: 英文字幕
+- `ai-zh`: AI中文字幕
+- `ai-en`: AI英文字幕
+
+#### 下载参数更新
+
+##### 后端API参数
+```python
+class StartDownloadRequest(BaseModel):
+    # ... 现有参数 ...
+    enable_subtitle: Optional[bool] = True
+    enable_danmaku: Optional[bool] = False
+    danmaku_format: Optional[str] = "xml"
+    enable_nfo: Optional[bool] = True
+    enable_cover: Optional[bool] = True
+    enable_avatar: Optional[bool] = True
+    block_pcdn: Optional[bool] = True
+```
+
+##### 前端API参数
+```typescript
+async startDownload(downloadData: {
+  // ... 现有参数 ...
+  enable_subtitle?: boolean;
+  enable_danmaku?: boolean;
+  danmaku_format?: string;
+  enable_nfo?: boolean;
+  enable_cover?: boolean;
+  enable_avatar?: boolean;
+  block_pcdn?: boolean;
+})
+```
+
+#### 文件输出示例
+```
+downloads/视频标题/
+├── 视频标题.mp4
+├── 视频标题.nfo
+├── 视频标题.jpg          # 封面
+├── avatar.jpg             # UP主头像
+├── 视频标题.zh-CN.srt    # 简体中文字幕
+├── 视频标题.ai-zh.srt    # AI中文字幕
+└── 视频标题.en-US.srt    # 英文字幕
+```
+
+#### 修改文件
+- `apps/api/src/services/bilibili.py`: 添加get_player_info方法（+50行）
+- `apps/api/src/services/download_service.py`: 添加字幕下载方法（+150行）
+- `apps/api/src/routers/download.py`: 更新StartDownloadRequest模型（+8行）
+- `apps/api/src/routers/download.py`: 更新start_download接口（+8行）
+- `apps/api/src/routers/download.py`: 更新add_to_download_queue接口（+8行）
+- `apps/web/src/services/api.ts`: 更新startDownload方法（+8行）
+- `apps/web/src/services/api.ts`: 更新addToDownloadQueue方法（+8行）
+
+#### 测试验证
+- ✅ 普通字幕下载成功
+- ✅ AI字幕下载成功
+- ✅ 多语言字幕自动下载
+- ✅ SRT格式转换正确
+- ✅ 时间戳准确（毫秒级）
+- ✅ 文件命名正确
+- ✅ 错误处理完善
+- ✅ 代码语法检查通过
+
+#### 下一步计划
+- 🔄 实现弹幕下载功能
+- 🔄 实现AI摘要下载功能
+- 🔄 支持更多字幕格式（ASS、VTT等）
+- 🔄 用户选择字幕语言
+- 🔄 字幕编辑功能

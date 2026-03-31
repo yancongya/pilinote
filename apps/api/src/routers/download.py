@@ -67,6 +67,14 @@ class StartDownloadRequest(BaseModel):
     sessdata: Optional[str] = None
     audio_bitrate: Optional[int] = 192
     codec: Optional[str] = 'avc'
+    # 字幕和弹幕相关参数
+    enable_subtitle: Optional[bool] = True  # 启用字幕下载
+    enable_danmaku: Optional[bool] = False  # 启用弹幕下载
+    danmaku_format: Optional[str] = "xml"  # 弹幕格式（xml/ass/srt）
+    enable_nfo: Optional[bool] = True  # 启用NFO文件生成
+    enable_cover: Optional[bool] = True  # 启用封面下载
+    enable_avatar: Optional[bool] = True  # 启用UP主头像下载
+    block_pcdn: Optional[bool] = True  # 阻止PCDN
 
 
 class StartDownloadResponse(BaseModel):
@@ -771,18 +779,25 @@ async def start_download(request: StartDownloadRequest, background_tasks: Backgr
             uploader_mid=request.uploader_mid,
             sessdata=request.sessdata,
             audio_bitrate=request.audio_bitrate,
-            codec=request.codec
+            codec=request.codec,
+            enable_subtitle=request.enable_subtitle,
+            enable_danmaku=request.enable_danmaku,
+            danmaku_format=request.danmaku_format,
+            enable_nfo=request.enable_nfo,
+            enable_cover=request.enable_cover,
+            enable_avatar=request.enable_avatar,
+            block_pcdn=request.block_pcdn
         )
-        
+
         # 在后台启动下载任务
         background_tasks.add_task(download_service._process_download, download_id)
-        
+
         return StartDownloadResponse(
             success=True,
             download_id=download_id,
             message="下载任务创建成功"
         )
-        
+
     except Exception as e:
         return StartDownloadResponse(
             success=False,
@@ -794,7 +809,7 @@ async def start_download(request: StartDownloadRequest, background_tasks: Backgr
 async def add_to_download_queue(request: StartDownloadRequest):
     """
     添加到下载队列，不立即开始下载
-    
+
     此接口与POST /start的区别在于：
     - 只创建下载任务，状态为pending
     - 不立即启动下载
@@ -815,15 +830,22 @@ async def add_to_download_queue(request: StartDownloadRequest):
             uploader_mid=request.uploader_mid,
             sessdata=request.sessdata,
             audio_bitrate=request.audio_bitrate,
-            codec=request.codec
+            codec=request.codec,
+            enable_subtitle=request.enable_subtitle,
+            enable_danmaku=request.enable_danmaku,
+            danmaku_format=request.danmaku_format,
+            enable_nfo=request.enable_nfo,
+            enable_cover=request.enable_cover,
+            enable_avatar=request.enable_avatar,
+            block_pcdn=request.block_pcdn
         )
-        
+
         return StartDownloadResponse(
             success=True,
             download_id=download_id,
             message="已添加到下载列表"
         )
-        
+
     except Exception as e:
         return StartDownloadResponse(
             success=False,

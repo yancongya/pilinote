@@ -186,6 +186,16 @@ class ApiService {
     uploader?: string;
     uploader_mid?: number;
     sessdata?: string;
+    audio_bitrate?: number;
+    codec?: string;
+    // 字幕和弹幕相关参数
+    enable_subtitle?: boolean;
+    enable_danmaku?: boolean;
+    danmaku_format?: string;
+    enable_nfo?: boolean;
+    enable_cover?: boolean;
+    enable_avatar?: boolean;
+    block_pcdn?: boolean;
   }): Promise<ApiResponse<any>> {
     return this.request<any>('/api/download/start', {
       method: 'POST',
@@ -237,6 +247,16 @@ class ApiService {
     uploader?: string;
     uploader_mid?: number;
     sessdata?: string;
+    audio_bitrate?: number;
+    codec?: string;
+    // 字幕和弹幕相关参数
+    enable_subtitle?: boolean;
+    enable_danmaku?: boolean;
+    danmaku_format?: string;
+    enable_nfo?: boolean;
+    enable_cover?: boolean;
+    enable_avatar?: boolean;
+    block_pcdn?: boolean;
   }): Promise<ApiResponse<any>> {
     return this.request<any>('/api/download/add', {
       method: 'POST',

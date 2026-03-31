@@ -939,6 +939,81 @@ class BilibiliService:
                 "message": f"获取视频信息失败: {str(e)}"
             }
 
+    async def get_player_info(self, aid: int, cid: int, sessdata: str = "") -> Dict:
+        """获取播放器信息（包含字幕列表）- 使用WBI签名
+
+        Args:
+            aid: 视频AID
+            cid: 视频CID
+            sessdata: SESSDATA（可选）
+
+        Returns:
+            Dict: 播放器信息，包含subtitle字段
+        """
+        # 确保SESSDATA在headers中
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        # 使用B站播放器API（参考BiliTools）
+        url = f"{self.api_base}/x/player/wbi/v2"
+        headers = await self.headers_manager.get_headers()
+
+        try:
+            # 1. 获取nav API数据（用于获取WBI密钥）
+            nav_url = f"{self.api_base}/x/web-interface/nav"
+            nav_response = await self._request("GET", nav_url)
+            nav_data = nav_response.json()
+
+            if nav_data.get("code") != 0:
+                return {
+                    "success": False,
+                    "message": "获取WBI密钥失败",
+                    "code": nav_data.get("code")
+                }
+
+            # 2. 解析WBI密钥
+            from src.utils.wbi_signature import parse_wbi_img, calculate_wbi_sign
+            wbi_img = parse_wbi_img(nav_data)
+
+            # 3. 添加WBI签名
+            params = {
+                "aid": aid,
+                "cid": cid
+            }
+            signed_params = calculate_wbi_sign(params, wbi_img)
+
+            # 4. 使用签名后的参数发送请求
+            from urllib.parse import urlencode
+            signed_url = f"{url}?{urlencode(signed_params)}"
+
+            response = await self._request("GET", signed_url)
+
+            # 尝试解析JSON
+            try:
+                data = response.json()
+            except Exception as json_error:
+                return {
+                    "success": False,
+                    "message": f"解析响应数据失败: {str(json_error)}"
+                }
+
+            if data.get("code") == 0:
+                player_data = data.get("data", {})
+                return {
+                    "success": True,
+                    "data": player_data
+                }
+            return {
+                "success": False,
+                "message": data.get("message", "获取播放器信息失败"),
+                "code": data.get("code")
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"获取播放器信息异常: {str(e)}"
+            }
+
     def close(self):
         """关闭HTTP客户端"""
         self.client.close()

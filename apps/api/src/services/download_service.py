@@ -89,11 +89,18 @@ class DownloadService:
         uploader_mid: Optional[int] = None,
         sessdata: Optional[str] = None,
         audio_bitrate: Optional[int] = 192,
-        codec: Optional[str] = 'avc'
+        codec: Optional[str] = 'avc',
+        enable_subtitle: Optional[bool] = True,
+        enable_danmaku: Optional[bool] = False,
+        danmaku_format: Optional[str] = "xml",
+        enable_nfo: Optional[bool] = True,
+        enable_cover: Optional[bool] = True,
+        enable_avatar: Optional[bool] = True,
+        block_pcdn: Optional[bool] = True
     ) -> str:
         """创建下载任务"""
         download_id = str(uuid.uuid4())
-        
+
         # 创建下载记录（不预先获取大小，在下载时动态获取）
         with SessionLocal() as db:
             download = Download(
@@ -111,12 +118,19 @@ class DownloadService:
                 uploader=uploader,
                 uploader_mid=uploader_mid,
                 sessdata=sessdata,
+                enable_subtitle=int(enable_subtitle) if enable_subtitle is not None else 1,
+                enable_danmaku=int(enable_danmaku) if enable_danmaku is not None else 0,
+                danmaku_format=danmaku_format or "xml",
+                enable_nfo=int(enable_nfo) if enable_nfo is not None else 1,
+                enable_cover=int(enable_cover) if enable_cover is not None else 1,
+                enable_avatar=int(enable_avatar) if enable_avatar is not None else 1,
+                block_pcdn=int(block_pcdn) if block_pcdn is not None else 1,
                 total_bytes=0,  # 初始为0，下载时更新
                 status="pending"
             )
             db.add(download)
             db.commit()
-        
+
         return download_id
     
     def get_download(self, download_id: str) -> Optional[Download]:
@@ -726,7 +740,50 @@ class DownloadService:
                     logger.error(f"Failed to download avatar: {e}")
                     import traceback
                     logger.error(f"Traceback: {traceback.format_exc()}")
-            
+                
+                # 下载字幕（如果启用）- 在数据库事务外执行
+                try:
+                    logger.info(f"=== Checking subtitle download ===")
+                    with SessionLocal() as db:
+                        download = db.query(Download).filter(Download.id == download_id).first()
+                        if download:
+                            logger.info(f"enable_subtitle={download.enable_subtitle}, danmaku_format={download.danmaku_format}")
+                            logger.info(f"video_dir={video_dir}")
+
+                            if download.enable_subtitle:
+                                logger.info(f"Starting subtitle download...")
+
+                                # 获取字幕列表
+                                subtitles = await self._get_subtitles(download)
+                                if subtitles:
+                                    logger.info(f"Found {len(subtitles)} subtitles")
+
+                                    # 下载所有可用字幕
+                                    subtitle_count = 0
+                                    for subtitle in subtitles:
+                                        subtitle_lan = subtitle.get("lan")
+                                        if subtitle_lan:
+                                            logger.info(f"Downloading subtitle: {subtitle_lan}")
+                                            success = await self._download_subtitle(
+                                                download,
+                                                video_dir,
+                                                subtitle_lan
+                                            )
+                                            if success:
+                                                subtitle_count += 1
+                                            else:
+                                                logger.warning(f"Failed to download subtitle: {subtitle_lan}")
+
+                                    logger.info(f"Subtitle download completed: {subtitle_count}/{len(subtitles)}")
+                                else:
+                                    logger.info("No subtitles found for this video")
+                            else:
+                                logger.info(f"Subtitle download disabled: enable_subtitle={download.enable_subtitle}")
+                except Exception as e:
+                    logger.error(f"Failed to download subtitle: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+
             # 根据设置清理临时目录
             if storage_settings and storage_settings.auto_cleanup:
                 await self._cleanup_temp_dir(temp_dir)
@@ -924,6 +981,192 @@ class DownloadService:
             )
             self.update_download_status(download_id, "failed", str(e))
             raise
+
+    async def _get_subtitles(self, download: Download) -> list:
+        """
+        获取字幕列表（参考BiliTools getSubtitle实现）
+
+        Args:
+            download: 下载任务对象
+
+        Returns:
+            list: 字幕列表，每个字幕包含lan（语言代码）和subtitle_url
+        """
+        if not download.aid or not download.cid:
+            logger.warning("No aid or cid found for subtitle download")
+            return []
+
+        try:
+            from src.services.bilibili import BilibiliService
+            bilibili_service = BilibiliService()
+
+            try:
+                logger.info(f"Getting subtitles for aid={download.aid}, cid={download.cid}")
+                # 获取播放器信息（包含字幕列表）
+                player_info = await bilibili_service.get_player_info(
+                    download.aid,
+                    download.cid,
+                    download.sessdata or ""
+                )
+
+                if player_info.get("success"):
+                    player_data = player_info.get("data", {})
+                    subtitles = player_data.get("subtitle", {}).get("subtitles", [])
+                    logger.info(f"Found {len(subtitles)} subtitles")
+                    return subtitles
+                else:
+                    logger.warning(f"Failed to get player info: {player_info.get('message')}")
+                    return []
+            finally:
+                bilibili_service.close()
+        except Exception as e:
+            logger.error(f"Failed to get subtitles: {e}")
+            return []
+
+    def _convert_to_srt(self, subtitle_data: dict) -> str:
+        """
+        将B站字幕JSON格式转换为SRT格式（参考BiliTools实现）
+
+        Args:
+            subtitle_data: B站字幕JSON数据
+
+        Returns:
+            str: SRT格式字幕
+        """
+        def get_time(seconds: float) -> str:
+            """
+            将秒数转换为SRT时间格式
+
+            Args:
+                seconds: 秒数
+
+            Returns:
+                str: SRT时间格式 (00:00:00,000)
+            """
+            from datetime import timedelta
+            # 转换为时间差
+            td = timedelta(seconds=seconds)
+            # 获取总秒数
+            total_seconds = int(td.total_seconds())
+            # 计算时、分、秒、毫秒
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            milliseconds = int((td.total_seconds() - total_seconds) * 1000)
+            # 格式化为SRT时间格式
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+
+        # 获取字幕body
+        body = subtitle_data.get("body", [])
+        if not body:
+            return ""
+
+        # 转换为SRT格式
+        srt_lines = []
+        for index, line in enumerate(body, start=1):
+            start_time = get_time(line.get("from", 0))
+            end_time = get_time(line.get("to", 0))
+            content = line.get("content", "").strip()
+
+            srt_lines.append(f"{index}")
+            srt_lines.append(f"{start_time} --> {end_time}")
+            srt_lines.append(content)
+            srt_lines.append("")  # 空行分隔
+
+        return "\n".join(srt_lines)
+
+    async def _download_subtitle(
+        self,
+        download: Download,
+        output_dir: Path,
+        subtitle_lan: str
+    ) -> bool:
+        """
+        下载指定语言的字幕并转换为SRT格式
+
+        Args:
+            download: 下载任务对象
+            output_dir: 输出目录
+            subtitle_lan: 字幕语言代码（如 'zh-CN', 'en-US', 'ai-zh'）
+
+        Returns:
+            bool: 是否成功
+        """
+        logger.info(f"=== Starting subtitle download ===")
+        logger.info(f"Download ID: {download.id}")
+        logger.info(f"Subtitle language: {subtitle_lan}")
+        logger.info(f"Output dir: {output_dir}")
+
+        try:
+            # 获取字幕列表
+            subtitles = await self._get_subtitles(download)
+            if not subtitles:
+                logger.warning("No subtitles found")
+                return False
+
+            # 查找指定语言的字幕
+            subtitle_info = None
+            for subtitle in subtitles:
+                if subtitle.get("lan") == subtitle_lan:
+                    subtitle_info = subtitle
+                    break
+
+            if not subtitle_info:
+                logger.warning(f"Subtitle with language '{subtitle_lan}' not found")
+                return []
+
+            # 获取字幕URL
+            subtitle_url = subtitle_info.get("subtitle_url", "")
+            if not subtitle_url:
+                logger.warning("No subtitle URL found")
+                return False
+
+            # 将http:替换为https:
+            if subtitle_url.startswith("//"):
+                subtitle_url = "https:" + subtitle_url
+            elif subtitle_url.startswith("http:"):
+                subtitle_url = subtitle_url.replace("http:", "https:")
+
+            logger.info(f"Downloading subtitle from: {subtitle_url}")
+
+            # 下载字幕JSON
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(subtitle_url)
+                response.raise_for_status()
+
+                subtitle_data = response.json()
+
+                # 转换为SRT格式
+                srt_content = self._convert_to_srt(subtitle_data)
+
+                if not srt_content:
+                    logger.warning("Empty subtitle content after conversion")
+                    return False
+
+                # 确定文件名
+                video_files = [f for f in output_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+                if video_files:
+                    video_filename = video_files[0].stem
+                    # 字幕文件名：视频文件名.语言代码.srt
+                    subtitle_filename = f"{video_filename}.{subtitle_lan}.srt"
+                else:
+                    # 如果没有找到视频文件，使用默认文件名
+                    subtitle_filename = f"subtitle.{subtitle_lan}.srt"
+
+                subtitle_path = output_dir / subtitle_filename
+                logger.info(f"Saving subtitle to: {subtitle_path}")
+
+                # 保存SRT文件
+                subtitle_path.write_text(srt_content, encoding='utf-8')
+
+                logger.info(f"Successfully downloaded subtitle: {subtitle_path}")
+                return True
+
+        except Exception as e:
+            logger.error(f"Failed to download subtitle: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
 
 
 # 全局下载服务实例
