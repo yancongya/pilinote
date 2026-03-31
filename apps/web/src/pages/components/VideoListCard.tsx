@@ -179,9 +179,9 @@ export default function VideoListCard({
               </>
             )
           })()}
-          {/* Bilibili风格：单个视频显示时长，系列视频不显示 */}
-          {!isSeries && duration && <div className="video-duration-overlay">{duration}</div>}
-          {/* Bilibili风格：系列视频显示集数 */}
+          {/* Bilibili风格：所有视频都显示时长（右下角） */}
+          {duration && <div className="video-duration-overlay">{duration}</div>}
+          {/* Bilibili风格：系列视频额外显示集数（左下角） */}
           {isSeries && seriesCount && (
             <div className="video-series-count-overlay">
               <Users size={12} />

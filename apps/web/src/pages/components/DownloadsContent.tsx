@@ -423,7 +423,7 @@ export default function DownloadsContent() {
                   bvid={firstTask.bvid || series.seriesId}
                   title={series.seriesName}
                   cover={firstTask.thumbnail_url || ''}
-                  duration={formatDuration(firstTask.duration || 0)}
+                  duration={isSeries ? formatDuration(series.totalDuration) : formatDuration(firstTask.duration || 0)}
                   uploader={firstTask.uploader || ''}
                   views={getStatusText(firstTask.status)}
                   comments={`${formatFileSize(firstTask.downloaded_bytes || 0)} / ${formatFileSize(firstTask.total_bytes || 0)}`}
