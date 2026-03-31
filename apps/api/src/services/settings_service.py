@@ -103,26 +103,33 @@ class SettingsService:
         """Update multiple settings"""
         try:
             for key, value in settings_dict.items():
+                # 初始化str_value和db_key
+                str_value = str(value)
+                db_key = key
+                
                 # 处理嵌套的 sidecar 字段
                 if key == 'sidecar' and isinstance(value, dict):
                     # 将 sidecar 字典转换为 JSON 字符串存储
                     str_value = json.dumps(value)
                     # 使用正确的键名 storage.sidecar
                     db_key = 'storage.sidecar'
+                # 为storage字段添加前缀
+                elif key in ['download_path', 'temp_path', 'auto_cleanup', 'keep_failed']:
+                    db_key = f'storage.{key}'
+                # 为download字段添加前缀
+                elif key in ['default_quality', 'max_concurrent', 'speed_limit', 'output_format']:
+                    db_key = f'download.{key}'
+                # 处理布尔值
+                elif isinstance(value, bool):
+                    str_value = str(value).lower()
+                # 处理嵌套字典
+                elif isinstance(value, dict):
+                    str_value = json.dumps(value)
+                    db_key = key
+                # 其他类型保持原样
                 else:
-                    # 为storage字段添加前缀
-                    if key in ['download_path', 'temp_path', 'auto_cleanup', 'keep_failed']:
-                        db_key = f'storage.{key}'
-                    elif isinstance(value, bool):
-                        str_value = str(value).lower()
-                        db_key = key
-                    elif isinstance(value, dict):
-                        # 处理其他嵌套字典
-                        str_value = json.dumps(value)
-                        db_key = key
-                    else:
-                        str_value = str(value)
-                        db_key = key
+                    str_value = str(value)
+                    db_key = key
 
                 setting = self.get_setting(db_key)
                 if setting:

@@ -1,12 +1,39 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { Download, HardDrive, Gauge, Monitor, Music, RotateCcw } from 'lucide-react'
+import { Download, HardDrive, Gauge, Monitor, Music, RotateCcw, Check } from 'lucide-react'
+
+// 防抖函数
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      timeout = null
+      func(...args)
+    }
+    if (timeout) clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
 
 export default function DownloadSettings() {
   const { settings, loading, error, updateSettings, resetSettings } = useSettingsStore()
+  const [saveMessage, setSaveMessage] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
+    show: false,
+    message: '',
+    type: 'success'
+  })
+  const [savingFields, setSavingFields] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
+  }, [])
+
+  // 显示保存消息
+  const showSaveMessage = useCallback((message: string, type: 'success' | 'error') => {
+    setSaveMessage({ show: true, message, type })
+    setTimeout(() => {
+      setSaveMessage({ show: false, message: '', type: 'success' })
+    }, 2000)
   }, [])
 
   if (!settings) {
@@ -21,14 +48,28 @@ export default function DownloadSettings() {
     )
   }
 
-  const handleUpdate = async (field: string, value: any) => {
-    await updateSettings({
-      download: {
-        ...settings.download,
-        [field]: value,
-      },
-    })
-  }
+  // 处理设置更新（带debounce）
+  const handleUpdate = useCallback(debounce(async (field: string, value: any) => {
+    setSavingFields(prev => new Set(prev).add(field))
+    try {
+      await updateSettings({
+        download: {
+          ...settings.download,
+          [field]: value,
+        },
+      })
+      showSaveMessage('设置已保存', 'success')
+    } catch (error) {
+      showSaveMessage('保存失败', 'error')
+      console.error('更新设置失败:', error)
+    } finally {
+      setSavingFields(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(field)
+        return newSet
+      })
+    }
+  }, 1000), [settings, updateSettings, showSaveMessage])
 
   const handleReset = async () => {
     if (confirm('确定要重置下载设置吗？')) {
@@ -38,6 +79,14 @@ export default function DownloadSettings() {
 
   return (
     <div className="download-settings-new">
+      {/* 保存提示消息 */}
+      {saveMessage.show && (
+        <div className={`save-message ${saveMessage.type === 'success' ? 'save-message-success' : 'save-message-error'}`}>
+          <Check className="save-message-icon" />
+          <span className="save-message-text">{saveMessage.message}</span>
+        </div>
+      )}
+
       {/* 页面标题 */}
       <div className="download-header">
         <Download className="download-header-icon" />
