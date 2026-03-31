@@ -40,16 +40,40 @@ class SettingsService:
             default_quality=int(all_settings.get('download.default_quality', Setting()).value),
             max_concurrent=int(all_settings.get('download.max_concurrent', Setting()).value),
             speed_limit=int(all_settings.get('download.speed_limit', Setting()).value),
-            output_format=all_settings.get('download.output_format', Setting()).value,
-            download_path=all_settings.get('download.download_path', Setting()).value
+            output_format=all_settings.get('download.output_format', Setting()).value
         )
         
-        # Extract storage settings
-        storage_settings = StorageSettings(
-            temp_path=all_settings.get('storage.temp_path', Setting()).value,
-            auto_cleanup=all_settings.get('storage.auto_cleanup', Setting()).value.lower() in ('true', '1', 'yes'),
-            keep_failed=all_settings.get('storage.keep_failed', Setting()).value.lower() in ('true', '1', 'yes')
-        )
+        # Extract storage settings - 修复 download_path 和 sidecar
+        storage_settings_dict = {
+            'download_path': all_settings.get('storage.download_path', Setting()).value if all_settings.get('storage.download_path') else './downloads',
+            'temp_path': all_settings.get('storage.temp_path', Setting()).value if all_settings.get('storage.temp_path') else './temp',
+            'auto_cleanup': all_settings.get('storage.auto_cleanup', Setting()).value.lower() in ('true', '1', 'yes'),
+            'keep_failed': all_settings.get('storage.keep_failed', Setting()).value.lower() in ('true', '1', 'yes')
+        }
+        
+        # 读取 sidecar 设置
+        sidecar_setting = all_settings.get('storage.sidecar')
+        if sidecar_setting:
+            try:
+                # 尝试解析 JSON
+                sidecar_dict = json.loads(sidecar_setting.value)
+                storage_settings_dict['sidecar'] = sidecar_dict
+            except json.JSONDecodeError:
+                # 如果解析失败，使用默认值
+                storage_settings_dict['sidecar'] = {
+                    'ffmpeg': 'ffmpeg',
+                    'aria2c': 'aria2c',
+                    'danmakufactory': 'danmakufactory'
+                }
+        else:
+            # 如果没有 sidecar 设置，使用默认值
+            storage_settings_dict['sidecar'] = {
+                'ffmpeg': 'ffmpeg',
+                'aria2c': 'aria2c',
+                'danmakufactory': 'danmakufactory'
+            }
+        
+        storage_settings = StorageSettings(**storage_settings_dict)
         
         # Extract general settings
         general_settings = GeneralSettings(
@@ -79,9 +103,15 @@ class SettingsService:
         """Update multiple settings"""
         try:
             for key, value in settings_dict.items():
-                # Convert value to string for storage
-                if isinstance(value, bool):
+                # 处理嵌套的 sidecar 字段
+                if key == 'sidecar' and isinstance(value, dict):
+                    # 将 sidecar 字典转换为 JSON 字符串存储
+                    str_value = json.dumps(value)
+                elif isinstance(value, bool):
                     str_value = str(value).lower()
+                elif isinstance(value, dict):
+                    # 处理其他嵌套字典
+                    str_value = json.dumps(value)
                 else:
                     str_value = str(value)
                 
@@ -144,6 +174,61 @@ class SettingsService:
                 if setting:
                     setting.value = str(value)
                     setting.updated_at = datetime.utcnow()
+            
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            raise e
+    
+    def init_default_settings(self) -> bool:
+        """初始化默认设置"""
+        try:
+            # 下载设置默认值
+            download_defaults = {
+                'download.default_quality': '80',
+                'download.max_concurrent': '3',
+                'download.speed_limit': '0',
+                'download.output_format': 'mp4',
+            }
+            
+            # 存储设置默认值
+            storage_defaults = {
+                'storage.download_path': './downloads',
+                'storage.temp_path': './temp',
+                'storage.auto_cleanup': 'true',
+                'storage.keep_failed': 'false',
+                'storage.sidecar': json.dumps({
+                    'ffmpeg': 'ffmpeg',
+                    'aria2c': 'aria2c',
+                    'danmakufactory': 'danmakufactory'
+                })
+            }
+            
+            # 通用设置默认值
+            general_defaults = {
+                'general.theme': 'auto',
+                'general.language': 'zh-CN',
+                'general.auto_download': 'false',
+                'general.clipboard_monitor': 'false',
+            }
+            
+            # 合并所有默认设置
+            all_defaults = {**download_defaults, **storage_defaults, **general_defaults}
+            
+            # 只创建不存在的设置
+            for key, value in all_defaults.items():
+                setting = self.get_setting(key)
+                if not setting:
+                    new_setting = Setting(
+                        key=key,
+                        value=value,
+                        type='string',
+                        category=key.split('.')[0],
+                        description=f"Default setting for {key}",
+                        default_value=value
+                    )
+                    self.db.add(new_setting)
             
             self.db.commit()
             return True

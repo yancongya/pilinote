@@ -36,7 +36,14 @@ class StorageSettings(BaseModel):
     temp_path: str = Field(default="./temp", description="Temporary file path")
     auto_cleanup: bool = Field(default=True, description="Auto cleanup temp files")
     keep_failed: bool = Field(default=False, description="Keep failed tasks")
-    sidecar: Optional[Dict[str, str]] = Field(default=None, description="Sidecar tool paths (ffmpeg, aria2c, danmakufactory)")
+    sidecar: Dict[str, str] = Field(
+        default={
+            "ffmpeg": "ffmpeg",
+            "aria2c": "aria2c",
+            "danmakufactory": "danmakufactory"
+        },
+        description="Sidecar tool paths (ffmpeg, aria2c, danmakufactory)"
+    )
 
 
 class GeneralSettings(BaseModel):

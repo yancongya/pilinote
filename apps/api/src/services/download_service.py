@@ -1,6 +1,7 @@
 import os
 import uuid
 import asyncio
+import logging
 from datetime import datetime
 from typing import Dict, Optional, Callable
 from pathlib import Path
@@ -9,6 +10,8 @@ import yt_dlp
 from src.database import SessionLocal
 from src.models.download import Download
 from src.services.download_engine import DownloadEngine
+
+logger = logging.getLogger(__name__)
 
 
 class DownloadService:
@@ -24,8 +27,27 @@ class DownloadService:
         self.max_concurrent = 3
         # 下载队列
         self.download_queue = []
-        # 下载引擎实例
-        self.download_engine = DownloadEngine()
+        # 下载引擎实例（从设置中初始化）
+        self.download_engine = self._create_download_engine()
+    
+    def _create_download_engine(self):
+        """创建下载引擎实例，从设置中读取工具路径"""
+        try:
+            from src.services.settings_service import SettingsService
+            from src.database import SessionLocal
+            
+            with SessionLocal() as db:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                return DownloadEngine(settings)
+        except Exception as e:
+            logger.warning(f"Failed to load settings, using default tool paths: {e}")
+            return DownloadEngine()
+    
+    def update_engine_settings(self):
+        """更新下载引擎的设置（当设置改变时调用）"""
+        self.download_engine = self._create_download_engine()
+        logger.info("Download engine settings updated")
     
     def create_download_task(
         self,

@@ -90,15 +90,20 @@ async def update_settings(settings_update: SettingsUpdate, db: Session = Depends
     try:
         service = SettingsService(db)
         
-        # Update download settings
+        # 更新下载设置
         if settings_update.download:
             service.update_settings(settings_update.download)
         
-        # Update storage settings
+        # 更新存储设置（包含sidecar）
         if settings_update.storage:
             service.update_settings(settings_update.storage)
+            
+            # 如果更新了sidecar，刷新下载引擎
+            if 'sidecar' in settings_update.storage:
+                from src.services.download_service import download_service
+                download_service.update_engine_settings()
         
-        # Update general settings
+        # 更新通用设置
         if settings_update.general:
             service.update_settings(settings_update.general)
         

@@ -23,9 +23,29 @@ class DownloadEngine:
     - 暂停支持
     """
     
-    def __init__(self):
+    def __init__(self, settings=None):
+        """
+        初始化下载引擎
+        
+        Args:
+            settings: Settings对象，包含自定义工具路径
+        """
+        # 默认路径
         self.yt_dlp_path = "yt-dlp"
         self.ffmpeg_path = "ffmpeg"
+        self.aria2c_path = "aria2c"
+        self.danmakufactory_path = "danmakufactory"
+        
+        # 从设置中读取自定义路径
+        if settings and hasattr(settings, 'storage') and settings.storage.sidecar:
+            sidecar = settings.storage.sidecar
+            if sidecar:
+                self.yt_dlp_path = sidecar.get('yt_dlp', self.yt_dlp_path)
+                self.ffmpeg_path = sidecar.get('ffmpeg', self.ffmpeg_path)
+                self.aria2c_path = sidecar.get('aria2c', self.aria2c_path)
+                self.danmakufactory_path = sidecar.get('danmakufactory', self.danmakufactory_path)
+                
+                logger.info(f"Using custom tool paths: yt-dlp={self.yt_dlp_path}, ffmpeg={self.ffmpeg_path}")
     
     async def download_video(
         self,
@@ -81,6 +101,13 @@ class DownloadEngine:
             'postprocessors': postprocessors,
             'progress_hooks': [],
         }
+        
+        # 使用自定义的ffmpeg路径
+        if self.ffmpeg_path != 'ffmpeg':
+            ydl_opts['ffmpeg_location'] = self.ffmpeg_path
+            logger.info(f"Using custom FFmpeg path: {self.ffmpeg_path}")
+        
+        logger.info(f"Download parameters: quality={quality}, codec={codec}, audio_bitrate={audio_bitrate}, format={output_format}")
         
         # 如果指定了cid，只下载特定的分P
         if cid:

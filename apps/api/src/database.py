@@ -83,6 +83,7 @@ def create_missing_tables():
 
 def init_default_settings():
     """初始化默认设置"""
+    import json
     from src.models.setting import Setting
     from datetime import datetime
     
@@ -122,15 +123,15 @@ def init_default_settings():
                 'description': '输出格式',
                 'default_value': 'mp4'
             },
+            # 存储设置
             {
-                'key': 'download.download_path',
+                'key': 'storage.download_path',
                 'value': './downloads',
                 'type': 'string',
-                'category': 'download',
+                'category': 'storage',
                 'description': '下载路径',
                 'default_value': './downloads'
             },
-            # 存储设置
             {
                 'key': 'storage.temp_path',
                 'value': './temp',
@@ -154,6 +155,22 @@ def init_default_settings():
                 'category': 'storage',
                 'description': '保留失败的任务',
                 'default_value': 'false'
+            },
+            {
+                'key': 'storage.sidecar',
+                'value': json.dumps({
+                    'ffmpeg': 'ffmpeg',
+                    'aria2c': 'aria2c',
+                    'danmakufactory': 'danmakufactory'
+                }),
+                'type': 'object',
+                'category': 'storage',
+                'description': 'Sidecar工具路径',
+                'default_value': json.dumps({
+                    'ffmpeg': 'ffmpeg',
+                    'aria2c': 'aria2c',
+                    'danmakufactory': 'danmakufactory'
+                })
             },
             # 通用设置
             {
