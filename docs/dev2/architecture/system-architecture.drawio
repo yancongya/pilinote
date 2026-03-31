@@ -1,0 +1,552 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
+  <diagram name="PiliNote 架构设计 (优化版)" id="pilinote-architecture-optimized">
+    <mxGraphModel dx="4113" dy="1925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#000000;" value="PiliNote - B站视频下载管理系统架构图 (基于PiliPala优化)" vertex="1">
+          <mxGeometry height="40" width="1200" x="300" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="reference-note" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=10;fontStyle=2;fontColor=#000000;" value="参考项目: PiliPala (Flutter B站第三方客户端) - bilibili-API-collect" vertex="1">
+          <mxGeometry height="25" width="600" x="600" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="phase1-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="450" width="550" x="50" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="phase1-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 1: 用户认证 (基于PiliPala)" vertex="1">
+          <mxGeometry height="30" width="300" x="70" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="开始认证" vertex="1">
+          <mxGeometry height="40" width="100" x="270" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-method-select" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="选择认证方式" vertex="1">
+          <mxGeometry height="40" width="160" x="240" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-qrcode" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="方式1: 扫码登录" vertex="1">
+          <mxGeometry height="40" width="150" x="80" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-sessdata" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="方式2: SESSDATA" vertex="1">
+          <mxGeometry height="40" width="150" x="250" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-pwd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="方式3: 密码登录" vertex="1">
+          <mxGeometry height="40" width="150" x="420" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-qrcode-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="1. 获取二维码: /x/passport-login/web/qrcode/generate&#xa;2. 轮询状态: /x/passport-login/web/qrcode/poll&#xa;3. 180s有效期" vertex="1">
+          <mxGeometry height="70" width="210" x="50" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-sessdata-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="1. 手动输入SESSDATA cookie&#xa;2. 获取bili_jct (CSRF Token)&#xa;3. 获取buvid3 (设备标识)" vertex="1">
+          <mxGeometry height="70" width="210" x="270" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-pwd-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="1. 获取加密key: /x/passport-login/web/key&#xa;2. RSA加密密码&#xa;3. 提交登录: /x/passport-login/web/login&#xa;4. 极验验证码(可选)" vertex="1">
+          <mxGeometry height="70" width="210" x="490" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-cookie-save" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="保存Cookie到数据库&#xa;(支持多账号管理)" vertex="1">
+          <mxGeometry height="50" width="250" x="180" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="auth-extract" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontColor=#000000;" value="提取关键信息:" vertex="1">
+          <mxGeometry height="40" width="290" x="160" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="450" width="650" x="630" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="phase2-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 2: 视频源获取 (基于PiliPala API)" vertex="1">
+          <mxGeometry height="30" width="350" x="650" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="source-select" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="选择视频源" vertex="1">
+          <mxGeometry height="40" width="130" x="890" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="source-fav" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="收藏夹" vertex="1">
+          <mxGeometry height="40" width="150" x="670" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="source-watch" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="稍后再看" vertex="1">
+          <mxGeometry height="40" width="150" x="850" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="source-url" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="输入链接/BVID" vertex="1">
+          <mxGeometry height="40" width="150" x="1030" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="source-homepage-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=2;fontColor=#000000;" value="首页UI实现:&#xa;- 首页tab (默认tab)&#xa;- URL输入框 (居中显示)&#xa;- 添加/删除URL功能&#xa;- 待处理视频列表" vertex="1">
+          <mxGeometry height="60" width="210" x="1100" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="source-fav-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v3/fav/folder/created/list&#xa;参数: pn, ps, up_mid&#xa;获取: 收藏夹列表" vertex="1">
+          <mxGeometry height="60" width="210" x="640" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="source-watch-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v2/history/toview&#xa;参数: 无需参数&#xa;获取: 稍后再看列表" vertex="1">
+          <mxGeometry height="60" width="210" x="870" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="source-url-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="支持格式:&#xa;- https://www.bilibili.com/video/BVxxx&#xa;- BV号&#xa;- 分P视频链接" vertex="1">
+          <mxGeometry height="60" width="210" x="1100" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="source-fav-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v3/fav/resource/list&#xa;参数: media_id, pn, ps, keyword, order, type&#xa;获取: 收藏夹内视频列表" vertex="1">
+          <mxGeometry height="60" width="210" x="640" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="source-parse" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="智能识别类型" vertex="1">
+          <mxGeometry height="60" width="130" x="880" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="source-type-check" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=2;fontColor=#000000;" value="类型检测:&#xa;- 单个视频&#xa;- 合集/分P&#xa;- 番剧/影视" vertex="1">
+          <mxGeometry height="60" width="210" x="1030" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="source-list" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="生成视频源列表" vertex="1">
+          <mxGeometry height="40" width="160" x="870" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="source-video-info" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="视频信息包含:&#xa;- bvid, aid&#xa;- title, pic (封面)&#xa;- owner (UP主信息)&#xa;- stat (播放/点赞/收藏)&#xa;- pages (分P信息)" vertex="1">
+          <mxGeometry height="40" width="380" x="760" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="380" width="550" x="50" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="phase3-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 3: 下载管理 (已实现 70% - asyncio版本)" vertex="1">
+          <mxGeometry height="30" width="400" x="70" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-add" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="添加到下载队列" vertex="1">
+          <mxGeometry height="40" width="130" x="260" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-ytdlp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="yt-dlp 核心引擎" vertex="1">
+          <mxGeometry height="40" width="270" x="190" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-check" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="检查是否已下载" vertex="1">
+          <mxGeometry height="35" width="140" x="90" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-skip" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#000000;" value="跳过" vertex="1">
+          <mxGeometry height="30" width="80" x="40" y="820" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-download" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="后台下载" vertex="1">
+          <mxGeometry height="30" width="100" x="150" y="820" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-progress" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="Celery + Redis&#xa;异步任务队列" vertex="1">
+          <mxGeometry height="35" width="160" x="290" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-ws" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="WebSocket/SSE&#xa;实时进度推送" vertex="1">
+          <mxGeometry height="30" width="130" x="380" y="820" as="geometry" />
+        </mxCell>
+        <mxCell id="queue-quality" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;fontStyle=2;fontColor=#000000;" value="画质选择:&#xa;- 1080P+ (需要登录)&#xa;- 1080P&#xa;- 720P&#xa;- 480P" vertex="1">
+          <mxGeometry height="50" width="180" x="160" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="current-impl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontColor=#000000;" value="当前实现 (asyncio版本)" vertex="1">
+          <mxGeometry height="30" width="250" x="260" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="impl-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="Download模型&#xa;(SQLite数据库)" vertex="1">
+          <mxGeometry height="40" width="140" x="100" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="impl-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="DownloadService&#xa;(异步下载服务)" vertex="1">
+          <mxGeometry height="40" width="140" x="260" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="impl-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="App风格UI&#xa;(React + Material)" vertex="1">
+          <mxGeometry height="40" width="140" x="420" y="980" as="geometry" />
+        </mxCell>
+        <mxCell id="phase4-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="350" width="650" x="630" y="1020" as="geometry" />
+        </mxCell>
+        <mxCell id="phase4-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 4: 文件组织 (自动处理)" vertex="1">
+          <mxGeometry height="30" width="350" x="650" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="file-start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="下载完成" vertex="1">
+          <mxGeometry height="40" width="130" x="880" y="1070" as="geometry" />
+        </mxCell>
+        <mxCell id="file-parallel" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="并行处理" vertex="1">
+          <mxGeometry height="30" width="190" x="850" y="1130" as="geometry" />
+        </mxCell>
+        <mxCell id="file-subtitle" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="字幕下载" vertex="1">
+          <mxGeometry height="35" width="130" x="660" y="1180" as="geometry" />
+        </mxCell>
+        <mxCell id="file-danmu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="弹幕下载" vertex="1">
+          <mxGeometry height="35" width="130" x="810" y="1180" as="geometry" />
+        </mxCell>
+        <mxCell id="file-audio" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="音轨提取" vertex="1">
+          <mxGeometry height="35" width="130" x="960" y="1180" as="geometry" />
+        </mxCell>
+        <mxCell id="file-metadata" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="元数据保存 (JSON)" vertex="1">
+          <mxGeometry height="35" width="160" x="1110" y="1180" as="geometry" />
+        </mxCell>
+        <mxCell id="file-structure" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="文件夹结构" vertex="1">
+          <mxGeometry height="30" width="160" x="740" y="1240" as="geometry" />
+        </mxCell>
+        <mxCell id="file-example-single" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=8;fontFamily=Courier New;fontColor=#000000;" value="单个: BV号_标题/&#xa;  ├─ video.mp4&#xa;  ├─ subtitle.srt&#xa;  ├─ danmu.xml&#xa;  └─ metadata.json" vertex="1">
+          <mxGeometry height="60" width="240" x="650" y="1290" as="geometry" />
+        </mxCell>
+        <mxCell id="file-example-collection" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=8;fontFamily=Courier New;fontColor=#000000;" value="合集: BV号_合集名/&#xa;  ├─ P01_视频1/&#xa;  ├─ P02_视频2/&#xa;  └─ P03_视频3/" vertex="1">
+          <mxGeometry height="60" width="240" x="920" y="1290" as="geometry" />
+        </mxCell>
+        <mxCell id="phase5-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="380" width="1700" x="50" y="1400" as="geometry" />
+        </mxCell>
+        <mxCell id="phase5-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 5: 部署方案" vertex="1">
+          <mxGeometry height="30" width="200" x="70" y="1410" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy-web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="Web部署" vertex="1">
+          <mxGeometry height="90" width="250" x="80" y="1460" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy-docker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="Docker部署" vertex="1">
+          <mxGeometry height="90" width="250" x="360" y="1460" as="geometry" />
+        </mxCell>
+        <mxCell id="deploy-desktop" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="桌面端部署" vertex="1">
+          <mxGeometry height="90" width="250" x="640" y="1460" as="geometry" />
+        </mxCell>
+        <mxCell id="tech-stack" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="完整技术栈" vertex="1">
+          <mxGeometry height="290" width="780" x="920" y="1460" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="后端:" vertex="1">
+          <mxGeometry height="20" width="740" x="940" y="1490" as="geometry" />
+        </mxCell>
+        <mxCell id="backend-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Python 3.11+ / FastAPI 0.104+ (异步Web框架)&#xa;• yt-dlp (核心下载引擎，支持B站1000+站点)&#xa;• SQLAlchemy 2.0+ / SQLite或PostgreSQL (ORM + 数据库)&#xa;• Celery 5.3+ / Redis 7.0+ (异步任务队列)&#xa;• Pydantic v2 (数据验证)&#xa;• httpx / aiohttp (异步HTTP客户端)" vertex="1">
+          <mxGeometry height="70" width="720" x="960" y="1510" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="前端:" vertex="1">
+          <mxGeometry height="20" width="740" x="940" y="1590" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• React 18+ / Vite 5.0+ / TypeScript 5.0+&#xa;• Tailwind CSS 3.4+ / shadcn/ui (样式框架)&#xa;• TanStack Query / Zustand (状态管理)&#xa;• React Router v6 (路由)&#xa;• Socket.io-client / EventSource (实时通信)" vertex="1">
+          <mxGeometry height="60" width="720" x="960" y="1610" as="geometry" />
+        </mxCell>
+        <mxCell id="desktop-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="桌面端:" vertex="1">
+          <mxGeometry height="20" width="740" x="940" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="desktop-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Electron 28+ (打包React应用为跨平台桌面应用)&#xa;• electron-builder (构建工具)&#xa;• 支持Windows、macOS、Linux" vertex="1">
+          <mxGeometry height="50" width="720" x="960" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="edge1" edge="1" parent="1" source="auth-start" style="fontColor=#000000;" target="auth-method-select">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge2" edge="1" parent="1" source="auth-method-select" style="fontColor=#000000;" target="auth-qrcode">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge3" edge="1" parent="1" source="auth-method-select" style="fontColor=#000000;" target="auth-sessdata">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge4" edge="1" parent="1" source="auth-method-select" style="fontColor=#000000;" target="auth-pwd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge5" edge="1" parent="1" source="auth-qrcode" style="fontColor=#000000;" target="auth-qrcode-detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge6" edge="1" parent="1" source="auth-sessdata" style="fontColor=#000000;" target="auth-sessdata-detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge7" edge="1" parent="1" source="auth-pwd" style="fontColor=#000000;" target="auth-pwd-detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge8" edge="1" parent="1" source="auth-qrcode-detail" style="fontColor=#000000;" target="auth-cookie-save">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="155" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge9" edge="1" parent="1" source="auth-sessdata-detail" style="fontColor=#000000;" target="auth-cookie-save">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge10" edge="1" parent="1" source="auth-pwd-detail" style="fontColor=#000000;" target="auth-cookie-save">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="595" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge11" edge="1" parent="1" source="auth-cookie-save" style="fontColor=#000000;" target="auth-extract">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge12" edge="1" parent="1" source="source-select" style="fontColor=#000000;" target="source-fav">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge13" edge="1" parent="1" source="source-select" style="fontColor=#000000;" target="source-watch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge14" edge="1" parent="1" source="source-select" style="fontColor=#000000;" target="source-url">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge15" edge="1" parent="1" source="source-fav" style="fontColor=#000000;" target="source-fav-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge16" edge="1" parent="1" source="source-watch" style="fontColor=#000000;" target="source-watch-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge17" edge="1" parent="1" source="source-url" style="fontColor=#000000;" target="source-url-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge18" edge="1" parent="1" source="source-fav-api" style="fontColor=#000000;" target="source-fav-detail">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge19" edge="1" parent="1" source="source-url-api" style="fontColor=#000000;" target="source-parse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1205" y="435" />
+              <mxPoint x="1205" y="465" />
+              <mxPoint x="945" y="465" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge20" edge="1" parent="1" source="source-parse" style="fontColor=#000000;" target="source-type-check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge21" edge="1" parent="1" source="source-fav-detail" style="fontColor=#000000;" target="source-list">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="745" y="470" />
+              <mxPoint x="745" y="500" />
+              <mxPoint x="950" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge22" edge="1" parent="1" source="source-watch-api" style="fontColor=#000000;" target="source-list">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="975" y="355" />
+              <mxPoint x="975" y="510" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge23" edge="1" parent="1" source="source-type-check" style="fontColor=#000000;" target="source-list">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge24" edge="1" parent="1" source="source-list" style="fontColor=#000000;" target="source-video-info">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge25" edge="1" parent="1" source="queue-add" style="fontColor=#000000;" target="queue-ytdlp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge26" edge="1" parent="1" source="queue-ytdlp" style="fontColor=#000000;" target="queue-check">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge27" edge="1" parent="1" source="queue-ytdlp" style="fontColor=#000000;" target="queue-progress">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge28" edge="1" parent="1" source="queue-check" style="fontColor=#000000;" target="queue-skip">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge29" edge="1" parent="1" source="queue-check" style="fontColor=#000000;" target="queue-download">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge30" edge="1" parent="1" source="queue-download" style="fontColor=#000000;" target="queue-ws">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge31" edge="1" parent="1" source="queue-download" style="fontColor=#000000;" target="queue-quality">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge32" edge="1" parent="1" source="file-start" style="fontColor=#000000;" target="file-parallel">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge33" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-subtitle">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge34" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-danmu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge35" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-audio">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge36" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-metadata">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge37" edge="1" parent="1" source="file-subtitle" style="fontColor=#000000;" target="file-structure">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="725" y="800" />
+              <mxPoint x="725" y="835" />
+              <mxPoint x="820" y="835" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge38" edge="1" parent="1" source="file-danmu" style="fontColor=#000000;" target="file-structure">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge39" edge="1" parent="1" source="file-audio" style="fontColor=#000000;" target="file-structure">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge40" edge="1" parent="1" source="file-metadata" style="fontColor=#000000;" target="file-structure">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1190" y="800" />
+              <mxPoint x="1190" y="835" />
+              <mxPoint x="820" y="835" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge41" edge="1" parent="1" source="file-structure" style="fontColor=#000000;" target="file-example-single">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge42" edge="1" parent="1" source="file-structure" style="fontColor=#000000;" target="file-example-collection">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge43" edge="1" parent="1" source="auth-extract" style="dashed=1;strokeWidth=2;strokeColor=#666666;fontColor=#000000;" target="source-select">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="625" y="565" />
+              <mxPoint x="625" y="595" />
+              <mxPoint x="955" y="595" />
+              <mxPoint x="955" y="180" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge44" edge="1" parent="1" source="source-video-info" style="dashed=1;strokeWidth=2;strokeColor=#666666;fontColor=#000000;" target="queue-add">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="565" />
+              <mxPoint x="950" y="595" />
+              <mxPoint x="325" y="595" />
+              <mxPoint x="325" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge45" edge="1" parent="1" source="queue-quality" style="dashed=1;strokeWidth=2;strokeColor=#666666;fontColor=#000000;" target="file-start">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="250" y="940" />
+              <mxPoint x="250" y="975" />
+              <mxPoint x="945" y="975" />
+              <mxPoint x="945" y="670" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="实现状态 - 2026-03-27" id="implementation-status">
+    <mxGraphModel dx="2113" dy="925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#000000;" value="PiliNote 实现状态 (2026-03-27)" vertex="1">
+          <mxGeometry height="40" width="1200" x="200" y="20" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 1: 核心功能 -->
+        <mxCell id="phase1-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 1: 核心功能&#xa;(部分完成 60%)" vertex="1">
+          <mxGeometry height="300" width="350" x="50" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase1-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ FastAPI后端框架&#xa;✅ React前端框架&#xa;✅ 用户认证功能&#xa;⏳ yt-dlp集成&#xa;⏳ SQLite数据库" vertex="1">
+          <mxGeometry height="150" width="300" x="75" y="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 2: 视频源管理 -->
+        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 2: 视频源管理&#xa;(基本完成 90%)" vertex="1">
+          <mxGeometry height="300" width="350" x="430" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase2-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ 收藏夹API&#xa;✅ 收藏夹前端页面&#xa;✅ 视频详情页面&#xa;✅ 图片防盗链处理&#xa;✅ 稍后再看API&#xa;⏳ 链接智能识别" vertex="1">
+          <mxGeometry height="150" width="300" x="455" y="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Phase 3: 下载管理 -->
+        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="Phase 3: 下载管理&#xa;(已实现 70%)" vertex="1">
+          <mxGeometry height="300" width="350" x="810" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="phase3-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ Download模型&#xa;✅ DownloadService&#xa;✅ yt-dlp集成&#xa;✅ 下载API接口&#xa;✅ App风格UI界面&#xa;✅ 系列视频分组&#xa;✅ 实时进度更新&#xa;⏳ Celery+Redis队列&#xa;⏳ WebSocket实时推送" vertex="1">
+          <mxGeometry height="200" width="300" x="835" y="120" as="geometry" />
+        </mxCell>
+        
+        <!-- 当前功能详情 -->
+        <mxCell id="features-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#000000;" value="已实现功能详情" vertex="1">
+          <mxGeometry height="400" width="1100" x="50" y="420" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-auth" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="用户认证:" vertex="1">
+          <mxGeometry height="20" width="200" x="75" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="features-auth-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 扫码登录 (二维码生成 + 状态轮询)&#xa;• SESSDATA登录 (Cookie输入 + 验证)&#xa;• 密码登录 (需验证码，已实现后端API)&#xa;• 手机验证码登录 (需CAPTCHA，已实现后端API)&#xa;• 用户信息获取和显示&#xa;• 头像代理 (解决403防盗链)" vertex="1">
+          <mxGeometry height="80" width="320" x="75" y="465" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-favorites" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="收藏夹功能:" vertex="1">
+          <mxGeometry height="20" width="200" x="425" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="features-favorites-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 收藏夹列表展示&#xa;• 收藏夹详情 (视频列表)&#xa;• 智能分页 (移动端5条，桌面端10条)&#xa;• 无限滚动加载&#xa;• 视频卡片 (封面、标题、UP主、统计数据)&#xa;• 图片防盗链处理&#xa;• 加载更多按钮" vertex="1">
+          <mxGeometry height="80" width="320" x="425" y="465" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-video" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="视频详情:" vertex="1">
+          <mxGeometry height="20" width="200" x="775" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="features-video-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 视频基本信息 (标题、封面、UP主)&#xa;• 统计信息 (播放量、弹幕数、发布时间)&#xa;• 分P信息展示&#xa;• 视频简介 (支持链接点击)&#xa;• 下载功能 (模拟模式)&#xa;• 多P选择下载&#xa;• 具体时间显示 (不使用相对时间)" vertex="1">
+          <mxGeometry height="80" width="320" x="775" y="465" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-ui" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="UI/UX特性:" vertex="1">
+          <mxGeometry height="20" width="200" x="75" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="features-ui-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 移动端优先设计&#xa;• 响应式布局 (手机/平板/桌面)&#xa;• App风格导航栏&#xa;• 绿色主题色 (#5CB67B)&#xa;• 固定亮色模式&#xa;• 平滑动画过渡&#xa;• iOS安全区域适配" vertex="1">
+          <mxGeometry height="70" width="320" x="75" y="590" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-tech" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="技术栈:" vertex="1">
+          <mxGeometry height="20" width="200" x="425" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="features-tech-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 后端: FastAPI + Python 3.11+ + SQLAlchemy&#xa;• 前端: React 19 + TypeScript + Vite + Tailwind CSS&#xa;• 状态管理: Zustand&#xa;• 路由: React Router v6&#xa;• 认证: B站扫码登录 + SESSDATA&#xa;• HTTP客户端: httpx (Python) + fetch (JavaScript)" vertex="1">
+          <mxGeometry height="70" width="320" x="425" y="590" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="features-api" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="已实现API:" vertex="1">
+          <mxGeometry height="20" width="200" x="775" y="565" as="geometry" />
+        </mxCell>
+        <mxCell id="features-api-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• GET /api/auth/qrcode - 获取二维码&#xa;• GET /api/auth/qrcode/status/{key} - 查询状态&#xa;• POST /api/auth/sessdata - SESSDATA登录&#xa;• GET /api/favorites/folders - 收藏夹列表&#xa;• GET /api/favorites/folders/{id} - 收藏夹详情&#xa;• GET /api/video/{id} - 视频详情&#xa;• GET /api/auth/proxy/avatar - 图片代理" vertex="1">
+          <mxGeometry height="70" width="320" x="775" y="590" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="next-steps" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="下一阶段计划" vertex="1">
+          <mxGeometry height="120" width="1100" x="50" y="860" as="geometry" />
+        </mxCell>
+        <mxCell id="next-steps-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#000000;" value="Phase 3: 下载管理 - 集成yt-dlp，实现下载队列管理、进度追踪和下载管理页面&#xa;Phase 4: 文件组织 - 自动下载字幕/弹幕、音轨提取、元数据保存、文件夹组织逻辑&#xa;Phase 5: 部署优化 - Docker Compose配置、Caddy反向代理、环境变量管理、生产环境优化&#xa;Phase 6: 桌面端 - Electron基础框架、打包配置、跨平台测试、发布流程" vertex="1">
+          <mxGeometry height="90" width="1050" x="75" y="875" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#000000;" value="MVC架构设计 (基于bilitool)" vertex="1">
+          <mxGeometry height="30" width="1100" x="50" y="1000" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-layer-view" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="200" width="250" x="50" y="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-view-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="View Layer&#xa;(表现层)" vertex="1">
+          <mxGeometry height="30" width="200" x="75" y="1050" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-view-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• React Web Application&#xa;• Pages (页面组件)&#xa;• Components (UI组件)&#xa;• State Management (Zustand)&#xa;• Services (API调用)&#xa;• Hooks (自定义Hooks)&#xa;• Types (类型定义)&#xa;• Utils (工具函数)" vertex="1">
+          <mxGeometry height="140" width="200" x="75" y="1090" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-layer-controller" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="200" width="250" x="320" y="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-controller-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="Controller Layer&#xa;(控制层)" vertex="1">
+          <mxGeometry height="30" width="200" x="345" y="1050" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-controller-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• FastAPI Application&#xa;• Routers (路由层)&#xa;  ├─ auth.py&#xa;  ├─ video.py&#xa;  ├─ favorites.py&#xa;  ├─ watchlater.py&#xa;  ├─ download.py&#xa;  └─ settings.py&#xa;• Controllers (业务控制器)&#xa;  ├─ auth_controller.py&#xa;  ├─ video_controller.py&#xa;  ├─ download_controller.py&#xa;  └─ settings_controller.py" vertex="1">
+          <mxGeometry height="140" width="200" x="345" y="1090" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-layer-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="200" width="250" x="590" y="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-service-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="Service Layer&#xa;(服务层)" vertex="1">
+          <mxGeometry height="30" width="200" x="615" y="1050" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-service-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Services (服务模块)&#xa;  ├─ authenticate/ (认证服务)&#xa;  │  ├─ bilibili_login.py&#xa;  │  ├─ qrcode.py&#xa;  │  └─ password.py&#xa;  ├─ bilibili/ (B站API)&#xa;  │  ├─ api.py&#xa;  │  ├─ video.py&#xa;  │  ├─ favorites.py&#xa;  │  └─ watchlater.py&#xa;  ├─ download/ (下载服务)&#xa;  │  ├─ yt_dlp.py&#xa;  │  ├─ queue.py&#xa;  │  └─ progress.py&#xa;  └─ storage/ (存储服务)&#xa;     ├─ file_manager.py&#xa;     └─ metadata.py" vertex="1">
+          <mxGeometry height="140" width="200" x="615" y="1090" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-layer-model" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
+          <mxGeometry height="200" width="250" x="860" y="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-model-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="Model Layer&#xa;(数据层)" vertex="1">
+          <mxGeometry height="30" width="200" x="885" y="1050" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-model-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Models (数据模型)&#xa;  ├─ user.py (用户模型)&#xa;  ├─ video.py (视频模型)&#xa;  ├─ download.py (下载模型)&#xa;  └─ settings.py (设置模型)&#xa;• Schemas (Pydantic模式)&#xa;  ├─ login.py (登录模式)&#xa;  ├─ video.py (视频模式)&#xa;  ├─ download.py (下载模式)&#xa;  └─ settings.py (设置模式)&#xa;• Configuration (配置管理)&#xa;  ├─ config.py (应用配置)&#xa;  └─ database.py (数据库连接)" vertex="1">
+          <mxGeometry height="140" width="200" x="885" y="1090" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-arrow-1" edge="1" parent="1" source="mvc-layer-view" target="mvc-layer-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-arrow-2" edge="1" parent="1" source="mvc-layer-controller" target="mvc-layer-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mvc-arrow-3" edge="1" parent="1" source="mvc-layer-service" target="mvc-layer-model" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-dataflow-note" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontStyle=2;fontColor=#000000;" value="数据流向: View → Controller → Service → Model → Database/ExternalAPI" vertex="1">
+          <mxGeometry height="40" width="800" x="250" y="1280" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="mvc-principles-note" parent="1" style="text;html=1;strokeColor=#9673a6;fillColor=#e1d5e7;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontStyle=2;fontColor=#000000;" value="设计原则: 单一职责、依赖注入、接口抽象、错误处理" vertex="1">
+          <mxGeometry height="40" width="600" x="250" y="1330" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
