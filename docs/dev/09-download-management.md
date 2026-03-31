@@ -396,6 +396,218 @@ ID     EXT  RESOLUTION  |  FILESIZE   TBR  |  VCODEC        ACODEC      ABR
 - ✅ 支持音频流ID选择
 - ✅ 添加下载路径设置
 
+## 存储设置
+
+### 路径设置
+
+#### 下载路径
+- 类型：`string`
+- 默认值：`./downloads`
+- 说明：视频文件保存路径
+
+#### 临时文件路径
+- 类型：`string`
+- 默认值：`./temp`
+- 说明：临时文件存储路径，用于存储未下载完毕的文件，经过处理后转移至下载路径
+
+#### 自动清理临时文件
+- 类型：`boolean`
+- 默认值：`true`
+- 说明：下载完成后自动清理临时文件
+
+#### 保留失败的任务
+- 类型：`boolean`
+- 默认值：`false`
+- 说明：下载失败时保留临时文件，便于调试
+
+### 自定义执行路径（Sidecar）
+
+#### FFmpeg 路径
+- 类型：`string`
+- 默认值：`ffmpeg`
+- 说明：FFmpeg视频处理工具路径
+- 注意：修改后重启生效
+
+#### Aria2c 路径
+- 类型：`string`
+- 默认值：`aria2c`
+- 说明：Aria2c下载工具路径
+- 注意：修改后重启生效
+
+#### Danmakufactory 路径
+- 类型：`string`
+- 默认值：`danmakufactory`
+- 说明：弹幕处理工具路径
+- 注意：修改后重启生效
+
+### 缓存管理
+
+#### 缓存类型
+- **日志缓存**：存储应用程序日志文件
+- **临时缓存**：存储临时文件和缓存数据
+- **WebView缓存**：存储WebView浏览器的缓存
+- **数据库缓存**：存储数据库文件
+
+#### 缓存操作
+- **查看缓存大小**：显示每种缓存类型的占用空间和文件数量
+- **清理指定缓存**：清理选中的缓存类型
+- **打开缓存目录**：在文件浏览器中打开缓存目录
+- **清理所有缓存**：一次性清理所有缓存类型
+
+#### 缓存管理API
+
+**获取缓存信息**:
+```http
+GET /api/settings/cache-info
+```
+
+**清理缓存**:
+```http
+POST /api/settings/clear-cache/{cache_type}
+```
+
+`cache_type` 参数：`log` | `temp` | `webview` | `database` | `downloads` | `all`
+
+**打开缓存目录**:
+```http
+POST /api/settings/open-cache/{cache_type}
+```
+
+### 数据库管理
+
+#### 数据库功能
+- **导出数据库**：将数据库文件导出为备份文件
+- **导入数据库**：从备份文件恢复数据库
+
+#### 数据库管理API
+
+**导出数据库**:
+```http
+GET /api/settings/database/export
+```
+
+**导入数据库**:
+```http
+POST /api/settings/database/import?file_path=/path/to/database.db
+```
+
+### 使用示例
+
+#### 更新存储设置
+```typescript
+await updateSettings({
+  storage: {
+    download_path: './downloads',
+    temp_path: './temp',
+    auto_cleanup: true,
+    keep_failed: false,
+    sidecar: {
+      ffmpeg: 'ffmpeg',
+      aria2c: 'aria2c',
+      danmakufactory: 'danmakufactory'
+    }
+  }
+})
+```
+
+#### 获取缓存信息
+```typescript
+const response = await fetch('http://localhost:8000/api/settings/cache-info')
+const data = await response.json()
+// data.data.log.size_formatted
+// data.data.temp.size_formatted
+// ...
+```
+
+#### 清理指定缓存
+```typescript
+await fetch('http://localhost:8000/api/settings/clear-cache/temp', {
+  method: 'POST'
+})
+```
+
+#### 打开缓存目录
+```typescript
+await fetch('http://localhost:8000/api/settings/open-cache/logs', {
+  method: 'POST'
+})
+```
+
+#### 导出数据库
+```typescript
+const response = await fetch('http://localhost:8000/api/settings/database/export')
+const data = await response.json()
+// data.filename: "Storage_20260331_131500.db"
+// data.path: "./exports/Storage_20260331_131500.db"
+```
+
+#### 导入数据库
+```typescript
+await fetch('http://localhost:8000/api/settings/database/import?file_path=/path/to/database.db', {
+  method: 'POST'
+})
+```
+
+### 技术实现
+
+#### 后端实现
+- **settings.py**: 存储设置API路由
+- **settings.py**: 缓存管理API（获取、清理、打开目录）
+- **settings.py**: 数据库管理API（导出、导入）
+- **settings.py**: 格式化文件大小工具函数
+
+#### 前端实现
+- **StorageSettings.tsx**: 存储设置页面组件
+- **index.css**: 存储设置样式（缓存项卡片、操作按钮）
+
+#### 数据结构
+```typescript
+interface StorageSettings {
+  download_path: string
+  temp_path: string
+  auto_cleanup: boolean
+  keep_failed: boolean
+  sidecar?: {
+    ffmpeg: string
+    aria2c: string
+    danmakufactory: string
+  }
+}
+
+interface CacheInfo {
+  exists: boolean
+  path: string
+  size: number
+  size_formatted: string
+  file_count: number
+}
+```
+
+### 注意事项
+
+1. **路径权限**: 确保下载路径和临时路径有读写权限
+2. **磁盘空间**: 确保有足够的磁盘空间用于下载和临时文件
+3. **Sidecar工具**: FFmpeg、Aria2c、Danmakufactory需要正确安装并配置
+4. **数据库备份**: 导入数据库前会自动备份当前数据库
+5. **缓存清理**: 清理数据库缓存会删除所有数据，请谨慎操作
+
+### 更新日志
+
+#### 2026-03-31
+- ✅ 完全复刻BiliTools存储设置设计
+- ✅ 添加路径设置（下载路径、临时文件路径）
+- ✅ 添加自定义执行路径（FFmpeg、Aria2c、Danmakufactory）
+- ✅ 实现缓存管理（分类缓存、查看大小、清理、打开目录）
+- ✅ 实现数据库管理（导出、导入）
+- ✅ 添加缓存信息API
+- ✅ 添加缓存清理API
+- ✅ 添加打开缓存目录API
+- ✅ 添加数据库导出API
+- ✅ 添加数据库导入API
+- ✅ 更新前端StorageSettings组件
+- ✅ 添加缓存项卡片样式
+- ✅ 添加缓存操作按钮样式
+
 ## 前端功能
 
 ### 1. 下载列表页面（DownloadDetailPage）

@@ -7,15 +7,21 @@
 - [01-auth-solution.md](01-auth-solution.md) - 用户认证方案
 - [02-api-list.md](02-api-list.md) - B站API列表
 - [03-download-engine.md](03-download-engine.md) - 下载引擎方案
-- [04-file-organization.md](04-file-organization.md) - 文件组织方案
 - [05-deployment.md](05-deployment.md) - 部署方案
 - [06-project-structure.md](06-project-structure.md) - 项目结构
-- [07-development-roadmap.md](07-development-roadmap.md) - 开发路线图
 - [08-reference-projects.md](08-reference-projects.md) - 参考项目索引
 - [09-download-management.md](09-download-management.md) - 下载管理功能（含下载设置：分辨率、音频码率、编码格式）
 - [10-html-parsing-method.md](10-html-parsing-method.md) - HTML解析方法（绕过API限制）
-- [11-auth-upgrade-plan.md](11-auth-upgrade-plan.md) - 账号登录功能升级计划
 - [12-ui-ux-design.md](12-ui-ux-design.md) - UI/UX设计系统（Soft UI Evolution）
+- [14-bilitools-settings-reference.md](14-bilitools-settings-reference.md) - BiliTools设置参考
+
+### 待实现功能
+详见 [../todo/](../todo/) 目录：
+- [文件组织方案](../todo/04-file-organization.md)
+- [开发路线图](../todo/07-development-roadmap.md)
+- [认证升级计划](../todo/11-auth-upgrade-plan.md)
+- [认证升级需求](../todo/13-auth-upgrade-requirements.md)
+- [数据管理实现计划](../todo/15-data-management-implementation-plan.md)
 
 ## 架构图
 - [pilinote_architecture.drawio](pilinote_architecture.drawio) - 系统架构设计
@@ -31,7 +37,7 @@
 
 ## 快速开始
 1. 查阅 [00-tech-stack.md](00-tech-stack.md) 了解技术栈
-2. 查看 [07-development-roadmap.md](07-development-roadmap.md) 了解开发计划
+2. 查看 [开发路线图](../todo/07-development-roadmap.md) 了解开发计划
 3. 参考 [08-reference-projects.md](08-reference-projects.md) 查找具体实现
 4. 查看 [05-deployment.md](05-deployment.md) 了解环境配置和启动方法
 5. 查看 [09-download-management.md](09-download-management.md) 了解下载管理功能
