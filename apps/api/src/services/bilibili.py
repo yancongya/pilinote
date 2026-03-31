@@ -771,7 +771,7 @@ class BilibiliService:
             }
 
     async def get_uploader_info(self, uploader_mid: int, sessdata: str = "") -> Dict:
-        """获取UP主信息（使用HeadersManager获取headers）- 参考BiliTools getUserInfo实现
+        """获取UP主信息（使用完整的WBI签名）- 完全复刻BiliTools getUserInfo实现
 
         Args:
             uploader_mid: UP主MID
@@ -788,15 +788,35 @@ class BilibiliService:
         url = f"{self.api_base}/x/space/wbi/acc/info"
         headers = await self.headers_manager.get_headers()
 
-        # 添加WBI签名（如果需要）
-        params = {
-            "mid": uploader_mid
-        }
-
         try:
-            # 使用异步请求
-            response = await self._request("GET", url, params=params)
-
+            # 1. 获取nav API数据（用于获取WBI密钥）
+            nav_url = f"{self.api_base}/x/web-interface/nav"
+            nav_response = await self._request("GET", nav_url)
+            nav_data = nav_response.json()
+            
+            if nav_data.get("code") != 0:
+                return {
+                    "success": False,
+                    "message": "获取WBI密钥失败",
+                    "code": nav_data.get("code")
+                }
+            
+            # 2. 解析WBI密钥
+            from src.utils.wbi_signature import parse_wbi_img, calculate_wbi_sign
+            wbi_img = parse_wbi_img(nav_data)
+            
+            # 3. 添加WBI签名
+            params = {
+                "mid": uploader_mid
+            }
+            signed_params = calculate_wbi_sign(params, wbi_img)
+            
+            # 4. 使用签名后的参数发送请求
+            from urllib.parse import urlencode
+            signed_url = f"{url}?{urlencode(signed_params)}"
+            
+            response = await self._request("GET", signed_url)
+            
             # 尝试解析JSON，处理编码问题
             try:
                 data = response.json()
@@ -804,12 +824,25 @@ class BilibiliService:
                 # 如果JSON解析失败，尝试使用更宽松的编码
                 try:
                     import json
-                    content = response.content.decode('utf-8', errors='ignore')
-                    data = json.loads(content)
+                    content = response.content
+                    # 尝试多种编码方式
+                    for encoding in ['utf-8', 'gbk', 'gb2312', 'latin1']:
+                        try:
+                            decoded_content = content.decode(encoding, errors='ignore')
+                            data = json.loads(decoded_content)
+                            logger.info(f"成功使用{encoding}解码JSON")
+                            break
+                        except:
+                            continue
+                    else:
+                        return {
+                            "success": False,
+                            "message": f"解析响应数据失败: 无法解码JSON"
+                        }
                 except Exception as decode_error:
                     return {
                         "success": False,
-                        "message": f"解析响应数据失败: {str(json_error)}, {str(decode_error)}"
+                        "message": f"解析响应数据失败: {str(decode_error)}"
                     }
 
             if data.get("code") == 0:
