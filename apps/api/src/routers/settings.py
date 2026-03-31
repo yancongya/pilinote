@@ -660,3 +660,93 @@ async def import_database(file_path: str = Query(..., description="Path to the d
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"导入数据库失败: {str(e)}")
+
+
+@router.post("/cleanup/trigger")
+async def trigger_cleanup():
+    """
+    手动触发清理任务
+    
+    Returns:
+        清理结果
+    """
+    try:
+        from src.services.scheduler_service import scheduler_service
+        
+        # 执行清理
+        scheduler_service.cleanup_old_temp_files()
+        
+        return {
+            "success": True,
+            "message": "清理任务已触发"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"清理任务触发失败: {str(e)}"
+        )
+
+
+@router.get("/cleanup/status")
+async def get_cleanup_status():
+    """
+    获取清理状态
+    
+    Returns:
+        清理状态信息
+    """
+    try:
+        from pathlib import Path
+        from datetime import datetime, timedelta
+        
+        # 获取临时路径
+        from src.services.settings_service import SettingsService
+        from src.database import SessionLocal
+        
+        with SessionLocal() as db:
+            settings_service = SettingsService(db)
+            settings = settings_service.get_settings()
+            temp_path = settings.storage.temp_path
+        
+        temp_dir = Path(temp_path)
+        if not temp_dir.exists():
+            return {
+                "temp_path": str(temp_path),
+                "exists": False,
+                "total_count": 0,
+                "old_count": 0,
+                "recent_count": 0
+            }
+        
+        # 统计临时文件
+        now = datetime.now()
+        cutoff_time = now - timedelta(hours=24)
+        
+        total_count = 0
+        old_count = 0
+        recent_count = 0
+        
+        for item in temp_dir.iterdir():
+            if item.is_dir():
+                total_count += 1
+                mod_time = datetime.fromtimestamp(item.stat().st_mtime)
+                if mod_time < cutoff_time:
+                    old_count += 1
+                else:
+                    recent_count += 1
+        
+        return {
+            "temp_path": str(temp_path),
+            "exists": True,
+            "total_count": total_count,
+            "old_count": old_count,
+            "recent_count": recent_count,
+            "cutoff_time": cutoff_time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取清理状态失败: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导入数据库失败: {str(e)}")
