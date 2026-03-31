@@ -4894,6 +4894,54 @@ body {
   transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Bilibili风格：系列集数标记 */
+.video-series-count-overlay {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-card:hover .video-series-count-overlay {
+  background: rgba(0, 0, 0, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Bilibili风格：文件大小显示 */
+.video-card-file-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+  flex-shrink: 0;
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-card-file-size svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Bilibili风格：视频列表底部显示大小 */
+.video-card-size {
+  font-size: 14px;
+  color: #666;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .video-card-info {
   flex: 1;
   display: flex;

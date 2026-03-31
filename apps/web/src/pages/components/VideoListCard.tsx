@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw } from 'lucide-react'
+import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw, Users } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
 
@@ -21,6 +21,8 @@ interface VideoCardProps {
   shares?: string
   progress?: number
   watched?: string
+  fileSize?: number  // 新增：文件大小（字节）
+  seriesCount?: number // 新增：系列集数
   onDownloadToggle?: (video: any, e: React.MouseEvent) => void
   downloadStatus?: 'none' | 'in_list'
   showDownloadButton?: boolean
@@ -33,6 +35,15 @@ interface VideoCardProps {
   onActionDelete?: () => void
   canStart?: boolean
   canPause?: boolean
+}
+
+// Bilibili风格：格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
 export default function VideoListCard({
@@ -52,6 +63,8 @@ export default function VideoListCard({
   shares,
   progress,
   watched,
+  fileSize,
+  seriesCount,
   onDownloadToggle,
   downloadStatus = 'none',
   showDownloadButton = true,
@@ -167,6 +180,13 @@ export default function VideoListCard({
             )
           })()}
           <div className="video-duration-overlay">{duration}</div>
+          {/* Bilibili风格：系列视频显示集数 */}
+          {isSeries && seriesCount && (
+            <div className="video-series-count-overlay">
+              <Users size={12} />
+              <span>{seriesCount}集</span>
+            </div>
+          )}
           {progress !== undefined && progress > 0 && (
             <div className="video-progress-overlay">
               <div 
@@ -229,51 +249,77 @@ export default function VideoListCard({
             </div>
           )}
         </div>
-        {/* 只在非操作按钮模式下显示统计信息 */}
-        {!showActionButtons && (
-          <div className="video-card-stats">
-            <span className="stat-item" title="播放量">
-              <Eye />
-              {views}
-            </span>
-            {danmaku !== undefined && (
-              <span className="stat-item" title="弹幕数">
-                <MessageSquare />
-                {danmaku}
+        {/* Bilibili风格：在封面显示文件大小或系列数量，状态显示文件大小 */}
+          {showActionButtons && (
+            <div className="video-card-file-size">
+              {isSeries && seriesCount ? (
+                <>
+                  <Users size={12} />
+                  <span>{seriesCount}集</span>
+                </>
+              ) : fileSize !== undefined ? (
+                formatFileSize(fileSize)
+              ) : (
+                views
+              )}
+            </div>
+          )}
+          
+          {/* 只在非操作按钮模式下显示统计信息 */}
+          {!showActionButtons && (
+            <div className="video-card-stats">
+              <span className="stat-item" title="播放量">
+                <Eye />
+                {views}
               </span>
-            )}
-            {comments !== undefined && (
-              <span className="stat-item" title="评论数">
-                <MessageCircle />
-                {comments}
-              </span>
-            )}
-            {likes !== undefined && (
-              <span className="stat-item" title="点赞数">
-                <ThumbsUp />
-                {likes}
-              </span>
-            )}
-            {coins !== undefined && (
-              <span className="stat-item" title="投币数">
-                <Coins />
-                {coins}
-              </span>
-            )}
-            {favorites !== undefined && (
-              <span className="stat-item" title="收藏数">
-                <Star />
-                {favorites}
-              </span>
-            )}
-            {shares !== undefined && (
-              <span className="stat-item" title="转发数">
-                <Share2 />
-                {shares}
-              </span>
-            )}
-          </div>
-        )}
+              {danmaku !== undefined && (
+                <span className="stat-item" title="弹幕数">
+                  <MessageSquare />
+                  {danmaku}
+                </span>
+              )}
+              {comments !== undefined && (
+                <span className="stat-item" title="评论数">
+                  <MessageCircle />
+                  {comments}
+                </span>
+              )}
+              {likes !== undefined && (
+                <span className="stat-item" title="点赞数">
+                  <ThumbsUp />
+                  {likes}
+                </span>
+              )}
+              {coins !== undefined && (
+                <span className="stat-item" title="投币数">
+                  <Coins />
+                  {coins}
+                </span>
+              )}
+              {favorites !== undefined && (
+                <span className="stat-item" title="收藏数">
+                  <Star />
+                  {favorites}
+                </span>
+              )}
+              {shares !== undefined && (
+                <span className="stat-item" title="转发数">
+                  <Share2 />
+                  {shares}
+                </span>
+              )}
+              {/* Bilibili风格：在底部显示文件大小 */}
+              {(fileSize || (isSeries && seriesCount)) && (
+                <div className="video-card-size">
+                  {isSeries && seriesCount ? (
+                    <>{seriesCount}集</>
+                  ) : (
+                    formatFileSize(fileSize || 0)
+                  )}
+                </div>
+              )}
+            </div>
+          )}
       </div>
       {showDownloadButton && onDownloadToggle && (
         <button

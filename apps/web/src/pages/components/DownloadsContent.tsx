@@ -23,6 +23,7 @@ interface DownloadTask {
   completed_at?: string
   aid?: number
   cid?: number
+  file_size?: number  // 新增：文件大小（字节）
 }
 
 interface DownloadSeries {
@@ -405,6 +406,8 @@ export default function DownloadsContent() {
                   comments={`${formatFileSize(firstTask.downloaded_bytes || 0)} / ${formatFileSize(firstTask.total_bytes || 0)}`}
                   time={firstTask.status === 'downloading' && firstTask.download_speed > 0 ? `${formatFileSize(firstTask.download_speed)}/s` : ''}
                   progress={isSeries ? seriesProgress : firstTask.progress}
+                  fileSize={isSeries ? series.totalSize : (firstTask.total_bytes || firstTask.file_size)}
+                  seriesCount={isSeries ? series.totalCount : undefined}
                   downloadStatus={downloadStatus}
                   showDownloadButton={false}
                   isSeries={isSeries}
