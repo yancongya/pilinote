@@ -155,9 +155,9 @@ export default function DownloadsContent() {
   }, [])
 
   // 获取下载任务列表
-  const fetchDownloads = useCallback(async (updateStorage: boolean = false) => {
+  const fetchDownloads = useCallback(async (updateStorage: boolean = false, showLoading: boolean = false) => {
     // 只在初始加载或手动刷新时显示 loading，避免轮询时闪烁
-    if (!downloads.length) {
+    if (showLoading) {
       setLoading(true)
     }
     setError('')
@@ -178,9 +178,11 @@ export default function DownloadsContent() {
     } catch (err) {
       setError('网络请求失败')
     } finally {
-      setLoading(false)
+      if (showLoading) {
+        setLoading(false)
+      }
     }
-  }, [fetchStorageInfo, downloads.length])
+  }, [fetchStorageInfo])
 
   // 按系列分组
   const groupDownloadsBySeries = useCallback(async (tasks: DownloadTask[]): Promise<DownloadSeries[]> => {
@@ -282,45 +284,48 @@ export default function DownloadsContent() {
 
   // 初始加载
   useEffect(() => {
-    fetchDownloads(true) // 初始加载时更新存储信息
-  }, []) // 移除 fetchDownloads 依赖，避免无限循环
+    fetchDownloads(true, true) // 初始加载时更新存储信息并显示 loading
+  }, []) // 只在组件挂载时执行一次
 
   // 实时刷新：当有下载中的任务时，自动刷新进度
   useEffect(() => {
+    // 检查是否有下载中的任务
     const hasDownloading = downloads.some(d => 
       d.status === 'downloading' || d.status === 'queued' || d.status === 'pending' || d.status === 'processing' || d.status === 'paused'
     )
     
     if (hasDownloading) {
+      // 使用定时器轮询，但不依赖 downloads
       const timer = setInterval(() => {
-        fetchDownloads(false) // 轮询时不更新存储信息
-      }, 3000) // 增加轮询间隔到3秒，减少请求频率
+        fetchDownloads(false, false) // 轮询时不更新存储信息和显示 loading
+      }, 3000) // 轮询间隔3秒
       return () => clearInterval(timer)
     }
-  }, [downloads, fetchDownloads])
+    // 不依赖 downloads，避免循环
+  }, [])
 
   // 根据视图模式筛选并分组
   useEffect(() => {
-    let filteredDownloads = downloads
+    // 筛选下载列表
+    const filteredDownloads = downloads.filter(d => {
+      if (viewMode === 'completed') {
+        return d.status === 'completed'
+      } else if (viewMode === 'downloading') {
+        return d.status === 'downloading' || d.status === 'queued' || d.status === 'pending' || d.status === 'processing' || d.status === 'paused'
+      }
+      return false
+    })
     
-    if (viewMode === 'completed') {
-      // 视频列表：只显示已完成的任务
-      filteredDownloads = downloads.filter(d => d.status === 'completed')
-    } else if (viewMode === 'downloading') {
-      // 下载列表：显示正在下载的任务
-      filteredDownloads = downloads.filter(d => 
-        d.status === 'downloading' || d.status === 'queued' || d.status === 'pending' || d.status === 'processing' || d.status === 'paused'
-      )
+    // 直接设置空列表，避免不必要的计算
+    if (filteredDownloads.length === 0) {
+      setSeriesList([])
+      return
     }
     
     // 使用 debounce 避免频繁重新分组
     const timeoutId = setTimeout(() => {
-      if (filteredDownloads.length > 0) {
-        groupDownloadsBySeries(filteredDownloads).then(setSeriesList)
-      } else {
-        setSeriesList([])
-      }
-    }, 100) // 100ms 延迟
+      groupDownloadsBySeries(filteredDownloads).then(setSeriesList)
+    }, 100)
     
     return () => clearTimeout(timeoutId)
   }, [downloads, viewMode, groupDownloadsBySeries])
