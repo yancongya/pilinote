@@ -975,3 +975,36 @@ const pagesToRestore = pages.filter((page: any) => {
 - `apps/web/src/pages/components/WatchLaterContent.tsx` (第227-287行): 修复单P视频下载时的cid/aid/duration字段获取
 - `apps/web/src/pages/components/FavoritesContent.tsx` (第227-287行): 同样的修复
 - 测试验证: 下载任务成功显示正确时长、缩略图、UP主信息和文件路径
+
+### 2026-03-31 NFO文件生成功能恢复
+
+#### 功能描述
+- ✅ 从备份分支恢复NFO元数据文件生成功能
+- ✅ 下载完成后自动生成包含完整视频信息的NFO文件
+- ✅ 支持B站互动评分计算（基于点赞、投币、收藏）
+
+#### 技术实现
+
+##### _generate_nfo_file函数
+- 生成包含视频标题、描述、标签、封面、UP主信息、时长等元数据
+- 支持B站统计数据（播放、点赞、投币、收藏、分享、弹幕、评论）
+- 生成符合Kodi/Jellyfin等媒体库标准的NFO格式
+
+##### _calculate_bilibili_rating函数
+- 计算公式：互动率 = (点赞数 × 0.4 + 投币数 × 0.3 + 收藏数 × 0.3) / 播放数
+- 评分 = min(互动率 × 500, 10)
+- 合理反映视频质量，避免高播放量视频获得满分
+
+##### 集成位置
+- 在`_process_completed_download`中自动调用
+- 根据download.enable_nfo字段决定是否生成
+- 从B站API获取视频描述和统计数据
+
+#### 修改文件
+- `apps/api/src/services/download_service.py`: 添加NFO生成功能（+192行）
+
+#### 测试验证
+- ✅ 下载完成后自动生成NFO文件
+- ✅ NFO文件格式正确，包含完整元数据
+- ✅ 互动评分计算准确
+- ✅ 支持单P和多P视频

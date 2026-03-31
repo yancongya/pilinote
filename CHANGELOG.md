@@ -1,5 +1,93 @@
 # PiliNote 开发日志
 
+## 2026-03-31 从备份分支恢复NFO文件生成功能
+
+### 🎯 功能恢复
+
+#### ✅ 恢复：NFO元数据文件生成功能
+- **问题：** Git重置后，NFO文件生成功能被删除
+- **功能描述：** 在视频下载完成后自动生成包含完整元数据的NFO文件
+- **恢复内容：**
+  1. 添加`xml.etree.ElementTree`导入
+  2. 实现`_generate_nfo_file`函数，生成包含视频信息的NFO文件
+  3. 实现`_calculate_bilibili_rating`函数，计算B站视频互动评分
+  4. 在`_process_completed_download`中自动调用NFO文件生成
+  5. 支持完整的B站统计数据（播放、点赞、投币、收藏、分享、弹幕、评论）
+
+### 📝 NFO文件包含的信息
+
+#### 基本信息
+- 视频标题、描述、标签
+- 封面URL
+- UP主信息（名称、MID）
+- 发布日期、时长
+
+#### B站统计数据
+- 播放数、点赞数、投币数、收藏数、分享数
+- 弹幕数、评论数
+- 互动评分（基于点赞、投币、收藏计算）
+
+#### 互动评分计算公式
+```
+互动率 = (点赞数 × 0.4 + 投币数 × 0.3 + 收藏数 × 0.3) / 播放数
+评分 = min(互动率 × 500, 10)
+```
+
+### 🎨 后端修改
+
+#### download_service.py
+- 添加`xml.etree.ElementTree`导入
+- 添加`_generate_nfo_file`函数（120行）
+- 添加`_calculate_bilibili_rating`函数（40行）
+- 在`_process_completed_download`中调用NFO文件生成（30行）
+
+### ✅ 测试结果
+
+#### 功能测试
+- ✅ 下载完成后自动生成NFO文件
+- ✅ NFO文件包含完整的视频元数据
+- ✅ 互动评分计算正确
+- ✅ B站统计数据完整保存
+- ✅ 支持单P和多P视频
+
+#### NFO文件格式
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+  <title>视频标题</title>
+  <plot>视频描述</plot>
+  <tag>标签1</tag>
+  <tag>标签2</tag>
+  <thumb>封面URL</thumb>
+  <premiered>2026-03-31</premiered>
+  <studio>UP主名称</studio>
+  <director>UP主名称</director>
+  <runtime>773</runtime>
+  <playcount>12345</playcount>
+  <rating>8.5</rating>
+  <tag>弹幕数: 1000</tag>
+  <tag>评论数: 500</tag>
+  <tag>分享数: 200</tag>
+  <bilibili_stat xmlns="bilibili">
+    <play>12345</play>
+    <like>2000</like>
+    <coin>500</coin>
+    <favorite>800</favorite>
+    <share>200</share>
+    <danmaku>1000</danmaku>
+    <reply>500</reply>
+  </bilibili_stat>
+</movie>
+```
+
+### 📝 代码变更统计
+
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/api/src/services/download_service.py | +192 | 192 | 0 |
+
+---
+
 ## 2026-03-31 修复单P视频下载时关键字段缺失问题
 
 ### 🎯 修复内容
