@@ -655,7 +655,7 @@ class DownloadService:
                             from src.services.bilibili import BilibiliService
                             bilibili_service = BilibiliService()
                             try:
-                                video_info = bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+                                video_info = await bilibili_service.get_video_info(download.bvid, download.sessdata or "")
                                 if video_info.get("success"):
                                     video_data = video_info.get("data", {})
                                     description = video_data.get("desc")

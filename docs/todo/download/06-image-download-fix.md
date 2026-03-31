@@ -426,3 +426,175 @@ async def _download_thumbnail(self, download: Download, output_dir: Path) -> boo
 3. **容错处理**：Isolate error handling for independent operations
 4. **日志输出**：Add detailed logging for debugging
 5. **数据验证**：Validate data before use
+---
+
+## 2026-03-31 NFO文件生成功能改进
+
+### 问题现象
+NFO文件只包含基本视频信息（标题、BV号、封面URL、发布日期、UP主信息），缺少详细的视频描述和统计数据。
+
+### 根本原因
+NFO生成时没有从B站获取视频的完整信息，导致NFO文件内容不完整。
+
+### 解决方案
+
+#### 1. 添加 get_video_info 方法
+在 `BilibiliService` 类中添加 `get_video_info` 方法，使用HTML解析方法获取视频详情：
+
+```python
+async def get_video_info(self, bvid: str, sessdata: str = "") -> Dict:
+    """获取视频详情信息（使用HTML解析方法）"""
+    import re
+    import json
+
+    # 确保SESSDATA在headers中
+    if sessdata:
+        await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+    # 获取headers
+    headers = await self.headers_manager.get_headers()
+    headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
+
+    try:
+        # 使用HTML解析方法（绕过API限制）
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(
+                f"https://www.bilibili.com/video/{bvid}",
+                headers=headers
+            )
+            response.raise_for_status()
+            html = response.text
+
+            # 从HTML中提取__INITIAL_STATE__数据
+            patterns = [
+                r'__INITIAL_STATE__\s*=\s*({.*?});',
+                r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
+                r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'
+            ]
+
+            data = None
+            for pattern in patterns:
+                match = re.search(pattern, html)
+                if match:
+                    try:
+                        data = json.loads(match.group(1))
+                        break
+                    except json.JSONDecodeError:
+                        continue
+
+            if not data or 'videoData' not in data:
+                return {
+                    "success": False,
+                    "message": "无法从页面中提取视频信息"
+                }
+
+            video_data = data['videoData']
+
+            return {
+                "success": True,
+                "data": {
+                    "title": video_data.get("title", ""),
+                    "desc": video_data.get("desc", ""),
+                    "pic": video_data.get("pic", ""),
+                    "pubdate": video_data.get("pubdate", 0),
+                    "owner": video_data.get("owner", {}),
+                    "stat": video_data.get("stat", {}),
+                    "pages": video_data.get("pages", [])
+                }
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"获取视频信息失败: {str(e)}"
+        }
+```
+
+#### 2. 修复异步调用问题
+在下载完成处理中，使用 `await` 调用 `get_video_info`：
+
+```python
+# ❌ 错误：缺少await
+video_info = bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+
+# ✅ 正确：添加await
+video_info = await bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+```
+
+#### 3. 提取完整的视频信息
+从返回的数据中提取视频描述和统计数据：
+
+```python
+video_info = await bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+if video_info.get("success"):
+    video_data = video_info.get("data", {})
+    description = video_data.get("desc")
+    video_stats = {
+        "play": video_data.get("stat", {}).get("view", 0),
+        "like": video_data.get("stat", {}).get("like", 0),
+        "coin": video_data.get("stat", {}).get("coin", 0),
+        "favorite": video_data.get("stat", {}).get("favorite", 0),
+        "share": video_data.get("stat", {}).get("share", 0),
+        "danmaku": video_data.get("stat", {}).get("danmaku", 0),
+        "reply": video_data.get("stat", {}).get("reply", 0)
+    }
+```
+
+### 改进效果
+
+**改进前的NFO：**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+  <title>爆降75%token！我在清华分享openclaw的graph-memory插件</title>
+  <plot>B站视频ID: BV1KwwzzGEvD</plot>
+  <thumb>http://i1.hdslb.com/bfs/archive/f4932dd8393ebe675d5e27aa2e1b1bcc52a00be1.jpg</thumb>
+  <premiered>2026-03-31</premiered>
+  <studio>AGI_Ananas</studio>
+  <director>AGI_Ananas</director>
+  <runtime>773</runtime>
+</movie>
+```
+
+**改进后的NFO：**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+  <title>爆降75%token！我在清华分享openclaw的graph-memory插件</title>
+  <plot>3.15在清华大学分享的graph-memory进行了一键安装包的设计压缩。本期视频分享openclaw的上下文工程插件的设计思路底层原理。希望大家一起探讨</plot>
+  <thumb>http://i1.hdslb.com/bfs/archive/f4932dd8393ebe675d5e27aa2e1b1bcc52a00be1.jpg</thumb>
+  <premiered>2026-03-31</premiered>
+  <studio>AGI_Ananas</studio>
+  <director>AGI_Ananas</director>
+  <runtime>773</runtime>
+  <playcount>18836</playcount>
+  <rating>10.0</rating>
+  <tag>弹幕数: 2</tag>
+  <tag>评论数: 224</tag>
+  <tag>分享数: 110</tag>
+  <bilibili_stat xmlns="bilibili">
+    <play>18836</play>
+    <like>381</like>
+    <coin>259</coin>
+    <favorite>908</favorite>
+    <share>110</share>
+    <danmaku>2</danmaku>
+    <reply>224</reply>
+  </bilibili_stat>
+</movie>
+```
+
+### 技术要点
+
+1. **HTML解析方法**：绕过B站API限制，获取完整视频信息
+2. **异步调用**：正确使用 `await` 调用异步方法
+3. **数据提取**：从HTML的 `__INITIAL_STATE__` 中提取结构化数据
+4. **容错处理**：多重正则表达式匹配，提高成功率
+5. **NFO增强**：包含视频描述、播放量、点赞、投币等完整信息
+
+### 经验总结
+
+1. 使用HTML解析方法绕过API限制是有效的
+2. 异步方法的调用必须正确使用 `await`
+3. 多重正则表达式匹配可以提高数据提取成功率
+4. 完整的元数据信息对媒体库管理非常重要
+5. 参考现有项目的实现可以节省开发时间

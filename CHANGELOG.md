@@ -1,5 +1,74 @@
 # PiliNote 开发日志
 
+## 2026-03-31 NFO文件生成功能改进
+
+### 🎯 改进内容
+
+#### ✅ 新增：完整的视频元数据信息到NFO文件
+- **改进前：** NFO文件只包含基本字段（标题、B站ID、封面URL、UP主、时长）
+- **改进后：** NFO文件包含完整的视频元数据：
+  - 视频描述（plot字段）
+  - 完整的统计数据（播放量、点赞、投币、收藏、分享、弹幕、评论）
+  - B站自定义标签（用于存储额外统计信息）
+
+### 🔧 技术实现
+
+#### 1. 添加get_video_info方法
+**新增方法：**
+```python
+async def get_video_info(self, bvid: str, sessdata: str = "") -> Dict:
+    """获取视频详情信息（使用HTML解析方法）"""
+    # 使用HTML解析方法绕过API限制
+    # 从__INITIAL_STATE__中提取视频数据
+    # 返回包含desc、stat、owner、pic、title、pubdate的完整信息
+```
+
+#### 2. 修复异步调用问题
+**问题代码：**
+```python
+# ❌ 错误：缺少await关键字
+video_info = bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+```
+
+**修复后：**
+```python
+# ✅ 正确：添加await关键字
+video_info = await bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+```
+
+#### 3. 改进UP主信息获取的容错性
+**改进内容：**
+- 添加了JSON解析失败时的容错处理
+- 使用`decode('utf-8', errors='ignore')`处理编码问题
+- 提供更详细的错误信息
+
+### 📝 文件变更
+- `apps/api/src/services/bilibili.py`:
+  - 新增 `get_video_info` 方法（使用HTML解析获取视频详情）
+  - 改进 `get_uploader_info` 方法的容错性
+- `apps/api/src/services/download_service.py`:
+  - 修复 `get_video_info` 调用缺少await的问题
+
+### ✅ 测试结果
+**测试视频：** BV1KwwzzGEvD（爆降75%token！我在清华分享openclaw的graph-memory插件）
+
+**改进前NFO内容：**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<movie><title>爆降75%token！我在清华分享openclaw的graph-memory插件</title><plot>B站视频ID: BV1KwwzzGEvD</plot><thumb>http://i1.hdslb.com/bfs/archive/f4932dd8393ebe675d5e27aa2e1b1bcc52a00be1.jpg</thumb><premiered>2026-03-31</premiered><studio>AGI_Ananas</studio><director>AGI_Ananas</director><runtime>773</runtime></movie>
+```
+
+**改进后NFO内容：**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<movie><title>爆降75%token！我在清华分享openclaw的graph-memory插件</title><plot>3.15在清华大学分享的graph-memory进行了一键安装包的设计压缩。本期视频分享openclaw的上下文工程插件的设计思路底层原理。希望大家一起探讨</plot><thumb>http://i1.hdslb.com/bfs/archive/f4932dd8393ebe675d5e27aa2e1b1bcc52a00be1.jpg</thumb><premiered>2026-03-31</premiered><studio>AGI_Ananas</studio><director>AGI_Ananas</director><runtime>773</runtime><playcount>18836</playcount><rating>10.0</rating><tag>弹幕数: 2</tag><tag>评论数: 224</tag><tag>分享数: 110</tag><bilibili_stat xmlns="bilibili"><play>18836</play><like>381</like><coin>259</coin><favorite>908</favorite><share>110</share><danmaku>2</danmaku><reply>224</reply></bilibili_stat></movie>
+```
+
+### 🔍 已知问题
+- UP主头像下载功能因B站风控机制暂时无法正常工作（需要实现完整的WBI签名，包括WebGL指纹）
+
+---
+
 ## 2026-03-31 图像下载功能修复（封面和UP主头像）
 
 ### 🎯 修复内容

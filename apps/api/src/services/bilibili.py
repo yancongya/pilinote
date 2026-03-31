@@ -772,32 +772,46 @@ class BilibiliService:
 
     async def get_uploader_info(self, uploader_mid: int, sessdata: str = "") -> Dict:
         """获取UP主信息（使用HeadersManager获取headers）- 参考BiliTools getUserInfo实现
-        
+
         Args:
             uploader_mid: UP主MID
             sessdata: SESSDATA（可选）
-            
+
         Returns:
             Dict: UP主信息，包含name、mid、avatar
         """
         # 确保SESSDATA在headers中
         if sessdata:
             await self.headers_manager.update_cookie("SESSDATA", sessdata)
-        
+
         # 使用B站空间API（参考BiliTools）
         url = f"{self.api_base}/x/space/wbi/acc/info"
         headers = await self.headers_manager.get_headers()
-        
+
         # 添加WBI签名（如果需要）
         params = {
             "mid": uploader_mid
         }
-        
+
         try:
             # 使用异步请求
             response = await self._request("GET", url, params=params)
-            data = response.json()
-            
+
+            # 尝试解析JSON，处理编码问题
+            try:
+                data = response.json()
+            except Exception as json_error:
+                # 如果JSON解析失败，尝试使用更宽松的编码
+                try:
+                    import json
+                    content = response.content.decode('utf-8', errors='ignore')
+                    data = json.loads(content)
+                except Exception as decode_error:
+                    return {
+                        "success": False,
+                        "message": f"解析响应数据失败: {str(json_error)}, {str(decode_error)}"
+                    }
+
             if data.get("code") == 0:
                 info = data.get("data", {})
                 return {
@@ -817,6 +831,79 @@ class BilibiliService:
             return {
                 "success": False,
                 "message": f"获取UP主信息异常: {str(e)}"
+            }
+
+    async def get_video_info(self, bvid: str, sessdata: str = "") -> Dict:
+        """获取视频详情信息（使用HTML解析方法）
+
+        Args:
+            bvid: 视频BV号
+            sessdata: SESSDATA（可选）
+
+        Returns:
+            Dict: 视频详情信息，包含desc、stat等
+        """
+        import re
+        import json
+
+        # 确保SESSDATA在headers中
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        # 获取headers
+        headers = await self.headers_manager.get_headers()
+        headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
+
+        try:
+            # 使用HTML解析方法（绕过API限制）
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(
+                    f"https://www.bilibili.com/video/{bvid}",
+                    headers=headers
+                )
+                response.raise_for_status()
+                html = response.text
+
+                # 从HTML中提取__INITIAL_STATE__数据
+                patterns = [
+                    r'__INITIAL_STATE__\s*=\s*({.*?});',
+                    r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
+                    r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'
+                ]
+
+                data = None
+                for pattern in patterns:
+                    match = re.search(pattern, html)
+                    if match:
+                        try:
+                            data = json.loads(match.group(1))
+                            break
+                        except json.JSONDecodeError:
+                            continue
+
+                if not data or 'videoData' not in data:
+                    return {
+                        "success": False,
+                        "message": "无法从页面中提取视频信息"
+                    }
+
+                video_data = data['videoData']
+
+                return {
+                    "success": True,
+                    "data": {
+                        "desc": video_data.get("desc", ""),
+                        "stat": video_data.get("stat", {}),
+                        "owner": video_data.get("owner", {}),
+                        "pic": video_data.get("pic", ""),
+                        "title": video_data.get("title", ""),
+                        "pubdate": video_data.get("pubdate", 0)
+                    }
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"获取视频信息失败: {str(e)}"
             }
 
     def close(self):
