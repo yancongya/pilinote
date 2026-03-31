@@ -391,12 +391,23 @@ class DownloadManager:
             from src.services.download_engine import DownloadEngine
             engine = DownloadEngine()
             
-            # 保留中文、字母数字、空格、连字符和下划线
-            safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
-            if not safe_title:
-                safe_title = "video"
+            # 确定输出目录名称
+            if download.aid:
+                # 系列视频：使用合集名称作为目录名
+                # 从标题中提取合集名称（去掉【Part X】前缀）
+                series_name = re.sub(r'【Part \d+】', '', download.title).strip()
+                safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', series_name).strip()
+                if not safe_title:
+                    safe_title = f"series_{download.aid}"
+                logger.info(f"Series video detected, using series name: {safe_title}")
+            else:
+                # 单个视频：使用完整标题
+                safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
+                if not safe_title:
+                    safe_title = "video"
+                logger.info(f"Single video, using title: {safe_title}")
             
-            # 构建输出路径：直接使用标题作为目录名
+            # 构建输出路径：使用合集名称作为目录名
             output_path = f"downloads/{safe_title}"
             
             # 执行下载
@@ -422,15 +433,46 @@ class DownloadManager:
             # 获取下载的文件
             import os
             video_files = []
-            for root, dirs, files in os.walk(f"downloads/{download_id}"):
-                for file in files:
-                    if file.endswith(('.mp4', '.flv', '.mkv', '.webm')):
-                        full_path = os.path.join(root, file)
-                        file_size = os.path.getsize(full_path)
-                        video_files.append((full_path, file_size))
-                        logger.info(f"Found video file: {full_path}, size: {file_size} bytes")
+            # 使用正确的路径（合集目录，而不是 download_id）
+            if os.path.exists(output_path):
+                for root, dirs, files in os.walk(output_path):
+                    for file in files:
+                        if file.endswith(('.mp4', '.flv', '.mkv', '.webm')):
+                            full_path = os.path.join(root, file)
+                            file_size = os.path.getsize(full_path)
+                            video_files.append((full_path, file_size))
+                            logger.info(f"Found video file: {full_path}, size: {file_size} bytes")
             
             if video_files:
+                # 对于系列视频，重命名文件为 pX 格式
+                if download.aid:
+                    logger.info(f"Renaming series video files to pX format")
+                    # 获取同一合集的所有下载任务
+                    with SessionLocal() as db:
+                        series_downloads = db.query(Download).filter(
+                            Download.aid == download.aid
+                        ).order_by(Download.title).all()
+                        
+                        # 遍历所有文件，重命名为 pX 格式
+                        for idx, (file_path, file_size) in enumerate(sorted(video_files), 1):
+                            # 提取文件扩展名
+                            ext = os.path.splitext(file_path)[1]
+                            
+                            # 从当前任务标题中提取分P名称（去掉【Part X】前缀）
+                            part_name = re.sub(r'【Part \d+】', '', download.title).strip()
+                            
+                            # 构建新文件名：pX 分P名称
+                            new_filename = f"p{str(idx).zfill(2)} {part_name}{ext}"
+                            new_filepath = os.path.join(os.path.dirname(file_path), new_filename)
+                            
+                            # 重命名文件
+                            if os.path.exists(file_path) and not os.path.exists(new_filepath):
+                                os.rename(file_path, new_filepath)
+                                logger.info(f"Renamed: {os.path.basename(file_path)} -> {new_filename}")
+                                # 更新文件路径
+                                if file_path == video_files[0][0]:
+                                    video_files[0] = (new_filepath, file_size)
+                
                 # 计算总大小
                 total_size = sum(size for path, size in video_files)
                 main_file = video_files[0][0]
@@ -446,7 +488,7 @@ class DownloadManager:
                         db.commit()
                         logger.info(f"Updated file path for {download_id}: {main_file}, total size: {total_size}")
             else:
-                logger.warning(f"No video files found for {download_id}")
+                logger.warning(f"No video files found for {download_id} in {output_path}")
             
             self._update_status(download_id, DownloadStatus.COMPLETED.value)
             logger.info(f"Download {download_id} completed successfully")
