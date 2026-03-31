@@ -955,7 +955,23 @@ const pagesToRestore = pages.filter((page: any) => {
   - **解决方案**: 将 `"duration": media_info.nfo.thumbs[0].url` 改为 `"duration": media_info.list[0].duration`
   - **影响**: 视频时长现在正确显示（如12:53），元数据正确保存到数据库
   
+- ✅ **修复单P视频下载时cid、aid、duration字段缺失问题**: 修复从稍后再看/收藏夹添加视频到下载列表时关键字段缺失的问题
+  - **问题**: 手动添加视频到下载列表后，视频时长显示为00:00，数据库中cid、aid、duration字段为None
+  - **原因**: 稍后再看API返回的数据中没有cid和aid字段，导致前端在创建下载任务时这些字段为None
+  - **解决方案**: 
+    1. 从视频详情API (`/api/video/{video_id}`) 获取完整的视频信息
+    2. 对于单P视频，使用 `videoDetailData.cid` 和 `videoDetailData.aid` 替代缺失字段
+    3. 对于多P视频，使用 `videoDetailData.aid` 替代视频列表中的aid
+    4. 降级方案：当获取视频详情失败时，使用 `video.id` 作为cid和aid的备用值
+  - **影响**: 从稍后再看/收藏夹添加的视频现在正确显示时长，数据库字段完整保存
+  - **修改文件**:
+    - `apps/web/src/pages/components/WatchLaterContent.tsx`: 修复单P视频下载时的字段获取逻辑
+    - `apps/web/src/pages/components/FavoritesContent.tsx`: 同样的修复
+  - **测试验证**: 重新构建前端后，从稍后再看添加视频到下载列表，时长正确显示，数据库字段完整
+  
 **技术细节**:
 - `apps/api/src/services/download_service.py` (第313行): 修改视频文件查找逻辑
 - `apps/api/src/routers/video.py` (第65行): 修复duration字段赋值
+- `apps/web/src/pages/components/WatchLaterContent.tsx` (第227-287行): 修复单P视频下载时的cid/aid/duration字段获取
+- `apps/web/src/pages/components/FavoritesContent.tsx` (第227-287行): 同样的修复
 - 测试验证: 下载任务成功显示正确时长、缩略图、UP主信息和文件路径

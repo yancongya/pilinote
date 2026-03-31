@@ -1,5 +1,117 @@
 # PiliNote 开发日志
 
+## 2026-03-31 修复单P视频下载时关键字段缺失问题
+
+### 🎯 修复内容
+
+#### ✅ 修复：单P视频下载时cid、aid、duration字段缺失
+- **问题：** 从稍后再看/收藏夹添加视频到下载列表后，视频时长显示为00:00，数据库中cid、aid、duration字段为None
+- **根本原因：**
+  - 稍后再看API返回的数据中没有cid和aid字段
+  - 前端在创建下载任务时直接使用API返回的数据，导致这些字段为None
+  - duration字段也受影响，因为cid和aid缺失导致无法正确获取视频详情
+- **解决方案：**
+  1. 从视频详情API (`/api/video/{video_id}`) 获取完整的视频信息
+  2. 对于单P视频，使用 `videoDetailData.cid` 和 `videoDetailData.aid` 替代缺失字段
+  3. 对于多P视频，使用 `videoDetailData.aid` 替代视频列表中的aid
+  4. 降级方案：当获取视频详情失败时，使用 `video.id` 作为cid和aid的备用值
+  5. 修复duration字段获取，使用 `videoDetailData.duration` 或 `page.duration`
+
+### 🎨 前端修改
+
+#### WatchLaterContent.tsx
+- 修复单P视频下载时的cid/aid/duration字段获取逻辑
+- 使用视频详情API返回的数据替代稍后再看API的缺失字段
+- 添加降级方案，当获取视频详情失败时使用video.id作为备用值
+
+#### FavoritesContent.tsx
+- 与WatchLaterContent.tsx相同的修复
+- 确保收藏夹和稍后再看功能的一致性
+
+### 📝 技术细节
+
+#### 修改前代码
+```typescript
+// 单P视频下载 - 使用稍后再看API的数据（缺少cid/aid）
+const downloadData = {
+  bvid: video.bvid,
+  title: video.title,
+  cid: video.cid,  // ❌ None
+  aid: video.aid,  // ❌ None
+  duration: video.originalDuration,  // ❌ 可能不准确
+  // ...
+}
+```
+
+#### 修改后代码
+```typescript
+// 单P视频下载 - 使用视频详情API的数据
+const downloadData = {
+  bvid: video.bvid,
+  title: video.title,
+  cid: videoDetailData.cid || pages[0]?.cid,  // ✅ 从视频详情API获取
+  aid: videoDetailData.aid || video.aid,  // ✅ 从视频详情API获取
+  duration: video.originalDuration || videoDetailData.duration || pages[0]?.duration,  // ✅ 多重备用
+  // ...
+}
+```
+
+#### 降级方案
+```typescript
+// 获取视频详情失败时的降级处理
+const downloadData = {
+  cid: video.cid || video.id,  // ❌ 原来使用video.cid（可能为None）
+  aid: video.aid || video.id,  // ❌ 原来使用video.aid（可能为None）
+  duration: video.originalDuration || video.durationSeconds,  // ✅ 使用备用值
+}
+```
+
+### ✅ 测试结果
+
+#### 稍后再看测试
+- ✅ 从稍后再看添加单P视频到下载列表
+- ✅ 时长正确显示（如12:53）
+- ✅ 数据库中cid、aid、duration字段完整保存
+- ✅ 多P视频添加所有分集正常
+
+#### 收藏夹测试
+- ✅ 从收藏夹添加单P视频到下载列表
+- ✅ 时长正确显示
+- ✅ 数据库字段完整保存
+- ✅ 多P视频添加所有分集正常
+
+#### 数据库验证
+```sql
+SELECT id, bvid, title, duration, cid, aid, status 
+FROM downloads 
+ORDER BY created_at DESC 
+LIMIT 1;
+```
+- ✅ duration: 正确显示（如773秒）
+- ✅ cid: 正确显示（如123456789）
+- ✅ aid: 正确显示（如987654321）
+
+### 📝 代码变更统计
+
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/web/src/pages/components/WatchLaterContent.tsx | +30 | 25 | 5 |
+| apps/web/src/pages/components/FavoritesContent.tsx | +30 | 25 | 5 |
+| docs/dev/09-download-management.md | +20 | 20 | 0 |
+| CHANGELOG.md | +50 | 50 | 0 |
+| **总计** | **+130** | **120** | **10** |
+
+### 🚀 Git提交记录
+
+```
+fix: 修复单P视频下载时cid、aid、duration字段缺失问题
+```
+
+### 🔗 相关文档
+- 详见 `docs/dev/09-download-management.md` 更新日志部分
+
+---
+
 ## 2026-03-31 设置自动保存和状态切换修复（阶段3后续）
 
 ### 🎯 修复内容

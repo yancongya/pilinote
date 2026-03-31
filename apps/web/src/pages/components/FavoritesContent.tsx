@@ -50,9 +50,7 @@ export default function FavoritesContent() {
   const downloadStore = useDownloadStore()
   const { 
     getFoldersCache, 
-    setFoldersCache, 
-    getFolderVideosCache, 
-    setFolderVideosCache 
+    setFoldersCache
   } = useCacheStore()
   const { 
     getDownloadStatus,
@@ -261,6 +259,7 @@ export default function FavoritesContent() {
           
           if (videoDetailResponse.success && videoDetailResponse.data?.pages) {
             const pages = videoDetailResponse.data.pages
+            const videoDetailData = videoDetailResponse.data
             
             if (pages.length > 1) {
               // 多P视频，添加所有分集
@@ -278,7 +277,7 @@ export default function FavoritesContent() {
                   bvid: video.bvid,
                   title: page.part || `${video.title} - P${page.page}`,
                   cid: page.cid,
-                  aid: video.aid,
+                  aid: videoDetailData.aid || video.aid,
                   quality: 64,
                   output_format: 'mp4',
                   thumbnail_url: video.pic,
@@ -301,16 +300,16 @@ export default function FavoritesContent() {
                 alert(`已添加 ${addedCount} 个分集到下载队列`)
               }
             } else {
-              // 单P视频，直接添加
+              // 单P视频，使用视频详情API返回的数据
               const downloadData = {
                 bvid: video.bvid,
                 title: video.title,
-                cid: video.cid,
-                aid: video.aid,
+                cid: videoDetailData.cid || pages[0]?.cid,
+                aid: videoDetailData.aid || video.aid,
                 quality: 64,
                 output_format: 'mp4',
                 thumbnail_url: video.pic,
-                duration: video.originalDuration,
+                duration: video.originalDuration || videoDetailData.duration || pages[0]?.duration,
                 uploader: video.owner?.name || '',
                 uploader_mid: video.owner?.mid || 0,
                 sessdata: sessdata || undefined
@@ -326,12 +325,12 @@ export default function FavoritesContent() {
             const downloadData = {
               bvid: video.bvid,
               title: video.title,
-              cid: video.cid,
-              aid: video.aid,
+              cid: video.cid || video.id,
+              aid: video.aid || video.id,
               quality: 64,
               output_format: 'mp4',
               thumbnail_url: video.pic,
-              duration: video.originalDuration,
+              duration: video.originalDuration || video.durationSeconds,
               uploader: video.owner?.name || '',
               uploader_mid: video.owner?.mid || 0,
               sessdata: sessdata || undefined
@@ -349,12 +348,12 @@ export default function FavoritesContent() {
           const downloadData = {
             bvid: video.bvid,
             title: video.title,
-            cid: video.cid,
-            aid: video.aid,
+            cid: video.cid || video.id,
+            aid: video.aid || video.id,
             quality: 64,
             output_format: 'mp4',
             thumbnail_url: video.pic,
-            duration: video.originalDuration,
+            duration: video.originalDuration || video.durationSeconds,
             uploader: video.owner?.name || '',
             uploader_mid: video.owner?.mid || 0,
             sessdata: sessdata || undefined
