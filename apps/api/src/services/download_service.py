@@ -3,6 +3,7 @@ import uuid
 import asyncio
 import logging
 import shutil
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, Optional, Callable
 from pathlib import Path
@@ -266,6 +267,155 @@ class DownloadService:
                 next_id = self.download_queue.pop(0)
                 asyncio.create_task(self._process_download(next_id))
     
+    def _generate_nfo_file(self, video_file_path: Path, download: Download, description: str = None, video_stats: dict = None, video_tags: list = None) -> None:
+        """
+        生成NFO元数据文件
+        
+        Args:
+            video_file_path: 视频文件路径
+            download: 下载任务对象
+            description: 视频描述（可选）
+            video_stats: 视频统计数据（可选）
+            video_tags: 视频标签列表（可选）
+        """
+        try:
+            # 从视频文件路径中提取目录和文件名
+            output_dir = video_file_path.parent
+            video_filename = video_file_path.stem  # 不包含扩展名的文件名
+            nfo_filename = f"{video_filename}.nfo"
+            
+            # 创建XML根元素
+            movie = ET.Element("movie")
+            
+            # 添加基本信息
+            title_elem = ET.SubElement(movie, "title")
+            title_elem.text = download.title or "Unknown"
+            
+            # 添加描述（使用传入的描述或BVID占位符）
+            plot_elem = ET.SubElement(movie, "plot")
+            plot_elem.text = description or f"B站视频ID: {download.bvid}"
+            
+            # 添加视频标签（如果有）
+            if video_tags:
+                for tag in video_tags:
+                    tag_elem = ET.SubElement(movie, "tag")
+                    tag_elem.text = tag
+            
+            # 添加封面
+            if download.thumbnail_url:
+                thumb_elem = ET.SubElement(movie, "thumb")
+                thumb_elem.text = download.thumbnail_url
+            
+            # 添加发布日期（使用创建时间）
+            if download.created_at:
+                premiered_elem = ET.SubElement(movie, "premiered")
+                premiered_elem.text = download.created_at.strftime("%Y-%m-%d")
+            
+            # 添加UP主信息
+            if download.uploader:
+                studio_elem = ET.SubElement(movie, "studio")
+                studio_elem.text = download.uploader
+                
+                director_elem = ET.SubElement(movie, "director")
+                director_elem.text = download.uploader
+            
+            # 添加时长信息
+            if download.duration:
+                runtime_elem = ET.SubElement(movie, "runtime")
+                runtime_elem.text = str(download.duration)
+            
+            # 添加B站统计数据（如果有）
+            if video_stats:
+                # 添加播放数
+                if video_stats.get("play"):
+                    playcount_elem = ET.SubElement(movie, "playcount")
+                    playcount_elem.text = str(video_stats["play"])
+                
+                # 计算并添加互动评分（基于点赞、投币、收藏）
+                rating = self._calculate_bilibili_rating(video_stats)
+                if rating > 0:
+                    rating_elem = ET.SubElement(movie, "rating")
+                    rating_elem.text = f"{rating:.1f}"
+                
+                # 添加标签（弹幕数、评论数、分享数）
+                if video_stats.get("danmaku"):
+                    danmaku_tag = ET.SubElement(movie, "tag")
+                    danmaku_tag.text = f"弹幕数: {video_stats['danmaku']}"
+                
+                if video_stats.get("reply"):
+                    reply_tag = ET.SubElement(movie, "tag")
+                    reply_tag.text = f"评论数: {video_stats['reply']}"
+                
+                if video_stats.get("share"):
+                    share_tag = ET.SubElement(movie, "tag")
+                    share_tag.text = f"分享数: {video_stats['share']}"
+                
+                # 添加B站自定义统计标签（完整数据）
+                bilibili_stat = ET.SubElement(movie, "bilibili_stat")
+                bilibili_stat.set("xmlns", "bilibili")
+                
+                for key in ["play", "like", "coin", "favorite", "share", "danmaku", "reply"]:
+                    if video_stats.get(key) is not None:
+                        stat_elem = ET.SubElement(bilibili_stat, key)
+                        stat_elem.text = str(video_stats[key])
+            
+            # 生成XML字符串
+            xml_str = ET.tostring(movie, encoding='unicode', method='xml')
+            
+            # 添加XML声明
+            xml_declaration = '<?xml version="1.0" encoding="UTF-8"?>\n'
+            full_xml = xml_declaration + xml_str
+            
+            # 写入NFO文件（使用视频文件名，只是扩展名不同）
+            nfo_file = output_dir / nfo_filename
+            nfo_file.write_text(full_xml, encoding='utf-8')
+            
+            logger.info(f"Generated NFO file: {nfo_file}")
+            
+        except Exception as e:
+            logger.error(f"Failed to generate NFO file: {e}")
+    
+    def _calculate_bilibili_rating(self, stats: dict) -> float:
+        """
+        计算B站视频互动评分
+        
+        计算公式: 互动率 = (点赞数 × 0.4 + 投币数 × 0.3 + 收藏数 × 0.3) / 播放数
+        评分 = min(互动率 × 500, 10)
+        
+        这样可以更合理地反映视频质量，避免高播放量视频获得满分
+        
+        Args:
+            stats: 视频统计数据
+            
+        Returns:
+            评分 (0-10)
+        """
+        try:
+            like = stats.get("like", 0) or 0
+            coin = stats.get("coin", 0) or 0
+            favorite = stats.get("favorite", 0) or 0
+            play = stats.get("play", 1) or 1  # 避免除以0
+            
+            # 计算互动总量（加权）
+            interaction_score = (like * 0.4 + coin * 0.3 + favorite * 0.3)
+            
+            # 计算互动率（互动数 / 播放数）
+            if play > 0:
+                interaction_rate = interaction_score / play
+            else:
+                interaction_rate = 0
+            
+            # 评分 = 互动率 × 500，上限10分
+            # 例如：互动率2% = 0.02，评分 = 0.02 × 500 = 10分（满分）
+            #      互动率1% = 0.01，评分 = 0.01 × 500 = 5分
+            #      互动率0.2% = 0.002，评分 = 0.002 × 500 = 1分
+            rating = min(interaction_rate * 500, 10)
+            
+            return round(rating, 1)
+        except Exception as e:
+            logger.warning(f"Failed to calculate rating: {e}")
+            return 0.0
+    
     async def _process_completed_download(
         self,
         download_id: str,
@@ -326,6 +476,48 @@ class DownloadService:
                         download.file_path = str(video_files[0])
                         download.file_size = video_files[0].stat().st_size
                         print(f"DEBUG: Updated file_path to: {download.file_path}")
+                        
+                        # 生成NFO文件（如果启用）
+                        if download.enable_nfo:
+                            try:
+                                # 获取视频描述和统计数据
+                                description = None
+                                video_stats = None
+                                video_tags = None
+                                
+                                # 尝试从B站API获取视频详情
+                                from src.services.bilibili import BilibiliService
+                                bilibili_service = BilibiliService()
+                                try:
+                                    video_info = bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+                                    if video_info.get("success"):
+                                        video_data = video_info.get("data", {})
+                                        description = video_data.get("desc")
+                                        video_stats = {
+                                            "play": video_data.get("stat", {}).get("view", 0),
+                                            "like": video_data.get("stat", {}).get("like", 0),
+                                            "coin": video_data.get("stat", {}).get("coin", 0),
+                                            "favorite": video_data.get("stat", {}).get("favorite", 0),
+                                            "share": video_data.get("stat", {}).get("share", 0),
+                                            "danmaku": video_data.get("stat", {}).get("danmaku", 0),
+                                            "reply": video_data.get("stat", {}).get("reply", 0)
+                                        }
+                                except Exception as e:
+                                    logger.warning(f"Failed to get video info for NFO: {e}")
+                                finally:
+                                    bilibili_service.close()
+                                
+                                # 生成NFO文件
+                                self._generate_nfo_file(
+                                    video_file_path=video_files[0],
+                                    download=download,
+                                    description=description,
+                                    video_stats=video_stats,
+                                    video_tags=video_tags
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to generate NFO file: {e}")
+                    
                     download.temp_file_path = None  # 清除临时路径
                     db.commit()
                     print(f"DEBUG: Database commit completed")
