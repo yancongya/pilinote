@@ -224,27 +224,16 @@ export default function DownloadsContent() {
       }
     })
     
-    // 提取合集名称：对于系列视频，从多个标题中提取公共部分
+    // 提取合集名称：对于系列视频，从标题中提取合集名称（去掉【Part X】）
     for (const seriesId in groups) {
       const series = groups[seriesId]
-      if (series.totalCount > 1 && series.tasks.length > 1) {
-        // 尝试从多个标题中提取公共前缀
-        const titles = series.tasks.map(t => t.title).filter(Boolean)
-        if (titles.length > 1) {
-          // 找到最长的公共前缀
-          let commonPrefix = titles[0]
-          for (let i = 1; i < titles.length; i++) {
-            let j = 0
-            while (j < commonPrefix.length && j < titles[i].length && commonPrefix[j] === titles[i][j]) {
-              j++
-            }
-            commonPrefix = commonPrefix.substring(0, j)
-          }
-          
-          // 如果公共前缀太短（<10字符），或者包含特殊字符，使用第一个任务的标题
-          if (commonPrefix.length >= 10 && !commonPrefix.includes('【')) {
-            series.seriesName = commonPrefix.trim()
-          }
+      if (series.totalCount > 1) {
+        // 从第一个任务的标题中提取合集名称
+        const firstTitle = series.tasks[0]?.title || ''
+        // 去掉【Part X】前缀
+        const seriesName = firstTitle.replace(/【Part \d+】/, '').trim()
+        if (seriesName && seriesName.length > 0) {
+          series.seriesName = seriesName
         }
       }
     }

@@ -391,13 +391,13 @@ class DownloadManager:
             from src.services.download_engine import DownloadEngine
             engine = DownloadEngine()
             
-            # 使用视频标题创建子文件夹名称
-            safe_title = "".join(c for c in download.title if c.isalnum() or c in (' ', '-', '_')).strip()
+            # 保留中文、字母数字、空格、连字符和下划线
+            safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
             if not safe_title:
                 safe_title = "video"
             
-            # 构建输出路径：UUID/标题
-            output_path = f"downloads/{download_id}/{safe_title}"
+            # 构建输出路径：直接使用标题作为目录名
+            output_path = f"downloads/{safe_title}"
             
             # 执行下载
             logger.info(f"Calling download_engine.download_video for {download.bvid}, output_path: {output_path}")
