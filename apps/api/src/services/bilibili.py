@@ -770,6 +770,55 @@ class BilibiliService:
                 "need_relogin": True
             }
 
+    async def get_uploader_info(self, uploader_mid: int, sessdata: str = "") -> Dict:
+        """获取UP主信息（使用HeadersManager获取headers）- 参考BiliTools getUserInfo实现
+        
+        Args:
+            uploader_mid: UP主MID
+            sessdata: SESSDATA（可选）
+            
+        Returns:
+            Dict: UP主信息，包含name、mid、avatar
+        """
+        # 确保SESSDATA在headers中
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+        
+        # 使用B站空间API（参考BiliTools）
+        url = f"{self.api_base}/x/space/wbi/acc/info"
+        headers = await self.headers_manager.get_headers()
+        
+        # 添加WBI签名（如果需要）
+        params = {
+            "mid": uploader_mid
+        }
+        
+        try:
+            # 使用异步请求
+            response = await self._request("GET", url, params=params)
+            data = response.json()
+            
+            if data.get("code") == 0:
+                info = data.get("data", {})
+                return {
+                    "success": True,
+                    "data": {
+                        "name": info.get("name"),
+                        "mid": info.get("mid"),
+                        "avatar": info.get("face")  # face字段是头像URL
+                    }
+                }
+            return {
+                "success": False,
+                "message": data.get("message", "获取UP主信息失败"),
+                "code": data.get("code")
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"获取UP主信息异常: {str(e)}"
+            }
+
     def close(self):
         """关闭HTTP客户端"""
         self.client.close()

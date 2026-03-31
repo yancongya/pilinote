@@ -4,6 +4,7 @@ import asyncio
 import logging
 import shutil
 import xml.etree.ElementTree as ET
+import httpx
 from datetime import datetime
 from typing import Dict, Optional, Callable
 from pathlib import Path
@@ -416,6 +417,160 @@ class DownloadService:
             logger.warning(f"Failed to calculate rating: {e}")
             return 0.0
     
+    async def _download_image(self, url: str, save_path: Path) -> bool:
+        """
+        下载图像（参考BiliTools get_image实现）
+        
+        Args:
+            url: 图像URL
+            save_path: 保存路径
+            
+        Returns:
+            bool: 是否成功
+        """
+        logger.info(f"Downloading image from: {url}")
+        logger.info(f"Saving to: {save_path}")
+        
+        try:
+            # 使用httpx下载图像
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                logger.info(f"Sending HTTP request to {url}...")
+                response = await client.get(url)
+                logger.info(f"Response status: {response.status_code}")
+                response.raise_for_status()
+                
+                content_length = len(response.content)
+                logger.info(f"Downloaded {content_length} bytes")
+                
+                # 保存图像
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                save_path.write_bytes(response.content)
+                
+                logger.info(f"Successfully downloaded image: {save_path}")
+                return True
+        except Exception as e:
+            logger.error(f"Failed to download image from {url}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
+    
+    async def _download_thumbnail(self, download: Download, output_dir: Path) -> bool:
+        """
+        下载封面图（参考BiliTools handleThumbs实现）
+        
+        Args:
+            download: 下载任务对象
+            output_dir: 输出目录
+            
+        Returns:
+            bool: 是否成功
+        """
+        logger.info(f"=== Starting thumbnail download ===")
+        logger.info(f"Download ID: {download.id}")
+        logger.info(f"Output dir: {output_dir}")
+        logger.info(f"Output dir exists: {output_dir.exists()}")
+        logger.info(f"Thumbnail URL: {download.thumbnail_url}")
+        
+        if not download.thumbnail_url:
+            logger.warning("No thumbnail URL provided")
+            return False
+        
+        try:
+            # 获取视频文件名（不含扩展名）
+            video_files = [f for f in output_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+            logger.info(f"Video files found in output dir: {len(video_files)}")
+            if video_files:
+                logger.info(f"Video files: {[str(f) for f in video_files]}")
+            
+            if not video_files:
+                logger.warning("No video file found in output directory")
+                return False
+            
+            video_filename = video_files[0].stem
+            logger.info(f"Video filename: {video_filename}")
+            
+            # 下载封面（使用视频文件名，扩展名为.jpg）
+            thumbnail_path = output_dir / f"{video_filename}.jpg"
+            logger.info(f"Thumbnail path: {thumbnail_path}")
+            
+            # 将http:替换为https:（参考BiliTools）
+            url = download.thumbnail_url.replace('http:', 'https:')
+            logger.info(f"Final URL: {url}")
+            
+            # 下载图像
+            success = await self._download_image(url, thumbnail_path)
+            
+            if success:
+                logger.info(f"Downloaded thumbnail: {thumbnail_path}")
+            
+            return success
+        except Exception as e:
+            logger.error(f"Failed to download thumbnail: {e}")
+            return False
+    
+    async def _download_avatar(self, download: Download, output_dir: Path) -> bool:
+        """
+        下载UP主头像（参考BiliTools getUserInfo实现）
+        
+        Args:
+            download: 下载任务对象
+            output_dir: 输出目录
+            
+        Returns:
+            bool: 是否成功
+        """
+        logger.info(f"=== Starting avatar download ===")
+        logger.info(f"Download ID: {download.id}")
+        logger.info(f"Uploader: {download.uploader}")
+        logger.info(f"Uploader MID: {download.uploader_mid}")
+        logger.info(f"Output dir: {output_dir}")
+        
+        if not download.uploader_mid or not download.uploader:
+            logger.warning("No uploader MID or name provided")
+            return False
+        
+        try:
+            # 使用BilibiliService获取UP主信息
+            from src.services.bilibili import BilibiliService
+            bilibili_service = BilibiliService()
+            
+            try:
+                logger.info(f"Fetching uploader info for MID: {download.uploader_mid}")
+                # 获取UP主信息
+                uploader_info = await bilibili_service.get_uploader_info(
+                    download.uploader_mid,
+                    download.sessdata or ""
+                )
+                
+                logger.info(f"Uploader info response: {uploader_info}")
+                
+                if uploader_info.get("success"):
+                    avatar_url = uploader_info.get("data", {}).get("avatar")
+                    logger.info(f"Avatar URL: {avatar_url}")
+                    
+                    if avatar_url:
+                        # 下载UP主头像（保存为avatar.jpg）
+                        avatar_path = output_dir / "avatar.jpg"
+                        
+                        # 将http:替换为https:（参考BiliTools）
+                        url = avatar_url.replace('http:', 'https:')
+                        
+                        # 下载图像
+                        success = await self._download_image(url, avatar_path)
+                        
+                        if success:
+                            logger.info(f"Downloaded uploader avatar: {avatar_path}")
+                        
+                        return success
+                else:
+                    logger.warning(f"Failed to get uploader info: {uploader_info.get('message')}")
+                    return False
+            finally:
+                bilibili_service.close()
+        except Exception as e:
+            logger.error(f"Failed to download uploader avatar: {e}")
+            return False
+    
     async def _process_completed_download(
         self,
         download_id: str,
@@ -436,6 +591,10 @@ class DownloadService:
         logger.info(f"Processing completed download: {download_id}")
         logger.info(f"Temp dir: {temp_dir}")
         logger.info(f"Final dir: {final_dir}")
+        
+        video_dir = None
+        video_file = None
+        
         try:
             # 确保最终目录存在
             final_dir.mkdir(parents=True, exist_ok=True)
@@ -459,68 +618,114 @@ class DownloadService:
                 shutil.move(str(item), str(dest))
                 logger.info(f"Moved {item.name} to {dest}")
             
-            # 更新数据库中的文件路径
-            with SessionLocal() as db:
-                download = db.query(Download).filter(Download.id == download_id).first()
-                print(f"DEBUG: Looking for download with id={download_id}")
-                print(f"DEBUG: Found download: {download is not None}")
-                if download:
-                    print(f"DEBUG: Final dir: {final_dir}")
-                    print(f"DEBUG: Final dir exists: {final_dir.exists()}")
-                    # 递归查找最终目录中的视频文件（包括子目录）
-                    video_files = [f for f in final_dir.rglob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
-                    print(f"DEBUG: Video files found: {len(video_files)}")
-                    if video_files:
-                        print(f"DEBUG: First video file: {video_files[0]}")
-                        # 更新文件路径为最终路径
-                        download.file_path = str(video_files[0])
-                        download.file_size = video_files[0].stat().st_size
-                        print(f"DEBUG: Updated file_path to: {download.file_path}")
-                        
-                        # 生成NFO文件（如果启用）
-                        if download.enable_nfo:
+            # 递归查找最终目录中的视频文件（包括子目录）
+            video_files = [f for f in final_dir.rglob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+            logger.info(f"Video files found: {len(video_files)}")
+            
+            if video_files:
+                video_file = video_files[0]
+                video_dir = video_file.parent
+                logger.info(f"Video file: {video_file}")
+                logger.info(f"Video directory: {video_dir}")
+                
+                # 先更新数据库（在事务外获取视频文件路径）
+                with SessionLocal() as db:
+                    download = db.query(Download).filter(Download.id == download_id).first()
+                    if download:
+                        download.file_path = str(video_file)
+                        download.file_size = video_file.stat().st_size
+                        download.temp_file_path = None
+                        db.commit()
+                        logger.info(f"Database updated: file_path={download.file_path}")
+                
+                # 生成NFO文件（如果启用）- 在数据库事务外执行
+                try:
+                    logger.info(f"=== Checking NFO generation ===")
+                    with SessionLocal() as db:
+                        download = db.query(Download).filter(Download.id == download_id).first()
+                        if download and download.enable_nfo:
+                            logger.info(f"Starting NFO generation...")
+                            
+                            # 获取视频描述和统计数据
+                            description = None
+                            video_stats = None
+                            video_tags = None
+                            
+                            # 尝试从B站API获取视频详情
+                            from src.services.bilibili import BilibiliService
+                            bilibili_service = BilibiliService()
                             try:
-                                # 获取视频描述和统计数据
-                                description = None
-                                video_stats = None
-                                video_tags = None
-                                
-                                # 尝试从B站API获取视频详情
-                                from src.services.bilibili import BilibiliService
-                                bilibili_service = BilibiliService()
-                                try:
-                                    video_info = bilibili_service.get_video_info(download.bvid, download.sessdata or "")
-                                    if video_info.get("success"):
-                                        video_data = video_info.get("data", {})
-                                        description = video_data.get("desc")
-                                        video_stats = {
-                                            "play": video_data.get("stat", {}).get("view", 0),
-                                            "like": video_data.get("stat", {}).get("like", 0),
-                                            "coin": video_data.get("stat", {}).get("coin", 0),
-                                            "favorite": video_data.get("stat", {}).get("favorite", 0),
-                                            "share": video_data.get("stat", {}).get("share", 0),
-                                            "danmaku": video_data.get("stat", {}).get("danmaku", 0),
-                                            "reply": video_data.get("stat", {}).get("reply", 0)
-                                        }
-                                except Exception as e:
-                                    logger.warning(f"Failed to get video info for NFO: {e}")
-                                finally:
-                                    bilibili_service.close()
-                                
-                                # 生成NFO文件
-                                self._generate_nfo_file(
-                                    video_file_path=video_files[0],
-                                    download=download,
-                                    description=description,
-                                    video_stats=video_stats,
-                                    video_tags=video_tags
-                                )
+                                video_info = bilibili_service.get_video_info(download.bvid, download.sessdata or "")
+                                if video_info.get("success"):
+                                    video_data = video_info.get("data", {})
+                                    description = video_data.get("desc")
+                                    video_stats = {
+                                        "play": video_data.get("stat", {}).get("view", 0),
+                                        "like": video_data.get("stat", {}).get("like", 0),
+                                        "coin": video_data.get("stat", {}).get("coin", 0),
+                                        "favorite": video_data.get("stat", {}).get("favorite", 0),
+                                        "share": video_data.get("stat", {}).get("share", 0),
+                                        "danmaku": video_data.get("stat", {}).get("danmaku", 0),
+                                        "reply": video_data.get("stat", {}).get("reply", 0)
+                                    }
                             except Exception as e:
-                                logger.error(f"Failed to generate NFO file: {e}")
-                    
-                    download.temp_file_path = None  # 清除临时路径
-                    db.commit()
-                    print(f"DEBUG: Database commit completed")
+                                logger.warning(f"Failed to get video info for NFO: {e}")
+                            finally:
+                                bilibili_service.close()
+                            
+                            # 生成NFO文件
+                            self._generate_nfo_file(
+                                video_file_path=video_file,
+                                download=download,
+                                description=description,
+                                video_stats=video_stats,
+                                video_tags=video_tags
+                            )
+                            logger.info(f"NFO file generated successfully")
+                except Exception as e:
+                    logger.error(f"Failed to generate NFO file: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                
+                # 下载封面图（如果启用）- 在数据库事务外执行
+                try:
+                    logger.info(f"=== Checking thumbnail download ===")
+                    with SessionLocal() as db:
+                        download = db.query(Download).filter(Download.id == download_id).first()
+                        if download:
+                            logger.info(f"enable_cover={download.enable_cover}, thumbnail_url={download.thumbnail_url}")
+                            logger.info(f"video_dir={video_dir}")
+                            
+                            if download.enable_cover and download.thumbnail_url:
+                                logger.info(f"Starting thumbnail download...")
+                                success = await self._download_thumbnail(download, video_dir)
+                                logger.info(f"Thumbnail download result: {success}")
+                            else:
+                                logger.info(f"Thumbnail download disabled: enable_cover={download.enable_cover}")
+                except Exception as e:
+                    logger.error(f"Failed to download thumbnail: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                
+                # 下载UP主头像（如果启用）- 在数据库事务外执行
+                try:
+                    logger.info(f"=== Checking avatar download ===")
+                    with SessionLocal() as db:
+                        download = db.query(Download).filter(Download.id == download_id).first()
+                        if download:
+                            logger.info(f"enable_avatar={download.enable_avatar}, uploader_mid={download.uploader_mid}")
+                            logger.info(f"video_dir={video_dir}")
+                            
+                            if download.enable_avatar and download.uploader_mid:
+                                logger.info(f"Starting avatar download...")
+                                success = await self._download_avatar(download, video_dir)
+                                logger.info(f"Avatar download result: {success}")
+                            else:
+                                logger.info(f"Avatar download disabled: enable_avatar={download.enable_avatar}")
+                except Exception as e:
+                    logger.error(f"Failed to download avatar: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
             
             # 根据设置清理临时目录
             if storage_settings and storage_settings.auto_cleanup:
@@ -536,6 +741,8 @@ class DownloadService:
                 
         except Exception as e:
             logger.error(f"Failed to process completed download: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
     
     async def _handle_failed_or_cancelled_download(

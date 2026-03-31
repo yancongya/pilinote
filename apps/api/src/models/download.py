@@ -82,7 +82,7 @@ class Download(Base):
 
     enable_cover = Column(Integer, default=1)  # 下载封面图片 (0=false, 1=true)
 
-    enable_avatar = Column(Integer, default=0)  # 下载UP主头像 (0=false, 1=true)
+    enable_avatar = Column(Integer, default=1)  # 下载UP主头像 (0=false, 1=true)
 
     block_pcdn = Column(Integer, default=1)  # 阻止PCDN (0=false, 1=true)
 

@@ -1,5 +1,185 @@
 # PiliNote 开发日志
 
+## 2026-03-31 图像下载功能修复（封面和UP主头像）
+
+### 🎯 修复内容
+
+#### ✅ 修复：视频下载完成后封面图片和UP主头像未下载
+- **问题现象：** 视频下载完成后，只生成了NFO文件，封面图片（.jpg）和UP主头像（avatar.jpg）没有下载
+- **根本原因：**
+  1. **数据库事务问题**：NFO生成和图片下载在数据库事务中执行，失败会导致整个事务回滚
+  2. **目录路径错误**：使用了错误的目录参数（final_dir而非video_dir），导致在错误的位置查找视频文件
+  3. **uploader_mid为0**：前端传递的uploader_mid字段可能为0，导致无法获取UP主头像
+
+### 🔧 技术实现
+
+#### 1. 分离数据库事务和文件操作
+**问题代码：**
+```python
+# ❌ 错误：NFO生成和图片下载在数据库事务中
+with SessionLocal() as db:
+    download = db.query(Download).filter(Download.id == download_id).first()
+    download.file_path = str(video_files[0])
+    db.commit()
+    
+    # 生成NFO - 在事务中
+    self._generate_nfo_file(...)
+    
+    # 下载封面 - 在事务中
+    await self._download_thumbnail(download, final_dir)
+```
+
+**修复后：**
+```python
+# ✅ 正确：数据库事务和文件操作分离
+# 1. 更新数据库（在事务中）
+with SessionLocal() as db:
+    download.file_path = str(video_file)
+    db.commit()
+
+# 2. 生成NFO（在事务外，独立try-except）
+try:
+    with SessionLocal() as db:
+        download = db.query(Download).filter(Download.id == download_id).first()
+        if download and download.enable_nfo:
+            self._generate_nfo_file(...)
+except Exception as e:
+    logger.error(f"Failed to generate NFO: {e}")
+
+# 3. 下载封面（在事务外，独立try-except）
+try:
+    with SessionLocal() as db:
+        download = db.query(Download).filter(Download.id == download_id).first()
+        if download and download.enable_cover:
+            await self._download_thumbnail(download, video_dir)
+except Exception as e:
+    logger.error(f"Failed to download thumbnail: {e}")
+```
+
+#### 2. 修正目录路径
+**问题代码：**
+```python
+# ❌ 错误：使用了错误的目录
+await self._download_thumbnail(download, final_dir)  # final_dir是下载根目录
+```
+
+**修复后：**
+```python
+# ✅ 正确：使用视频文件所在目录
+video_files = [f for f in final_dir.rglob('*') if f.is_file() and ...]
+video_file = video_files[0]
+video_dir = video_file.parent  # 获取视频文件所在目录
+
+await self._download_thumbnail(download, video_dir)
+await self._download_avatar(download, video_dir)
+```
+
+#### 3. 修复uploader_mid传递
+**问题代码：**
+```typescript
+// ❌ 错误：uploader_mid可能为0
+const downloadData = {
+  uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
+}
+```
+
+**修复后：**
+```typescript
+// ✅ 正确：从视频详情API获取uploader_mid
+const videoDetailResponse = await apiService.getVideoDetail(video.bvid, sessdata)
+const videoDetailData = videoDetailResponse.data
+
+const downloadData = {
+  uploader_mid: videoDetailData.owner?.mid || video.uploader?.mid || 0,
+  uploader: videoDetailData.owner?.name || video.uploader?.name || '',
+}
+```
+
+### 🎨 后端修改
+
+#### download_service.py
+- 重构 `_process_completed_download` 方法：
+  - 分离数据库事务和文件操作
+  - 修正目录路径处理（使用video_file.parent）
+  - 添加详细的日志输出
+  - 实现独立的异常处理（每个操作独立的try-except块）
+
+- 增强 `_download_image` 方法：
+  - 添加详细的日志输出
+  - 记录HTTP请求状态
+  - 记录下载字节数
+  - 完整的异常堆栈跟踪
+
+- 增强 `_download_thumbnail` 方法：
+  - 添加详细的调试信息
+  - 记录视频文件查找过程
+  - 记录URL处理（http:替换为https:）
+  - 完整的异常处理
+
+### 🎨 前端修改
+
+#### WatchLaterContent.tsx
+- 修复uploader_mid字段获取逻辑
+- 优先使用视频详情API返回的数据
+- 添加降级处理
+
+### 📝 目录结构
+
+下载完成后的目录结构：
+```
+downloads/
+└── 视频标题/
+    ├── 视频标题.mp4       # 视频文件
+    ├── 视频标题.nfo       # NFO元数据文件
+    ├── 视频标题.jpg       # 封面图片 ✨
+    └── avatar.jpg         # UP主头像 ✨
+```
+
+### ✅ 测试结果
+
+#### 功能测试
+- ✅ 视频文件下载成功
+- ✅ NFO文件生成成功
+- ✅ 封面图片下载成功
+- ✅ UP主头像下载成功
+
+#### 容错测试
+- ✅ NFO生成失败不影响封面和头像下载
+- ✅ 封面下载失败不影响头像下载
+- ✅ 头像下载失败不影响其他操作
+
+#### 数据库验证
+```sql
+SELECT id, title, thumbnail_url, uploader_mid, enable_cover, enable_avatar
+FROM downloads
+ORDER BY created_at DESC
+LIMIT 1;
+```
+- ✅ thumbnail_url有正确的值
+- ✅ uploader_mid有正确的值（非0）
+- ✅ enable_cover = 1
+- ✅ enable_avatar = 1
+
+### 📝 代码变更统计
+
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/api/src/services/download_service.py | +150 | 150 | 0 |
+| apps/web/src/pages/components/WatchLaterContent.tsx | +5 | 5 | 0 |
+| docs/todo/download/06-image-download-fix.md | +300 | 300 | 0 |
+| CHANGELOG.md | +50 | 50 | 0 |
+| **总计** | **+505** | **505** | 0 |
+
+### 📝 文档更新
+- ✅ 创建详细的修复文档：`docs/todo/download/06-image-download-fix.md`
+- ✅ 更新 CHANGELOG 记录修复过程
+- ✅ 记录根本原因、解决方案、技术细节
+
+### 🔗 相关文档
+- 详见 `docs/todo/download/06-image-download-fix.md` 获取完整的技术细节
+
+---
+
 ## 2026-03-31 从备份分支恢复NFO文件生成功能
 
 ### 🎯 功能恢复

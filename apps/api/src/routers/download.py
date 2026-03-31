@@ -1104,32 +1104,25 @@ async def delete_download(download_id: str):
         with SessionLocal() as session:
             download = session.query(Download).filter(Download.id == download_id).first()
             if download:
-                # 删除文件和目录 - 使用file_path字段
+                # 删除文件和目录 - 删除整个视频目录
                 if download.file_path:
                     file_path = download.file_path
-                    if os.path.exists(file_path):
+                    # 获取视频文件所在的目录
+                    parent_dir = os.path.dirname(file_path)
+                    if parent_dir and os.path.exists(parent_dir):
                         try:
-                            # 如果是文件，直接删除
-                            if os.path.isfile(file_path):
-                                os.remove(file_path)
-                                logger.info(f"Deleted file: {file_path}")
-                            # 如果是目录，递归删除
-                            elif os.path.isdir(file_path):
-                                shutil.rmtree(file_path)
-                                logger.info(f"Deleted directory: {file_path}")
-                            
-                            # 检查父目录是否为空，如果是则删除
-                            parent_dir = os.path.dirname(file_path)
-                            if parent_dir and os.path.exists(parent_dir):
-                                try:
-                                    # 尝试删除父目录（仅当为空时）
-                                    os.rmdir(parent_dir)
-                                    logger.info(f"Deleted empty parent directory: {parent_dir}")
-                                except OSError:
-                                    # 目录不为空，忽略错误
-                                    pass
+                            # 删除整个目录（包括视频、NFO、封面、头像等所有文件）
+                            shutil.rmtree(parent_dir)
+                            logger.info(f"Deleted directory: {parent_dir}")
                         except Exception as e:
-                            logger.error(f"Failed to delete {file_path}: {e}")
+                            logger.error(f"Failed to delete directory {parent_dir}: {e}")
+                    elif os.path.exists(file_path):
+                        # 如果file_path本身是文件且不在目录中，直接删除
+                        try:
+                            os.remove(file_path)
+                            logger.info(f"Deleted file: {file_path}")
+                        except Exception as e:
+                            logger.error(f"Failed to delete file {file_path}: {e}")
                 
                 session.delete(download)
                 session.commit()

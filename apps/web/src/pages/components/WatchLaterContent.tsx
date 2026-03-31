@@ -220,10 +220,10 @@ export default function WatchLaterContent() {
                   aid: videoDetailData.aid || video.aid,
                   quality: 64,
                   output_format: 'mp4',
-                  thumbnail_url: video.pic,
+                  thumbnail_url: video.cover,
                   duration: page.duration,
-                  uploader: video.owner?.name || '',
-                  uploader_mid: video.owner?.mid || 0,
+                  uploader: video.uploader?.name || video.owner?.name || '',
+                  uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
                   sessdata: sessdata || undefined
                 }
                 
@@ -248,10 +248,10 @@ export default function WatchLaterContent() {
                 aid: videoDetailData.aid || video.aid,
                 quality: 64,
                 output_format: 'mp4',
-                thumbnail_url: video.pic,
+                thumbnail_url: video.cover,
                 duration: video.originalDuration || videoDetailData.duration || pages[0]?.duration,
-                uploader: video.owner?.name || '',
-                uploader_mid: video.owner?.mid || 0,
+                uploader: video.uploader?.name || video.owner?.name || '',
+                uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
                 sessdata: sessdata || undefined
               }
               
@@ -269,10 +269,10 @@ export default function WatchLaterContent() {
               aid: video.aid || video.id,
               quality: 64,
               output_format: 'mp4',
-              thumbnail_url: video.pic,
+              thumbnail_url: video.cover,
               duration: video.originalDuration || video.durationSeconds,
-              uploader: video.owner?.name || '',
-              uploader_mid: video.owner?.mid || 0,
+              uploader: video.uploader?.name || video.owner?.name || '',
+              uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
               sessdata: sessdata || undefined
             }
             
@@ -292,10 +292,10 @@ export default function WatchLaterContent() {
             aid: video.aid || video.id,
             quality: 64,
             output_format: 'mp4',
-            thumbnail_url: video.pic,
+            thumbnail_url: video.cover,
             duration: video.originalDuration || video.durationSeconds,
-            uploader: video.owner?.name || '',
-            uploader_mid: video.owner?.mid || 0,
+            uploader: video.uploader?.name || video.owner?.name || '',
+            uploader_mid: video.uploader?.mid || video.owner?.mid || 0,
             sessdata: sessdata || undefined
           }
           
