@@ -50,6 +50,14 @@ class Download(Base):
 
     aid = Column(Integer, nullable=True)  # 视频AID（用于系列视频）
 
+    # 新增字段：视频类型和来源
+    media_type = Column(String(20), nullable=True, index=True)  # MediaType
+    source_type = Column(String(20), nullable=True)  # 来源类型：favorite/watchlater/direct
+    source_id = Column(String(50), nullable=True)  # 来源ID：收藏夹ID等
+
+    # 关联任务ID
+    task_id = Column(String(50), nullable=True, index=True)  # 关联到tasks表
+
     quality = Column(Integer, default=64)  # 视频质量 (16=360P, 32=480P, 64=720P, 80=1080P, 112=1080P+, 116=4K)
 
     output_format = Column(String(10), default="mp4")  # 输出格式
