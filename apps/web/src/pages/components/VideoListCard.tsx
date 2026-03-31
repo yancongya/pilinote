@@ -179,7 +179,7 @@ export default function VideoListCard({
               </>
             )
           })()}
-          <div className="video-duration-overlay">{duration}</div>
+          {duration && <div className="video-duration-overlay">{duration}</div>}
           {/* Bilibili风格：系列视频显示集数 */}
           {isSeries && seriesCount && (
             <div className="video-series-count-overlay">
@@ -203,9 +203,20 @@ export default function VideoListCard({
           <span className="video-card-uploader">{uploader}</span>
           <span className="video-card-time">{time}</span>
           {watched && <span className="video-card-watched">{watched}</span>}
-          {/* 如果有操作按钮，在meta行中显示状态文本 */}
+          {/* Bilibili风格：替换状态文本为文件大小或系列数量 */}
           {showActionButtons && (
-            <span className="video-card-status">{views}</span>
+            <span className="video-card-file-size">
+              {isSeries && seriesCount ? (
+                <>
+                  <Users size={12} />
+                  <span>{seriesCount}集</span>
+                </>
+              ) : fileSize !== undefined ? (
+                formatFileSize(fileSize)
+              ) : (
+                views
+              )}
+            </span>
           )}
           {/* 操作按钮 - 在元数据行中显示 */}
           {showActionButtons && (
@@ -249,21 +260,6 @@ export default function VideoListCard({
             </div>
           )}
         </div>
-        {/* Bilibili风格：在封面显示文件大小或系列数量，状态显示文件大小 */}
-          {showActionButtons && (
-            <div className="video-card-file-size">
-              {isSeries && seriesCount ? (
-                <>
-                  <Users size={12} />
-                  <span>{seriesCount}集</span>
-                </>
-              ) : fileSize !== undefined ? (
-                formatFileSize(fileSize)
-              ) : (
-                views
-              )}
-            </div>
-          )}
           
           {/* 只在非操作按钮模式下显示统计信息 */}
           {!showActionButtons && (

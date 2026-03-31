@@ -4924,7 +4924,6 @@ body {
   gap: 4px;
   font-size: 14px;
   color: #666;
-  margin-top: 4px;
   flex-shrink: 0;
   transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

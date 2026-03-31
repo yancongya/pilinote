@@ -56,8 +56,9 @@ export default function DownloadsContent() {
   const navigate = useNavigate()
 
   // 格式化时长
-  const formatDuration = (seconds: number): string => {
-    if (!seconds) return '--:--'
+  const formatDuration = (seconds: number | undefined | null): string => {
+    if (seconds === undefined || seconds === null) return ''
+    if (seconds === 0) return '0:00'
     const hours = Math.floor(seconds / 3600)
     const mins = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
