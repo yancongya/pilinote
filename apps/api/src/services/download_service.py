@@ -283,6 +283,9 @@ class DownloadService:
             storage_settings: 存储设置
         """
         import shutil
+        logger.info(f"Processing completed download: {download_id}")
+        logger.info(f"Temp dir: {temp_dir}")
+        logger.info(f"Final dir: {final_dir}")
         try:
             # 确保最终目录存在
             final_dir.mkdir(parents=True, exist_ok=True)
@@ -309,13 +312,23 @@ class DownloadService:
             # 更新数据库中的文件路径
             with SessionLocal() as db:
                 download = db.query(Download).filter(Download.id == download_id).first()
-                if download and download.temp_file_path:
-                    # 更新文件路径为最终路径
-                    temp_file = Path(download.temp_file_path)
-                    final_file = final_dir / temp_file.name
-                    download.file_path = str(final_file)
+                print(f"DEBUG: Looking for download with id={download_id}")
+                print(f"DEBUG: Found download: {download is not None}")
+                if download:
+                    print(f"DEBUG: Final dir: {final_dir}")
+                    print(f"DEBUG: Final dir exists: {final_dir.exists()}")
+                    # 查找最终目录中的视频文件
+                    video_files = [f for f in final_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+                    print(f"DEBUG: Video files found: {len(video_files)}")
+                    if video_files:
+                        print(f"DEBUG: First video file: {video_files[0]}")
+                        # 更新文件路径为最终路径
+                        download.file_path = str(video_files[0])
+                        download.file_size = video_files[0].stat().st_size
+                        print(f"DEBUG: Updated file_path to: {download.file_path}")
                     download.temp_file_path = None  # 清除临时路径
                     db.commit()
+                    print(f"DEBUG: Database commit completed")
             
             # 根据设置清理临时目录
             if storage_settings and storage_settings.auto_cleanup:
@@ -366,11 +379,13 @@ class DownloadService:
                 # 更新数据库中的文件路径
                 with SessionLocal() as db:
                     download = db.query(Download).filter(Download.id == download_id).first()
-                    if download and download.temp_file_path:
-                        # 更新文件路径为保留路径
-                        temp_file = Path(download.temp_file_path)
-                        final_file = backup_dir / temp_file.name
-                        download.file_path = str(final_file)
+                    if download:
+                        # 查找backup_dir中的视频文件
+                        video_files = [f for f in backup_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+                        if video_files:
+                            # 更新文件路径为保留路径
+                            download.file_path = str(video_files[0])
+                            download.file_size = video_files[0].stat().st_size
                         download.temp_file_path = None  # 清除临时路径
                         db.commit()
             else:
@@ -466,14 +481,26 @@ class DownloadService:
                 # 此时文件还在临时目录，暂时保存临时路径
                 download.temp_file_path = str(video_files[0])
                 download.file_size = video_files[0].stat().st_size
+                
+                # 保存到数据库
+                with SessionLocal() as db:
+                    db_download = db.query(Download).filter(Download.id == download_id).first()
+                    if db_download:
+                        db_download.temp_file_path = download.temp_file_path
+                        db_download.file_size = download.file_size
+                        db.commit()
             
             # 处理已完成的下载（移动文件到最终目录）
+            print(f"DEBUG: About to call _process_completed_download with download_id={download_id}")
+            print(f"DEBUG: temp_download_dir={temp_download_dir}")
+            print(f"DEBUG: final_dir={self.download_dir}")
             await self._process_completed_download(
                 download_id=download_id,
                 temp_dir=temp_download_dir,
                 final_dir=self.download_dir,
                 storage_settings=storage_settings
             )
+            print(f"DEBUG: _process_completed_download completed")
             
             self.update_download_status(download_id, "completed")
             
