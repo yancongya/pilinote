@@ -57,11 +57,10 @@ export default function DownloadsContent() {
 
   // 格式化时长
   const formatDuration = (seconds: number | undefined | null): string => {
-    if (seconds === undefined || seconds === null) return ''
-    if (seconds === 0) return '0:00'
+    if (seconds === undefined || seconds === null || seconds === 0) return ''
     const hours = Math.floor(seconds / 3600)
     const mins = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
+    const secs = Math.floor(seconds % 60)
     
     if (hours > 0) {
       return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
@@ -132,8 +131,8 @@ export default function DownloadsContent() {
     
     await Promise.all(deletePromises)
     
-    // 删除后重新获取下载列表
-    fetchDownloads()
+    // 删除后重新获取下载列表，并更新存储信息
+    fetchDownloads(true)
   }
 
   // 获取存储信息
@@ -156,8 +155,11 @@ export default function DownloadsContent() {
   }, [])
 
   // 获取下载任务列表
-  const fetchDownloads = useCallback(async () => {
-    setLoading(true)
+  const fetchDownloads = useCallback(async (updateStorage: boolean = false) => {
+    // 只在初始加载或手动刷新时显示 loading，避免轮询时闪烁
+    if (!downloads.length) {
+      setLoading(true)
+    }
     setError('')
     
     try {
@@ -166,8 +168,10 @@ export default function DownloadsContent() {
       
       if (data.success) {
         setDownloads(data.downloads)
-        // 同时更新存储信息
-        fetchStorageInfo()
+        // 只在需要时更新存储信息
+        if (updateStorage) {
+          fetchStorageInfo()
+        }
       } else {
         setError(data.message || '获取下载列表失败')
       }
@@ -176,12 +180,11 @@ export default function DownloadsContent() {
     } finally {
       setLoading(false)
     }
-  }, [fetchStorageInfo])
+  }, [fetchStorageInfo, downloads.length])
 
   // 按系列分组
   const groupDownloadsBySeries = useCallback(async (tasks: DownloadTask[]): Promise<DownloadSeries[]> => {
     const groups: Record<string, DownloadSeries> = {}
-    const uniqueSeriesIds = new Set<string>()
     
     // 首先按aid或bvid分组
     tasks.forEach(task => {
@@ -192,7 +195,7 @@ export default function DownloadsContent() {
       if (!groups[seriesId]) {
         groups[seriesId] = {
           seriesId,
-          seriesName: task.title, // 临时使用标题
+          seriesName: task.title || '未知视频',
           thumbnail_url: task.thumbnail_url,
           tasks: [],
           totalCount: 0,
@@ -201,7 +204,6 @@ export default function DownloadsContent() {
           totalDuration: 0,
           createdTime: task.created_at
         }
-        uniqueSeriesIds.add(seriesId)
       }
       
       groups[seriesId].tasks.push(task)
@@ -214,23 +216,6 @@ export default function DownloadsContent() {
         }
       }
     })
-    
-    // 获取真实的系列名
-    for (const seriesId of uniqueSeriesIds) {
-      const firstTask = groups[seriesId].tasks[0]
-      if (firstTask.bvid) {
-        try {
-          const response = await fetch(`http://localhost:8000/api/video/${firstTask.bvid}`)
-          const data = await response.json()
-          if (data.success && data.data) {
-            groups[seriesId].seriesName = data.data.title
-          }
-        } catch (error) {
-          console.error('获取视频详情失败:', error)
-          // 保持原标题
-        }
-      }
-    }
     
     // 检查是否有多个组有相同的seriesName（相同系列但aid不同的情况）
     const nameMap: Record<string, string[]> = {}
@@ -276,8 +261,8 @@ export default function DownloadsContent() {
 
   // 初始加载
   useEffect(() => {
-    fetchDownloads()
-  }, [fetchDownloads])
+    fetchDownloads(true) // 初始加载时更新存储信息
+  }, []) // 移除 fetchDownloads 依赖，避免无限循环
 
   // 实时刷新：当有下载中的任务时，自动刷新进度
   useEffect(() => {
@@ -287,8 +272,8 @@ export default function DownloadsContent() {
     
     if (hasDownloading) {
       const timer = setInterval(() => {
-        fetchDownloads()
-      }, 2000)
+        fetchDownloads(false) // 轮询时不更新存储信息
+      }, 3000) // 增加轮询间隔到3秒，减少请求频率
       return () => clearInterval(timer)
     }
   }, [downloads, fetchDownloads])
@@ -307,11 +292,16 @@ export default function DownloadsContent() {
       )
     }
     
-    if (filteredDownloads.length > 0) {
-      groupDownloadsBySeries(filteredDownloads).then(setSeriesList)
-    } else {
-      setSeriesList([])
-    }
+    // 使用 debounce 避免频繁重新分组
+    const timeoutId = setTimeout(() => {
+      if (filteredDownloads.length > 0) {
+        groupDownloadsBySeries(filteredDownloads).then(setSeriesList)
+      } else {
+        setSeriesList([])
+      }
+    }, 100) // 100ms 延迟
+    
+    return () => clearTimeout(timeoutId)
   }, [downloads, viewMode, groupDownloadsBySeries])
 
   // 获取状态统计
@@ -367,7 +357,7 @@ export default function DownloadsContent() {
           <div className="error-state">
             <span className="error-icon">⚠️</span>
             <p>{error}</p>
-            <button className="retry-btn" onClick={fetchDownloads}>重试</button>
+            <button className="retry-btn" onClick={() => fetchDownloads(true)}>重试</button>
           </div>
         ) : seriesList.length === 0 ? (
           <div className="empty-state">
