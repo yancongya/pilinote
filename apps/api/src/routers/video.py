@@ -58,7 +58,7 @@ async def get_video_detail(
                         "share": media_info.nfo.stat.share or 0
                     },
                     "cid": media_info.list[0].cid if media_info.list else 0,
-                    "duration": media_info.nfo.thumbs[0].url if media_info.nfo.thumbs else 0,  # 临时使用
+                    "duration": media_info.list[0].duration if media_info.list else 0,
                     "pubdate": media_info.nfo.premiered or 0,
                     "pages": [
                         {

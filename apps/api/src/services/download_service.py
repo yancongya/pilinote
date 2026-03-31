@@ -317,8 +317,8 @@ class DownloadService:
                 if download:
                     print(f"DEBUG: Final dir: {final_dir}")
                     print(f"DEBUG: Final dir exists: {final_dir.exists()}")
-                    # 查找最终目录中的视频文件
-                    video_files = [f for f in final_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+                    # 递归查找最终目录中的视频文件（包括子目录）
+                    video_files = [f for f in final_dir.rglob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
                     print(f"DEBUG: Video files found: {len(video_files)}")
                     if video_files:
                         print(f"DEBUG: First video file: {video_files[0]}")
@@ -494,10 +494,11 @@ class DownloadService:
             print(f"DEBUG: About to call _process_completed_download with download_id={download_id}")
             print(f"DEBUG: temp_download_dir={temp_download_dir}")
             print(f"DEBUG: final_dir={self.download_dir}")
+            print(f"DEBUG: Using download path from settings: {storage_settings.download_path}")
             await self._process_completed_download(
                 download_id=download_id,
                 temp_dir=temp_download_dir,
-                final_dir=self.download_dir,
+                final_dir=Path(storage_settings.download_path),
                 storage_settings=storage_settings
             )
             print(f"DEBUG: _process_completed_download completed")

@@ -941,3 +941,21 @@ const pagesToRestore = pages.filter((page: any) => {
 - 纯前端逻辑，不依赖后端查询
 - 按钮更简洁，节省空间
 - 图标比文字更直观，国际化友好
+
+### 2026-03-31 (Bug修复)
+- ✅ **修复file_path更新问题**: 修复下载完成后file_path字段未正确更新到数据库的问题
+  - **问题**: 下载完成后file_path字段为null，导致删除功能无法找到并删除本地文件
+  - **原因**: `download_service.py`中的视频文件查找逻辑只搜索单层目录，但视频文件被移动到子目录中
+  - **解决方案**: 将 `final_dir.glob('*')` 改为 `final_dir.rglob('*')`，递归查找所有子目录
+  - **影响**: 删除功能现在可以正确删除本地文件，文件路径正确保存到数据库
+  
+- ✅ **修复视频时长显示为00:00问题**: 修复视频封面时长无法正确显示的问题
+  - **问题**: 视频封面的时长显示为00:00，无法获取视频的实际时长
+  - **原因**: `video.py`中duration字段被错误地赋值为缩略图URL
+  - **解决方案**: 将 `"duration": media_info.nfo.thumbs[0].url` 改为 `"duration": media_info.list[0].duration`
+  - **影响**: 视频时长现在正确显示（如12:53），元数据正确保存到数据库
+  
+**技术细节**:
+- `apps/api/src/services/download_service.py` (第313行): 修改视频文件查找逻辑
+- `apps/api/src/routers/video.py` (第65行): 修复duration字段赋值
+- 测试验证: 下载任务成功显示正确时长、缩略图、UP主信息和文件路径
