@@ -5,12 +5,15 @@
 - 定时检查cookie有效期
 - 自动刷新即将过期的cookie
 - 支持多账号的定时刷新
+- 定时清理临时文件
 """
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from datetime import datetime, timedelta
 from typing import Optional
+from pathlib import Path
 import logging
+import shutil
 
 from src.services.bilibili import BilibiliService
 from src.services.headers_manager import get_headers_manager
@@ -42,6 +45,15 @@ class SchedulerService:
             trigger=IntervalTrigger(minutes=30),
             id='refresh_cookies',
             name='刷新Cookie任务',
+            replace_existing=True
+        )
+        
+        # 添加定时任务：每小时清理一次临时文件
+        self.scheduler.add_job(
+            self.cleanup_old_temp_files,
+            trigger=IntervalTrigger(hours=1),
+            id='cleanup_temp_files',
+            name='清理临时文件任务',
             replace_existing=True
         )
         
@@ -133,6 +145,91 @@ class SchedulerService:
             logger.error(f"[Scheduler] 定时任务执行失败: {str(e)}")
         finally:
             db.close()
+    
+    def cleanup_old_temp_files(self):
+        """
+        清理超过24小时的临时文件
+        
+        目标：
+        - temp/ 目录下的所有临时目录
+        - temp/ 目录下的 .temp 后缀目录
+        - temp/ 目录下的 .failed 和 .cancelled 目录
+        """
+        try:
+            # 获取设置中的临时路径
+            temp_path = self._get_temp_path()
+            if not temp_path:
+                logger.warning("[Scheduler] 无法获取临时路径，跳过清理")
+                return
+            
+            temp_dir = Path(temp_path)
+            if not temp_dir.exists():
+                logger.info(f"[Scheduler] 临时目录不存在: {temp_dir}")
+                return
+            
+            # 获取当前时间
+            now = datetime.now()
+            # 计算24小时前的时间
+            cutoff_time = now - timedelta(hours=24)
+            
+            # 统计清理数量
+            cleaned_count = 0
+            skipped_count = 0
+            
+            # 遍历临时目录
+            for item in temp_dir.iterdir():
+                try:
+                    # 只处理目录
+                    if not item.is_dir():
+                        continue
+                    
+                    # 获取修改时间
+                    mod_time = datetime.fromtimestamp(item.stat().st_mtime)
+                    
+                    # 检查是否超过24小时
+                    if mod_time < cutoff_time:
+                        # 删除目录
+                        shutil.rmtree(str(item))
+                        cleaned_count += 1
+                        logger.info(
+                            f"[Scheduler] 清理临时目录: {item.name} "
+                            f"(修改时间: {mod_time.strftime('%Y-%m-%d %H:%M:%S')})"
+                        )
+                    else:
+                        skipped_count += 1
+                        logger.debug(
+                            f"[Scheduler] 跳过临时目录: {item.name} "
+                            f"(修改时间: {mod_time.strftime('%Y-%m-%d %H:%M:%S')})"
+                        )
+                        
+                except Exception as e:
+                    logger.error(f"[Scheduler] 处理临时目录 {item} 时出错: {str(e)}")
+            
+            logger.info(
+                f"[Scheduler] 临时文件清理完成 - "
+                f"清理: {cleaned_count} 个, 跳过: {skipped_count} 个"
+            )
+            
+        except Exception as e:
+            logger.error(f"[Scheduler] 清理临时文件任务执行失败: {str(e)}")
+    
+    def _get_temp_path(self) -> Optional[str]:
+        """
+        获取临时路径
+        
+        Returns:
+            临时路径，如果获取失败返回None
+        """
+        try:
+            from src.services.settings_service import SettingsService
+            
+            with SessionLocal() as db:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                return settings.storage.temp_path
+        except Exception as e:
+            logger.warning(f"[Scheduler] 获取临时路径失败: {str(e)}")
+            return None
 
 
 # 全局实例
