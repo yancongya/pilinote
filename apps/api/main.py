@@ -12,8 +12,10 @@ from src.routers.watchlater import router as watchlater_router
 from src.routers.download import router as download_router
 from src.routers.settings import router as settings_router
 from src.routers.queue import router as queue_router
+from src.routers.cache import router as cache_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
+from src.services.cache.video_cache import video_cache
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,11 @@ async def lifespan(app: FastAPI):
     logger.info("Starting queue manager...")
     await queue_manager.initialize()
     logger.info("Queue manager started")
+
+    # 清理过期缓存
+    logger.info("Cleaning up expired cache...")
+    await video_cache.cleanup_expired()
+    logger.info("Expired cache cleaned up")
 
     # 启动定时任务
     scheduler_service.start()
@@ -64,6 +71,7 @@ app.include_router(watchlater_router)
 app.include_router(download_router)
 app.include_router(settings_router)
 app.include_router(queue_router)
+app.include_router(cache_router)
 
 
 @app.get("/")
