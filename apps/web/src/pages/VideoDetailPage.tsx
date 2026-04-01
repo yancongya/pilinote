@@ -101,18 +101,38 @@ export default function VideoDetailPage() {
     return num.toString()
   }
 
-  const formatTime = (timestamp: number): string => {
-    if (!timestamp || timestamp === 0) return ''
+  const formatTime = (timestamp: number | string): string => {
+    if (!timestamp) return ''
+
     try {
-      const date = new Date(timestamp * 1000)
+      let date: Date
+
+      // 如果是字符串（如 "2026-03-28"），直接解析
+      if (typeof timestamp === 'string') {
+        date = new Date(timestamp)
+      } else {
+        // 如果是数字（时间戳），转换为毫秒
+        if (timestamp === 0) return ''
+        date = new Date(timestamp * 1000)
+      }
+
+      // 检查日期是否有效
       if (isNaN(date.getTime())) return ''
+
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
 
-      return `${year}-${month}-${day} ${hours}:${minutes}`
+      // 如果只有日期没有时间，只返回日期部分
+      const hours = date.getHours()
+      const minutes = date.getMinutes()
+
+      // 如果是 00:00，可能是只有日期的情况，只返回日期
+      if (hours === 0 && minutes === 0) {
+        return `${year}-${month}-${day}`
+      }
+
+      return `${year}-${month}-${day} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
     } catch (error) {
       console.error('格式化时间失败:', error)
       return ''
