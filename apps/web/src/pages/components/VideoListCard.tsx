@@ -23,6 +23,13 @@ interface VideoCardProps {
   watched?: string
   fileSize?: number  // 新增：文件大小（字节）
   seriesCount?: number // 新增：系列集数
+  // 视频详细信息字段（用于下载）
+  cid?: number
+  aid?: number
+  originalDuration?: number
+  owner?: { name: string; mid: number }
+  pubtime?: number
+  pic?: string
   onDownloadToggle?: (video: any, e: React.MouseEvent) => void
   downloadStatus?: 'none' | 'in_list'
   showDownloadButton?: boolean
@@ -69,6 +76,12 @@ export default function VideoListCard({
   watched,
   fileSize,
   seriesCount,
+  cid,
+  aid,
+  originalDuration,
+  owner,
+  pubtime,
+  pic,
   onDownloadToggle,
   downloadStatus = 'none',
   showDownloadButton = true,
@@ -343,7 +356,11 @@ export default function VideoListCard({
           className="video-card-download-btn"
           onClick={(e) => {
             e.stopPropagation()
-            onDownloadToggle({ id, bvid, title, cover, duration, uploader, views, comments, time, cid, aid, originalDuration, owner, pubtime, pic: cover }, e)
+            const videoData = {
+              id, bvid, title, cover, duration, uploader, views, comments, time,
+              cid, aid, originalDuration, owner, pubtime, pic: pic || cover
+            }
+            onDownloadToggle(videoData, e)
           }}
           aria-label={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载列表'}
           title={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载'}
