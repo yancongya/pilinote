@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
 import { Download, HardDrive, Gauge, Monitor, Music, RotateCw, Check } from 'lucide-react'
-import { ConfirmModal } from '../../components/Modal'
+import ConfirmModal from '../../components/ConfirmModal'
 
 // 定义ref类型
 interface DownloadSettingsRef {

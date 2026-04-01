@@ -13,7 +13,7 @@ import {
   Check,
   ChevronRight
 } from 'lucide-react'
-import { ConfirmModal } from '../../components/Modal'
+import ConfirmModal from '../../components/ConfirmModal'
 
 interface CacheInfo {
   exists: boolean
