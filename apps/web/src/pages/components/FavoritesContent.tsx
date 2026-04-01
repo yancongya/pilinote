@@ -196,10 +196,18 @@ export default function FavoritesContent() {
     try {
       let successCount = 0
       let failCount = 0
+      let duplicateCount = 0
 
       // 批量添加到下载队列
       for (const video of videos) {
         if (!selectedVideos.has(video.id)) continue
+
+        // 检查是否已经在下载列表中
+        if (downloadStore.isBvidInDownloadList(video.bvid)) {
+          duplicateCount++
+          console.log(`视频已在下载列表中: ${video.title}`)
+          continue
+        }
 
         try {
           const response = await apiService.addToDownloadQueue({
@@ -225,13 +233,27 @@ export default function FavoritesContent() {
         }
       }
 
-      if (successCount > 0) {
-        alert(`成功添加 ${successCount} 个视频到下载列表${failCount > 0 ? `，失败 ${failCount} 个` : ''}`)
+      if (successCount > 0 || duplicateCount > 0) {
+        // 同步下载列表
+        await downloadStore.syncFromServer()
+        
+        // 开始批量下载
+        if (successCount > 0) {
+          await downloadStore.startBatchDownloads()
+        }
+        
+        let message = `成功添加 ${successCount} 个视频到下载列表`
+        if (duplicateCount > 0) {
+          message += `，跳过 ${duplicateCount} 个已在列表中的视频`
+        }
+        if (failCount > 0) {
+          message += `，失败 ${failCount} 个`
+        }
+        
+        alert(message)
         // 退出批量模式
         setBatchMode(false)
         setSelectedVideos(new Set())
-        // 刷新下载列表
-        downloadStore.fetchDownloads()
       } else {
         throw new Error('所有视频添加失败')
       }
