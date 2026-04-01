@@ -477,16 +477,35 @@ export default function VideoDetailPage() {
         <h2 className="video-detail-title" style={{
           fontSize: '18px',
           fontWeight: '600',
-          color: '#1a1a1a',
           margin: '0 0 16px 0',
-          lineHeight: '1.4',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
+          lineHeight: '1.4'
         }}>
-          {video.title}
+          <a
+            href={`https://www.bilibili.com/video/${video.bvid}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#1a1a1a',
+              textDecoration: 'none',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              transition: 'color 0.2s ease',
+              cursor: 'pointer'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#fb7299'
+              e.currentTarget.style.textDecoration = 'underline'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#1a1a1a'
+              e.currentTarget.style.textDecoration = 'none'
+            }}
+          >
+            {video.title}
+          </a>
         </h2>
 
         {/* UP主信息 + 统计信息 */}
