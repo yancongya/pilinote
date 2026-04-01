@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../stores/auth'
 import { apiService } from '../../services/api'
 import { User, Trash2, RefreshCw, Check } from 'lucide-react'
+import { ConfirmModal } from '../../components/Modal'
 
 interface Account {
   id: number
@@ -247,43 +248,17 @@ export default function AccountsSettings() {
       )}
 
       {/* 删除确认对话框 */}
-      {showDeleteConfirm && (
-        <div 
-          className="settings-modal-overlay"
-          onClick={() => setShowDeleteConfirm(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-account-title"
-        >
-          <div 
-            className="settings-modal-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="settings-modal-header">
-              <h3 id="delete-account-title" className="settings-modal-title">确认删除账号</h3>
-            </div>
-            <div className="settings-modal-body">
-              <p className="settings-modal-text">确定要删除此账号吗？此操作不可撤销。</p>
-            </div>
-            <div className="settings-modal-footer">
-              <button
-                className="settings-modal-button settings-modal-button-cancel"
-                onClick={() => setShowDeleteConfirm(null)}
-                aria-label="取消删除账号"
-              >
-                取消
-              </button>
-              <button
-                className="settings-modal-button settings-modal-button-danger"
-                onClick={confirmDeleteAccount}
-                aria-label="确认删除账号"
-              >
-                确定删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={!!showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(null)}
+        onConfirm={confirmDeleteAccount}
+        title="确认删除账号"
+        message="确定要删除此账号吗？删除后需要重新登录才能使用此账号。此操作不可撤销。"
+        confirmText="确定删除"
+        cancelText="取消"
+        confirmVariant="danger"
+        loading={deletingId === showDeleteConfirm}
+      />
     </div>
   )
 }

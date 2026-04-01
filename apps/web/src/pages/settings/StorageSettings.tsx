@@ -3,19 +3,17 @@ import { useSettingsStore } from '../../stores/settings'
 import { 
   Database, 
   Trash2, 
-  Upload, 
-  Download, 
-  RefreshCw, 
   HardDrive, 
   Folder, 
   CheckSquare2, 
   AlertCircle,
-  FolderOpen,
   FileVideo,
   Settings as SettingsIcon,
   Zap,
-  Check
+  Check,
+  ChevronRight
 } from 'lucide-react'
+import { ConfirmModal } from '../../components/Modal'
 
 interface CacheInfo {
   exists: boolean
@@ -54,6 +52,11 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
   // 本地状态暂存修改
   const [localSettings, setLocalSettings] = useState<Record<string, any>>({})
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [showClearConfirm, setShowClearConfirm] = useState<{ show: boolean; type: string; message: string }>({
+    show: false,
+    type: '',
+    message: ''
+  })
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -77,7 +80,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       try {
         const updates: any = {}
         
-        // 保存路径设置
         if (pathFieldsHaveChanges) {
           pathFields.forEach(field => {
             if (field in localSettings) {
@@ -86,12 +88,10 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           })
         }
         
-        // 保存sidecar设置
         if (sidecarHasChanges) {
           updates.sidecar = localSettings.sidecar
         }
         
-        // 合并现有的 storage 设置
         await updateSettings({
           storage: {
             ...(settings?.storage || {}),
@@ -102,13 +102,11 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         setSavedStatus('saved')
         showSaveMessage('设置已保存', 'success')
         
-        // 清除已保存的字段
         const newLocalSettings = { ...localSettings }
         pathFields.forEach(field => delete newLocalSettings[field])
         delete (newLocalSettings as any).sidecar
         setLocalSettings(newLocalSettings)
         
-        // 2秒后重置状态
         setTimeout(() => {
           setSavedStatus('idle')
         }, 2000)
@@ -124,47 +122,43 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
-    fetchStorageInfo()
-    fetchCacheInfo()
+    loadStorageInfo()
+    loadCacheData()
   }, [])
 
-  const fetchStorageInfo = async () => {
+  const loadStorageInfo = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/settings/storage-info')
-      const data = await response.json()
-      
-      if (data.success && data.data) {
+      if (response.ok) {
+        const data = await response.json()
         setStorageInfo({
-          totalSizeFormatted: data.data.total_size_formatted,
-          fileCount: data.data.file_count,
-          directoryCount: data.data.directory_count
+          totalSizeFormatted: data.total_size_formatted || '0 B',
+          fileCount: data.file_count || 0,
+          directoryCount: data.directory_count || 0
         })
       }
     } catch (error) {
-      console.error('获取存储信息失败:', error)
+      console.error('加载存储信息失败:', error)
     }
   }
 
-  const fetchCacheInfo = async () => {
+  const loadCacheData = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/settings/cache-info')
-      const data = await response.json()
-      
-      if (data.success && data.data) {
-        setCacheData(data.data)
+      if (response.ok) {
+        const data = await response.json()
+        setCacheData(data.cache || {})
       }
     } catch (error) {
-      console.error('获取缓存信息失败:', error)
+      console.error('加载缓存数据失败:', error)
     }
   }
 
-  // 显示保存消息
   const showSaveMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setSaveMessage({ show: true, message, type })
     setTimeout(() => setSaveMessage({ show: false, message: '', type: 'success' }), 2000)
   }, [])
 
-  // 本地更新函数（不立即保存）
   const handleLocalUpdate = useCallback((field: string, value: any) => {
     setLocalSettings(prev => ({
       ...prev,
@@ -172,7 +166,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     }))
   }, [])
 
-  // 本地更新 sidecar
   const handleLocalUpdateSidecar = useCallback((tool: string, value: string) => {
     setLocalSettings(prev => {
       const sidecar = (prev as any).sidecar || {}
@@ -186,7 +179,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     })
   }, [])
 
-  // 获取当前设置值（优先使用本地暂存的值）
   const getCurrentValue = useCallback((field: string) => {
     if (!settings?.storage) return undefined
     if (field in localSettings) {
@@ -198,190 +190,608 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
   const handleClearCache = async (cacheType: string) => {
     const confirmMessages = {
       downloads: '确定要清理所有下载文件吗？此操作不可恢复！',
-      log: '确定要清理日志缓存吗？',
-      temp: '确定要清理临时缓存吗？',
-      webview: '确定要清理WebView缓存吗？',
-      database: '确定要清理数据库缓存吗？',
-      all: '确定要清理所有缓存吗？此操作不可恢复！'
+      temp: '确定要清理所有临时文件吗？此操作不可恢复！',
+      database: '确定要清理缓存数据吗？此操作不可恢复！'
     }
     
-    if (!confirm(confirmMessages[cacheType as keyof typeof confirmMessages] || '确定要清理此缓存吗？')) {
-      return
-    }
-    
+    setShowClearConfirm({
+      show: true,
+      type: cacheType,
+      message: confirmMessages[cacheType as keyof typeof confirmMessages] || '确定要清理吗？'
+    })
+  }
+
+  const confirmClearCache = async () => {
+    const cacheType = showClearConfirm.type
     setClearingCache(cacheType)
     try {
       const response = await fetch(`http://localhost:8000/api/settings/clear-cache/${cacheType}`, {
         method: 'POST'
       })
-      const data = await response.json()
-      
-      if (data.success) {
-        alert(data.message || '清理成功')
-        // 重新获取存储和缓存信息
-        fetchStorageInfo()
-        fetchCacheInfo()
+      if (response.ok) {
+        showSaveMessage('清理成功', 'success')
+        await loadCacheData()
+        await loadStorageInfo()
       } else {
-        alert('清理失败: ' + (data.message || 'Unknown error'))
+        showSaveMessage('清理失败', 'error')
       }
     } catch (error) {
-      alert('清理失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      showSaveMessage('清理失败', 'error')
+      console.error('清理缓存失败:', error)
     } finally {
       setClearingCache(null)
+      setShowClearConfirm({ show: false, type: '', message: '' })
     }
-  }
-
-  const handleOpenCache = async (cacheType: string) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/settings/open-cache/${cacheType}`, {
-        method: 'POST'
-      })
-      const data = await response.json()
-      
-      if (!data.success) {
-        alert('打开缓存目录失败: ' + (data.message || 'Unknown error'))
-      }
-    } catch (error) {
-      alert('打开缓存目录失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
-    }
-  }
-
-  const handleExportDatabase = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/settings/database/export')
-      const data = await response.json()
-      
-      if (data.success) {
-        alert(`数据库导出成功: ${data.filename}`)
-        // 重新获取缓存信息
-        fetchCacheInfo()
-      } else {
-        alert('导出失败: ' + (data.message || 'Unknown error'))
-      }
-    } catch (error) {
-      alert('导出失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
-    }
-  }
-
-  const handleImportDatabase = async () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.db'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (file) {
-        if (!confirm(`确定要导入数据库文件 "${file.name}" 吗？\n\n此操作将替换当前数据库，建议先备份！`)) {
-          return
-        }
-        
-        try {
-          const formData = new FormData()
-          formData.append('file', file)
-          
-          // 由于需要上传文件，这里需要修改API或使用文件路径
-          alert('请选择数据库文件所在路径，然后使用文件路径导入功能')
-          
-          // 临时方案：提示用户使用文件路径
-          const filePath = prompt('请输入数据库文件的完整路径：')
-          if (filePath) {
-            const response = await fetch(`http://localhost:8000/api/settings/database/import?file_path=${encodeURIComponent(filePath)}`, {
-              method: 'POST'
-            })
-            const data = await response.json()
-            
-            if (data.success) {
-              alert('导入成功: ' + (data.backup_path ? `已备份到 ${data.backup_path}` : ''))
-              // 重新获取缓存信息
-              fetchCacheInfo()
-            } else {
-              alert('导入失败: ' + (data.message || 'Unknown error'))
-            }
-          }
-        } catch (error) {
-          alert('导入失败: ' + (error instanceof Error ? error.message : 'Unknown error'))
-        }
-      }
-    }
-    input.click()
   }
 
   if (!settings) {
     return (
-      <div className="storage-loading-state">
-        <p className="storage-loading-text">加载中...</p>
+      <div className="storage-loading">
+        <Database className="storage-loading-spinner" />
+        <p>加载中...</p>
       </div>
     )
   }
 
-  const handleReset = async () => {
-    if (confirm('确定要重置存储设置吗？')) {
-      await resetSettings('storage')
-      setLocalSettings({})
-    }
-  }
-
   return (
-    <div className="storage-settings-new">
-      <style>{`
-        .storage-section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 12px;
-          position: relative;
-        }
+    <div className="storage-settings-mobile">
+      {/* 保存提示消息 */}
+      {saveMessage.show && (
+        <div className={`storage-toast storage-toast-${saveMessage.type}`}>
+          {saveMessage.type === 'success' ? (
+            <Check className="storage-toast-icon" />
+          ) : (
+            <AlertCircle className="storage-toast-icon" />
+          )}
+          <span>{saveMessage.message}</span>
+        </div>
+      )}
+
+      {/* 存储概览 - 紧凑卡片 */}
+      <div className="storage-summary">
+        <div className="storage-summary-item">
+          <div className="storage-summary-item-header">
+            <HardDrive size={18} className="storage-summary-item-icon" />
+            <span className="storage-summary-item-label">占用空间</span>
+          </div>
+          <div className="storage-summary-item-value">{storageInfo.totalSizeFormatted}</div>
+        </div>
+        <div className="storage-summary-item">
+          <div className="storage-summary-item-header">
+            <Folder size={18} className="storage-summary-item-icon" />
+            <span className="storage-summary-item-label">文件数量</span>
+          </div>
+          <div className="storage-summary-item-value">{storageInfo.fileCount}</div>
+        </div>
+        <div className="storage-summary-item">
+          <div className="storage-summary-item-header">
+            <CheckSquare2 size={18} className="storage-summary-item-icon" />
+            <span className="storage-summary-item-label">视频数量</span>
+          </div>
+          <div className="storage-summary-item-value">{storageInfo.directoryCount}</div>
+        </div>
+      </div>
+
+      {/* 路径设置组 */}
+      <div className="storage-group">
+        <div className="storage-group-header">
+          <span className="storage-group-title">路径设置</span>
+          <span className="storage-group-subtitle">下载和临时文件位置</span>
+        </div>
         
-        .storage-section-title-row {
+        <div className="storage-list">
+          {/* 下载路径 */}
+          <div className="storage-list-item storage-list-item-input">
+            <div className="storage-list-label-row">
+              <Folder size={18} className="storage-list-icon" />
+              <span className="storage-list-label">下载路径</span>
+            </div>
+            <input
+              type="text"
+              className="storage-list-input"
+              value={String(getCurrentValue('download_path') || './downloads')}
+              onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
+              disabled={loading}
+              placeholder="./downloads"
+              aria-label="输入下载路径"
+            />
+          </div>
+
+          {/* 临时路径 */}
+          <div className="storage-list-item storage-list-item-input">
+            <div className="storage-list-label-row">
+              <Database size={18} className="storage-list-icon" />
+              <span className="storage-list-label">临时路径</span>
+            </div>
+            <input
+              type="text"
+              className="storage-list-input"
+              value={String(getCurrentValue('temp_path') || './temp')}
+              onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
+              disabled={loading}
+              placeholder="./temp"
+              aria-label="输入临时文件路径"
+            />
+          </div>
+        </div>
+
+        {/* 开关选项 */}
+        <div className="storage-toggles">
+          <label className="storage-toggle-item">
+            <div className="storage-toggle-content">
+              <span className="storage-toggle-label">自动清理临时文件</span>
+            </div>
+            <input
+              type="checkbox"
+              className="storage-toggle-input"
+              checked={getCurrentValue('auto_cleanup') as boolean || false}
+              onChange={(e) => handleLocalUpdate('auto_cleanup', e.target.checked)}
+              disabled={loading}
+              aria-label="自动清理临时文件"
+            />
+          </label>
+
+          <label className="storage-toggle-item">
+            <div className="storage-toggle-content">
+              <span className="storage-toggle-label">保留失败的任务</span>
+            </div>
+            <input
+              type="checkbox"
+              className="storage-toggle-input"
+              checked={getCurrentValue('keep_failed') as boolean || false}
+              onChange={(e) => handleLocalUpdate('keep_failed', e.target.checked)}
+              disabled={loading}
+              aria-label="保留失败的任务"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* 工具路径组 */}
+      <div className="storage-group">
+        <div className="storage-group-header">
+          <span className="storage-group-title">工具路径</span>
+          <span className="storage-group-subtitle">自定义执行路径</span>
+        </div>
+        
+        <div className="storage-list">
+          <div className="storage-list-item storage-list-item-input">
+            <div className="storage-list-label-row">
+              <FileVideo size={18} className="storage-list-icon" />
+              <span className="storage-list-label">FFmpeg</span>
+            </div>
+            <input
+              type="text"
+              className="storage-list-input"
+              value={getCurrentValue('sidecar')?.ffmpeg || 'ffmpeg'}
+              onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
+              disabled={loading}
+              placeholder="ffmpeg"
+              aria-label="输入FFmpeg路径"
+            />
+          </div>
+
+          <div className="storage-list-item storage-list-item-input">
+            <div className="storage-list-label-row">
+              <Zap size={18} className="storage-list-icon" />
+              <span className="storage-list-label">Aria2c</span>
+            </div>
+            <input
+              type="text"
+              className="storage-list-input"
+              value={getCurrentValue('sidecar')?.aria2c || 'aria2c'}
+              onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
+              disabled={loading}
+              placeholder="aria2c"
+              aria-label="输入Aria2c路径"
+            />
+          </div>
+
+          <div className="storage-list-item storage-list-item-input">
+            <div className="storage-list-label-row">
+              <SettingsIcon size={18} className="storage-list-icon" />
+              <span className="storage-list-label">Danmakufactory</span>
+            </div>
+            <input
+              type="text"
+              className="storage-list-input"
+              value={getCurrentValue('sidecar')?.danmakufactory || 'danmakufactory'}
+              onChange={(e) => handleLocalUpdateSidecar('danmakufactory', e.target.value)}
+              disabled={loading}
+              placeholder="danmakufactory"
+              aria-label="输入Danmakufactory路径"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 缓存管理组 */}
+      <div className="storage-group">
+        <div className="storage-group-header">
+          <span className="storage-group-title">缓存管理</span>
+          <span className="storage-group-subtitle">清理不必要的文件</span>
+        </div>
+        
+        <div className="storage-list">
+          <button
+            className="storage-list-item storage-list-button"
+            onClick={() => handleClearCache('downloads')}
+            disabled={clearingCache === 'downloads'}
+            aria-label="清理下载文件"
+          >
+            <div className="storage-list-icon-wrapper">
+              <Trash2 size={18} className="storage-list-icon" />
+            </div>
+            <div className="storage-list-content">
+              <div className="storage-list-label">清理下载文件</div>
+              <div className="storage-list-meta">
+                {cacheData.downloads?.size_formatted || '0 B'}
+              </div>
+            </div>
+            <ChevronRight size={16} className="storage-list-chevron" />
+          </button>
+
+          <button
+            className="storage-list-item storage-list-button"
+            onClick={() => handleClearCache('temp')}
+            disabled={clearingCache === 'temp'}
+            aria-label="清理临时文件"
+          >
+            <div className="storage-list-icon-wrapper">
+              <Trash2 size={18} className="storage-list-icon" />
+            </div>
+            <div className="storage-list-content">
+              <div className="storage-list-label">清理临时文件</div>
+              <div className="storage-list-meta">
+                {cacheData.temp?.size_formatted || '0 B'}
+              </div>
+            </div>
+            <ChevronRight size={16} className="storage-list-chevron" />
+          </button>
+
+          <button
+            className="storage-list-item storage-list-button"
+            onClick={() => handleClearCache('database')}
+            disabled={clearingCache === 'database'}
+            aria-label="清理缓存数据"
+          >
+            <div className="storage-list-icon-wrapper">
+              <Trash2 size={18} className="storage-list-icon" />
+            </div>
+            <div className="storage-list-content">
+              <div className="storage-list-label">清理缓存数据</div>
+              <div className="storage-list-meta">
+                {cacheData.database?.size_formatted || '0 B'}
+              </div>
+            </div>
+            <ChevronRight size={16} className="storage-list-chevron" />
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        .storage-settings-mobile {
+          padding: 12px;
+          background: #F8FAFC;
+          min-height: 100vh;
+        }
+
+        /* Toast */
+        .storage-toast {
+          position: fixed;
+          top: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 10px 16px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           gap: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          z-index: 1000;
+          animation: toast-slide-down 0.2s ease-out;
         }
-        
-        .storage-section-save-btn {
-          position: relative;
+
+        .storage-toast-success {
+          background: #10B981;
+          color: white;
+        }
+
+        .storage-toast-error {
+          background: #EF4444;
+          color: white;
+        }
+
+        @keyframes toast-slide-down {
+          from {
+            transform: translateX(-50%) translateY(-20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+          }
+        }
+
+        /* 存储概览卡片 */
+        .storage-summary {
+          background: white;
+          border-radius: 12px;
+          padding: 12px;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+          margin-bottom: 16px;
+          border: 1px solid #E2E8F0;
+        }
+
+        .storage-summary-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 10px 8px;
+        }
+
+        .storage-summary-item-header {
           display: flex;
           align-items: center;
-          justify-content: center;
-          gap: 4px;
-          padding: 4px 8px;
-          background: transparent;
-          color: #6b7280;
-          border: none;
-          border-radius: 4px;
+          gap: 6px;
+          margin-bottom: 6px;
+        }
+
+        .storage-summary-item-icon {
+          color: #2563EB;
+          flex-shrink: 0;
+        }
+
+        .storage-summary-item-label {
           font-size: 13px;
           font-weight: 500;
+          color: #64748B;
+        }
+
+        .storage-summary-item-value {
+          font-size: 18px;
+          font-weight: 600;
+          color: #1E293B;
+          line-height: 1.2;
+        }
+
+        /* 分组 */
+        .storage-group {
+          background: white;
+          border-radius: 12px;
+          border: 1px solid #E2E8F0;
+          margin-bottom: 12px;
+          overflow: hidden;
+        }
+
+        .storage-group-header {
+          padding: 12px 16px;
+          background: #F8FAFC;
+          border-bottom: 1px solid #E2E8F0;
+        }
+
+        .storage-group-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1E293B;
+          display: block;
+        }
+
+        .storage-group-subtitle {
+          font-size: 12px;
+          color: #64748B;
+          margin-top: 2px;
+          display: block;
+        }
+
+        /* 列表 */
+        .storage-list {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .storage-list-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          min-height: 56px;
+          border-bottom: 1px solid #F1F5F9;
+        }
+
+        .storage-list-item-input {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+        }
+
+        .storage-list-item:last-child {
+          border-bottom: none;
+        }
+
+        .storage-list-icon {
+          color: #64748B;
+          flex-shrink: 0;
+        }
+
+        .storage-list-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .storage-list-label-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .storage-list-label {
+          font-size: 15px;
+          font-weight: 500;
+          color: #1E293B;
+          margin-bottom: 4px;
+        }
+
+        .storage-list-item-input .storage-list-label {
+          margin-bottom: 0;
+        }
+
+        .storage-list-input {
+          width: 100%;
+          padding: 8px 12px;
+          font-size: 14px;
+          border: 1px solid #E2E8F0;
+          border-radius: 6px;
+          background: #F8FAFC;
+          color: #1E293B;
+          outline: none;
+          transition: all 0.15s ease;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .storage-list-input:focus {
+          border-color: #2563EB;
+          background: white;
+        }
+
+        .storage-list-input:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .storage-list-meta {
+          font-size: 13px;
+          color: #64748B;
+        }
+
+        /* 按钮 */
+        .storage-list-button {
+          width: 100%;
+          text-align: left;
+          border: none;
+          background: transparent;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: background-color 0.15s ease;
+          -webkit-tap-highlight-color: transparent;
         }
-        
-        .storage-section-save-btn:hover:not(:disabled) {
-          color: #2563eb;
-          background: #eff6ff;
+
+        .storage-list-button:active {
+          background-color: #F1F5F9;
         }
-        
-        .storage-section-save-btn:disabled {
+
+        .storage-list-button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-        
-        .storage-section-save-btn.has-changes {
-          color: #f59e0b;
+
+        .storage-list-icon-wrapper {
+          width: 36px;
+          height: 36px;
+          background: #FEF3C7;
+          color: #F59E0B;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
         }
-        
-        .storage-section-save-btn.has-changes:hover:not(:disabled) {
-          color: #d97706;
-          background: #fef3c7;
+
+        .storage-list-chevron {
+          color: #CBD5E1;
+          flex-shrink: 0;
         }
-        
-        .storage-section-save-btn-icon {
-          width: 14px;
-          height: 14px;
+
+        /* 开关 */
+        .storage-toggles {
+          padding: 8px 16px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
-        
-        .storage-section-save-btn-icon.spinning {
+
+        .storage-toggle-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 0;
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+          gap: 12px;
+        }
+
+        .storage-toggle-content {
+          flex: 1;
+        }
+
+        .storage-toggle-label {
+          font-size: 15px;
+          font-weight: 500;
+          color: #1E293B;
+        }
+
+        .storage-toggle-input {
+          width: 48px;
+          height: 28px;
+          border-radius: 14px;
+          appearance: none;
+          background: #E2E8F0;
+          position: relative;
+          cursor: pointer;
+          transition: background-color 0.15s ease;
+          flex-shrink: 0;
+        }
+
+        .storage-toggle-input:checked {
+          background: #2563EB;
+        }
+
+        .storage-toggle-input:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .storage-toggle-input::before {
+          content: '';
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: white;
+          transition: transform 0.15s ease;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .storage-toggle-input:checked::before {
+          transform: translateX(20px);
+        }
+
+        /* Loading */
+        .storage-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 48px 16px;
+          color: #64748B;
+        }
+
+        .storage-loading-spinner {
+          width: 40px;
+          height: 40px;
           animation: spin 1s linear infinite;
+          color: #2563EB;
+          margin-bottom: 12px;
         }
-        
+
         @keyframes spin {
           from {
             transform: rotate(0deg);
@@ -390,317 +800,25 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
             transform: rotate(360deg);
           }
         }
-        
-        .storage-unsaved-indicator {
-          display: inline-block;
-          margin-left: 4px;
-          color: #f59e0b;
+
+        .storage-loading p {
           font-size: 14px;
-          font-weight: bold;
-        }
-        
-        .storage-saving-indicator {
-          display: inline-block;
-          margin-left: 4px;
-          color: #2563eb;
-          font-size: 12px;
-          font-weight: 500;
-        }
-        
-        .storage-saved-indicator {
-          display: inline-block;
-          margin-left: 4px;
-          color: #10b981;
-          font-size: 12px;
-          font-weight: 500;
+          color: #64748B;
         }
       `}</style>
-      
-      {/* 保存成功提示 */}
-      {saveMessage.show && (
-        <div className={`save-message save-message-${saveMessage.type}`}>
-          {saveMessage.type === 'success' ? (
-            <Check className="save-message-icon" />
-          ) : (
-            <AlertCircle className="save-message-icon" />
-          )}
-          <span className="save-message-text">{saveMessage.message}</span>
-        </div>
-      )}
-      {/* 存储信息卡片 */}
-      <div className="storage-info-card-new">
-        <div className="storage-info-header">
-          <HardDrive className="storage-info-header-icon" />
-          <h3 className="storage-info-header-title">存储概览</h3>
-        </div>
-        <div className="storage-info-stats">
-          <div className="storage-info-stat">
-            <Folder className="storage-info-stat-icon" />
-            <div className="storage-info-stat-content">
-              <span className="storage-info-stat-label">占用空间</span>
-              <span className="storage-info-stat-value">{storageInfo.totalSizeFormatted}</span>
-            </div>
-          </div>
-          <div className="storage-info-stat">
-            <Database className="storage-info-stat-icon" />
-            <div className="storage-info-stat-content">
-              <span className="storage-info-stat-label">文件数量</span>
-              <span className="storage-info-stat-value">{storageInfo.fileCount}</span>
-            </div>
-          </div>
-          <div className="storage-info-stat">
-            <CheckSquare2 className="storage-info-stat-icon" />
-            <div className="storage-info-stat-content">
-              <span className="storage-info-stat-label">视频数量</span>
-              <span className="storage-info-stat-value">{storageInfo.directoryCount}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* 路径设置 */}
-      <div className="storage-section">
-        <h3 className="storage-section-title">
-          路径设置
-        </h3>
-        <p className="storage-section-desc">
-          "临时文件"存储未下载完毕的文件，经过处理后转移至"输出文件"。
-        </p>
-        
-        <div className="storage-form-item">
-          <label className="storage-form-label" htmlFor="download-path-input">
-            <Folder className="storage-form-icon" />
-            <span className="storage-form-text">下载路径</span>
-          </label>
-          <input
-            id="download-path-input"
-            type="text"
-            className="storage-form-input"
-            value={String(getCurrentValue('download_path') || './downloads')}
-            onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
-            disabled={loading}
-            placeholder="./downloads"
-            aria-label="输入下载路径"
-          />
-        </div>
-
-        <div className="storage-form-item">
-          <label className="storage-form-label" htmlFor="temp-path-input">
-            <Database className="storage-form-icon" />
-            <span className="storage-form-text">临时文件路径</span>
-          </label>
-          <input
-            id="temp-path-input"
-            type="text"
-            className="storage-form-input"
-            value={String(getCurrentValue('temp_path') || './temp')}
-            onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
-            disabled={loading}
-            placeholder="./temp"
-            aria-label="输入临时文件路径"
-          />
-        </div>
-
-        <div className="storage-checkbox-item">
-          <label className="storage-checkbox-label">
-            <input
-              type="checkbox"
-              className="storage-checkbox-input"
-              checked={getCurrentValue('auto_cleanup') as boolean || false}
-              onChange={(e) => handleLocalUpdate('auto_cleanup', e.target.checked)}
-              disabled={loading}
-              aria-label="自动清理临时文件"
-            />
-            <span className="storage-checkbox-text">自动清理临时文件</span>
-          </label>
-        </div>
-
-        <div className="storage-checkbox-item">
-          <label className="storage-checkbox-label">
-            <input
-              type="checkbox"
-              className="storage-checkbox-input"
-              checked={getCurrentValue('keep_failed') as boolean || false}
-              onChange={(e) => handleLocalUpdate('keep_failed', e.target.checked)}
-              disabled={loading}
-              aria-label="保留失败的任务"
-            />
-            <span className="storage-checkbox-text">保留失败的任务</span>
-          </label>
-        </div>
-      </div>
-
-      {/* 自定义执行路径 */}
-      <div className="storage-section">
-        <h3 className="storage-section-title">
-          自定义执行路径
-        </h3>
-        <p className="storage-section-desc">
-          此处可以自定义各 Sidecar 的执行路径，请注意权限等问题。重启后生效。
-        </p>
-        
-        <div className="storage-form-item">
-          <label className="storage-form-label" htmlFor="ffmpeg-path-input">
-            <FileVideo className="storage-form-icon" />
-            <span className="storage-form-text">FFmpeg 路径</span>
-          </label>
-          <input
-            id="ffmpeg-path-input"
-            type="text"
-            className="storage-form-input"
-            value={getCurrentValue('sidecar')?.ffmpeg || 'ffmpeg'}
-            onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
-            disabled={loading}
-            placeholder="ffmpeg"
-            aria-label="输入FFmpeg路径"
-          />
-        </div>
-
-        <div className="storage-form-item">
-          <label className="storage-form-label" htmlFor="aria2c-path-input">
-            <Zap className="storage-form-icon" />
-            <span className="storage-form-text">Aria2c 路径</span>
-          </label>
-          <input
-            id="aria2c-path-input"
-            type="text"
-            className="storage-form-input"
-            value={getCurrentValue('sidecar')?.aria2c || 'aria2c'}
-            onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
-            disabled={loading}
-            placeholder="aria2c"
-            aria-label="输入Aria2c路径"
-          />
-        </div>
-
-        <div className="storage-form-item">
-          <label className="storage-form-label" htmlFor="danmakufactory-path-input">
-            <SettingsIcon className="storage-form-icon" />
-            <span className="storage-form-text">Danmakufactory 路径</span>
-          </label>
-          <input
-            id="danmakufactory-path-input"
-            type="text"
-            className="storage-form-input"
-            value={getCurrentValue('sidecar')?.danmakufactory || 'danmakufactory'}
-            onChange={(e) => handleLocalUpdateSidecar('danmakufactory', e.target.value)}
-            disabled={loading}
-            placeholder="danmakufactory"
-            aria-label="输入Danmakufactory路径"
-          />
-        </div>
-      </div>
-
-      {/* 缓存管理 */}
-      <div className="storage-section">
-        <h3 className="storage-section-title">缓存</h3>
-        <p className="storage-section-desc">
-          数据库存储配置、登录信息、下载记录等数据。
-        </p>
-        
-        <div className="cache-items-grid">
-          {['log', 'temp', 'webview', 'database'].map((cacheType) => {
-            const cacheInfo = cacheData[cacheType] || { size_formatted: '0 B', file_count: 0, exists: false }
-            const cacheLabels = {
-              log: '日志缓存',
-              temp: '临时缓存',
-              webview: 'WebView缓存',
-              database: '数据库缓存'
-            }
-            
-            return (
-              <div key={cacheType} className="cache-item-card">
-                <div className="cache-item-header">
-                  <Database className="cache-item-icon" />
-                  <div className="cache-item-info">
-                    <span className="cache-item-name">{cacheLabels[cacheType as keyof typeof cacheLabels]}</span>
-                    <span className="cache-item-size">{cacheInfo.size_formatted}</span>
-                  </div>
-                </div>
-                <div className="cache-item-stats">
-                  <span className="cache-item-file-count">{cacheInfo.file_count} 个文件</span>
-                </div>
-                <div className="cache-item-actions">
-                  <button
-                    className="cache-item-btn cache-item-btn-secondary"
-                    onClick={() => handleOpenCache(cacheType)}
-                    disabled={loading}
-                    aria-label={`打开${cacheLabels[cacheType as keyof typeof cacheLabels]}目录`}
-                  >
-                    <FolderOpen className="cache-item-btn-icon" />
-                    <span className="cache-item-btn-text">打开目录</span>
-                  </button>
-                  <button
-                    className="cache-item-btn cache-item-btn-warning"
-                    onClick={() => handleClearCache(cacheType)}
-                    disabled={clearingCache === cacheType || loading}
-                    aria-label={`清理${cacheLabels[cacheType as keyof typeof cacheLabels]}`}
-                  >
-                    {clearingCache === cacheType ? (
-                      <RefreshCw className="cache-item-btn-icon cache-item-btn-icon-spinning" />
-                    ) : (
-                      <Trash2 className="cache-item-btn-icon" />
-                    )}
-                    <span className="cache-item-btn-text">清理</span>
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="cache-actions">
-          <button
-            className="storage-action-btn storage-action-btn-danger"
-            onClick={() => handleClearCache('all')}
-            disabled={clearingCache === 'all' || loading}
-            aria-label="清理所有缓存"
-          >
-            <AlertCircle className="storage-action-icon" />
-            <span className="storage-action-text">清理所有缓存</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 数据库管理 */}
-      <div className="storage-section">
-        <h3 className="storage-section-title">数据库管理</h3>
-        <p className="storage-section-desc">
-          管理数据库文件，包括备份和恢复功能。
-        </p>
-        
-        <div className="storage-actions-grid">
-          <button
-            className="storage-action-btn storage-action-btn-primary"
-            onClick={handleExportDatabase}
-            disabled={loading}
-            aria-label="导出数据库"
-          >
-            <Download className="storage-action-icon" />
-            <span className="storage-action-text">导出数据库</span>
-          </button>
-          
-          <button
-            className="storage-action-btn storage-action-btn-primary"
-            onClick={handleImportDatabase}
-            disabled={loading}
-            aria-label="导入数据库"
-          >
-            <Upload className="storage-action-icon" />
-            <span className="storage-action-text">导入数据库</span>
-          </button>
-
-          <button
-            className="storage-action-btn storage-action-btn-secondary"
-            onClick={handleReset}
-            disabled={loading}
-            aria-label="重置存储设置"
-          >
-            <RefreshCw className="storage-action-icon" />
-            <span className="storage-action-text">重置存储设置</span>
-          </button>
-        </div>
-      </div>
+      {/* 清理缓存确认弹窗 */}
+      <ConfirmModal
+        isOpen={showClearConfirm.show}
+        onClose={() => setShowClearConfirm({ show: false, type: '', message: '' })}
+        onConfirm={confirmClearCache}
+        title="确认清理缓存"
+        message={showClearConfirm.message}
+        confirmText="确定清理"
+        cancelText="取消"
+        confirmVariant="danger"
+        loading={clearingCache === showClearConfirm.type}
+      />
     </div>
   )
 })

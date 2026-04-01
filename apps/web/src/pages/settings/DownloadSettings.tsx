@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
 import { Download, HardDrive, Gauge, Monitor, Music, RotateCw, Check } from 'lucide-react'
+import { ConfirmModal } from '../../components/Modal'
 
 // 定义ref类型
 interface DownloadSettingsRef {
@@ -23,6 +24,7 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
     metadata: {}
   })
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -155,13 +157,16 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
   }, [localSettings, settings])
 
   const handleReset = async () => {
-    if (confirm('确定要重置下载设置吗？')) {
-      await resetSettings('download')
-      setLocalSettings({
-        video: {},
-        metadata: {}
-      })
-    }
+    setShowResetConfirm(true)
+  }
+
+  const confirmReset = async () => {
+    await resetSettings('download')
+    setLocalSettings({
+      video: {},
+      metadata: {}
+    })
+    setShowResetConfirm(false)
   }
 
   if (!settings) {
@@ -319,6 +324,19 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           <span>重置下载设置</span>
         </button>
       </div>
+
+      {/* 重置确认弹窗 */}
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={confirmReset}
+        title="重置下载设置"
+        message="确定要重置下载设置吗？这将恢复所有下载设置为默认值，但不会影响已保存的视频和数据。"
+        confirmText="确定重置"
+        cancelText="取消"
+        confirmVariant="danger"
+        loading={loading}
+      />
     </div>
   )
 })

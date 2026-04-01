@@ -6529,22 +6529,22 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  padding-top: max(16px, env(safe-area-inset-top, 16px));
+  padding: 12px 20px;
+  padding-top: max(12px, env(safe-area-inset-top, 12px));
   background: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 101;
 }
 
 .settings-back-button {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 14px;
+  justify-content: center;
+  padding: 10px;
   background: transparent;
-  color: #2563EB;
+  color: #64748B;
   border: none;
   border-radius: 10px;
   cursor: pointer;
@@ -6552,17 +6552,16 @@ body {
   min-height: 44px;
   min-width: 44px;
   touch-action: manipulation;
-  font-size: 15px;
-  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .settings-back-button:hover {
-  background: rgba(37, 99, 235, 0.08);
-  transform: translateX(-2px);
+  background: #F1F5F9;
+  color: #2563EB;
 }
 
 .settings-back-button:active {
-  transform: translateX(0);
+  background: #E2E8F0;
 }
 
 .settings-back-button:focus-visible {
@@ -6600,22 +6599,31 @@ body {
   width: 44px;
 }
 
-/* 分段控制器 Tab 导航 */
-.settings-segmented-control {
+/* 带返回按钮的标签导航 */
+.settings-tabs-with-back {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  padding-top: max(12px, env(safe-area-inset-top, 12px));
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   position: sticky;
   top: 0;
-  z-index: 100;
-  padding: 16px 20px;
-  background: white;
-  border-bottom: 1px solid #E2E8F0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  z-index: 101;
+}
+
+/* 分段控制器 Tab 导航 */
+.settings-segmented-control {
+  flex: 1;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 12px;
+  gap: 4px;
 }
 
 .settings-segmented-track {
   display: flex;
-  background: #F1F5F9;
-  padding: 4px;
-  border-radius: 12px;
   gap: 4px;
 }
 
@@ -6666,7 +6674,6 @@ body {
 .settings-segment-label {
   font-size: 14px;
   font-weight: 600;
-  flex: 1;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -6752,6 +6759,7 @@ body {
 .settings-content-new {
   flex: 1;
   padding: 20px;
+  padding-bottom: 120px;
   max-width: 768px;
   margin: 0 auto;
   width: 100%;
@@ -7457,9 +7465,9 @@ body {
    ========================================== */
 
 .storage-settings-new {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .storage-header {
@@ -7499,28 +7507,28 @@ body {
 /* 存储信息卡片 */
 .storage-info-card-new {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
 .storage-info-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 16px 20px;
-  border-bottom: 1px solid #E2E8F0;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #F1F5F9;
 }
 
 .storage-info-header-icon {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   color: #2563EB;
 }
 
 .storage-info-header-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #1E293B;
 }
@@ -7537,9 +7545,9 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 20px 16px;
-  border-right: 1px solid #E2E8F0;
+  gap: 4px;
+  padding: 12px 8px;
+  border-right: 1px solid #F1F5F9;
 }
 
 .storage-info-stat:last-child {
@@ -7547,8 +7555,8 @@ body {
 }
 
 .storage-info-stat-icon {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   color: #64748B;
 }
 
@@ -7572,19 +7580,23 @@ body {
 }
 
 /* 存储设置区域 */
+.storage-grid-item {
+  grid-column: span 1;
+}
+
 .storage-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
+  gap: 12px;
+  padding: 16px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .storage-section-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #1E293B;
 }
@@ -7592,21 +7604,21 @@ body {
 .storage-form-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .storage-form-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 13px;
   font-weight: 600;
   color: #475569;
 }
 
 .storage-form-icon {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   color: #64748B;
 }
 
@@ -7618,10 +7630,10 @@ body {
 
 .storage-form-input {
   width: 100%;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border: 1px solid #E2E8F0;
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 500;
   color: #1E293B;
   background: white;
@@ -7780,22 +7792,22 @@ body {
 /* 缓存项卡片 */
 .cache-items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .cache-item-card {
   background: white;
   border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 8px;
+  padding: 12px;
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cache-item-card:hover {
   border-color: #CBD5E1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transform: translateY(-1px);
 }
 
@@ -7936,28 +7948,19 @@ body {
    ========================================== */
 
 @media (max-width: 640px) {
-  /* 主页面优化 */
-  .settings-header-new {
-    padding: 14px 16px;
-    padding-top: max(14px, env(safe-area-inset-top, 14px));
+  /* 带返回按钮的标签导航优化 */
+  .settings-tabs-with-back {
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top, 12px));
   }
 
   .settings-back-button {
-    padding: 8px 12px;
-  }
-
-  .settings-title-new {
-    font-size: 18px;
-  }
-
-  .settings-title-icon {
-    width: 20px;
-    height: 20px;
+    padding: 8px;
   }
 
   /* 分段控制器优化 */
   .settings-segmented-control {
-    padding: 12px 16px;
+    padding: 4px;
   }
 
   .settings-segment-button {

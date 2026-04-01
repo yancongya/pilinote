@@ -18,6 +18,7 @@ import {
 import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
 import StorageSettings from './settings/StorageSettings'
+import { ConfirmModal } from '../components/Modal'
 
 type TabType = 'accounts' | 'download' | 'storage'
 
@@ -103,8 +104,9 @@ function SettingsPage() {
 
   return (
     <main className="settings-page-new">
-      {/* 顶部导航栏 */}
-      <header className="settings-header-new">
+      {/* 带返回按钮的标签导航 */}
+      <div className="settings-tabs-with-back">
+        {/* 返回按钮 */}
         <button
           className="settings-back-button"
           onClick={() => navigate('/home')}
@@ -112,44 +114,38 @@ function SettingsPage() {
           tabIndex={0}
         >
           <ArrowLeft className="settings-back-icon" />
-          <span className="settings-back-text">返回</span>
         </button>
-        <h1 className="settings-title-new">
-          <Settings className="settings-title-icon" />
-          <span>设置</span>
-        </h1>
-        <div className="settings-header-spacer" />
-      </header>
 
-      {/* 分段控制器 Tab 导航 */}
-      <div className="settings-segmented-control">
-        <div className="settings-segmented-track">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`settings-segment-button ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => handleTabChange(tab.id)}
-              aria-label={tab.label}
-              aria-pressed={activeTab === tab.id}
-              aria-controls="settings-content"
-              role="tab"
-              tabIndex={activeTab === tab.id ? 0 : -1}
-            >
-              <tab.icon className="settings-segment-icon" />
-              <span className="settings-segment-label">
-                {tab.label}
-                {hasUnsavedChanges(tab.id) && savedStatus === 'idle' && (
-                  <span className="settings-tab-unsaved-indicator">*</span>
-                )}
-                {savedStatus === 'saving' && (
-                  <span className="settings-tab-saving-indicator">保存中...</span>
-                )}
-                {savedStatus === 'saved' && (
-                  <span className="settings-tab-saved-indicator">已保存</span>
-                )}
-              </span>
-            </button>
-          ))}
+        {/* 分段控制器 Tab 导航 */}
+        <div className="settings-segmented-control">
+          <div className="settings-segmented-track">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`settings-segment-button ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+                aria-label={tab.label}
+                aria-pressed={activeTab === tab.id}
+                aria-controls="settings-content"
+                role="tab"
+                tabIndex={activeTab === tab.id ? 0 : -1}
+              >
+                <tab.icon className="settings-segment-icon" />
+                <span className="settings-segment-label">
+                  {tab.label}
+                  {hasUnsavedChanges(tab.id) && savedStatus === 'idle' && (
+                    <span className="settings-tab-unsaved-indicator">*</span>
+                  )}
+                  {savedStatus === 'saving' && (
+                    <span className="settings-tab-saving-indicator">保存中...</span>
+                  )}
+                  {savedStatus === 'saved' && (
+                    <span className="settings-tab-saved-indicator">已保存</span>
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -186,28 +182,30 @@ function SettingsPage() {
       </div>
 
       {/* 底部操作区域 */}
-      <footer className="settings-footer">
-        {/* 应用信息卡片 */}
-        <div className="settings-info-card">
-          <div className="settings-info-item">
-            <Info className="settings-info-icon" />
-            <div className="settings-info-content">
-              <span className="settings-info-label">应用版本</span>
-              <span className="settings-info-value">1.0.0</span>
+      {activeTab === 'accounts' && (
+        <footer className="settings-footer">
+          {/* 应用信息卡片 */}
+          <div className="settings-info-card">
+            <div className="settings-info-item">
+              <Info className="settings-info-icon" />
+              <div className="settings-info-content">
+                <span className="settings-info-label">应用版本</span>
+                <span className="settings-info-value">1.0.0</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 退出登录按钮 */}
-        <button
-          className="settings-logout-button"
-          onClick={() => setShowLogoutConfirm(true)}
-          aria-label="退出登录"
-        >
-          <LogOut className="settings-logout-icon" />
-          <span className="settings-logout-text">退出登录</span>
-        </button>
-      </footer>
+          {/* 退出登录按钮 */}
+          <button
+            className="settings-logout-button"
+            onClick={() => setShowLogoutConfirm(true)}
+            aria-label="退出登录"
+          >
+            <LogOut className="settings-logout-icon" />
+            <span className="settings-logout-text">退出登录</span>
+          </button>
+        </footer>
+      )}
 
       {/* 悬浮保存按钮 */}
       {(activeTab === 'storage' || activeTab === 'download') && (
@@ -229,43 +227,17 @@ function SettingsPage() {
       )}
 
       {/* 退出登录确认对话框 */}
-      {showLogoutConfirm && (
-        <div 
-          className="settings-modal-overlay"
-          onClick={() => setShowLogoutConfirm(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="logout-confirm-title"
-        >
-          <div 
-            className="settings-modal-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="settings-modal-header">
-              <h3 id="logout-confirm-title" className="settings-modal-title">确认退出登录</h3>
-            </div>
-            <div className="settings-modal-body">
-              <p className="settings-modal-text">确定要退出登录吗？</p>
-            </div>
-            <div className="settings-modal-footer">
-              <button
-                className="settings-modal-button settings-modal-button-cancel"
-                onClick={() => setShowLogoutConfirm(false)}
-                aria-label="取消退出登录"
-              >
-                取消
-              </button>
-              <button
-                className="settings-modal-button settings-modal-button-confirm"
-                onClick={handleLogout}
-                aria-label="确认退出登录"
-              >
-                确定退出
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="确认退出登录"
+        message="确定要退出登录吗？退出后需要重新登录才能使用。"
+        confirmText="确定退出"
+        cancelText="取消"
+        confirmVariant="primary"
+        loading={saving}
+      />
     </main>
   )
 }
