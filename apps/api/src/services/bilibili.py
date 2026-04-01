@@ -39,11 +39,7 @@ class BilibiliService:
             httpx.Response: HTTP响应
         """
         async_client = await self._get_client()
-        try:
-            return await async_client.request(method, url, **kwargs)
-        finally:
-            # 确保客户端被正确关闭，避免资源泄漏
-            await async_client.aclose()
+        return await async_client.request(method, url, **kwargs)
     
     async def init(self) -> Dict:
         """
