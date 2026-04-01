@@ -486,20 +486,21 @@ export default function VideoDetailPage() {
         {/* UP主信息 */}
         <div style={{
                     display: 'flex',
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     gap: '12px',
-                    marginBottom: '16px'
+                    marginBottom: '12px'
                   }}>
                   <div style={{
-                    width: '40px',
-                    height: '40px',
+                    width: '48px',
+                    height: '48px',
                     borderRadius: '50%',
                     background: '#f0f0f0',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    flexShrink: 0
                   }}>
                     {video.uploader.avatar ? (
-                      <img 
-                        src={getProxyImageUrl(video.uploader.avatar)} 
+                      <img
+                        src={getProxyImageUrl(video.uploader.avatar)}
                         alt={video.uploader.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
@@ -507,45 +508,58 @@ export default function VideoDetailPage() {
                       <User />
                     )}
                   </div>
-                  <div style={{ flex: 1 }}>
-                              <div style={{
-                                fontSize: '14px',
-                                fontWeight: '600',
-                                color: '#1a1a1a',
-                                marginBottom: '4px'
-                              }}>
-                                {video.uploader.name}
-                              </div>
-                            </div>
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    fontSize: '12px',
-                    color: '#666'
-                  }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      display: 'flex',
-                      gap: '12px',
-                      alignItems: 'center'
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      color: '#1a1a1a',
+                      marginBottom: '4px',
+                      lineHeight: '1.3'
                     }}>
-                      <span>{formatNumber(video.view)}播放</span>
-                      <span>{formatNumber(video.danmaku)}弹幕</span>
-                      <span>{formatTime(video.pubtime)}</span>
+                      {video.uploader.name}
                     </div>
                     <div style={{
-                      display: 'flex',
-                      gap: '16px',
-                      alignItems: 'center'
+                      fontSize: '14px',
+                      color: '#666',
+                      lineHeight: '1.4',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
                     }}>
-                      <span>❤️ {formatNumber(video.like)}点赞</span>
-                      <span>🪙 {formatNumber(video.coin)}硬币</span>
-                      <span>⭐ {formatNumber(video.favorite)}收藏</span>
-                      <span>💬 {formatNumber(video.reply)}评论</span>
-                      <span>🔗 {formatNumber(video.share)}分享</span>
+                      {video.title}
                     </div>
                   </div>
-                          </div>        
+                </div>
+
+                {/* 统计信息 - 第一行 */}
+                <div style={{
+                  display: 'flex',
+                  gap: '16px',
+                  fontSize: '12px',
+                  color: '#999',
+                  marginBottom: '8px'
+                }}>
+                  <span>{formatNumber(video.view)}播放</span>
+                  <span>{formatNumber(video.danmaku)}弹幕</span>
+                  <span>{formatTime(video.pubtime)}</span>
+                </div>
+
+                {/* 统计信息 - 第二行 */}
+                <div style={{
+                  display: 'flex',
+                  gap: '16px',
+                  fontSize: '12px',
+                  color: '#666',
+                  marginBottom: '16px'
+                }}>
+                  <span>❤️ {formatNumber(video.like)}</span>
+                  <span>🪙 {formatNumber(video.coin)}</span>
+                  <span>⭐ {formatNumber(video.favorite)}</span>
+                  <span>💬 {formatNumber(video.reply)}</span>
+                  <span>🔗 {formatNumber(video.share)}</span>
+                </div>        
                 {/* 分P信息 */}
                 {video.pages && video.pages.length > 1 && (
                   <div style={{
