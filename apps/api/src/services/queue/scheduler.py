@@ -224,6 +224,7 @@ class SchedulerService:
 
             db = SessionLocal()
             try:
+                db.merge(task)  # 合并对象到session
                 db.commit()
             finally:
                 db.close()
@@ -262,6 +263,7 @@ class SchedulerService:
             task.updated_at = int(datetime.now().timestamp())
             db = SessionLocal()
             try:
+                db.merge(task)  # 合并对象到session
                 db.commit()
             finally:
                 db.close()

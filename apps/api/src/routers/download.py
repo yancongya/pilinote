@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 import httpx
+from datetime import datetime
 
 from src.schemas.download import (
     ParseLinkRequest,
@@ -856,12 +857,13 @@ async def add_to_download_queue(request: StartDownloadRequest):
 @router.get("/list", response_model=DownloadListResponse)
 async def get_download_list(status: Optional[str] = None):
     """
-    获取下载任务列表
+    获取下载任务列表（包含旧的下载任务和新的队列任务）
     
     Args:
         status: 可选，筛选特定状态的任务
     """
     try:
+        # 获取旧的下载任务
         downloads = download_service.get_all_downloads(status)
         
         # 转换为字典格式
@@ -889,8 +891,72 @@ async def get_download_list(status: Optional[str] = None):
                 "aid": download.aid,  # 添加aid字段用于系列分组
                 "quality": download.quality,  # 添加质量字段
                 "audio_bitrate": download.audio_bitrate,  # 添加音频码率字段
-                "codec": download.codec  # 添加编码格式字段
+                "codec": download.codec,  # 添加编码格式字段
+                "source": "legacy"  # 标记为旧系统
             })
+        
+        # 获取新的队列任务
+        from src.database import SessionLocal
+        from src.models.task import Task, TaskState
+        from src.models.scheduler import Scheduler
+        
+        with SessionLocal() as db:
+            # 获取所有队列任务
+            queue_tasks = db.query(Task).order_by(Task.created_at.desc()).all()
+            
+            # 获取调度器信息
+            schedulers = {s.id: s for s in db.query(Scheduler).all()}
+            
+            for task in queue_tasks:
+                # 状态映射
+                state_map = {
+                    TaskState.BACKLOG: "pending",
+                    TaskState.PENDING: "pending",
+                    TaskState.ACTIVE: "downloading",
+                    TaskState.COMPLETED: "completed",
+                    TaskState.PAUSED: "paused",
+                    TaskState.FAILED: "failed",
+                    TaskState.CANCELLED: "cancelled"
+                }
+                
+                # 获取元数据
+                meta = task.meta or {}
+                owner = meta.get('owner', {})
+                stat = meta.get('stat', {})
+                
+                # 查找调度器
+                scheduler = None
+                for s in schedulers.values():
+                    if task.id in s.list:
+                        scheduler = s
+                        break
+                
+                # 转换为下载列表格式
+                download_list.append({
+                    "id": task.id,
+                    "bvid": task.media_id if task.media_type == "video" else "",
+                    "title": task.title,
+                    "status": state_map.get(task.state, "unknown"),
+                    "progress": 0,  # 队列系统暂时不支持进度
+                    "downloaded_bytes": 0,
+                    "total_bytes": 0,
+                    "download_speed": 0,
+                    "eta": 0,
+                    "thumbnail_url": meta.get('pic', task.cover),
+                    "duration": meta.get('duration', 0),
+                    "uploader": owner.get('name') if isinstance(owner, dict) else "",
+                    "file_path": scheduler.folder if scheduler else "",
+                    "file_size": 0,
+                    "error_message": task.status.get('error') if isinstance(task.status, dict) else "",
+                    "created_at": datetime.fromtimestamp(task.created_at).isoformat() if task.created_at else None,
+                    "started_at": datetime.fromtimestamp(task.updated_at).isoformat() if task.updated_at else None,
+                    "completed_at": datetime.fromtimestamp(task.updated_at).isoformat() if task.state == TaskState.COMPLETED else None,
+                    "aid": stat.get('aid') if isinstance(stat, dict) else None,
+                    "quality": 64,  # 默认质量
+                    "audio_bitrate": 192,  # 默认音频码率
+                    "codec": "avc",  # 默认编码
+                    "source": "queue"  # 标记为新系统
+                })
         
         return DownloadListResponse(
             success=True,
@@ -1108,38 +1174,39 @@ async def start_batch_downloads(request: BatchStartRequest, background_tasks: Ba
 @router.delete("/{download_id}")
 async def delete_download(download_id: str):
     """
-    删除下载任务记录和相关文件
+    删除下载任务记录和相关文件（支持新旧两种系统）
     """
     try:
         import os
         import shutil
         from src.database import SessionLocal
         from src.models.download import Download
+        from src.models.task import Task
+        from src.models.scheduler import Scheduler
+        from pathlib import Path
         import logging
         
         logger = logging.getLogger(__name__)
         
-        # 先取消正在进行的下载
-        download_service.cancel_download(download_id)
-        
-        # 从数据库中删除
+        # 先尝试旧系统的Download表
         with SessionLocal() as session:
             download = session.query(Download).filter(Download.id == download_id).first()
             if download:
-                # 删除文件和目录 - 删除整个视频目录
+                # 先取消正在进行的下载
+                download_service.cancel_download(download_id)
+                
+                # 删除文件和目录
                 if download.file_path:
-                    file_path = download.file_path
-                    # 获取视频文件所在的目录
-                    parent_dir = os.path.dirname(file_path)
-                    if parent_dir and os.path.exists(parent_dir):
+                    file_path = Path(download.file_path)
+                    if file_path.is_dir():
+                        # 如果file_path是目录，删除整个目录
                         try:
-                            # 删除整个目录（包括视频、NFO、封面、头像等所有文件）
-                            shutil.rmtree(parent_dir)
-                            logger.info(f"Deleted directory: {parent_dir}")
+                            shutil.rmtree(file_path)
+                            logger.info(f"Deleted directory: {file_path}")
                         except Exception as e:
-                            logger.error(f"Failed to delete directory {parent_dir}: {e}")
-                    elif os.path.exists(file_path):
-                        # 如果file_path本身是文件且不在目录中，直接删除
+                            logger.error(f"Failed to delete directory {file_path}: {e}")
+                    elif file_path.is_file():
+                        # 如果file_path是文件，删除文件
                         try:
                             os.remove(file_path)
                             logger.info(f"Deleted file: {file_path}")
@@ -1149,10 +1216,45 @@ async def delete_download(download_id: str):
                 session.delete(download)
                 session.commit()
                 return {"success": True, "message": "下载任务已删除"}
-            else:
-                return {"success": False, "message": "下载任务不存在"}
+        
+        # 如果旧系统找不到，尝试新系统的Task表
+        with SessionLocal() as session:
+            task = session.query(Task).filter(Task.id == download_id).first()
+            if task:
+                # 查找任务所属的调度器
+                scheduler = None
+                schedulers = session.query(Scheduler).all()
+                for s in schedulers:
+                    if task.id in s.list:
+                        scheduler = s
+                        break
+                
+                # 删除文件（从调度器的文件夹中）
+                if scheduler and scheduler.folder:
+                    folder_path = Path(scheduler.folder)
+                    # 查找所有相关文件（视频、字幕、弹幕、封面、NFO等）
+                    files_to_delete = []
+                    if task.title:
+                        # 根据标题匹配文件
+                        for ext in ['.mp4', '.mkv', '.flv', '.srt', '.xml', '.jpg', '.nfo']:
+                            files_to_delete.extend(folder_path.glob(f"*{ext}"))
+                    
+                    for file in files_to_delete:
+                        try:
+                            os.remove(file)
+                            logger.info(f"Deleted file: {file}")
+                        except Exception as e:
+                            logger.error(f"Failed to delete file {file}: {e}")
+                
+                # 删除任务记录
+                session.delete(task)
+                session.commit()
+                return {"success": True, "message": "任务已删除"}
+            
+            return {"success": False, "message": "任务不存在"}
             
     except Exception as e:
+        logger.error(f"删除失败: {e}")
         return {"success": False, "message": f"删除失败: {str(e)}"}
 
 
@@ -1175,7 +1277,7 @@ async def clear_all_downloads():
 @router.delete("/bvid/{bvid}")
 async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
     """
-    根据bvid删除下载任务和相关文件
+    根据bvid删除下载任务和相关文件（支持新旧两种系统）
     
     Args:
         bvid: B站视频ID
@@ -1186,70 +1288,95 @@ async def delete_download_by_bvid(bvid: str, status: Optional[str] = None):
         import shutil
         from src.database import SessionLocal
         from src.models.download import Download
+        from src.models.task import Task
+        from src.models.scheduler import Scheduler
+        from pathlib import Path
         import logging
         
         logger = logging.getLogger(__name__)
         
+        deleted_count = 0
+        
+        # 先删除旧系统的Download记录
         with SessionLocal() as session:
             query = session.query(Download).filter(Download.bvid == bvid)
             if status:
                 query = query.filter(Download.status == status)
             downloads = query.all()
             
-            deleted_count = 0
-            deleted_files = []
             for download in downloads:
                 # 先取消正在进行的下载
                 download_service.cancel_download(download.id)
                 
-                # 删除文件和目录 - 使用file_path字段
+                # 删除文件和目录
                 if download.file_path:
-                    file_path = download.file_path
-                    if os.path.exists(file_path):
-                        try:
-                            # 如果是文件，直接删除
-                            if os.path.isfile(file_path):
-                                os.remove(file_path)
-                                deleted_files.append(file_path)
-                                logger.info(f"Deleted file: {file_path}")
-                            # 如果是目录，递归删除
-                            elif os.path.isdir(file_path):
-                                shutil.rmtree(file_path)
-                                deleted_files.append(file_path)
-                                logger.info(f"Deleted directory: {file_path}")
-                        except Exception as e:
-                            logger.error(f"Failed to delete {file_path}: {e}")
+                    file_path = Path(download.file_path)
+                    if file_path.is_dir():
+                        shutil.rmtree(file_path)
+                        logger.info(f"Deleted directory: {file_path}")
+                    elif file_path.is_file():
+                        os.remove(file_path)
+                        logger.info(f"Deleted file: {file_path}")
                 
                 session.delete(download)
                 deleted_count += 1
             
             session.commit()
+        
+        # 然后删除新系统的Task记录
+        with SessionLocal() as session:
+            query = session.query(Task).filter(Task.media_id == bvid)
+            if status:
+                # 将前端status映射到TaskState
+                from src.models.task import TaskState
+                state_map = {
+                    "pending": TaskState.BACKLOG,
+                    "downloading": TaskState.ACTIVE,
+                    "completed": TaskState.COMPLETED,
+                    "paused": TaskState.PAUSED,
+                    "failed": TaskState.FAILED,
+                    "cancelled": TaskState.CANCELLED
+                }
+                if status in state_map:
+                    query = query.filter(Task.state == state_map[status])
             
-            # 清理空目录
-            try:
-                downloads_dir = "downloads"
-                if os.path.exists(downloads_dir):
-                    for item in os.listdir(downloads_dir):
-                        item_path = os.path.join(downloads_dir, item)
-                        if os.path.isdir(item_path):
-                            try:
-                                # 尝试删除空目录
-                                os.rmdir(item_path)
-                                logger.info(f"Deleted empty directory: {item_path}")
-                            except OSError:
-                                # 目录不为空，忽略错误
-                                pass
-            except Exception as e:
-                logger.error(f"Failed to cleanup empty directories: {e}")
+            tasks = query.all()
             
-            return {
-                "success": True,
-                "message": f"已删除 {deleted_count} 个下载任务",
-                "deleted_count": deleted_count,
-                "deleted_files": deleted_files
-            }
+            for task in tasks:
+                # 查找任务所属的调度器
+                scheduler = None
+                schedulers = session.query(Scheduler).all()
+                for s in schedulers:
+                    if task.id in s.list:
+                        scheduler = s
+                        break
+                
+                # 删除文件
+                if scheduler and scheduler.folder:
+                    folder_path = Path(scheduler.folder)
+                    if task.title:
+                        # 根据标题匹配文件
+                        for ext in ['.mp4', '.mkv', '.flv', '.srt', '.xml', '.jpg', '.nfo']:
+                            for file in folder_path.glob(f"*{ext}"):
+                                try:
+                                    os.remove(file)
+                                    logger.info(f"Deleted file: {file}")
+                                except Exception as e:
+                                    logger.error(f"Failed to delete file {file}: {e}")
+                
+                session.delete(task)
+                deleted_count += 1
+            
+            session.commit()
+        
+        return {
+            "success": True,
+            "message": f"已删除 {deleted_count} 个下载任务",
+            "deleted_count": deleted_count
+        }
             
     except Exception as e:
+        logger.error(f"删除失败: {e}")
         return {"success": False, "message": f"删除失败: {str(e)}"}
 
 
