@@ -39,7 +39,8 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           Object.keys(localSettings.metadata || {}).length === 0 &&
           !('max_concurrent' in localSettings) &&
           !('speed_limit' in localSettings)) {
-        throw new Error('没有需要保存的修改')
+        setSavedStatus('idle')
+        return
       }
 
       setSavedStatus('saving')

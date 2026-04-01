@@ -123,7 +123,11 @@ function SettingsPage() {
       }, 2000)
     } catch (err) {
       setSavedStatus('error')
-      setError('保存失败')
+      if (err instanceof Error && err.message === '没有需要保存的修改') {
+        setError('没有需要保存的修改')
+      } else {
+        setError('保存失败')
+      }
       console.error('保存设置失败:', err)
     } finally {
       setSaving(false)

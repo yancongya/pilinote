@@ -72,7 +72,8 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       const sidecarHasChanges = (localSettings.sidecar as any) && Object.keys(localSettings.sidecar).length > 0
       
       if (!pathFieldsHaveChanges && !sidecarHasChanges) {
-        throw new Error('没有需要保存的修改')
+        setSavedStatus('idle')
+        return
       }
 
       setSavedStatus('saving')
