@@ -114,14 +114,14 @@ class MediaItem(BaseModel):
 
 class MediaUpper(BaseModel):
     """UP主信息"""
-    id: int
+    mid: int
     name: str
     avatar: str
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "id": 123456789,
+                "mid": 123456789,
                 "name": "UP主名称",
                 "avatar": "https://..."
             }
