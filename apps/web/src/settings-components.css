@@ -1,0 +1,595 @@
+/* ==========================================
+   Settings子组件兼容性样式
+   ==========================================
+   
+   这个文件为现有的子组件提供兼容的CSS类名
+   这些类名使用Tailwind工具类实现，确保与现有组件兼容
+   
+   ========================================== */
+
+/* 1. 账号管理组件样式 */
+.accounts-settings-new {
+  @apply flex flex-col gap-5;
+}
+
+.accounts-header {
+  @apply flex items-center gap-3 mb-2;
+}
+
+.accounts-header-icon {
+  @apply w-6 h-6 text-primary-600;
+}
+
+.accounts-header-title {
+  @apply m-0 text-2xl font-bold text-secondary-800;
+}
+
+.accounts-success-message {
+  @apply p-4 bg-success-100 border border-success-200 rounded-lg text-success-700 text-base flex items-center gap-2;
+}
+
+.accounts-success-message::before {
+  content: '✓';
+  @apply font-bold;
+}
+
+.accounts-error-message {
+  @apply p-4 bg-error-100 border border-error-200 rounded-lg text-error-600 text-base flex items-center gap-2;
+}
+
+.accounts-error-message::before {
+  content: '!';
+  @apply font-bold;
+}
+
+.accounts-loading-state {
+  @apply flex flex-col items-center justify-center p-10 text-secondary-500;
+}
+
+.accounts-loading-spinner {
+  @apply w-10 h-10 mb-3 animate-spin;
+}
+
+.accounts-loading-text {
+  @apply text-base font-medium text-secondary-500;
+}
+
+.accounts-list-new {
+  @apply flex flex-col gap-3;
+}
+
+/* 账号卡片 */
+.accounts-card {
+  @apply flex items-center justify-between p-5 bg-white/98 backdrop-blur-sm rounded-xl shadow-settings border border-transparent transition-all duration-300 relative;
+}
+
+.accounts-card:not(.active) {
+  @apply cursor-pointer;
+}
+
+.accounts-card:not(.active):hover {
+  @apply -translate-y-0.5 shadow-settings-hover border-primary-200;
+}
+
+.accounts-card.active {
+  @apply border-primary-500 bg-gradient-to-r from-primary-50/50 to-primary-100/50 cursor-default;
+}
+
+.accounts-card.switching {
+  @apply opacity-60 pointer-events-none;
+}
+
+.accounts-card.switching .accounts-card-action-icon {
+  @apply animate-spin;
+}
+
+/* 账号卡片信息区域 */
+.accounts-card-main {
+  @apply flex items-center gap-4 flex-1 min-w-0 pr-24;
+}
+
+.accounts-card-avatar {
+  @apply w-12 h-12 min-w-12 min-h-12 rounded-full object-cover border-2 border-secondary-200 transition-all duration-300;
+}
+
+.accounts-card-avatar-active {
+  @apply border-primary-500 ring-2 ring-primary-500/20;
+}
+
+.accounts-card-avatar-guest {
+  @apply w-12 h-12 min-w-12 min-h-12 rounded-full object-cover border-2 border-secondary-200 bg-secondary-100 flex items-center justify-center;
+}
+
+.accounts-card-guest-icon {
+  @apply w-6 h-6 text-secondary-400;
+}
+
+.accounts-card-guest {
+  @apply bg-secondary-50 border-2 border-dashed border-secondary-300;
+}
+
+.accounts-card-guest:hover {
+  @apply border-secondary-400 bg-secondary-100;
+}
+
+/* 账号卡片操作按钮 */
+.accounts-card-actions-wrapper {
+  @apply absolute bottom-4 right-4 flex items-center gap-2 z-10;
+}
+
+.accounts-card-actions {
+  @apply flex items-center gap-2 flex-shrink-0;
+}
+
+.accounts-card-action-btn {
+  @apply flex items-center justify-center w-10 h-10 min-w-10 min-w-10 bg-secondary-100 text-secondary-600 border-none rounded-lg cursor-pointer transition-all duration-200;
+}
+
+.accounts-card-action-btn:hover:not(:disabled) {
+  @apply bg-secondary-200 scale-105;
+}
+
+.accounts-card-action-btn:active:not(:disabled) {
+  @apply scale-95;
+}
+
+.accounts-card-action-btn:focus-visible {
+  @apply outline-2 outline-primary-500 outline-offset-2;
+}
+
+.accounts-card-action-btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.accounts-card-refresh-btn:hover:not(:disabled) {
+  @apply text-primary-600;
+}
+
+.accounts-card-delete-btn {
+  @apply bg-transparent text-error-500;
+}
+
+.accounts-card-delete-btn:hover:not(:disabled) {
+  @apply bg-transparent text-error-700;
+}
+
+.accounts-card-action-icon {
+  @apply w-4 h-4;
+}
+
+.accounts-card-action-icon-spinning {
+  @apply animate-spin;
+}
+
+/* 账号卡片信息 */
+.accounts-card-info {
+  @apply flex-1 min-w-0;
+}
+
+.accounts-card-name-row {
+  @apply flex items-center gap-2 mb-1;
+}
+
+.accounts-card-name {
+  @apply text-lg font-semibold text-secondary-800 overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.accounts-card-id {
+  @apply text-sm text-secondary-500 font-medium overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.accounts-card-info-icon {
+  @apply absolute top-2 right-2 w-6 h-6 flex items-center justify-center bg-secondary-100 border-none rounded-md cursor-pointer transition-colors duration-200 z-20 flex-shrink-0;
+}
+
+.accounts-card-info-icon:hover {
+  @apply bg-secondary-200;
+}
+
+.accounts-card-info-icon-svg {
+  @apply w-3.5 h-3.5 text-secondary-500;
+}
+
+.accounts-card-refresh-time {
+  @apply absolute top-2 right-10 max-w-60 text-xs text-secondary-400 whitespace-nowrap overflow-hidden text-ellipsis text-right pr-1;
+}
+
+/* 凭证相关样式 */
+.credentials-tabs {
+  @apply flex gap-1 border-b border-secondary-200 mb-4 pb-0;
+}
+
+.credentials-tab {
+  @apply flex items-center gap-2 px-4 py-2.5 bg-transparent border-none border-b-2 border-transparent text-secondary-500 text-base font-medium cursor-pointer transition-all duration-200;
+}
+
+.credentials-tab:hover {
+  @apply text-primary-600 bg-secondary-50;
+}
+
+.credentials-tab.active {
+  @apply text-primary-600 border-b-primary-500 bg-secondary-50;
+}
+
+.credentials-tab-icon {
+  @apply w-4 h-4;
+}
+
+.credentials-tab-badge {
+  @apply inline-flex items-center justify-center min-w-5 h-5 px-1.5 bg-secondary-200 text-secondary-600 text-xs font-semibold rounded-full;
+}
+
+.credentials-tab.active .credentials-tab-badge {
+  @apply bg-primary-500 text-white;
+}
+
+.credentials-tab-content {
+  @apply min-h-72;
+}
+
+.credentials-content-basic,
+.credentials-content-cookies,
+.credentials-content-wbi {
+  @apply flex flex-col gap-4;
+}
+
+.credentials-field {
+  @apply flex flex-col gap-2;
+}
+
+.credentials-field label {
+  @apply text-sm font-semibold text-secondary-800;
+}
+
+.credentials-field code {
+  @apply font-mono text-xs text-secondary-900 bg-secondary-100 p-3 rounded-md break-all leading-relaxed;
+}
+
+.credentials-link {
+  @apply inline-flex items-center gap-1 mt-2 text-primary-600 text-sm no-underline font-medium self-start;
+}
+
+.credentials-link:hover {
+  @apply underline;
+}
+
+.cookies-list {
+  @apply flex flex-col gap-2 max-h-96 overflow-y-auto pr-2;
+}
+
+.cookie-item {
+  @apply flex flex-col gap-1 p-3 bg-secondary-50 rounded-md border border-secondary-200;
+}
+
+.cookie-name {
+  @apply text-xs font-semibold text-secondary-800;
+}
+
+.cookie-value {
+  @apply font-mono text-xs text-secondary-900 bg-secondary-100 p-2 rounded break-all leading-relaxed;
+}
+
+.wbi-url-container {
+  @apply flex flex-col gap-2;
+}
+
+.wbi-url-code {
+  @apply font-mono text-xs text-secondary-900 bg-secondary-100 p-3 rounded-md break-all leading-relaxed;
+}
+
+/* 下载设置组件样式 */
+.download-settings-new {
+  @apply flex flex-col gap-5;
+}
+
+.download-header {
+  @apply flex items-center gap-3 mb-2 pb-3 border-b-2 border-secondary-100;
+}
+
+.download-header-icon {
+  @apply w-7 h-7 text-primary-600 flex-shrink-0;
+}
+
+.download-header-title {
+  @apply m-0 text-2xl font-bold text-secondary-800 leading-tight;
+}
+
+.download-loading-state {
+  @apply flex items-center justify-center p-10 text-secondary-500;
+}
+
+.download-loading-text {
+  @apply text-base font-medium text-secondary-500;
+}
+
+.download-form-group {
+  @apply flex flex-col gap-6;
+}
+
+.download-form-item {
+  @apply flex flex-col gap-3;
+}
+
+.download-form-label {
+  @apply flex items-center gap-3 text-lg font-semibold text-secondary-700 leading-tight;
+}
+
+.download-form-icon {
+  @apply w-5 h-5 text-secondary-500 flex-shrink-0;
+}
+
+.download-form-text {
+  @apply text-lg font-semibold text-secondary-700 leading-tight;
+}
+
+.download-form-select,
+.download-form-input {
+  @apply w-full p-4 border-2 border-secondary-200 rounded-lg text-xl font-medium text-secondary-800 bg-white transition-all duration-200 min-h-touch shadow-sm appearance-none;
+}
+
+.download-form-select:hover,
+.download-form-input:hover {
+  @apply border-secondary-300 shadow-md -translate-y-px;
+}
+
+.download-form-select:focus,
+.download-form-input:focus {
+  @apply outline-none border-primary-500 ring-4 ring-primary-500/10 shadow-md -translate-y-px;
+}
+
+.download-form-hint {
+  @apply text-sm text-secondary-500 leading-relaxed pl-7;
+}
+
+.download-actions {
+  @apply mt-6;
+}
+
+.download-reset-btn {
+  @apply flex items-center justify-center gap-2 px-6 py-4 bg-secondary-100 text-secondary-700 border border-secondary-200 rounded-lg font-semibold transition-all duration-200 hover:bg-secondary-200 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2;
+}
+
+.download-reset-icon {
+  @apply w-5 h-5;
+}
+
+/* 数据管理组件样式 */
+.storage-settings-mobile {
+  @apply p-4 bg-gradient-to-br from-secondary-50 to-secondary-100 min-h-screen flex flex-col gap-4;
+}
+
+.storage-summary {
+  @apply bg-white/98 rounded-xl p-4 grid grid-cols-3 gap-3 border border-secondary-200 shadow-settings;
+}
+
+.storage-summary-item {
+  @apply flex flex-col items-center text-center p-4 gap-2;
+}
+
+.storage-summary-item-header {
+  @apply flex items-center justify-center gap-2 mb-1;
+}
+
+.storage-summary-item-icon {
+  @apply text-primary-600 flex-shrink-0 w-5 h-5;
+}
+
+.storage-summary-item-label {
+  @apply text-sm font-medium text-secondary-500 leading-tight;
+}
+
+.storage-summary-item-value {
+  @apply text-xl font-bold text-secondary-800 leading-tight;
+}
+
+.storage-group {
+  @apply bg-white/98 rounded-xl border border-secondary-200 mb-3 overflow-hidden shadow-sm;
+}
+
+.storage-group-header {
+  @apply p-4 bg-secondary-50 border-b border-secondary-200;
+}
+
+.storage-group-title {
+  @apply text-base font-semibold text-secondary-800 block;
+}
+
+.storage-group-subtitle {
+  @apply text-xs text-secondary-500 mt-1 block;
+}
+
+.storage-list {
+  @apply flex flex-col;
+}
+
+.storage-list-item {
+  @apply flex items-center gap-3 p-4 min-h-14 border-b border-secondary-100;
+}
+
+.storage-list-item:last-child {
+  @apply border-b-none;
+}
+
+.storage-list-item-input {
+  @apply flex-col items-start gap-2;
+}
+
+.storage-list-icon {
+  @apply text-secondary-500 flex-shrink-0;
+}
+
+.storage-list-content {
+  @apply flex-1 min-w-0;
+}
+
+.storage-list-label-row {
+  @apply flex items-center gap-2 w-full;
+}
+
+.storage-list-label {
+  @apply text-base font-medium text-secondary-800 mb-1;
+}
+
+.storage-list-item-input .storage-list-label {
+  @apply mb-0;
+}
+
+.storage-list-input {
+  @apply w-full p-3 text-sm border border-secondary-200 rounded-md bg-secondary-50 text-secondary-800 outline-none transition-all duration-150 overflow-hidden text-ellipsis whitespace-nowrap;
+}
+
+.storage-list-input:focus {
+  @apply border-primary-500 bg-white;
+}
+
+.storage-list-input:disabled {
+  @apply opacity-60 cursor-not-allowed;
+}
+
+.storage-list-meta {
+  @apply text-sm text-secondary-500;
+}
+
+.storage-list-button {
+  @apply w-full text-left border-none bg-transparent cursor-pointer transition-colors duration-150 -webkit-tap-highlight-color-transparent;
+}
+
+.storage-list-button:active {
+  @apply bg-secondary-100;
+}
+
+.storage-list-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.storage-list-icon-wrapper {
+  @apply w-9 h-9 bg-warning-100 text-warning-600 rounded-lg flex items-center justify-center flex-shrink-0;
+}
+
+.storage-list-chevron {
+  @apply text-secondary-300 flex-shrink-0;
+}
+
+.storage-toggles {
+  @apply p-4 flex flex-col gap-1;
+}
+
+.storage-toggle-item {
+  @apply flex items-center justify-between py-2 cursor-pointer -webkit-tap-highlight-color-transparent gap-3;
+}
+
+.storage-toggle-content {
+  @apply flex-1;
+}
+
+.storage-toggle-label {
+  @apply text-base font-medium text-secondary-800;
+}
+
+.storage-toggle-input {
+  @apply w-12 h-7 rounded-full appearance-none bg-secondary-200 relative cursor-pointer transition-colors duration-150 flex-shrink-0;
+}
+
+.storage-toggle-input:checked {
+  @apply bg-primary-600;
+}
+
+.storage-toggle-input:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.storage-toggle-input::before {
+  content: '';
+  @apply absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform duration-150 shadow-sm;
+}
+
+.storage-toggle-input:checked::before {
+  @apply translate-x-5;
+}
+
+.storage-loading {
+  @apply flex flex-col items-center justify-center p-12 text-secondary-500;
+}
+
+.storage-loading-spinner {
+  @apply w-10 h-10 animate-spin text-primary-600 mb-3;
+}
+
+/* Toast样式 */
+.storage-toast {
+  @apply fixed top-3 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-lg flex items-center gap-2 text-sm font-medium z-[1000] animate-slide-up;
+}
+
+.storage-toast-success {
+  @apply bg-success-500 text-white;
+}
+
+.storage-toast-error {
+  @apply bg-error-500 text-white;
+}
+
+.storage-toast-icon {
+  @apply w-4 h-4;
+}
+
+/* 模态框相关样式 */
+.confirm-modal-message {
+  @apply text-base text-secondary-700 leading-relaxed;
+}
+
+.modal-footer {
+  @apply flex gap-3 justify-end mt-6;
+}
+
+.modal-btn {
+  @apply px-4 py-2 rounded-md text-sm font-medium cursor-pointer transition-all duration-200 border border-transparent;
+}
+
+.modal-btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.modal-btn-cancel {
+  @apply bg-white text-secondary-600 border-secondary-200;
+}
+
+.modal-btn-cancel:hover:not(:disabled) {
+  @apply bg-secondary-50 border-secondary-300;
+}
+
+.modal-btn-danger {
+  @apply bg-error-500 text-white border-error-500;
+}
+
+.modal-btn-danger:hover:not(:disabled) {
+  @apply bg-error-600 border-error-600;
+}
+
+.modal-btn-primary {
+  @apply bg-primary-600 text-white border-primary-600;
+}
+
+.modal-btn-primary:hover:not(:disabled) {
+  @apply bg-primary-700 border-primary-700;
+}
+
+/* 保存消息样式 */
+.save-message {
+  @apply p-4 rounded-lg flex items-center gap-2 text-base font-medium mb-4 animate-slide-up;
+}
+
+.save-message-success {
+  @apply bg-success-100 text-success-700 border border-success-200;
+}
+
+.save-message-error {
+  @apply bg-error-100 text-error-700 border border-error-200;
+}
+
+.save-message-icon {
+  @apply w-5 h-5;
+}
+
+.save-message-text {
+  @apply flex-1;
+}
