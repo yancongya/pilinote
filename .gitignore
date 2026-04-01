@@ -107,6 +107,9 @@ coverage/
 *.bak
 *.backup
 *~
+git_diff_backup.txt
+git_status_backup.txt
+pilinote.db.backup.*
 
 # 临时脚本
 apps/api/update_part_titles.py
