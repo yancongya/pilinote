@@ -489,10 +489,10 @@ export default function VideoDetailPage() {
           {video.title}
         </h2>
 
-        {/* UP主信息 */}
+        {/* UP主信息 + 统计信息 */}
         <div className="video-detail-uploader" style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: '12px',
           marginBottom: '12px',
           paddingBottom: '12px',
@@ -527,36 +527,45 @@ export default function VideoDetailPage() {
               {video.uploader.name}
             </div>
           </div>
-        </div>
 
-        {/* 统计信息 - 第一行 */}
-        <div className="video-detail-stats" style={{
-          display: 'flex',
-          gap: '16px',
-          fontSize: '12px',
-          color: '#999',
-          marginBottom: '8px',
-          flexWrap: 'wrap'
-        }}>
-          <span>{formatNumber(video.view)}播放</span>
-          <span>{formatNumber(video.danmaku)}弹幕</span>
-          <span>{formatTime(video.pubtime)}</span>
-        </div>
+          {/* 统计信息 */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            marginLeft: 'auto',
+            textAlign: 'right'
+          }}>
+            {/* 统计信息 - 第一行 */}
+            <div className="video-detail-stats" style={{
+              display: 'flex',
+              gap: '16px',
+              fontSize: '12px',
+              color: '#999',
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap'
+            }}>
+              <span>{formatNumber(video.view)}播放</span>
+              <span>{formatNumber(video.danmaku)}弹幕</span>
+              <span>{formatTime(video.pubtime)}</span>
+            </div>
 
-        {/* 统计信息 - 第二行 */}
-        <div className="video-detail-stats" style={{
-          display: 'flex',
-          gap: '16px',
-          fontSize: '12px',
-          color: '#666',
-          marginBottom: '16px',
-          flexWrap: 'wrap'
-        }}>
-          <span>❤️ {formatNumber(video.like)}</span>
-          <span>🪙 {formatNumber(video.coin)}</span>
-          <span>⭐ {formatNumber(video.favorite)}</span>
-          <span>💬 {formatNumber(video.reply)}</span>
-          <span>🔗 {formatNumber(video.share)}</span>
+            {/* 统计信息 - 第二行 */}
+            <div className="video-detail-stats" style={{
+              display: 'flex',
+              gap: '16px',
+              fontSize: '12px',
+              color: '#666',
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap'
+            }}>
+              <span>❤️ {formatNumber(video.like)}</span>
+              <span>🪙 {formatNumber(video.coin)}</span>
+              <span>⭐ {formatNumber(video.favorite)}</span>
+              <span>💬 {formatNumber(video.reply)}</span>
+              <span>🔗 {formatNumber(video.share)}</span>
+            </div>
+          </div>
         </div>        
                 {/* 分P信息 */}
                 {video.pages && video.pages.length > 1 && (

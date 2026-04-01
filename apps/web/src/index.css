@@ -8534,12 +8534,6 @@ body {
   .video-detail-stats {
     gap: 20px !important;
   }
-
-  .video-detail-info-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
-  }
 }
 
 @media (min-width: 1024px) {
@@ -8552,8 +8546,21 @@ body {
     font-size: 22px !important;
   }
 
-  .video-detail-info-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
+  .video-detail-uploader {
+    gap: 20px !important;
+  }
+
+  .video-detail-avatar {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .video-detail-uploader-name {
+    font-size: 17px !important;
+  }
+
+  .video-detail-stats {
+    gap: 24px !important;
   }
 }
 
