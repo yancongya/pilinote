@@ -21,7 +21,7 @@ class ThumbHandler(BaseHandler):
         temp_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 创建占位图片文件
-        temp_path.write_bytes(b"封面占位文件")
+        temp_path.write_text("封面占位文件", encoding='utf-8')
 
         # 移动到输出目录
         output_path = self._get_output_path(output_dir, filename)

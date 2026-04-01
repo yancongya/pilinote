@@ -268,7 +268,7 @@ class SchedulerService:
 
     async def _execute_subtask(self, task: Task, subtask_data: dict, temp_dir: Path, output_dir: Path):
         """执行子任务"""
-        from services.queue.handlers import SubTaskHandler
+        from src.services.queue.handlers import SubTaskHandler
 
         subtask_type = subtask_data['type']
 
