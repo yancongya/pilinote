@@ -472,94 +472,92 @@ export default function VideoDetailPage() {
       </div>
 
       {/* 视频信息 */}
-      <div style={{ padding: '16px' }}>
-        <h2 style={{
+      <div className="video-detail-content" style={{ padding: '16px', maxWidth: '800px', margin: '0 auto' }}>
+        {/* 视频标题 */}
+        <h2 className="video-detail-title" style={{
           fontSize: '18px',
           fontWeight: '600',
           color: '#1a1a1a',
-          margin: '0 0 12px 0',
-          lineHeight: '1.4'
+          margin: '0 0 16px 0',
+          lineHeight: '1.4',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
         }}>
           {video.title}
         </h2>
 
         {/* UP主信息 */}
-        <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                    marginBottom: '12px'
-                  }}>
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    background: '#f0f0f0',
-                    overflow: 'hidden',
-                    flexShrink: 0
-                  }}>
-                    {video.uploader.avatar ? (
-                      <img
-                        src={getProxyImageUrl(video.uploader.avatar)}
-                        alt={video.uploader.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <User />
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: '15px',
-                      fontWeight: '600',
-                      color: '#1a1a1a',
-                      marginBottom: '4px',
-                      lineHeight: '1.3'
-                    }}>
-                      {video.uploader.name}
-                    </div>
-                    <div style={{
-                      fontSize: '14px',
-                      color: '#666',
-                      lineHeight: '1.4',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 1,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {video.title}
-                    </div>
-                  </div>
-                </div>
+        <div className="video-detail-uploader" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '12px',
+          paddingBottom: '12px',
+          borderBottom: '1px solid #f0f0f0'
+        }}>
+          <div className="video-detail-avatar" style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: '#f0f0f0',
+            overflow: 'hidden',
+            flexShrink: 0
+          }}>
+            {video.uploader.avatar ? (
+              <img
+                src={getProxyImageUrl(video.uploader.avatar)}
+                alt={video.uploader.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <User />
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="video-detail-uploader-name" style={{
+              fontSize: '15px',
+              fontWeight: '600',
+              color: '#1a1a1a',
+              marginBottom: '2px',
+              lineHeight: '1.3'
+            }}>
+              {video.uploader.name}
+            </div>
+          </div>
+        </div>
 
-                {/* 统计信息 - 第一行 */}
-                <div style={{
-                  display: 'flex',
-                  gap: '16px',
-                  fontSize: '12px',
-                  color: '#999',
-                  marginBottom: '8px'
-                }}>
-                  <span>{formatNumber(video.view)}播放</span>
-                  <span>{formatNumber(video.danmaku)}弹幕</span>
-                  <span>{formatTime(video.pubtime)}</span>
-                </div>
+        {/* 统计信息 - 第一行 */}
+        <div className="video-detail-stats" style={{
+          display: 'flex',
+          gap: '16px',
+          fontSize: '12px',
+          color: '#999',
+          marginBottom: '8px',
+          flexWrap: 'wrap'
+        }}>
+          <span>{formatNumber(video.view)}播放</span>
+          <span>{formatNumber(video.danmaku)}弹幕</span>
+          <span>{formatTime(video.pubtime)}</span>
+        </div>
 
-                {/* 统计信息 - 第二行 */}
-                <div style={{
-                  display: 'flex',
-                  gap: '16px',
-                  fontSize: '12px',
-                  color: '#666',
-                  marginBottom: '16px'
-                }}>
-                  <span>❤️ {formatNumber(video.like)}</span>
-                  <span>🪙 {formatNumber(video.coin)}</span>
-                  <span>⭐ {formatNumber(video.favorite)}</span>
-                  <span>💬 {formatNumber(video.reply)}</span>
-                  <span>🔗 {formatNumber(video.share)}</span>
-                </div>        
+        {/* 统计信息 - 第二行 */}
+        <div className="video-detail-stats" style={{
+          display: 'flex',
+          gap: '16px',
+          fontSize: '12px',
+          color: '#666',
+          marginBottom: '16px',
+          flexWrap: 'wrap'
+        }}>
+          <span>❤️ {formatNumber(video.like)}</span>
+          <span>🪙 {formatNumber(video.coin)}</span>
+          <span>⭐ {formatNumber(video.favorite)}</span>
+          <span>💬 {formatNumber(video.reply)}</span>
+          <span>🔗 {formatNumber(video.share)}</span>
+        </div>        
                 {/* 分P信息 */}
                 {video.pages && video.pages.length > 1 && (
                   <div style={{

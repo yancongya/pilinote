@@ -8504,3 +8504,76 @@ body {
     font-size: 13px !important;
   }
 }
+
+/* 视频详情页响应式样式 */
+@media (min-width: 768px) {
+  /* 桌面端优化 */
+  .video-detail-content {
+    padding: 24px !important;
+  }
+
+  .video-detail-title {
+    font-size: 20px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .video-detail-uploader {
+    gap: 16px !important;
+    padding-bottom: 16px !important;
+  }
+
+  .video-detail-avatar {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  .video-detail-uploader-name {
+    font-size: 16px !important;
+  }
+
+  .video-detail-stats {
+    gap: 20px !important;
+  }
+
+  .video-detail-info-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* 大屏幕优化 */
+  .video-detail-content {
+    padding: 32px !important;
+  }
+
+  .video-detail-title {
+    font-size: 22px !important;
+  }
+
+  .video-detail-info-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* 视频详情页卡片悬停效果 */
+.video-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
