@@ -1,0 +1,5148 @@
+diff --git a/docs/dev2/README.md b/docs/dev2/README.md
+new file mode 100644
+index 0000000..4837f7d
+--- /dev/null
++++ b/docs/dev2/README.md
+@@ -0,0 +1,115 @@
++# PiliNote 开发文档 (整理版)
++
++## 文档结构
++
++本目录包含PiliNote项目的开发文档，按功能模块和开发阶段组织。
++
++### 架构设计
++- **[architecture/project-structure.md](architecture/project-structure.md)** - 项目结构设计
++  - MVC架构设计
++  - 目录结构说明
++  - 模块划分
++
++- **[architecture/mvc-architecture.md](architecture/mvc-architecture.md)** - MVC架构详细设计
++  - 分层架构图
++  - 数据流向
++  - 设计原则
++
++- **[architecture/system-architecture.drawio](architecture/system-architecture.drawio)** - 系统架构设计图
++
++### 功能模块
++
++#### 认证功能
++- **[features/authentication/auth-solution.md](features/authentication/auth-solution.md)** - 用户认证方案
++  - 扫码登录、短信登录、SESSDATA登录
++  - Cookie管理机制
++  - 前端实现细节
++
++- **[features/authentication/api-auth.md](features/authentication/api-auth.md)** - 认证API文档
++  - B站认证API列表
++  - API响应格式
++  - 错误处理
++
++#### 下载功能
++- **[features/download/download-engine.md](features/download/download-engine.md)** - 下载引擎方案
++  - yt-dlp集成
++  - 任务管理
++  - 画质支持
++
++- **[features/download/download-management.md](features/download/download-management.md)** - 下载管理功能
++  - 下载队列管理
++  - 系列视频处理
++  - 恢复功能
++
++- **[features/download/download-settings.md](features/download/download-settings.md)** - 下载设置
++  - 分辨率、音频码率、编码格式
++  - 存储设置
++  - 缓存管理
++
++#### 视频源功能
++- **[features/video-source/video-api.md](features/video-source/video-api.md)** - 视频相关API
++  - 收藏夹API
++  - 稍后再看API
++  - 视频详情API
++  - HTML解析方法
++
++#### UI设计
++- **[features/ui-design/ui-ux-design.md](features/ui-design/ui-ux-design.md)** - UI/UX设计系统
++  - Soft UI Evolution设计风格
++  - 配色方案、字体系统
++  - 组件设计规范
++  - 响应式设计
++
++### 实现细节
++- **[implementation/html-parsing.md](implementation/html-parsing.md)** - HTML解析方法详解
++  - 绕过B站API限制
++  - 数据提取流程
++  - 性能优化
++
++- **[implementation/bilitools-reference.md](implementation/bilitools-reference.md)** - BiliTools设置参考
++  - 设置数据结构
++  - 数据管理方式
++  - 应用建议
++
++### 部署方案
++- **[deployment/deployment.md](deployment/deployment.md)** - 部署方案
++  - Web部署、Docker部署、桌面端部署
++  - 开发环境配置
++  - 配置管理
++
++### 参考项目
++- **[reference/reference-projects.md](reference/reference-projects.md)** - 参考项目索引
++  - PiliPala (Flutter B站客户端)
++  - Hermes (自托管视频下载器)
++  - VidBee (Electron视频下载器)
++  - bilibili-downloader
++
++### 技术栈
++- **[tech-stack/tech-stack.md](tech-stack/tech-stack.md)** - 技术栈方案
++  - 后端技术栈
++  - 前端技术栈
++  - 桌面端技术栈
++  - 部署技术栈
++
++## 开发原则
++1. **避免重复造轮子** - 优先使用成熟方案
++2. **参考现有项目** - 从reference/目录索引实现
++3. **模块化设计** - 保持高内聚低耦合
++4. **渐进式开发** - 按路线图逐步实现
++
++## 快速开始
++1. 查阅 [tech-stack/tech-stack.md](tech-stack/tech-stack.md) 了解技术栈
++2. 查看 [architecture/project-structure.md](architecture/project-structure.md) 了解项目结构
++3. 参考 [reference/reference-projects.md](reference/reference-projects.md) 查找具体实现
++4. 查看 [deployment/deployment.md](deployment/deployment.md) 了解环境配置和启动方法
++
++## 文档维护
++- 文档按功能模块组织，避免数字编号
++- 重要更新记录在CHANGELOG.md中
++- 已实现功能文档在dev目录，待实现功能在todo目录
++
++## 注意事项
++- 所有参考项目已克隆到 `reference/` 目录，开发时优先查阅
++- 避免重复造轮子，充分利用成熟方案
++- UI布局优先适配手机模式，同时兼容电脑宽屏
++- Web端优先开发，作为桌面端的基础
+\ No newline at end of file
+diff --git a/docs/dev2/architecture/mvc-architecture.md b/docs/dev2/architecture/mvc-architecture.md
+new file mode 100644
+index 0000000..040d696
+--- /dev/null
++++ b/docs/dev2/architecture/mvc-architecture.md
+@@ -0,0 +1,320 @@
++# PiliNote MVC架构设计
++
++## 架构概述
++
++基于bilitool的MVC架构设计理念，PiliNote采用分层架构设计，确保代码的可维护性、可扩展性和可测试性。
++
++## 架构图
++
++```
++┌─────────────────────────────────────────────────────────────────┐
++│                        View Layer (表现层)                        │
++│                    React Web Application                       │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Pages (页面组件)                                      │   │
++│  │  ├── LoginPage (登录页面)                             │   │
++│  │  ├── HomePage (主页面)                                 │   │
++│  │  ├── VideoDetailPage (视频详情页)                       │   │
++│  │  └── SettingsPage (设置页面)                            │   │
++│  └──────────────────────────────────────────────────────────┘   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Components (UI组件)                                   │   │
++│  │  ├── auth/ (认证组件)                                  │   │
++│  │  ├── video/ (视频组件)                                 │   │
++│  │  ├── download/ (下载组件)                             │   │
++│  │  └── settings/ (设置组件)                               │   │
++│  └──────────────────────────────────────────────────────────┘   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  State Management (状态管理)                           │   │
++│  │  ├── auth.ts (认证状态)                                │   │
++│  │  └── settings.ts (设置状态)                            │   │
++│  └──────────────────────────────────────────────────────────┘   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Services (服务层)                                     │   │
++│  │  └── api.ts (API调用封装)                              │   │
++│  └──────────────────────────────────────────────────────────┘   │
++└─────────────────────────────────────────────────────────────────┘
++                              │ HTTP/REST
++                              ↓
++┌─────────────────────────────────────────────────────────────────┐
++│                    Controller Layer (控制层)                     │
++│                    FastAPI Application                         │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Routers (路由层)                                       │   │
++│  │  ├── auth.py (认证路由)                                │   │
++│  │  ├── video.py (视频路由)                               │   │
++│  │  ├── favorites.py (收藏夹路由)                          │   │
++│  │  ├── watchlater.py (稍后再看路由)                        │   │
++│  │  ├── download.py (下载路由)                            │   │
++│  │  └── settings.py (设置路由)                             │   │
++│  └──────────────────────────────────────────────────────────┘   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Controllers (业务控制器)                               │   │
++│  │  ├── auth_controller.py (认证控制器)                     │   │
++│  │  ├── video_controller.py (视频控制器)                     │   │
++│  │  ├── download_controller.py (下载控制器)                 │   │
++│  │  └── settings_controller.py (设置控制器)                  │   │
++│  └──────────────────────────────────────────────────────────┘   │
++└─────────────────────────────────────────────────────────────────┘
++                              │
++                              ↓
++┌─────────────────────────────────────────────────────────────────┐
++│                     Service Layer (服务层)                        │
++│                      Business Logic Services                        │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Services (服务模块)                                     │   │
++│  │  ├── authenticate/ (认证服务)                             │   │
++│  │  │   ├── bilibili_login.py (B站登录)                   │   │
++│  │  │   ├── qrcode.py (二维码)                             │   │
++│  │  │   └── password.py (密码登录)                          │   │
++│  │  ├── bilibili/ (B站API服务)                             │   │
++│  │  │   ├── api.py (B站API封装)                           │   │
++│  │  │   ├── video.py (视频API)                              │   │
++│  │  │   ├── favorites.py (收藏夹API)                        │   │
++│  │  │   └── watchlater.py (稍后再看API)                     │   │
++│  │  ├── download/ (下载服务)                                │   │
++│  │  │   ├── yt_dlp.py (yt-dlp封装)                        │   │
++│  │  │   ├── queue.py (任务队列)                            │   │
++│  │  │   └── progress.py (进度管理)                         │   │
++│  │  └── storage/ (存储服务)                                 │   │
++│  │      ├── file_manager.py (文件管理)                     │   │
++│  │      └── metadata.py (元数据处理)                       │   │
++│  └──────────────────────────────────────────────────────────┘   │
++└─────────────────────────────────────────────────────────────────┘
++                              │
++                              ↓
++┌─────────────────────────────────────────────────────────────────┐
++│                      Model Layer (数据层)                         │
++│                      Data Models & Configuration                   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Models (数据模型)                                       │   │
++│  │  ├── user.py (用户模型)                                 │   │
++│  │  ├── video.py (视频模型)                                │   │
++│  │  ├── download.py (下载任务模型)                         │   │
++│  │  └── settings.py (设置模型)                              │   │
++│  └──────────────────────────────────────────────────────────┘   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Schemas (Pydantic模式)                                  │   │
++│  │  ├── login.py (登录模式)                                 │   │
++│  │  ├── video.py (视频模式)                                 │   │
++│  │  ├── download.py (下载模式)                             │   │
++│  │  └── settings.py (设置模式)                              │   │
++│  └──────────────────────────────────────────────────────────┘   │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Configuration (配置管理)                                │   │
++│  │  ├── config.py (应用配置)                               │   │
++│  │  └── database.py (数据库连接)                           │
++│  └──────────────────────────────────────────────────────────┘   │
++└─────────────────────────────────────────────────────────────────┘
++                              │
++                              ↓
++┌─────────────────────────────────────────────────────────────────┐
++│                    Utility Layer (工具层)                         │
++│                      Common Utilities                            │
++│  ┌──────────────────────────────────────────────────────────┐   │
++│  │  Utils (工具函数)                                        │   │
++│  │  ├── crypto.py (加密工具)                                │   │
++│  │  ├── validator.py (数据验证)                             │   │
++│  │  ├── logger.py (日志工具)                                │   │
++│  │  └── format.py (格式化工具)                              │   │
++│  └──────────────────────────────────────────────────────────┘   │
++└─────────────────────────────────────────────────────────────────┘
++                              │
++                              ↓
++┌─────────────────────────────────────────────────────────────────┐
++│                    External Services                              │
++│                    Third-party Integrations                    │
++│  ├── Bilibili API (bilibili.com)                            │
++│  ├── yt-dlp (下载引擎)                                        │
++│  ├── Database (SQLite/PostgreSQL)                            │
++│  └── File System (文件存储)                                   │
++└─────────────────────────────────────────────────────────────────┘
++```
++
++## 层次职责
++
++### View层（表现层）
++**职责**：用户界面展示和用户交互
++- 处理用户输入和显示逻辑
++- 状态管理（Zustand）
++- 路由导航
++- API调用（通过服务层）
++
++### Controller层（控制层）
++**职责**：请求处理和业务逻辑编排
++- 接收HTTP请求
++- 参数验证和错误处理
++- 调用Service层处理业务逻辑
++- 返回标准化响应
++
++### Service层（服务层）
++**职责**：业务逻辑实现
++- B站API集成
++- 下载任务管理
++- 文件处理
++- 数据转换
++
++### Model层（数据层）
++**职责**：数据持久化和数据定义
++- 数据库模型定义
++- 数据验证（Pydantic）
++- 数据库操作
++- 配置管理
++
++### Utility层（工具层）
++**职责**：通用工具函数
++- 加密解密
++- 数据验证
++- 日志记录
++- 格式化转换
++
++## 数据流向
++
++### 请求流程
++```
++用户操作 → View层 → HTTP请求 → Controller层 → Service层 → Model层 → 数据库/外部API
++                                                    ↓
++                                                响应数据
++                                                    ↓
++用户界面 ← View层 ← HTTP响应 ← Controller层 ← Service层 ← Model层 ← 数据处理结果
++```
++
++### 示例：用户登录流程
++1. **View层**: 用户在LoginPage输入SESSDATA
++2. **Controller层**: auth.py路由接收POST /api/auth/sessdata
++3. **Service层**: BilibiliService.login_by_sessdata处理登录
++4. **Model层**: 保存用户信息到数据库
++5. **响应**: 返回用户信息和认证状态
++6. **View层**: 更新Zustand store，跳转到HomePage
++
++## 设计原则
++
++### 1. 单一职责
++- 每层只负责自己的职责
++- Model只负责数据，不包含业务逻辑
++- View只负责展示，不包含业务逻辑
++- Controller只负责协调，不包含具体实现
++
++### 2. 依赖注入
++- Controller通过依赖注入使用Service
++- Service通过依赖注入使用Model
++- 便于测试和替换实现
++
++### 3. 接口抽象
++- Service层提供统一的接口
++- 便于替换底层实现
++- 支持多种存储方式（SQLite/PostgreSQL）
++
++### 4. 错误处理
++- Controller层统一错误处理
++- Service层抛出业务异常
++- Model层数据验证异常
++
++## 扩展性设计
++
++### 添加新功能模块
++1. 在Service层创建新的服务模块
++2. 在Controller层创建对应的控制器
++3. 在Model层创建数据模型和模式
++4. 在View层创建UI组件
++5. 注册新的路由
++
++### 添加新的数据源
++1. 在Service层创建新的服务模块
++2. 实现统一的服务接口
++3. 在Controller层使用新服务
++4. 无需修改View层代码
++
++## 参考项目
++
++### 架构参考
++- **bilitool**: MVC架构设计，分层清晰
++- **Hermes**: 前后端分离，服务层独立
++- **Vidbee**: 模块化设计，可扩展性强
++
++### 功能参考
++- **PiliPala**: B站API实现细节
++- **bilibili-downloader**: yt-dlp使用方法
++- **bilibili-favlist-auto-downloader**: 收藏夹处理逻辑
++
++## 技术选型理由
++
++### 为什么选择MVC架构
++- **分层清晰**: 便于团队协作和维护
++- **职责分离**: 易于测试和调试
++- **可扩展性**: 新功能易于添加
++- **可维护性**: 代码结构清晰
++
++### 为什么选择这些技术栈
++- **FastAPI**: 现代化、高性能、自动文档
++- **React 19**: 组件化、生态丰富、性能优秀
++- **Zustand**: 轻量级、简单易用
++- **SQLAlchemy**: 成熟ORM、支持多种数据库
++- **yt-dlp**: 功能强大的下载工具
++
++## 开发指南
++
++### 添加新API端点
++1. 在Service层实现业务逻辑
++2. 在Controller层创建路由
++3. 在Model层定义数据模型
++4. 在View层创建UI组件
++5. 更新API文档
++
++### 修改数据模型
++1. 修改Model定义
++2. 更新Pydantic模式
++3. 数据库迁移
++4. 更新相关Controller和Service
++
++### 添加新的UI组件
++1. 创建React组件
++2. 使用Zustand管理状态
++3. 调用API服务
++4. 添加路由配置
++
++## 性能优化
++
++### 后端优化
++- 数据库连接池
++- 异步IO处理
++- 缓存策略
++- 分页查询
++
++### 前端优化
++- 组件懒加载
++- 图片懒加载
++- 虚拟滚动
++- 状态优化
++
++## 安全考虑
++
++### 认证安全
++- JWT Token管理
++- Cookie安全设置
++- CSRF防护
++- 密码加密存储
++
++### 数据安全
++- SQL注入防护
++- XSS防护
++- CSRF防护
++- 文件上传安全
++
++## 测试策略
++
++### 单元测试
++- Model层测试
++- Service层测试
++- Controller层测试
++- Utility层测试
++
++### 集成测试
++- API端点测试
++- 数据库操作测试
++- 外部API集成测试
++
++### E2E测试
++- 用户流程测试
++- 关键功能测试
++- 跨浏览器测试
+\ No newline at end of file
+diff --git a/docs/dev2/architecture/project-structure.md b/docs/dev2/architecture/project-structure.md
+new file mode 100644
+index 0000000..019d3b6
+--- /dev/null
++++ b/docs/dev2/architecture/project-structure.md
+@@ -0,0 +1,593 @@
++# 项目结构
++
++## 目录结构
++```
++pilinote/
++├── apps/                    # 应用目录
++│   ├── api/                # 后端API服务
++│   │   ├── src/
++│   │   │   ├── config.py          # 配置管理
++│   │   │   ├── database.py        # 数据库连接
++│   │   │   ├── main.py            # FastAPI主应用
++│   │   │   ├── models/            # 数据模型（Model层）
++│   │   │   │   ├── user.py        # 用户模型
++│   │   │   │   ├── video.py       # 视频模型
++│   │   │   │   ├── download.py    # 下载任务模型
++│   │   │   │   └── settings.py    # 设置模型
++│   │   │   ├── schemas/           # Pydantic模式
++│   │   │   │   ├── login.py       # 登录模式
++│   │   │   │   ├── video.py       # 视频模式
++│   │   │   │   ├── download.py    # 下载模式
++│   │   │   │   └── settings.py    # 设置模式
++│   │   │   ├── routers/           # API路由（Controller层）
++│   │   │   │   ├── auth.py        # 认证路由
++│   │   │   │   ├── video.py       # 视频路由
++│   │   │   │   ├── favorites.py   # 收藏夹路由
++│   │   │   │   ├── watchlater.py  # 稍后再看路由
++│   │   │   │   ├── download.py    # 下载路由
++│   │   │   │   └── settings.py    # 设置路由
++│   │   │   ├── controllers/       # 业务控制器（Controller层）
++│   │   │   │   ├── auth_controller.py      # 认证控制器
++│   │   │   │   ├── video_controller.py     # 视频控制器
++│   │   │   │   ├── download_controller.py  # 下载控制器
++│   │   │   │   └── settings_controller.py  # 设置控制器
++│   │   │   ├── services/          # 服务层（Service层）
++│   │   │   │   ├── authenticate/  # 认证服务
++│   │   │   │   │   ├── bilibili_login.py  # B站登录
++│   │   │   │   │   ├── qrcode.py          # 二维码
++│   │   │   │   │   └── password.py       # 密码登录
++│   │   │   │   ├── bilibili/      # B站API服务
++│   │   │   │   │   ├── api.py            # B站API封装
++│   │   │   │   │   ├── video.py         # 视频API
++│   │   │   │   │   ├── favorites.py     # 收藏夹API
++│   │   │   │   │   └── watchlater.py    # 稍后再看API
++│   │   │   │   ├── download/     # 下载服务
++│   │   │   │   │   ├── yt_dlp.py        # yt-dlp封装
++│   │   │   │   │   ├── queue.py         # 任务队列
++│   │   │   │   │   └── progress.py      # 进度管理
++│   │   │   │   └── storage/      # 存储服务
++│   │   │   │       ├── file_manager.py  # 文件管理
++│   │   │   │       └── metadata.py     # 元数据处理
++│   │   │   └── utils/             # 工具函数
++│   │   │       ├── crypto.py      # 加密工具
++│   │   │       ├── validator.py    # 数据验证
++│   │   │       └── logger.py      # 日志工具
++│   │   ├── requirements.txt       # Python依赖
++│   │   ├── .env                   # 环境变量
++│   │   ├── .env.example           # 环境变量示例
++│   │   ├── pyproject.toml         # 项目配置
++│   │   └── venv/                  # 虚拟环境
++│   └── web/                # 前端Web应用（View层）
++│       ├── src/
++│       │   ├── main.tsx           # React入口
++│       │   ├── App.tsx            # 主应用组件
++│       │   ├── index.css          # 全局样式
++│       │   ├── pages/             # 页面组件
++│       │   │   ├── LoginPage.tsx  # 登录页面
++│       │   │   ├── HomePage.tsx   # 主页面
++│       │   │   ├── VideoDetailPage.tsx  # 视频详情页
++│       │   │   └── SettingsPage.tsx     # 设置页面
++│       │   ├── components/        # UI组件
++│       │   │   ├── auth/         # 认证相关组件
++│       │   │   ├── video/        # 视频相关组件
++│       │   │   ├── download/     # 下载相关组件
++│       │   │   └── settings/     # 设置相关组件
++│       │   ├── services/          # API服务
++│       │   │   └── api.ts         # API调用封装
++│       │   ├── stores/            # 状态管理
++│       │   │   ├── auth.ts        # 认证状态
++│       │   │   └── settings.ts   # 设置状态
++│       │   ├── hooks/             # 自定义Hooks
++│       │   │   ├── useAuth.ts     # 认证Hook
++│       │   │   └── useSettings.ts # 设置Hook
++│       │   ├── types/             # TypeScript类型
++│       │   │   ├── api.ts         # API类型
++│       │   │   └── models.ts      # 数据模型类型
++│       │   └── utils/             # 工具函数
++│       │       ├── format.ts      # 格式化工具
++│       │       └── validator.ts   # 验证工具
++│       ├── index.html             # HTML入口
++│       ├── package.json           # Node.js依赖
++│       ├── package-lock.json      # 依赖锁定
++│       ├── tsconfig.json          # TypeScript配置
++│       └── vite.config.ts         # Vite配置
++├── docs/                    # 文档
++│   └── dev/                 # 开发文档
++│       ├── 00-tech-stack.md           # 技术栈方案
++│       ├── 01-auth-solution.md        # 认证方案
++│       ├── 02-api-list.md             # API列表
++│       ├── 03-download-engine.md      # 下载引擎方案
++│       ├── 04-file-organization.md    # 文件组织方案
++│       ├── 05-deployment.md           # 部署方案
++│       ├── 06-project-structure.md    # 项目结构
++│       ├── 07-development-roadmap.md  # 开发路线图
++│       ├── 08-reference-projects.md   # 参考项目索引
++│       ├── pilinote_architecture.drawio  # 系统架构图
++│       └── README.md                   # 文档索引
++├── reference/              # 参考项目
++│   ├── pilipala/                  # Flutter B站客户端
++│   ├── hermes/                    # 自托管视频下载器
++│   ├── vidbee/                    # Electron视频下载器
++│   ├── bilitool/                  # B站工具库（MVC架构参考）
++│   ├── bilibili-downloader/       # B站下载器
++│   └── bilibili-favlist-auto-downloader/  # 收藏夹自动下载
++├── CHANGELOG.md            # 开发日志
++├── AGENTS.md               # Agent配置
++└── .gitignore              # Git忽略规则
++
++```
++
++## 架构设计（MVC模式）
++
++基于bilitool的MVC架构设计，PiliNote采用三层架构：
++
++### Model层（数据层）
++- **数据库模型**: 定义数据表结构
++- **Pydantic模式**: 数据验证和序列化
++- **配置管理**: 应用配置和环境变量
++
++### View层（表现层）
++- **Web界面**: React组件和页面
++- **移动端界面**: 响应式设计
++- **状态管理**: Zustand状态管理
++
++### Controller层（控制层）
++- **路由处理**: API端点定义
++- **业务控制器**: 业务逻辑编排
++- **请求验证**: 参数验证和错误处理
++
++### Service层（服务层）
++- **B站API服务**: 封装B站API调用
++- **下载服务**: yt-dlp封装和任务管理
++- **存储服务**: 文件管理和元数据处理
++- **认证服务**: 用户认证和授权
++
++### Utility层（工具层）
++- **加密工具**: 密码加密和数据安全
++- **格式化工具**: 数据格式转换
++- **验证工具**: 数据验证和清洗
++- **日志工具**: 日志记录和错误追踪
++
++## 模块划分
++
++### 认证模块（已实现）
++- **功能**: 用户登录、认证管理
++- **组件**:
++  - 扫码登录（推荐）
++  - SESSDATA登录（快速开发）
++  - 密码登录（需要验证码）
++  - 用户信息获取
++- **API端点**:
++  - `GET /api/auth/qrcode` - 获取登录二维码
++  - `GET /api/auth/qrcode/status/{qrcode_key}` - 查询二维码状态
++  - `POST /api/auth/sessdata` - SESSDATA登录
++  - `POST /api/auth/password` - 密码登录
++  - `GET /api/auth/user-info` - 获取用户信息
++  - `GET /api/auth/proxy/avatar` - 头像代理
++
++### 视频源模块（已实现）
++- **功能**: 收藏夹、稍后再看、视频详情
++- **组件**:
++  - 收藏夹列表和详情
++  - 稍后再看列表
++  - 视频详情展示
++- **API端点**:
++  - `GET /api/favorites/folders` - 获取收藏夹列表
++  - `GET /api/favorites/folders/{folder_id}` - 获取收藏夹详情
++  - `GET /api/watchlater/list` - 获取稍后再看列表
++  - `GET /api/video/{video_id}` - 获取视频详情
++
++### 下载模块（已实现80%）
++- **功能**: 任务队列、进度管理、文件下载、课程支持
++- **组件**:
++  - yt-dlp下载引擎 ✅
++  - 异步下载服务 ✅
++  - 任务队列管理 ✅
++  - 进度追踪 ✅
++  - App风格UI界面 ✅
++  - 系列视频分组 ✅
++  - 课程下载支持 ✅
++  - 链接智能解析 ✅
++  - 断点续传（计划中）
++- **API端点**:
++  - POST /api/download/start - 创建下载任务 ✅
++  - POST /api/download/parse - 解析下载链接 ✅
++  - GET /api/download/list - 获取下载列表 ✅
++  - DELETE /api/download/{id} - 删除下载任务 ✅
++  - POST /api/download/{id}/cancel - 取消下载 ✅
++  - POST /api/download/{id}/retry - 重试下载 ✅
++  - GET /api/download/progress/{id} - 获取下载进度（计划中）
++
++### 文件模块（待实现）
++- **功能**: 文件组织、元数据管理、字幕弹幕
++- **组件**:
++  - 文件管理器
++  - 元数据编辑器
++  - 字幕/弹幕下载
++- **API端点**:
++  - `GET /api/files/list` - 获取文件列表
++  - `POST /api/files/metadata` - 保存元数据
++  - `GET /api/files/subtitle/{video_id}` - 获取字幕
++  - `GET /api/files/danmaku/{video_id}` - 获取弹幕
++
++### 用户模块（待实现）
++- **功能**: 账号管理、设置管理
++- **组件**:
++  - 多账号管理
++  - 用户设置
++  - 偏好配置
++- **API端点**:
++  - `GET /api/user/profile` - 获取用户资料
++  - `GET /api/user/settings` - 获取用户设置
++  - `PUT /api/user/settings` - 更新用户设置
++  - `GET /api/user/accounts` - 获取账号列表
++  - `POST /api/user/accounts` - 添加账号
++  - `DELETE /api/user/accounts/{id}` - 删除账号
++
++## 后端API结构
++
++### 认证路由 (`/api/auth`)
++```python
++from src.routers.auth import router as auth_router
++app.include_router(auth_router)
++```
++
++### 视频源路由
++```python
++from src.routers.favorites import router as favorites_router
++from src.routers.watchlater import router as watchlater_router
++from src.routers.video import router as video_router
++
++app.include_router(favorites_router)
++app.include_router(watchlater_router)
++app.include_router(video_router)
++```
++
++### 下载路由
++```python
++from src.routers.download import router as download_router
++app.include_router(download_router)
++```
++
++### 数据库模型
++
++#### User模型（已实现）
++```python
++class User(Base):
++    __tablename__ = "users"
++    
++    id = Column(Integer, primary_key=True)
++    mid = Column(BigInteger, unique=True, nullable=False)  # B站用户ID
++    username = Column(String(100), nullable=False)
++    avatar = Column(String(500))
++    level = Column(Integer, default=0)
++    vip_status = Column(Boolean, default=False)
++    sessdata = Column(String(500))  # B站会话令牌
++    bili_jct = Column(String(100))   # CSRF token
++    created_at = Column(DateTime, default=datetime.utcnow)
++    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
++```
++
++#### Download模型（已实现）
++```python
++class Download(Base):
++    __tablename__ = "downloads"
++    
++    id = Column(String, primary_key=True)  # 下载任务ID (UUID)
++    bvid = Column(String(20), nullable=False, index=True)  # B站视频ID
++    title = Column(String(500))  # 视频标题
++    
++    # 任务状态
++    status = Column(
++        Enum("pending", "queued", "downloading", "processing", "completed", "failed", "cancelled", 
++             name="download_status"),
++        default="pending",
++        index=True
++    )
++    progress = Column(Float, default=0.0)  # 下载进度 0.0 - 100.0
++    
++    # 进度追踪
++    downloaded_bytes = Column(Integer, default=0)  # 已下载字节数
++    total_bytes = Column(Integer, default=0)  # 总字节数
++    download_speed = Column(Float, default=0.0)  # 下载速度 (KB/s)
++    eta = Column(Float, default=0.0)  # 预计剩余时间 (秒)
++    
++    # B站特定字段
++    cid = Column(Integer)  # 视频CID
++    aid = Column(Integer)  # 视频AID
++    quality = Column(Integer, default=64)  # 视频质量
++    output_format = Column(String(10), default="mp4")  # 输出格式
++    
++    # 元数据
++    thumbnail_url = Column(String(500))  # 视频封面URL
++    duration = Column(Integer)  # 视频时长 (秒)
++    uploader = Column(String(100))  # UP主名称
++    uploader_mid = Column(Integer)  # UP主 MID
++    
++    # 文件管理
++    file_path = Column(String(500))  # 文件保存路径
++    file_size = Column(Integer, default=0)  # 文件大小
++    
++    # 错误处理
++    error_message = Column(Text)  # 错误信息
++    retry_count = Column(Integer, default=0)  # 重试次数
++    
++    # 用户关联
++    sessdata = Column(Text)  # 用户SESSDATA (用于认证)
++    
++    # 时间戳
++    created_at = Column(DateTime, default=datetime.utcnow, index=True)
++    started_at = Column(DateTime)
++    completed_at = Column(DateTime)
++    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
++```
++
++#### Settings模型（待实现）
++```python
++class Settings(Base):
++    __tablename__ = "settings"
++    
++    id = Column(Integer, primary_key=True)
++    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
++    
++    # 下载设置
++    download_quality = Column(Integer, default=64)  # 64=1080P
++    download_format = Column(String(10), default='mp4')
++    download_danmaku = Column(Boolean, default=False)
++    download_subtitle = Column(Boolean, default=True)
++    audio_only = Column(Boolean, default=False)
++    max_concurrent = Column(Integer, default=3)
++    download_path = Column(String(1000))
++    
++    # 网络设置
++    proxy = Column(String(500))
++    timeout = Column(Integer, default=30)
++    retry_times = Column(Integer, default=3)
++    
++    # 通用设置
++    theme = Column(String(10), default='light')
++    language = Column(String(10), default='zh')
++    auto_refresh = Column(Boolean, default=True)
++    notification = Column(Boolean, default=True)
++    
++    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
++    
++    user = relationship("User", back_populates="settings")
++```
++
++## 前端结构
++
++### 页面组件
++- `LoginPage` - 登录页面
++- `HomePage` - 主页面（包含所有tab页面）
++- `VideoDetailPage` - 视频详情页面
++- `SettingsPage` - 设置页面（待实现）
++
++### 子组件
++#### 认证组件
++- `QrcodeLogin` - 扫码登录
++- `SessdataLogin` - SESSDATA登录
++- `PasswordLogin` - 密码登录
++
++#### 视频组件
++- `VideoCard` - 视频卡片
++- `VideoThumbnail` - 视频缩略图
++- `VideoProgressBar` - 视频进度条
++
++#### 下载组件
++- `DownloadItem` - 下载项目
++- `DownloadProgressBar` - 下载进度条
++- `DownloadControl` - 下载控制按钮
++
++#### 设置组件
++- `SettingsNav` - 设置导航
++- `DownloadSettings` - 下载设置
++- `AccountSettings` - 账号设置
++- `NetworkSettings` - 网络设置
++- `GeneralSettings` - 通用设置
++
++### 服务层
++- `api.ts` - API调用封装
++  - 统一错误处理
++  - 请求/响应拦截
++  - 类型定义
++
++### 状态管理
++- `auth.ts` - 认证状态
++- `settings.ts` - 设置状态（待实现）
++
++### Hooks
++- `useAuth` - 认证相关Hook
++- `useSettings` - 设置相关Hook（待实现）
++
++### 类型定义
++- `api.ts` - API接口类型
++- `models.ts` - 数据模型类型
++
++## 技术栈
++
++### 后端技术栈
++- **语言**: Python 3.11+
++- **Web框架**: FastAPI 0.104+
++- **ORM**: SQLAlchemy 2.0+
++- **数据库**: SQLite (开发) / PostgreSQL (生产)
++- **异步下载**: asyncio (已实现)
++- **任务队列**: Celery 5.3+ + Redis 7.0+ (计划中)
++- **数据验证**: Pydantic v2
++- **HTTP客户端**: httpx
++- **下载引擎**: yt-dlp (已集成)
++
++### 前端技术栈
++- **框架**: React 19+
++- **构建工具**: Vite 5.0+
++- **语言**: TypeScript 5.0+
++- **样式**: 原生CSS + Tailwind CSS (待集成)
++- **状态管理**: Zustand
++- **路由**: React Router v6
++- **动画**: @formkit/auto-animate
++
++### 桌面端技术栈（待实现）
++- **框架**: Electron 28+
++- **构建工具**: electron-builder
++- **支持平台**: Windows, macOS, Linux
++
++## 配置管理
++
++### 后端配置（apps/api/）
++```python
++# config.py
++class Settings(BaseSettings):
++    app_name: str = "PiliNote"
++    app_version: str = "0.1.0"
++    debug: bool = True
++    
++    # B站API配置
++    bilibili_api_base: str = "https://api.bilibili.com"
++    bilibili_passport_base: str = "https://passport.bilibili.com"
++    
++    # 数据库配置
++    database_url: str = "sqlite:///./pilinote.db"
++    
++    # 服务器配置
++    host: str = "0.0.0.0"
++    port: int = 8000
++    
++    class Config:
++        env_file = ".env"
++```
++
++### 环境变量（.env.example）
++```bash
++# 应用配置
++APP_NAME=PiliNote
++APP_VERSION=0.1.0
++DEBUG=True
++
++# B站API
++BILIBILI_API_BASE=https://api.bilibili.com
++BILIBILI_PASSPORT_BASE=https://passport.bilibili.com
++
++# 数据库
++DATABASE_URL=sqlite:///./pilinote.db
++# DATABASE_URL=postgresql://user:password@localhost/pilinote
++
++# 服务器
++HOST=0.0.0.0
++PORT=8000
++```
++
++### 前端配置（apps/web/）
++```typescript
++// vite.config.ts
++export default defineConfig({
++  plugins: [react()],
++  server: {
++    port: 5173,
++    host: true
++  }
++})
++
++// tsconfig.json
++{
++  "compilerOptions": {
++    "target": "ES2020",
++    "useDefineForClassFields": true,
++    "lib": ["ES2020", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "skipLibCheck": true
++  },
++  "include": ["src"],
++  "references": [{ "path": "./tsconfig.node.json" }]
++}
++```
++
++## 数据流转
++
++### 认证流程
++1. 用户选择登录方式
++2. 前端调用相应API
++3. 后端通过BilibiliService处理
++4. 返回认证信息
++5. 前端保存到Zustand store
++6. localStorage持久化
++
++### 视频源流程
++1. 用户选择视频源（收藏夹/稍后再看）
++2. 前端调用API获取列表
++3. 后端通过BilibiliService获取数据
++4. 格式化返回视频信息
++5. 前端显示视频列表
++6. 图片通过代理API解决403问题
++
++### 下载流程（已实现70%）
++1. 用户添加视频到下载队列 ✅
++2. 创建Download任务记录 ✅
++3. 使用yt-dlp开始异步下载 ✅
++4. 实时更新进度 ✅
++5. 下载完成后保存文件 ✅
++6. 保存元数据（计划中）
++7. 自动下载字幕弹幕（计划中）
++
++## 参考实现
++
++### 架构参考
++- **bilitool**（reference/bilitool/）: MVC架构设计
++- **Hermes**（reference/hermes/）: 前后端分离架构
++- **Vidbee**（reference/vidbee/）: Electron桌面端
++
++### 功能参考
++- **PiliPala**（reference/pilipala/）: B站API实现和认证流程
++- **bilibili-downloader**（reference/bilibili-downloader/）: yt-dlp下载实现
++- **bilibili-favlist-auto-downloader**: 收藏夹下载逻辑
++
++## 开发环境
++
++### 后端开发服务器
++```bash
++cd apps/api
++source venv/bin/activate
++python main.py
++# 访问: http://localhost:8000
++# API文档: http://localhost:8000/docs
++```
++
++### 前端开发服务器
++```bash
++cd apps/web
++npm run dev
++# 访问: http://localhost:5173
++```
++
++### 数据库
++- **开发**: SQLite文件数据库
++- **生产**: PostgreSQL数据库
++
++## 部署说明
++
++### Docker部署（待实现）
++```bash
++# 使用Docker Compose一键部署
++docker-compose up -d
++```
++
++### 配置文件位置
++- **后端配置**: `apps/api/.env`
++- **前端配置**: `apps/web/.env`
++- **数据库**: `apps/api/pilinote.db`
++
++## 扩展性设计
++
++### 插件系统（待实现）
++- 支持自定义下载器插件
++- 支持自定义文件处理器
++- 支持自定义元数据模板
++
++### 多账号支持（待实现）
++- 支持多个B站账号
++- 账号切换和管理
++- 不同账号独立配置
++
++### API开放（待实现）
++- 提供RESTful API
++- 支持第三方集成
++- API密钥管理
+\ No newline at end of file
+diff --git a/docs/dev2/architecture/system-architecture.drawio b/docs/dev2/architecture/system-architecture.drawio
+new file mode 100644
+index 0000000..9a1d7bd
+--- /dev/null
++++ b/docs/dev2/architecture/system-architecture.drawio
+@@ -0,0 +1,552 @@
++<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
++  <diagram name="PiliNote 架构设计 (优化版)" id="pilinote-architecture-optimized">
++    <mxGraphModel dx="4113" dy="1925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" background="#ffffff" math="0" shadow="0">
++      <root>
++        <mxCell id="0" />
++        <mxCell id="1" parent="0" />
++        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#000000;" value="PiliNote - B站视频下载管理系统架构图 (基于PiliPala优化)" vertex="1">
++          <mxGeometry height="40" width="1200" x="300" y="20" as="geometry" />
++        </mxCell>
++        <mxCell id="reference-note" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=10;fontStyle=2;fontColor=#000000;" value="参考项目: PiliPala (Flutter B站第三方客户端) - bilibili-API-collect" vertex="1">
++          <mxGeometry height="25" width="600" x="600" y="70" as="geometry" />
++        </mxCell>
++        <mxCell id="phase1-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="450" width="550" x="50" y="120" as="geometry" />
++        </mxCell>
++        <mxCell id="phase1-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 1: 用户认证 (基于PiliPala)" vertex="1">
++          <mxGeometry height="30" width="300" x="70" y="130" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="开始认证" vertex="1">
++          <mxGeometry height="40" width="100" x="270" y="160" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-method-select" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="选择认证方式" vertex="1">
++          <mxGeometry height="40" width="160" x="240" y="220" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-qrcode" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="方式1: 扫码登录" vertex="1">
++          <mxGeometry height="40" width="150" x="80" y="290" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-sessdata" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="方式2: SESSDATA" vertex="1">
++          <mxGeometry height="40" width="150" x="250" y="290" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-pwd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="方式3: 密码登录" vertex="1">
++          <mxGeometry height="40" width="150" x="420" y="290" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-qrcode-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="1. 获取二维码: /x/passport-login/web/qrcode/generate&#xa;2. 轮询状态: /x/passport-login/web/qrcode/poll&#xa;3. 180s有效期" vertex="1">
++          <mxGeometry height="70" width="210" x="50" y="350" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-sessdata-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="1. 手动输入SESSDATA cookie&#xa;2. 获取bili_jct (CSRF Token)&#xa;3. 获取buvid3 (设备标识)" vertex="1">
++          <mxGeometry height="70" width="210" x="270" y="350" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-pwd-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="1. 获取加密key: /x/passport-login/web/key&#xa;2. RSA加密密码&#xa;3. 提交登录: /x/passport-login/web/login&#xa;4. 极验验证码(可选)" vertex="1">
++          <mxGeometry height="70" width="210" x="490" y="350" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-cookie-save" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="保存Cookie到数据库&#xa;(支持多账号管理)" vertex="1">
++          <mxGeometry height="50" width="250" x="180" y="440" as="geometry" />
++        </mxCell>
++        <mxCell id="auth-extract" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontColor=#000000;" value="提取关键信息:" vertex="1">
++          <mxGeometry height="40" width="290" x="160" y="510" as="geometry" />
++        </mxCell>
++        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="450" width="650" x="630" y="120" as="geometry" />
++        </mxCell>
++        <mxCell id="phase2-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 2: 视频源获取 (基于PiliPala API)" vertex="1">
++          <mxGeometry height="30" width="350" x="650" y="130" as="geometry" />
++        </mxCell>
++        <mxCell id="source-select" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="选择视频源" vertex="1">
++          <mxGeometry height="40" width="130" x="890" y="160" as="geometry" />
++        </mxCell>
++        <mxCell id="source-fav" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="收藏夹" vertex="1">
++          <mxGeometry height="40" width="150" x="670" y="230" as="geometry" />
++        </mxCell>
++        <mxCell id="source-watch" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="稍后再看" vertex="1">
++          <mxGeometry height="40" width="150" x="850" y="230" as="geometry" />
++        </mxCell>
++        <mxCell id="source-url" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="输入链接/BVID" vertex="1">
++          <mxGeometry height="40" width="150" x="1030" y="230" as="geometry" />
++        </mxCell>
++        <mxCell id="source-homepage-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=2;fontColor=#000000;" value="首页UI实现:&#xa;- 首页tab (默认tab)&#xa;- URL输入框 (居中显示)&#xa;- 添加/删除URL功能&#xa;- 待处理视频列表" vertex="1">
++          <mxGeometry height="60" width="210" x="1100" y="440" as="geometry" />
++        </mxCell>
++        <mxCell id="source-fav-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v3/fav/folder/created/list&#xa;参数: pn, ps, up_mid&#xa;获取: 收藏夹列表" vertex="1">
++          <mxGeometry height="60" width="210" x="640" y="290" as="geometry" />
++        </mxCell>
++        <mxCell id="source-watch-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v2/history/toview&#xa;参数: 无需参数&#xa;获取: 稍后再看列表" vertex="1">
++          <mxGeometry height="60" width="210" x="870" y="290" as="geometry" />
++        </mxCell>
++        <mxCell id="source-url-api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="支持格式:&#xa;- https://www.bilibili.com/video/BVxxx&#xa;- BV号&#xa;- 分P视频链接" vertex="1">
++          <mxGeometry height="60" width="210" x="1100" y="290" as="geometry" />
++        </mxCell>
++        <mxCell id="source-fav-detail" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="API: /x/v3/fav/resource/list&#xa;参数: media_id, pn, ps, keyword, order, type&#xa;获取: 收藏夹内视频列表" vertex="1">
++          <mxGeometry height="60" width="210" x="640" y="370" as="geometry" />
++        </mxCell>
++        <mxCell id="source-parse" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="智能识别类型" vertex="1">
++          <mxGeometry height="60" width="130" x="880" y="370" as="geometry" />
++        </mxCell>
++        <mxCell id="source-type-check" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;fontStyle=2;fontColor=#000000;" value="类型检测:&#xa;- 单个视频&#xa;- 合集/分P&#xa;- 番剧/影视" vertex="1">
++          <mxGeometry height="60" width="210" x="1030" y="370" as="geometry" />
++        </mxCell>
++        <mxCell id="source-list" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="生成视频源列表" vertex="1">
++          <mxGeometry height="40" width="160" x="870" y="450" as="geometry" />
++        </mxCell>
++        <mxCell id="source-video-info" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="视频信息包含:&#xa;- bvid, aid&#xa;- title, pic (封面)&#xa;- owner (UP主信息)&#xa;- stat (播放/点赞/收藏)&#xa;- pages (分P信息)" vertex="1">
++          <mxGeometry height="40" width="380" x="760" y="510" as="geometry" />
++        </mxCell>
++        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="380" width="550" x="50" y="600" as="geometry" />
++        </mxCell>
++        <mxCell id="phase3-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 3: 下载管理 (已实现 70% - asyncio版本)" vertex="1">
++          <mxGeometry height="30" width="400" x="70" y="610" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-add" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="添加到下载队列" vertex="1">
++          <mxGeometry height="40" width="130" x="260" y="650" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-ytdlp" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="yt-dlp 核心引擎" vertex="1">
++          <mxGeometry height="40" width="270" x="190" y="710" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-check" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="检查是否已下载" vertex="1">
++          <mxGeometry height="35" width="140" x="90" y="770" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-skip" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontColor=#000000;" value="跳过" vertex="1">
++          <mxGeometry height="30" width="80" x="40" y="820" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-download" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="后台下载" vertex="1">
++          <mxGeometry height="30" width="100" x="150" y="820" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-progress" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="Celery + Redis&#xa;异步任务队列" vertex="1">
++          <mxGeometry height="35" width="160" x="290" y="770" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-ws" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=2;fontColor=#000000;" value="WebSocket/SSE&#xa;实时进度推送" vertex="1">
++          <mxGeometry height="30" width="130" x="380" y="820" as="geometry" />
++        </mxCell>
++        <mxCell id="queue-quality" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=9;fontStyle=2;fontColor=#000000;" value="画质选择:&#xa;- 1080P+ (需要登录)&#xa;- 1080P&#xa;- 720P&#xa;- 480P" vertex="1">
++          <mxGeometry height="50" width="180" x="160" y="880" as="geometry" />
++        </mxCell>
++        <mxCell id="current-impl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontColor=#000000;" value="当前实现 (asyncio版本)" vertex="1">
++          <mxGeometry height="30" width="250" x="260" y="940" as="geometry" />
++        </mxCell>
++        <mxCell id="impl-db" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="Download模型&#xa;(SQLite数据库)" vertex="1">
++          <mxGeometry height="40" width="140" x="100" y="980" as="geometry" />
++        </mxCell>
++        <mxCell id="impl-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="DownloadService&#xa;(异步下载服务)" vertex="1">
++          <mxGeometry height="40" width="140" x="260" y="980" as="geometry" />
++        </mxCell>
++        <mxCell id="impl-ui" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#000000;" value="App风格UI&#xa;(React + Material)" vertex="1">
++          <mxGeometry height="40" width="140" x="420" y="980" as="geometry" />
++        </mxCell>
++        <mxCell id="phase4-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="350" width="650" x="630" y="1020" as="geometry" />
++        </mxCell>
++        <mxCell id="phase4-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 4: 文件组织 (自动处理)" vertex="1">
++          <mxGeometry height="30" width="350" x="650" y="1030" as="geometry" />
++        </mxCell>
++        <mxCell id="file-start" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontColor=#000000;" value="下载完成" vertex="1">
++          <mxGeometry height="40" width="130" x="880" y="1070" as="geometry" />
++        </mxCell>
++        <mxCell id="file-parallel" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="并行处理" vertex="1">
++          <mxGeometry height="30" width="190" x="850" y="1130" as="geometry" />
++        </mxCell>
++        <mxCell id="file-subtitle" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="字幕下载" vertex="1">
++          <mxGeometry height="35" width="130" x="660" y="1180" as="geometry" />
++        </mxCell>
++        <mxCell id="file-danmu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="弹幕下载" vertex="1">
++          <mxGeometry height="35" width="130" x="810" y="1180" as="geometry" />
++        </mxCell>
++        <mxCell id="file-audio" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#000000;" value="音轨提取" vertex="1">
++          <mxGeometry height="35" width="130" x="960" y="1180" as="geometry" />
++        </mxCell>
++        <mxCell id="file-metadata" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="元数据保存 (JSON)" vertex="1">
++          <mxGeometry height="35" width="160" x="1110" y="1180" as="geometry" />
++        </mxCell>
++        <mxCell id="file-structure" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontColor=#000000;" value="文件夹结构" vertex="1">
++          <mxGeometry height="30" width="160" x="740" y="1240" as="geometry" />
++        </mxCell>
++        <mxCell id="file-example-single" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=8;fontFamily=Courier New;fontColor=#000000;" value="单个: BV号_标题/&#xa;  ├─ video.mp4&#xa;  ├─ subtitle.srt&#xa;  ├─ danmu.xml&#xa;  └─ metadata.json" vertex="1">
++          <mxGeometry height="60" width="240" x="650" y="1290" as="geometry" />
++        </mxCell>
++        <mxCell id="file-example-collection" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=8;fontFamily=Courier New;fontColor=#000000;" value="合集: BV号_合集名/&#xa;  ├─ P01_视频1/&#xa;  ├─ P02_视频2/&#xa;  └─ P03_视频3/" vertex="1">
++          <mxGeometry height="60" width="240" x="920" y="1290" as="geometry" />
++        </mxCell>
++        <mxCell id="phase5-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;dashed=1;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="380" width="1700" x="50" y="1400" as="geometry" />
++        </mxCell>
++        <mxCell id="phase5-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#000000;" value="Phase 5: 部署方案" vertex="1">
++          <mxGeometry height="30" width="200" x="70" y="1410" as="geometry" />
++        </mxCell>
++        <mxCell id="deploy-web" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="Web部署" vertex="1">
++          <mxGeometry height="90" width="250" x="80" y="1460" as="geometry" />
++        </mxCell>
++        <mxCell id="deploy-docker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="Docker部署" vertex="1">
++          <mxGeometry height="90" width="250" x="360" y="1460" as="geometry" />
++        </mxCell>
++        <mxCell id="deploy-desktop" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontColor=#000000;" value="桌面端部署" vertex="1">
++          <mxGeometry height="90" width="250" x="640" y="1460" as="geometry" />
++        </mxCell>
++        <mxCell id="tech-stack" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontColor=#000000;" value="完整技术栈" vertex="1">
++          <mxGeometry height="290" width="780" x="920" y="1460" as="geometry" />
++        </mxCell>
++        <mxCell id="backend-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="后端:" vertex="1">
++          <mxGeometry height="20" width="740" x="940" y="1490" as="geometry" />
++        </mxCell>
++        <mxCell id="backend-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Python 3.11+ / FastAPI 0.104+ (异步Web框架)&#xa;• yt-dlp (核心下载引擎，支持B站1000+站点)&#xa;• SQLAlchemy 2.0+ / SQLite或PostgreSQL (ORM + 数据库)&#xa;• Celery 5.3+ / Redis 7.0+ (异步任务队列)&#xa;• Pydantic v2 (数据验证)&#xa;• httpx / aiohttp (异步HTTP客户端)" vertex="1">
++          <mxGeometry height="70" width="720" x="960" y="1510" as="geometry" />
++        </mxCell>
++        <mxCell id="frontend-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="前端:" vertex="1">
++          <mxGeometry height="20" width="740" x="940" y="1590" as="geometry" />
++        </mxCell>
++        <mxCell id="frontend-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• React 18+ / Vite 5.0+ / TypeScript 5.0+&#xa;• Tailwind CSS 3.4+ / shadcn/ui (样式框架)&#xa;• TanStack Query / Zustand (状态管理)&#xa;• React Router v6 (路由)&#xa;• Socket.io-client / EventSource (实时通信)" vertex="1">
++          <mxGeometry height="60" width="720" x="960" y="1610" as="geometry" />
++        </mxCell>
++        <mxCell id="desktop-stack" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="桌面端:" vertex="1">
++          <mxGeometry height="20" width="740" x="940" y="1680" as="geometry" />
++        </mxCell>
++        <mxCell id="desktop-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Electron 28+ (打包React应用为跨平台桌面应用)&#xa;• electron-builder (构建工具)&#xa;• 支持Windows、macOS、Linux" vertex="1">
++          <mxGeometry height="50" width="720" x="960" y="1700" as="geometry" />
++        </mxCell>
++        <mxCell id="edge1" edge="1" parent="1" source="auth-start" style="fontColor=#000000;" target="auth-method-select">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge2" edge="1" parent="1" source="auth-method-select" style="fontColor=#000000;" target="auth-qrcode">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge3" edge="1" parent="1" source="auth-method-select" style="fontColor=#000000;" target="auth-sessdata">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge4" edge="1" parent="1" source="auth-method-select" style="fontColor=#000000;" target="auth-pwd">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge5" edge="1" parent="1" source="auth-qrcode" style="fontColor=#000000;" target="auth-qrcode-detail">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge6" edge="1" parent="1" source="auth-sessdata" style="fontColor=#000000;" target="auth-sessdata-detail">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge7" edge="1" parent="1" source="auth-pwd" style="fontColor=#000000;" target="auth-pwd-detail">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge8" edge="1" parent="1" source="auth-qrcode-detail" style="fontColor=#000000;" target="auth-cookie-save">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="155" y="480" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge9" edge="1" parent="1" source="auth-sessdata-detail" style="fontColor=#000000;" target="auth-cookie-save">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge10" edge="1" parent="1" source="auth-pwd-detail" style="fontColor=#000000;" target="auth-cookie-save">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="595" y="480" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge11" edge="1" parent="1" source="auth-cookie-save" style="fontColor=#000000;" target="auth-extract">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge12" edge="1" parent="1" source="source-select" style="fontColor=#000000;" target="source-fav">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge13" edge="1" parent="1" source="source-select" style="fontColor=#000000;" target="source-watch">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge14" edge="1" parent="1" source="source-select" style="fontColor=#000000;" target="source-url">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge15" edge="1" parent="1" source="source-fav" style="fontColor=#000000;" target="source-fav-api">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge16" edge="1" parent="1" source="source-watch" style="fontColor=#000000;" target="source-watch-api">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge17" edge="1" parent="1" source="source-url" style="fontColor=#000000;" target="source-url-api">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge18" edge="1" parent="1" source="source-fav-api" style="fontColor=#000000;" target="source-fav-detail">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge19" edge="1" parent="1" source="source-url-api" style="fontColor=#000000;" target="source-parse">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="1205" y="435" />
++              <mxPoint x="1205" y="465" />
++              <mxPoint x="945" y="465" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge20" edge="1" parent="1" source="source-parse" style="fontColor=#000000;" target="source-type-check">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge21" edge="1" parent="1" source="source-fav-detail" style="fontColor=#000000;" target="source-list">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="745" y="470" />
++              <mxPoint x="745" y="500" />
++              <mxPoint x="950" y="500" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge22" edge="1" parent="1" source="source-watch-api" style="fontColor=#000000;" target="source-list">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="975" y="355" />
++              <mxPoint x="975" y="510" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge23" edge="1" parent="1" source="source-type-check" style="fontColor=#000000;" target="source-list">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge24" edge="1" parent="1" source="source-list" style="fontColor=#000000;" target="source-video-info">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge25" edge="1" parent="1" source="queue-add" style="fontColor=#000000;" target="queue-ytdlp">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge26" edge="1" parent="1" source="queue-ytdlp" style="fontColor=#000000;" target="queue-check">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge27" edge="1" parent="1" source="queue-ytdlp" style="fontColor=#000000;" target="queue-progress">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge28" edge="1" parent="1" source="queue-check" style="fontColor=#000000;" target="queue-skip">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge29" edge="1" parent="1" source="queue-check" style="fontColor=#000000;" target="queue-download">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge30" edge="1" parent="1" source="queue-download" style="fontColor=#000000;" target="queue-ws">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge31" edge="1" parent="1" source="queue-download" style="fontColor=#000000;" target="queue-quality">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge32" edge="1" parent="1" source="file-start" style="fontColor=#000000;" target="file-parallel">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge33" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-subtitle">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge34" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-danmu">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge35" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-audio">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge36" edge="1" parent="1" source="file-parallel" style="fontColor=#000000;" target="file-metadata">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge37" edge="1" parent="1" source="file-subtitle" style="fontColor=#000000;" target="file-structure">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="725" y="800" />
++              <mxPoint x="725" y="835" />
++              <mxPoint x="820" y="835" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge38" edge="1" parent="1" source="file-danmu" style="fontColor=#000000;" target="file-structure">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge39" edge="1" parent="1" source="file-audio" style="fontColor=#000000;" target="file-structure">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge40" edge="1" parent="1" source="file-metadata" style="fontColor=#000000;" target="file-structure">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="1190" y="800" />
++              <mxPoint x="1190" y="835" />
++              <mxPoint x="820" y="835" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge41" edge="1" parent="1" source="file-structure" style="fontColor=#000000;" target="file-example-single">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge42" edge="1" parent="1" source="file-structure" style="fontColor=#000000;" target="file-example-collection">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="edge43" edge="1" parent="1" source="auth-extract" style="dashed=1;strokeWidth=2;strokeColor=#666666;fontColor=#000000;" target="source-select">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="625" y="565" />
++              <mxPoint x="625" y="595" />
++              <mxPoint x="955" y="595" />
++              <mxPoint x="955" y="180" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge44" edge="1" parent="1" source="source-video-info" style="dashed=1;strokeWidth=2;strokeColor=#666666;fontColor=#000000;" target="queue-add">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="950" y="565" />
++              <mxPoint x="950" y="595" />
++              <mxPoint x="325" y="595" />
++              <mxPoint x="325" y="670" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++        <mxCell id="edge45" edge="1" parent="1" source="queue-quality" style="dashed=1;strokeWidth=2;strokeColor=#666666;fontColor=#000000;" target="file-start">
++          <mxGeometry relative="1" as="geometry">
++            <Array as="points">
++              <mxPoint x="250" y="940" />
++              <mxPoint x="250" y="975" />
++              <mxPoint x="945" y="975" />
++              <mxPoint x="945" y="670" />
++            </Array>
++          </mxGeometry>
++        </mxCell>
++      </root>
++    </mxGraphModel>
++  </diagram>
++  <diagram name="实现状态 - 2026-03-27" id="implementation-status">
++    <mxGraphModel dx="2113" dy="925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" background="#ffffff" math="0" shadow="0">
++      <root>
++        <mxCell id="0" />
++        <mxCell id="1" parent="0" />
++        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#000000;" value="PiliNote 实现状态 (2026-03-27)" vertex="1">
++          <mxGeometry height="40" width="1200" x="200" y="20" as="geometry" />
++        </mxCell>
++        
++        <!-- Phase 1: 核心功能 -->
++        <mxCell id="phase1-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 1: 核心功能&#xa;(部分完成 60%)" vertex="1">
++          <mxGeometry height="300" width="350" x="50" y="80" as="geometry" />
++        </mxCell>
++        <mxCell id="phase1-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ FastAPI后端框架&#xa;✅ React前端框架&#xa;✅ 用户认证功能&#xa;⏳ yt-dlp集成&#xa;⏳ SQLite数据库" vertex="1">
++          <mxGeometry height="150" width="300" x="75" y="120" as="geometry" />
++        </mxCell>
++        
++        <!-- Phase 2: 视频源管理 -->
++        <mxCell id="phase2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="Phase 2: 视频源管理&#xa;(基本完成 90%)" vertex="1">
++          <mxGeometry height="300" width="350" x="430" y="80" as="geometry" />
++        </mxCell>
++        <mxCell id="phase2-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ 收藏夹API&#xa;✅ 收藏夹前端页面&#xa;✅ 视频详情页面&#xa;✅ 图片防盗链处理&#xa;✅ 稍后再看API&#xa;⏳ 链接智能识别" vertex="1">
++          <mxGeometry height="150" width="300" x="455" y="120" as="geometry" />
++        </mxCell>
++        
++        <!-- Phase 3: 下载管理 -->
++        <mxCell id="phase3-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="Phase 3: 下载管理&#xa;(已实现 70%)" vertex="1">
++          <mxGeometry height="300" width="350" x="810" y="80" as="geometry" />
++        </mxCell>
++        <mxCell id="phase3-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#000000;" value="✅ Download模型&#xa;✅ DownloadService&#xa;✅ yt-dlp集成&#xa;✅ 下载API接口&#xa;✅ App风格UI界面&#xa;✅ 系列视频分组&#xa;✅ 实时进度更新&#xa;⏳ Celery+Redis队列&#xa;⏳ WebSocket实时推送" vertex="1">
++          <mxGeometry height="200" width="300" x="835" y="120" as="geometry" />
++        </mxCell>
++        
++        <!-- 当前功能详情 -->
++        <mxCell id="features-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#000000;" value="已实现功能详情" vertex="1">
++          <mxGeometry height="400" width="1100" x="50" y="420" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="features-auth" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="用户认证:" vertex="1">
++          <mxGeometry height="20" width="200" x="75" y="440" as="geometry" />
++        </mxCell>
++        <mxCell id="features-auth-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 扫码登录 (二维码生成 + 状态轮询)&#xa;• SESSDATA登录 (Cookie输入 + 验证)&#xa;• 密码登录 (需验证码，已实现后端API)&#xa;• 手机验证码登录 (需CAPTCHA，已实现后端API)&#xa;• 用户信息获取和显示&#xa;• 头像代理 (解决403防盗链)" vertex="1">
++          <mxGeometry height="80" width="320" x="75" y="465" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="features-favorites" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="收藏夹功能:" vertex="1">
++          <mxGeometry height="20" width="200" x="425" y="440" as="geometry" />
++        </mxCell>
++        <mxCell id="features-favorites-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 收藏夹列表展示&#xa;• 收藏夹详情 (视频列表)&#xa;• 智能分页 (移动端5条，桌面端10条)&#xa;• 无限滚动加载&#xa;• 视频卡片 (封面、标题、UP主、统计数据)&#xa;• 图片防盗链处理&#xa;• 加载更多按钮" vertex="1">
++          <mxGeometry height="80" width="320" x="425" y="465" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="features-video" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="视频详情:" vertex="1">
++          <mxGeometry height="20" width="200" x="775" y="440" as="geometry" />
++        </mxCell>
++        <mxCell id="features-video-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 视频基本信息 (标题、封面、UP主)&#xa;• 统计信息 (播放量、弹幕数、发布时间)&#xa;• 分P信息展示&#xa;• 视频简介 (支持链接点击)&#xa;• 下载功能 (模拟模式)&#xa;• 多P选择下载&#xa;• 具体时间显示 (不使用相对时间)" vertex="1">
++          <mxGeometry height="80" width="320" x="775" y="465" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="features-ui" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="UI/UX特性:" vertex="1">
++          <mxGeometry height="20" width="200" x="75" y="565" as="geometry" />
++        </mxCell>
++        <mxCell id="features-ui-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 移动端优先设计&#xa;• 响应式布局 (手机/平板/桌面)&#xa;• App风格导航栏&#xa;• 绿色主题色 (#5CB67B)&#xa;• 固定亮色模式&#xa;• 平滑动画过渡&#xa;• iOS安全区域适配" vertex="1">
++          <mxGeometry height="70" width="320" x="75" y="590" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="features-tech" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="技术栈:" vertex="1">
++          <mxGeometry height="20" width="200" x="425" y="565" as="geometry" />
++        </mxCell>
++        <mxCell id="features-tech-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• 后端: FastAPI + Python 3.11+ + SQLAlchemy&#xa;• 前端: React 19 + TypeScript + Vite + Tailwind CSS&#xa;• 状态管理: Zustand&#xa;• 路由: React Router v6&#xa;• 认证: B站扫码登录 + SESSDATA&#xa;• HTTP客户端: httpx (Python) + fetch (JavaScript)" vertex="1">
++          <mxGeometry height="70" width="320" x="425" y="590" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="features-api" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1;fontColor=#000000;" value="已实现API:" vertex="1">
++          <mxGeometry height="20" width="200" x="775" y="565" as="geometry" />
++        </mxCell>
++        <mxCell id="features-api-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• GET /api/auth/qrcode - 获取二维码&#xa;• GET /api/auth/qrcode/status/{key} - 查询状态&#xa;• POST /api/auth/sessdata - SESSDATA登录&#xa;• GET /api/favorites/folders - 收藏夹列表&#xa;• GET /api/favorites/folders/{id} - 收藏夹详情&#xa;• GET /api/video/{id} - 视频详情&#xa;• GET /api/auth/proxy/avatar - 图片代理" vertex="1">
++          <mxGeometry height="70" width="320" x="775" y="590" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="next-steps" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="下一阶段计划" vertex="1">
++          <mxGeometry height="120" width="1100" x="50" y="860" as="geometry" />
++        </mxCell>
++        <mxCell id="next-steps-detail" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontColor=#000000;" value="Phase 3: 下载管理 - 集成yt-dlp，实现下载队列管理、进度追踪和下载管理页面&#xa;Phase 4: 文件组织 - 自动下载字幕/弹幕、音轨提取、元数据保存、文件夹组织逻辑&#xa;Phase 5: 部署优化 - Docker Compose配置、Caddy反向代理、环境变量管理、生产环境优化&#xa;Phase 6: 桌面端 - Electron基础框架、打包配置、跨平台测试、发布流程" vertex="1">
++          <mxGeometry height="90" width="1050" x="75" y="875" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;fontColor=#000000;" value="MVC架构设计 (基于bilitool)" vertex="1">
++          <mxGeometry height="30" width="1100" x="50" y="1000" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-layer-view" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="200" width="250" x="50" y="1040" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-view-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="View Layer&#xa;(表现层)" vertex="1">
++          <mxGeometry height="30" width="200" x="75" y="1050" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-view-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• React Web Application&#xa;• Pages (页面组件)&#xa;• Components (UI组件)&#xa;• State Management (Zustand)&#xa;• Services (API调用)&#xa;• Hooks (自定义Hooks)&#xa;• Types (类型定义)&#xa;• Utils (工具函数)" vertex="1">
++          <mxGeometry height="140" width="200" x="75" y="1090" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-layer-controller" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="200" width="250" x="320" y="1040" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-controller-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="Controller Layer&#xa;(控制层)" vertex="1">
++          <mxGeometry height="30" width="200" x="345" y="1050" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-controller-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• FastAPI Application&#xa;• Routers (路由层)&#xa;  ├─ auth.py&#xa;  ├─ video.py&#xa;  ├─ favorites.py&#xa;  ├─ watchlater.py&#xa;  ├─ download.py&#xa;  └─ settings.py&#xa;• Controllers (业务控制器)&#xa;  ├─ auth_controller.py&#xa;  ├─ video_controller.py&#xa;  ├─ download_controller.py&#xa;  └─ settings_controller.py" vertex="1">
++          <mxGeometry height="140" width="200" x="345" y="1090" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-layer-service" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="200" width="250" x="590" y="1040" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-service-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="Service Layer&#xa;(服务层)" vertex="1">
++          <mxGeometry height="30" width="200" x="615" y="1050" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-service-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Services (服务模块)&#xa;  ├─ authenticate/ (认证服务)&#xa;  │  ├─ bilibili_login.py&#xa;  │  ├─ qrcode.py&#xa;  │  └─ password.py&#xa;  ├─ bilibili/ (B站API)&#xa;  │  ├─ api.py&#xa;  │  ├─ video.py&#xa;  │  ├─ favorites.py&#xa;  │  └─ watchlater.py&#xa;  ├─ download/ (下载服务)&#xa;  │  ├─ yt_dlp.py&#xa;  │  ├─ queue.py&#xa;  │  └─ progress.py&#xa;  └─ storage/ (存储服务)&#xa;     ├─ file_manager.py&#xa;     └─ metadata.py" vertex="1">
++          <mxGeometry height="140" width="200" x="615" y="1090" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-layer-model" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;fontColor=#000000;" value="" vertex="1">
++          <mxGeometry height="200" width="250" x="860" y="1040" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-model-title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1;fontColor=#000000;" value="Model Layer&#xa;(数据层)" vertex="1">
++          <mxGeometry height="30" width="200" x="885" y="1050" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-model-content" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;" value="• Models (数据模型)&#xa;  ├─ user.py (用户模型)&#xa;  ├─ video.py (视频模型)&#xa;  ├─ download.py (下载模型)&#xa;  └─ settings.py (设置模型)&#xa;• Schemas (Pydantic模式)&#xa;  ├─ login.py (登录模式)&#xa;  ├─ video.py (视频模式)&#xa;  ├─ download.py (下载模式)&#xa;  └─ settings.py (设置模式)&#xa;• Configuration (配置管理)&#xa;  ├─ config.py (应用配置)&#xa;  └─ database.py (数据库连接)" vertex="1">
++          <mxGeometry height="140" width="200" x="885" y="1090" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-arrow-1" edge="1" parent="1" source="mvc-layer-view" target="mvc-layer-controller" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-arrow-2" edge="1" parent="1" source="mvc-layer-controller" target="mvc-layer-service" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        <mxCell id="mvc-arrow-3" edge="1" parent="1" source="mvc-layer-service" target="mvc-layer-model" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#667eea;exitDx=0;exitDy=0;exitPerimeter=0;endArrow=classic;endFill=1;endSize=8;" value="">
++          <mxGeometry relative="1" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-dataflow-note" parent="1" style="text;html=1;strokeColor=#d6b656;fillColor=#fff2cc;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontStyle=2;fontColor=#000000;" value="数据流向: View → Controller → Service → Model → Database/ExternalAPI" vertex="1">
++          <mxGeometry height="40" width="800" x="250" y="1280" as="geometry" />
++        </mxCell>
++        
++        <mxCell id="mvc-principles-note" parent="1" style="text;html=1;strokeColor=#9673a6;fillColor=#e1d5e7;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontStyle=2;fontColor=#000000;" value="设计原则: 单一职责、依赖注入、接口抽象、错误处理" vertex="1">
++          <mxGeometry height="40" width="600" x="250" y="1330" as="geometry" />
++        </mxCell>
++      </root>
++    </mxGraphModel>
++  </diagram>
++</mxfile>
+diff --git a/docs/dev2/deployment/deployment.md b/docs/dev2/deployment/deployment.md
+new file mode 100644
+index 0000000..34de8be
+--- /dev/null
++++ b/docs/dev2/deployment/deployment.md
+@@ -0,0 +1,78 @@
++# 部署方案
++
++## 部署方式
++
++### 1. Web部署
++- 前后端分离
++- 独立数据库
++- 反向代理
++
++### 2. Docker部署
++- Docker Compose编排
++- 容器化服务
++- 数据持久化
++- 一键部署
++
++### 3. 桌面端部署
++- Electron打包
++- 跨平台支持
++- 内嵌后端服务
++
++## 服务组件
++- **前端**: React应用
++- **后端**: FastAPI服务
++- **数据库**: SQLite/PostgreSQL
++- **缓存**: Redis
++- **队列**: Celery Worker
++- **代理**: Caddy/Nginx
++
++## 开发环境配置
++
++### 后端API服务器启动
++
++**重要**: 必须使用虚拟环境启动API服务器，否则会出现依赖缺失导致的功能异常。
++
++```bash
++# 进入API目录
++cd apps/api
++
++# 创建虚拟环境（如果不存在）
++python3 -m venv venv
++
++# 激活虚拟环境
++source venv/bin/activate
++
++# 安装依赖
++pip install -r requirements.txt
++
++# 启动API服务器（必须使用虚拟环境的python）
++./venv/bin/python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
++```
++
++**常见问题**:
++- 如果直接使用 `python3 -m uvicorn...` 启动，会使用系统Python，缺少项目依赖
++- 系统Python缺少 `yt_dlp` 等依赖，会导致稍后再看、收藏夹等功能异常
++- 错误示例: `ModuleNotFoundError: No module named 'yt_dlp'`
++
++### 前端开发服务器启动
++
++```bash
++# 进入Web目录
++cd apps/web
++
++# 安装依赖
++pnpm install
++
++# 启动开发服务器
++pnpm dev
++```
++
++## 配置管理
++- 环境变量
++- 配置文件
++- Docker volumes
++
++## 参考实现
++- `reference/hermes/docker-compose.yml`
++- `reference/vidbee/docker-compose.yml`
++- `reference/hermes/Caddyfile`
+\ No newline at end of file
+diff --git a/docs/dev2/features/authentication/api-auth.md b/docs/dev2/features/authentication/api-auth.md
+new file mode 100644
+index 0000000..0252472
+--- /dev/null
++++ b/docs/dev2/features/authentication/api-auth.md
+@@ -0,0 +1,209 @@
++# 认证API文档
++
++## 认证相关API
++
++### 1. 扫码登录API
++
++#### 获取二维码
++```
++GET /x/passport-login/web/qrcode/generate
++```
++
++**返回示例**:
++```json
++{
++  "url": "https://account.bilibili.com/h5/account-h5/auth/scan-web?...",
++  "qrcode_key": "xxx"
++}
++```
++
++#### 轮询登录状态
++```
++GET /x/passport-login/web/qrcode/poll
++```
++
++**参数**:
++- `qrcode_key`: 二维码密钥
++
++**状态码**:
++- `86101`: 未扫码
++- `86090`: 已扫码，请确认
++- `0`: 登录成功
++- `86038`: 二维码已过期
++
++### 2. 短信登录API
++
++#### 获取加密key
++```
++GET /x/passport-login/web/key
++```
++
++#### 发送短信验证码
++```
++POST /x/passport-login/web/sms/send
++```
++
++**参数**:
++- `cid`: 国家代码
++- `tel`: 手机号
++- `source`: 来源
++- `token`: 验证码token
++
++#### 短信登录
++```
++POST /x/passport-login/web/login/sms
++```
++
++**参数**:
++- `phone`: 手机号
++- `code`: 验证码
++- `captcha_key`: 验证码key
++
++### 3. 用户信息API
++
++#### 获取用户信息
++```
++GET /x/web-interface/nav
++```
++
++**返回信息**:
++- 用户ID (mid)
++- 用户名
++- 头像
++- 等级
++- VIP状态
++
++## 认证流程
++
++### 扫码登录流程
++1. 前端调用 `/api/auth/qrcode` 获取二维码
++2. 后端调用B站API `/x/passport-login/web/qrcode/generate`
++3. 返回二维码URL和qrcode_key
++4. 前端显示二维码，用户扫码
++5. 前端轮询 `/api/auth/qrcode/status/{qrcode_key}`
++6. 后端调用B站API `/x/passport-login/web/qrcode/poll`
++7. 成功后返回用户信息
++
++### 短信登录流程
++1. 前端调用 `/api/auth/captcha/params` 获取Geetest参数
++2. 前端显示Geetest验证码
++3. 验证成功后调用 `/api/auth/sms/send` 发送短信
++4. 用户输入验证码
++5. 前端调用 `/api/auth/sms/login` 登录
++
++### SESSDATA登录流程
++1. 用户手动输入SESSDATA
++2. 前端调用 `/api/auth/sessdata`
++3. 后端验证SESSDATA有效性
++4. 返回用户信息
++
++## 后端API端点
++
++### 认证模块 (`/api/auth`)
++
++- `GET /api/auth/qrcode` - 获取登录二维码
++- `GET /api/auth/qrcode/status/{qrcode_key}` - 查询二维码状态
++- `POST /api/auth/sessdata` - SESSDATA登录
++- `POST /api/auth/password` - 密码登录
++- `POST /api/auth/sms/send` - 发送手机验证码
++- `POST /api/auth/sms/login` - 手机验证码登录
++- `GET /api/auth/user-info` - 获取用户信息
++- `GET /api/auth/proxy/avatar` - 图片代理（解决防盗链）
++
++## API响应格式
++
++所有后端API都遵循统一的响应格式：
++```json
++{
++  "success": true|false,
++  "message": "错误信息（如果失败）",
++  "data": {
++    // 实际数据
++  }
++}
++```
++
++## Cookie管理
++
++### 持久化存储
++- SESSDATA、bili_jct、buvid3等关键Cookie
++- 支持多账号管理
++- 自动刷新token
++
++### 设备指纹
++- buvid3: 设备指纹
++- buvid4: 设备指纹扩展
++- bili_ticket: 票据
++- _uuid: 设备UUID
++
++## 安全考虑
++
++### 验证码集成
++- Geetest极验验证码
++- 防止恶意请求
++- 用户体验优化
++
++### Cookie安全
++- HTTPS传输
++- HttpOnly标志
++- Secure标志
++- 同源策略
++
++## 错误处理
++
++### 常见错误码
++- `86101`: 未扫码
++- `86090`: 已扫码，请确认
++- `86038`: 二维码已过期
++- `412`: 请求频率过高
++- `10000`: 账号密码错误
++
++### 错误响应格式
++```json
++{
++  "success": false,
++  "message": "错误描述",
++  "code": 86038
++}
++```
++
++## 参考实现
++
++### B站官方API
++- 扫码登录: `/x/passport-login/web/qrcode/generate`
++- 短信登录: `/x/passport-login/web/sms/send`
++- 用户信息: `/x/web-interface/nav`
++
++### 参考项目
++- `reference/pilipala/lib/http/login.dart` - 登录实现
++- `reference/pilipala/lib/http/user.dart` - 用户API
++- `reference/BiliTools/src-tauri/src/services/login.rs` - BiliTools登录
++
++## 测试工具
++
++### 扫码登录测试
++```bash
++# 获取二维码
++curl "http://localhost:8000/api/auth/qrcode"
++
++# 查询状态（替换qrcode_key）
++curl "http://localhost:8000/api/auth/qrcode/status/xxx"
++```
++
++### SESSDATA登录测试
++```bash
++curl -X POST "http://localhost:8000/api/auth/sessdata" \
++  -H "Content-Type: application/json" \
++  -d '{"sessdata": "your_sessdata_here"}'
++```
++
++## 更新日志
++
++### 2026-03-30
++- ✅ 实现扫码登录功能
++- ✅ 实现短信登录功能（集成Geetest验证码）
++- ✅ 实现SESSDATA登录功能
++- ✅ 移除密码登录功能（用户体验不佳）
++- ✅ 完善Cookie管理机制
++- ✅ 添加设备指纹支持
++- ✅ 优化错误处理和用户提示
+\ No newline at end of file
+diff --git a/docs/dev2/features/authentication/auth-solution.md b/docs/dev2/features/authentication/auth-solution.md
+new file mode 100644
+index 0000000..028ad3f
+--- /dev/null
++++ b/docs/dev2/features/authentication/auth-solution.md
+@@ -0,0 +1,620 @@
++# 用户认证方案
++
++## 认证方式
++1. **扫码登录** (推荐)
++   - API: `/x/passport-login/web/qrcode/generate`
++   - API: `/x/passport-login/web/qrcode/poll`
++   - 有效期: 180s
++   - 状态: 无需验证码，用户体验最佳
++
++2. **短信登录** (可选)
++   - API: `/x/passport-login/web/sms/send`
++   - API: `/x/passport-login/web/login/sms`
++   - 集成Geetest验证码
++   - 支持手机号验证码登录
++
++3. **SESSDATA** (快速开发)
++   - 手动输入cookie
++   - 自动提取: SESSDATA, bili_jct, buvid3
++   - 适合开发者快速测试
++
++## Cookie管理
++- 持久化存储
++- 支持多账号
++- 自动刷新token
++- HeadersManager全局管理
++- 设备指纹跟踪（buvid3, buvid4, bili_ticket）
++
++## 参考实现
++- `reference/pilipala/lib/http/login.dart`
++- `reference/pilipala/lib/utils/login.dart`
++- `reference/pilipala/lib/pages/login/controller.dart`
++- `reference/BiliTools/src-tauri/src/services/login.rs`
++
++## 实际实现细节
++
++### 后端实现 (FastAPI)
++
++#### 1. 扫码登录流程
++```python
++# 获取二维码
++GET /api/auth/qrcode
++→ 调用 B站 API: /x/passport-login/web/qrcode/generate
++→ 使用HeadersManager获取带指纹的请求头
++→ 返回: {url, qrcode_key}
++
++# 轮询状态
++GET /api/auth/qrcode/status/{qrcode_key}
++→ 调用 B站 API: /x/passport-login/web/qrcode/poll
++→ 状态码: 86101(未扫码), 86090(已扫码), 0(成功), 86038(过期)
++→ 成功时自动获取用户信息并保存到数据库
++→ 刷新HeadersManager中的cookies
++```
++
++#### 2. 短信登录流程
++```python
++# 获取验证码参数
++GET /api/auth/captcha/params
++→ 调用 B站 API: /x/passport-login/captcha
++→ 返回: {type: "geetest", token, challenge, gt}
++
++# 发送短信验证码
++POST /api/auth/sms/send
++Body: {cid, tel, token, challenge, validate, seccode}
++→ 调用 B站 API: /x/passport-login/web/sms/send
++→ 验证Geetest验证码
++→ 返回: {captcha_key}
++
++# 短信登录
++POST /api/auth/sms/login
++Body: {phone, code, captcha_key}
++→ 调用 B站 API: /x/passport-login/web/login/sms
++→ 返回用户信息
++→ 更新HeadersManager中的cookies
++```
++
++#### 3. SESSDATA登录流程
++```python
++# SESSDATA登录
++POST /api/auth/sessdata
++Body: {sessdata}
++→ 直接设置SESSDATA到HeadersManager
++→ 调用用户信息API验证有效性
++→ 返回用户信息
++```
++
++#### 4. HeadersManager集成
++```python
++# 所有登录流程都使用HeadersManager
++service = BilibiliService()
++await service.init()  # 初始化指纹和headers
++
++# 自动管理cookies
++await headers_manager.update_cookies(cookies_dict)
++await headers_manager.update_cookie("SESSDATA", sessdata)
++
++# 全局请求头包含设备指纹
++headers = await headers_manager.get_headers()
++# 包含: buvid3, buvid4, bili_ticket, _uuid, b_nut等
++```
++
++#### 5. 数据库存储
++```python
++# User模型
++class User:
++    mid: int (主键)
++    username: str
++    avatar: str
++    level: int
++    vip_status: bool
++    sessdata: str
++    created_at: datetime
++    updated_at: datetime
++
++# 自动创建/更新用户
++existing_user = db.query(User).filter(User.mid == mid).first()
++if existing_user:
++    existing_user.sessdata = sessdata
++    existing_user.updated_at = None
++else:
++    new_user = User(mid=mid, username=..., sessdata=sessdata)
++    db.add(new_user)
++```
++
++### 前端实现 (React)
++
++#### 1. API服务层
++```typescript
++// apps/web/src/services/api.ts
++class ApiService {
++  // 扫码登录
++  async getQrcode(): Promise<ApiResponse<QrcodeData>>
++  async queryQrcodeStatus(qrcodeKey: string): Promise<ApiResponse<any>>
++  
++  // 短信登录
++  async getCaptchaParams(): Promise<ApiResponse<any>>
++  async sendSmsCodeWithCaptcha(params: SmsCaptchaParams): Promise<ApiResponse<any>>
++  async loginBySms(request: SmsLoginRequest): Promise<ApiResponse<UserInfo>>
++  
++  // SESSDATA登录
++  async loginBySessdata(sessdata: string): Promise<ApiResponse<UserInfo>>
++  
++  // 用户信息
++  async getUserInfo(sessdata: string): Promise<ApiResponse<UserInfo>>
++  
++  // 指纹管理
++  async initFingerprint(): Promise<ApiResponse<any>>
++  async refreshCookies(): Promise<ApiResponse<any>>
++}
++```
++
++#### 2. 状态管理
++```typescript
++// apps/web/src/stores/auth.ts
++interface AuthStore {
++  user: UserInfo | null
++  isLoggedIn: boolean
++  login: (user: UserInfo) => void
++  logout: () => void
++  updateUser: (user: UserInfo) => void
++}
++// 使用Zustand + localStorage持久化
++```
++
++#### 3. 扫码登录流程
++```typescript
++// 1. 获取二维码
++const response = await apiService.getQrcode()
++setQrcodeUrl(response.data.url)
++setQrcodeKey(response.data.qrcode_key)
++
++// 2. 轮询状态
++setInterval(async () => {
++  const response = await apiService.queryQrcodeStatus(qrcodeKey)
++  if (response.data.code === 0) {
++    // 登录成功
++    authStore.login(response.data)
++    // 初始化指纹系统
++    await apiService.initFingerprint()
++    navigate('/home')
++  } else if (response.data.code === 86038) {
++    // 二维码过期
++    setQrcodeStatus('expired')
++  }
++}, 2000)
++```
++
++#### 4. 短信登录流程
++```typescript
++// 1. 发送验证码
++const handleSendSmsCode = async () => {
++  // 获取验证码参数
++  const captchaParams = await apiService.getCaptchaParams()
++  setCaptchaData(captchaParams.data)
++  setShowCaptcha(true) // 显示Geetest验证码
++}
++
++// 2. Geetest验证成功后发送短信
++const handleSmsCaptchaSuccess = async (captchaResult) => {
++  const response = await apiService.sendSmsCodeWithCaptcha({
++    cid: countryCode,
++    tel: phone,
++    token: captchaData.token,
++    ...captchaResult
++  })
++  setSmsCaptchaKey(response.data.captcha_key) // 保存captcha_key
++  setSmsSent(true)
++}
++
++// 3. 使用验证码登录
++const handleSmsLogin = async () => {
++  const response = await apiService.loginBySms({
++    phone,
++    code: smsCode,
++    captcha_key: smsCaptchaKey
++  })
++  if (response.success) {
++    authStore.login(response.data)
++    await apiService.initFingerprint()
++    navigate('/home')
++  }
++}
++```
++
++#### 5. Geetest验证码组件
++```typescript
++// apps/web/src/components/GeetestCaptcha.tsx
++const GeetestCaptcha = ({ onSuccess, onError }) => {
++  useEffect(() => {
++    // 加载Geetest脚本
++    const script = document.createElement('script')
++    script.src = 'https://static.geetest.com/static/js/gt.0.4.9.js'
++    document.body.appendChild(script)
++    
++    script.onload = () => {
++      window.initGeetest({
++        gt: challenge,
++        challenge: challenge,
++        product: 'bind',
++        // ...配置
++      }, (captchaObj) => {
++        captchaObj.onSuccess(() => {
++          const result = captchaObj.getValidate()
++          onSuccess({
++            challenge,
++            validate: result.geetest_validate,
++            seccode: result.geetest_seccode
++          })
++        })
++      })
++    }
++  }, [])
++  
++  return <div id="geetest-container" />
++}
++```
++
++## 常见问题及解决方案
++
++### 1. 二维码显示问题
++**问题**: 二维码图片无法显示，显示为缺失图标
++
++**原因**: B站API返回的`url`字段不是图片地址，而是H5页面链接
++```json
++{
++  "url": "https://account.bilibili.com/h5/account-h5/auth/scan-web?...",
++  "qrcode_key": "xxx"
++}
++```
++
++**解决方案**: 使用`qrcode.react`库将URL转换为二维码图片
++```typescript
++import QRCodeSVG from 'qrcode.react'
++
++<QRCodeSVG 
++  value={qrcodeUrl} 
++  size={200} 
++  level="M" 
++  includeMargin={false}
++/>
++```
++
++### 2. 扫码后显示过期问题
++**问题**: 扫码成功后显示"二维码已过期"，无法登录
++
++**原因**: 前后端数据结构不匹配
++- 后端返回: `{success: true, data: {mid, username, ...}}`
++- 前端检查: `response.data.code === 0` (永远为false)
++
++**解决方案**: 在后端返回数据中添加`code: 0`字段
++```python
++return {
++    "success": True,
++    "data": {
++        "code": 0,  # 添加这个字段
++        "mid": data.get("mid"),
++        "username": data.get("username"),
++        # ...
++    }
++}
++```
++
++### 3. 短信验证码发送失败
++**问题**: 短信发送返回400或验证码错误
++
++**原因**: B站要求Geetest验证码，且参数格式必须正确
++
++**解决方案**: 
++1. 使用正确的参数格式
++```python
++params = {
++    "cid": 86,
++    "tel": phone,
++    "code": code,
++    "source": "main-fe-header",
++    "captcha_key": captcha_key,
++    "keep": "true"
++}
++# 使用params而非form data
++response = await client.post(url, params=params)
++```
++
++2. 处理Geetest验证结果
++```typescript
++const response = await apiService.sendSmsCodeWithCaptcha({
++  cid: countryCode,
++  tel: phone,
++  token: captchaData.token,
++  challenge: captchaResult.challenge,
++  validate: captchaResult.validate,  # 注意字段名映射
++  seccode: captchaResult.seccode
++})
++```
++
++### 4. Pydantic字段冲突
++**问题**: `validate`字段与BaseModel的validate方法冲突
++
++**解决方案**: 使用alias避免冲突
++```python
++class SmsCodeWithCaptchaRequest(BaseModel):
++    geetest_validate: str = Field(..., alias="validate", description="Geetest验证结果")
++    
++    class Config:
++        populate_by_name = True  # 支持别名
++```
++
++### 5. HeadersManager初始化
++**问题**: 登录请求返回412 Precondition Failed
++
++**原因**: 缺少设备指纹和正确的请求头
++
++**解决方案**: 所有登录前初始化HeadersManager
++```python
++service = BilibiliService()
++await service.init()  # 初始化指纹和cookies
++result = await service.login_by_sms(...)
++```
++
++### 6. CORS跨域问题
++**问题**: 前端无法调用后端API，显示CORS错误
++
++**解决方案**: 在FastAPI中配置CORS
++```python
++from fastapi.middleware.cors import CORSMiddleware
++
++app.add_middleware(
++    CORSMiddleware,
++    allow_origins=["http://localhost:5173"],
++    allow_credentials=True,
++    allow_methods=["*"],
++    allow_headers=["*"],
++)
++```
++
++## API响应格式规范
++
++### 统一响应格式
++```typescript
++interface ApiResponse<T> {
++  success: boolean
++  message?: string
++  data?: T
++  code?: number  // 状态码：0=成功, 其他=失败
++}
++```
++
++### 二维码状态码
++```typescript
++const STATUS_CODES = {
++  86101: "未扫码",
++  86090: "已扫码，请确认",
++  0: "登录成功",
++  86038: "二维码已过期"
++}
++```
++
++### 用户信息格式
++```typescript
++interface UserInfo {
++  code: 0  // 必须包含，用于前端判断登录成功
++  mid: number
++  username: string
++  avatar: string
++  level: number
++  vip_status: boolean
++  sessdata: string
++}
++```
++
++### 短信登录参数
++```typescript
++interface SmsCaptchaParams {
++  cid: string        // 国家代码
++  tel: string       // 手机号
++  token: string      // 验证码token
++  challenge: string  // Geetest challenge
++  validate: string   // Geetest validate
++  seccode: string    // Geetest seccode
++}
++
++interface SmsLoginRequest {
++  phone: string
++  code: string
++  captcha_key?: string  // 短信验证码的captcha_key
++}
++```
++
++## 技术栈总结
++
++### 后端
++- FastAPI 0.115.6
++- SQLAlchemy 2.0.36
++- SQLite (开发) / PostgreSQL (生产)
++- httpx 0.28.1 (异步HTTP客户端)
++- Pydantic 2.10.4
++- Geetest极验验证码
++- HeadersManager (设备指纹管理)
++- Brotli压缩支持
++
++### 前端
++- React 19
++- Zustand (状态管理)
++- qrcode.react (二维码生成)
++- Geetest极验验证码SDK
++- localStorage (持久化)
++- Tailwind CSS (样式)
++
++### 认证方式
++- ✅ 扫码登录（推荐，无需验证码）
++- ✅ 短信登录（集成Geetest验证码）
++- ✅ SESSDATA登录（快速开发）
++- ❌ 密码登录（已移除，用户体验不佳）
++
++## 最新更新 (2026-03-30)
++
++### 1. 移除密码登录功能
++**原因**: 密码登录需要频繁的Geetest验证码，用户体验不佳
++
++**修改内容**:
++- 移除密码登录tab和界面
++- 删除`handlePasswordLogin`和`handleCaptchaSuccess`函数
++- 清理相关状态变量（username, password）
++- 移除未使用的图标（User, Lock）
++
++### 2. 完善短信登录实现
++**实现细节**:
++- 集成Geetest验证码组件
++- 使用正确的API参数格式（params而非form）
++- 保存并传递captcha_key用于登录
++- 添加smsCaptchaKey状态管理
++
++**API流程**:
++```
++1. GET /api/auth/captcha/params → 获取Geetest参数
++2. POST /api/auth/sms/send → 发送短信（含Geetest验证）
++3. POST /api/auth/sms/login → 使用验证码登录（含captcha_key）
++```
++
++### 3. HeadersManager深度集成
++**功能增强**:
++- 所有登录流程统一使用HeadersManager
++- 自动管理设备指纹（buvid3, buvid4, bili_ticket）
++- 自动刷新cookies
++- 支持refresh_token机制
++
++**使用示例**:
++```python
++service = BilibiliService()
++await service.init()  # 自动初始化指纹
++
++# 所有请求自动携带正确的headers
++result = await service.login_by_sms(phone, code, captcha_key)
++```
++
++### 4. 错误处理优化
++**改进内容**:
++- 添加详细的调试日志
++- 统一错误响应格式
++- 提供用户友好的错误提示
++- Geetest验证失败时的重试机制
++
++### 5. UI/UX优化
++**界面改进**:
++- 简化登录选项（3个tab）
++- Geetest验证码模态框
++- 短信发送状态提示
++- 加载状态指示器
++
++**移动端适配**:
++- 响应式布局
++- 触摸友好的按钮尺寸
++- 自适应表单高度
++
++## 部署注意事项
++
++### 生产环境配置
++1. **环境变量**:
++   - `BILIBILI_APP_KEY`: B站应用密钥
++   - `BILIBILI_APP_SECRET`: B站应用密钥
++   - `GEETEST_ID`: 极验ID
++   - `GEETEST_KEY`: 极验密钥
++
++2. **数据库**:
++   - 生产环境使用PostgreSQL
++   - 配置连接池
++   - 定期备份
++
++3. **安全性**:
++   - 启用HTTPS
++   - 配置CORS白名单
++   - 限制请求频率
++   - 日志脱敏
++
++### 监控和日志
++- 登录成功/失败统计
++- 验证码触发频率
++- API响应时间监控
++- 异常告警机制
++
++## UI/UX 设计规范
++
++### 设计系统
++PiliNote 采用 **Soft UI Evolution** 设计风格，详见 [UI/UX 设计系统](12-ui-ux-design.md)。
++
++### 核心设计原则
++1. **现代美学**: 结合 flat design 和 neumorphism 的优点
++2. **可访问性优先**: 所有交互元素符合 WCAG AA 标准
++3. **流畅交互**: 150-300ms 的微交互动画
++4. **响应式设计**: 从 375px 移动端到 1440px+ 桌面端
++5. **性能优化**: 使用 transform 和 opacity 实现高性能动画
++
++### 配色方案
++```
++Primary:    #2563EB (专业蓝)
++Secondary:  #3B82F6 (明亮蓝)
++Accent:     #F97316 (橙色 CTA)
++Background: #F8FAFC (优雅浅灰)
++Text:       #1E293B (深灰黑)
++```
++
++### 登录页面设计
++
++#### Tab 切换
++- **布局**: 3个tab（扫码、短信、SESSDATA）
++- **交互**: 点击切换，带平滑过渡动画
++- **状态**: 悬停时轻微上浮，激活时有阴影
++- **动画**: 200ms 淡入 + 横向位移
++
++#### 输入框
++- **高度**: 48px（符合触摸目标规范）
++- **圆角**: 12px
++- **焦点**: 蓝色边框 + 多层阴影
++- **图标**: 左侧图标，焦点时变色
++
++#### 按钮
++- **主要按钮**: 渐变背景，光泽动画
++- **高度**: 48px
++- **交互**: 悬停上浮，按下缩放
++- **禁用**: 灰度背景，无阴影
++
++#### 错误提示
++- **位置**: 内容区域底部
++- **背景**: #FEE2E2 (浅红)
++- **文字**: #DC2626 (深红)
++- **动画**: 滑入动画（200ms）
++
++### 响应式断点
++```
++Mobile:    < 640px  (小屏手机)
++Tablet:    640px - 1024px  (平板)
++Desktop:   > 1024px  (桌面端)
++```
++
++### 可访问性要求
++- **对比度**: ≥ 4.5:1 (WCAG AA)
++- **焦点状态**: 所有交互元素可见焦点
++- **键盘导航**: 完整支持
++- **屏幕阅读器**: 语义化标签和 aria 属性
++- **减少运动**: 支持 prefers-reduced-motion
++
++### 交互动画规范
++- **时长**: 150-300ms（微交互）
++- **缓动**: ease-out (进入), ease-in (退出)
++- **属性**: 只使用 transform 和 opacity
++- **反馈**: 所有操作有视觉反馈
++
++### 最新UI优化 (2026-03-30)
++- ✅ 实现 Soft UI Evolution 设计风格
++- ✅ 优化 Tab 切换动画和交互
++- ✅ 改进输入框焦点状态
++- ✅ 升级按钮样式（渐变 + 光泽）
++- ✅ 添加内容区域淡入动画
++- ✅ 优化错误提示显示
++- ✅ 完善移动端适配
++- ✅ 增强可访问性支持
++
++### 设计资源
++- **完整设计系统**: [12-ui-ux-design.md](12-ui-ux-design.md)
++- **字体**: Inter (Google Fonts)
++- **图标**: Lucide React
++- **颜色规范**: 符合 WCAG AA 标准
+\ No newline at end of file
+diff --git a/docs/dev2/features/download/download-engine.md b/docs/dev2/features/download/download-engine.md
+new file mode 100644
+index 0000000..c22d834
+--- /dev/null
++++ b/docs/dev2/features/download/download-engine.md
+@@ -0,0 +1,57 @@
++# 下载引擎方案
++
++## 核心引擎
++- **yt-dlp**: 统一下载引擎
++  - 支持B站1000+站点
++  - 自动处理认证
++  - 支持多画质
++  - 自动下载字幕/弹幕
++
++## 任务管理
++- **asyncio异步处理** (已实现)
++  - 异步下载任务管理
++  - 实时进度追踪
++  - 任务状态管理
++  - 错误处理和重试
++
++- **Celery + Redis** (计划中)
++  - 异步任务处理
++  - 队列管理
++  - 任务状态跟踪
++  - 失败重试
++
++## 下载流程
++1. 解析视频信息
++2. 检查是否已下载
++3. 创建下载任务
++4. 后台异步下载
++5. 实时进度更新
++6. 自动处理字幕/弹幕 (计划中)
++7. 保存元数据 (计划中)
++
++## 画质支持
++- 1080P+ (需要登录)
++- 1080P
++- 720P
++- 480P
++
++## 已实现功能
++- ✅ Download数据模型
++- ✅ DownloadService异步下载服务
++- ✅ yt-dlp集成
++- ✅ 下载API接口
++- ✅ App风格UI界面
++- ✅ 系列视频分组
++- ✅ 实时进度更新
++- ✅ 下载状态管理
++
++## 待实现功能
++- ⏳ Celery+Redis队列
++- ⏳ WebSocket实时推送
++- ⏳ 字幕/弹幕自动下载
++- ⏳ 音轨提取
++- ⏳ 元数据保存
++
++## 参考实现
++- `reference/hermes/` (任务队列架构)
++- `reference/bilibili-downloader/` (B站下载实现)
+\ No newline at end of file
+diff --git a/docs/dev2/features/download/download-management.md b/docs/dev2/features/download/download-management.md
+new file mode 100644
+index 0000000..2afe841
+--- /dev/null
++++ b/docs/dev2/features/download/download-management.md
+@@ -0,0 +1,258 @@
++# 下载管理功能
++
++## 核心原则
++
++**⚠️ 重要：严格复刻BiliTools实现方法**
++
++本模块的设计和实现必须**严格遵循BiliTools的实现方法**，不得创造新的方法或流程。所有功能都应参考BiliTools的源代码实现。
++
++## 功能概述
++
++下载管理模块是PiliNote的核心功能，支持将B站视频和课程添加到下载列表，并管理下载任务。系统采用"添加到列表"的设计理念，用户可以先收集想要下载的视频，然后统一开始下载。
++
++## 核心特性
++
++### 1. 添加到列表（队列管理）
++- **批量添加**: 支持批量将多个视频添加到下载列表
++- **智能识别**: 自动识别视频类型（普通视频/多P视频/课程）
++- **状态分离**: 添加到列表不会立即开始下载，用户可以手动控制
++- **元数据保存**: 自动保存视频封面、标题、UP主等信息
++
++### 2. 系列管理
++- **自动分组**: 根据bvid自动将同一系列的视频分组显示
++- **系列名显示**: 使用B站API获取真实的系列名称
++- **批量操作**: 支持对整个系列进行批量操作
++- **进度统计**: 显示系列的完成进度和总时长
++
++### 3. 下载控制
++- **手动控制**: 用户可以手动开始、取消、重试下载任务
++- **批量操作**: 支持批量开始、批量删除
++- **状态管理**: 完整的任务状态管理（pending/queued/downloading/processing/completed/failed/cancelled）
++- **进度追踪**: 实时显示下载进度、速度、剩余时间
++
++### 4. 恢复功能
++- **删除恢复**: 支持删除单个或批量删除任务
++- **列表刷新**: 刷新功能可以恢复已删除的分P
++- **智能检测**: 自动检测缺失的分P并提示恢复
++- **纯前端判断**: 使用title匹配来判断缺失的分P，避免依赖数据库查询
++
++## API接口
++
++### 下载管理接口
++
++#### 1. 添加到下载列表
++```http
++POST /api/download/add
++Content-Type: application/json
++
++{
++  "bvid": "BV1xx411c7mD",
++  "title": "视频标题",
++  "cid": 123456,
++  "aid": 789012,
++  "quality": 80,
++  "output_format": "mp4",
++  "thumbnail_url": "https://...",
++  "duration": 300,
++  "uploader": "UP主名称",
++  "uploader_mid": 123456,
++  "sessdata": "用户SESSDATA（可选）"
++}
++```
++
++#### 2. 开始下载
++```http
++POST /api/download/start
++Content-Type: application/json
++
++{
++  "bvid": "BV1xx411c7mD",
++  "title": "视频标题",
++  "cid": 123456,
++  "quality": 80,
++  "output_format": "mp4"
++}
++```
++
++#### 3. 批量开始下载
++```http
++POST /api/download/start/batch
++Content-Type: application/json
++
++{
++  "download_ids": ["id1", "id2", "id3"]
++}
++```
++
++#### 4. 获取下载列表
++```http
++GET /api/download/list?status=pending
++```
++
++#### 5. 取消下载
++```http
++POST /api/download/{id}/cancel
++```
++
++#### 6. 重试下载
++```http
++POST /api/download/{id}/retry
++```
++
++#### 7. 删除下载任务
++```http
++DELETE /api/download/{id}
++```
++
++#### 8. 解析下载链接
++```http
++POST /api/download/parse
++Content-Type: application/json
++
++{
++  "url": "https://www.bilibili.com/video/BV1xx411c7mD"
++}
++```
++
++## 前端功能
++
++### 1. 下载列表页面（DownloadDetailPage）
++
++**功能特性**:
++- 显示系列名称（通过B站API获取真实名称）
++- 下载进度概览（总进度、已完成、下载中、总大小）
++- 分P列表显示
++- 批量选择功能（全选/取消全选/反选）
++- 批量删除功能
++- 刷新恢复功能
++
++### 2. 下载管理页面（DownloadsContent）
++
++**功能特性**:
++- 按系列分组显示下载任务
++- 显示系列名称、总数量、已完成数量、完成率
++- 实时进度更新（2秒间隔）
++- 点击进入系列详情页
++
++### 3. 系列详情页（DownloadSeriesDetailPage）
++
++**功能特性**:
++- 显示系列名称（通过B站API获取真实名称）
++- 统计信息（总数、已完成、总时长、完成率）
++- 分P列表显示
++- 实时进度更新（2秒间隔）
++- 任务控制（取消、重试、删除）
++
++## 工作流程
++
++### 添加视频到列表流程
++
++1. **用户操作**: 用户从收藏夹、稍后再看或视频详情页点击"添加到列表"
++2. **API调用**: 调用 `/api/download/add` 接口
++3. **数据验证**: 验证视频信息是否完整
++4. **创建任务**: 在数据库中创建下载任务记录
++5. **状态更新**: 设置任务状态为 `pending`
++6. **前端更新**: 更新下载列表显示
++
++### 开始下载流程
++
++1. **用户操作**: 用户点击"开始下载"按钮
++2. **API调用**: 调用 `/api/download/start` 接口
++3. **状态更新**: 将任务状态从 `pending` 改为 `queued`
++4. **下载执行**: DownloadService执行下载
++5. **进度更新**: 通过进度回调更新下载进度
++6. **完成处理**: 下载完成后更新状态为 `completed`
++
++### 删除和恢复流程
++
++1. **删除操作**:
++   - 用户点击删除按钮
++   - 调用 `/api/download/{id}` 接口删除任务
++   - 前端立即从列表中移除该任务
++
++2. **恢复操作**:
++   - 用户点击刷新按钮
++   - 从B站API获取视频的所有分P信息
++   - **纯前端判断**: 使用当前显示列表的title来判断缺失的分P
++   - 提示用户是否恢复缺失的分P
++
++## 技术实现
++
++### 后端技术栈
++- **FastAPI**: Web框架
++- **SQLAlchemy**: ORM
++- **SQLite**: 数据库
++- **yt-dlp**: 下载引擎
++- **asyncio**: 异步下载
++
++### 前端技术栈
++- **React 18**: UI框架
++- **TypeScript**: 类型安全
++- **Zustand**: 状态管理
++- **lucide-react**: 图标库
++
++### 数据模型
++
++```typescript
++interface DownloadTask {
++  id: string                    // UUID
++  bvid: string                  // 视频ID
++  title: string                 // 标题
++  status: 'pending' | 'queued' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled'
++  progress: number              // 进度百分比
++  downloaded_bytes: number      // 已下载字节数
++  total_bytes: number           // 总字节数
++  download_speed: number        // 下载速度
++  eta: number                   // 预计剩余时间（秒）
++  thumbnail_url?: string        // 封面URL
++  duration?: number             // 时长（秒）
++  uploader?: string             // UP主名称
++  file_path?: string            // 保存路径
++  error_message?: string        // 错误信息
++  created_at: string            // 创建时间
++  started_at?: string           // 开始时间
++  completed_at?: string         // 完成时间
++  aid?: number                  // 视频AID
++  cid?: number                  // 分P CID
++}
++```
++
++## 常见问题
++
++### Q: 为什么添加到列表后不会立即下载？
++A: 系统采用"添加到列表"的设计理念，用户可以先收集想要下载的视频，然后统一开始下载。这样可以更好地管理下载任务，避免一次性下载过多视频。
++
++### Q: 如何批量添加视频到下载列表？
++A: 在收藏夹、稍后再看或视频详情页，用户可以批量选择视频，然后点击"添加到列表"按钮。
++
++### Q: 删除后如何恢复？
++A: 点击刷新按钮，系统会自动检测缺失的分P，并提示用户是否恢复。
++
++### Q: 支持哪些链接格式？
++A: 系统支持12种媒体类型，包括视频、番剧、音乐、歌单、课程、稍后再看、收藏夹、图文、图文合集、用户视频、用户图文、用户音频。
++
++## 参考实现
++- `apps/api/src/routers/download.py` - 下载API路由
++- `apps/api/src/services/download_service.py` - 下载服务
++- `apps/api/src/models/download.py` - 下载数据模型
++- `apps/web/src/pages/DownloadDetailPage.tsx` - 下载详情页
++- `apps/web/src/stores/download.ts` - 下载状态管理
++
++## 更新日志
++
++### 2026-03-31
++- ✅ 实现视频分辨率选择
++- ✅ 实现音频码率选择
++- ✅ 实现视频编码格式选择
++- ✅ 完全复刻BiliTools下载设置UI
++- ✅ 支持yt-dlp格式字符串构建
++- ✅ 支持音频流ID选择
++
++### 2026-03-30
++- ✅ 实现添加到列表功能
++- ✅ 实现批量删除功能
++- ✅ 实现刷新恢复功能
++- ✅ 实现单个删除功能
++- ✅ 优化系列名显示（使用B站API获取真实名称）
++- ✅ 扩展链接识别：从4种类型扩展到12种媒体类型
++- ✅ 完全复刻BiliTools链接识别功能
+\ No newline at end of file
+diff --git a/docs/dev2/features/download/download-settings.md b/docs/dev2/features/download/download-settings.md
+new file mode 100644
+index 0000000..f06a9f7
+--- /dev/null
++++ b/docs/dev2/features/download/download-settings.md
+@@ -0,0 +1,264 @@
++# 下载设置
++
++## 下载参数设置
++
++### 1. 视频分辨率（quality）
++- **16**: 360P 流畅
++- **32**: 480P 清晰
++- **64**: 720P 高清
++- **80**: 1080P 高清
++- **112**: 1080P+ 高码率
++- **116**: 4K 超清
++
++**说明**: 下载时会优先使用此处参数。若目标资源不支持此处选定的参数，则会使用其支持的最高参数。
++
++### 2. 音频码率（audio_bitrate）
++- **64**: 64K - 低质量音频
++- **128**: 128K - 标准质量
++- **132**: 132K - 高质量
++- **192**: 192K - 高质量
++- **30232**: 杜比全景声320K（实际约103Kbps）
++- **30251**: Hi-Res 无损（使用最高可用音频流）
++- **30250**: 无损FLAC（使用最高可用音频流）
++
++**重要说明**:
++- B站实际提供的音频流格式ID为：30216（约44K）、30232（约103K）、30280（约204K）
++- 普通音频码率（64K-192K）会使用B站可用的最高质量音频
++- 特殊格式（30232、30250、30251）会指定对应的音频流ID
++- 音频码率取决于视频源和用户权限，不是所有视频都支持所有格式
++
++### 3. 视频编码（codec）
++- **avc**: AVC (H.264)
++- **hevc**: HEVC (H.265)
++- **av1**: AV1
++- **vp9**: VP9
++
++**说明**: 
++- 格式字符串会尝试选择指定编码的流
++- 如果视频源不支持该编码，会降级到其他可用编码
++
++## 存储设置
++
++### 路径设置
++
++#### 下载路径
++- 类型：`string`
++- 默认值：`./downloads`
++- 说明：视频文件保存路径
++
++#### 临时文件路径
++- 类型：`string`
++- 默认值：`./temp`
++- 说明：临时文件存储路径，用于存储未下载完毕的文件，经过处理后转移至下载路径
++
++#### 自动清理临时文件
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：下载完成后自动清理临时文件
++
++#### 保留失败的任务
++- 类型：`boolean`
++- 默认值：`false`
++- 说明：下载失败时保留临时文件，便于调试
++
++### 自定义执行路径（Sidecar）
++
++#### FFmpeg 路径
++- 类型：`string`
++- 默认值：`ffmpeg`
++- 说明：FFmpeg视频处理工具路径
++
++#### Aria2c 路径
++- 类型：`string`
++- 默认值：`aria2c`
++- 说明：Aria2c下载工具路径
++
++#### Danmakufactory 路径
++- 类型：`string`
++- 默认值：`danmakufactory`
++- 说明：弹幕处理工具路径
++
++### 缓存管理
++
++#### 缓存类型
++- **日志缓存**：存储应用程序日志文件
++- **临时缓存**：存储临时文件和缓存数据
++- **WebView缓存**：存储WebView浏览器的缓存
++- **数据库缓存**：存储数据库文件
++
++#### 缓存操作
++- **查看缓存大小**：显示每种缓存类型的占用空间和文件数量
++- **清理指定缓存**：清理选中的缓存类型
++- **打开缓存目录**：在文件浏览器中打开缓存目录
++- **清理所有缓存**：一次性清理所有缓存类型
++
++#### 缓存管理API
++
++**获取缓存信息**:
++```http
++GET /api/settings/cache-info
++```
++
++**清理缓存**:
++```http
++POST /api/settings/clear-cache/{cache_type}
++```
++
++`cache_type` 参数：`log` | `temp` | `webview` | `database` | `downloads` | `all`
++
++**打开缓存目录**:
++```http
++POST /api/settings/open-cache/{cache_type}
++```
++
++### 数据库管理
++
++#### 数据库功能
++- **导出数据库**：将数据库文件导出为备份文件
++- **导入数据库**：从备份文件恢复数据库
++
++#### 数据库管理API
++
++**导出数据库**:
++```http
++GET /api/settings/database/export
++```
++
++**导入数据库**:
++```http
++POST /api/settings/database/import?file_path=/path/to/database.db
++```
++
++## 技术实现
++
++### yt-dlp格式字符串构建
++```python
++def _build_format_string(self, quality: int, codec: str = 'avc', audio_bitrate: Optional[int] = 192) -> str:
++    """
++    根据质量、编码和音频码率构建yt-dlp格式字符串
++    """
++    # B站质量代码到视频高度的映射
++    quality_map = {
++        16: 360, 32: 480, 64: 720, 80: 1080, 112: 1080, 116: 2160
++    }
++    
++    # B站编码格式到codec的映射
++    codec_map = {
++        'avc': 'avc1', 'hevc': 'hevc', 'av1': 'av01', 'vp9': 'vp09'
++    }
++    
++    # B站音频码率到格式ID的映射
++    audio_format_map = {
++        64: '30216', 128: '30216', 132: '30216', 192: '30280',
++        30232: '30232', 30251: '30280', 30250: '30280'
++    }
++    
++    height = quality_map.get(quality, 720)
++    video_codec = codec_map.get(codec, 'avc1')
++    audio_format_id = audio_format_map.get(audio_bitrate, '30280')
++    
++    # 构建格式字符串
++    if audio_bitrate >= 30232:
++        # 高质量音频：使用指定的音频格式ID
++        format_str = f'bestvideo[ext=mp4][height<={height}][vcodec~={video_codec}]+{audio_format_id}/...'
++    else:
++        # 普通音频：使用bestaudio
++        format_str = f'bestvideo[ext=mp4][height<={height}][vcodec~={video_codec}]+bestaudio[ext=m4a]/...'
++    
++    return format_str
++```
++
++### 数据库字段
++```python
++class Download(Base):
++    # ... 其他字段
++    
++    quality = Column(Integer, default=64)  # 视频质量
++    audio_bitrate = Column(Integer, default=192)  # 音频码率
++    codec = Column(String(10), default="avc")  # 视频编码
++```
++
++## 前端设置页面
++
++### 下载设置页面（DownloadSettings）
++- **分辨率选择**: 下拉选择视频分辨率
++- **音频码率选择**: 下拉选择音频码率
++- **编码格式选择**: 下拉选择视频编码格式
++
++### 存储设置页面（StorageSettings）
++- **下载路径设置**: 选择下载文件夹
++- **临时路径设置**: 选择临时文件夹
++- **缓存管理**: 清理缓存，查看缓存大小
++- **数据库管理**: 导入导出数据库
++
++## B站音频流格式说明
++
++通过 `yt-dlp -F` 命令可以查看B站实际提供的音频流：
++
++```
++ID     EXT  RESOLUTION  |  FILESIZE   TBR  |  VCODEC        ACODEC      ABR
++30216  m4a  audio only  |  ≈ 1.11MiB  44k  |  audio only   mp4a.40.5   44k
++30232  m4a  audio only  |  ≈ 2.61MiB  103k |  audio only   mp4a.40.2   103k
++30280  m4a  audio only  |  ≈ 5.16MiB  204k |  audio only   mp4a.40.2   204k
++```
++
++**格式ID对应关系**:
++- 30216 → 约44Kbps（低质量）
++- 30232 → 约103Kbps（中等质量）
++- 30280 → 约204Kbps（高质量，B站最高可用）
++
++## 使用示例
++
++### 创建下载任务（带完整参数）
++```http
++POST /api/download/start
++Content-Type: application/json
++
++{
++  "bvid": "BV1xx411c7mD",
++  "title": "视频标题",
++  "quality": 80,
++  "output_format": "mp4",
++  "audio_bitrate": 30232,
++  "codec": "hevc",
++  "sessdata": "用户SESSDATA（可选）"
++}
++```
++
++### 更新存储设置
++```typescript
++await updateSettings({
++  storage: {
++    download_path: './downloads',
++    temp_path: './temp',
++    auto_cleanup: true,
++    keep_failed: false,
++    sidecar: {
++      ffmpeg: 'ffmpeg',
++      aria2c: 'aria2c',
++      danmakufactory: 'danmakufactory'
++    }
++  }
++})
++```
++
++## 注意事项
++
++1. **路径权限**: 确保下载路径和临时路径有读写权限
++2. **磁盘空间**: 确保有足够的磁盘空间用于下载和临时文件
++3. **Sidecar工具**: FFmpeg、Aria2c、Danmakufactory需要正确安装并配置
++4. **数据库备份**: 导入数据库前会自动备份当前数据库
++5. **缓存清理**: 清理数据库缓存会删除所有数据，请谨慎操作
++
++## 更新日志
++
++### 2026-03-31
++- ✅ 实现视频分辨率选择（360P/480P/720P/1080P/1080P+/4K）
++- ✅ 实现音频码率选择（64K/128K/132K/192K/杜比全景声/Hi-Res无损/无损FLAC）
++- ✅ 实现视频编码格式选择（AVC/H.264、HEVC/H.265、AV1、VP9）
++- ✅ 完全复刻BiliTools下载设置UI
++- ✅ 支持yt-dlp格式字符串构建
++- ✅ 支持音频流ID选择（30216/30232/30280）
++- ✅ 实现存储设置（路径设置、缓存管理、数据库管理）
++- ✅ 实现缓存管理API
++- ✅ 实现数据库导入导出功能
+\ No newline at end of file
+diff --git a/docs/dev2/features/ui-design/ui-ux-design.md b/docs/dev2/features/ui-design/ui-ux-design.md
+new file mode 100644
+index 0000000..d9033b6
+--- /dev/null
++++ b/docs/dev2/features/ui-design/ui-ux-design.md
+@@ -0,0 +1,389 @@
++# PiliNote UI/UX 设计系统
++
++## 设计理念
++
++PiliNote 采用 **Soft UI Evolution** 设计风格，这是改进的 Neumorphism 设计，提供更好的对比度、现代感和可访问性。
++
++### 核心原则
++
++1. **现代美学**: 结合 flat design 和 neumorphism 的优点，提供柔和的深度感
++2. **可访问性优先**: 所有交互元素符合 WCAG AA 标准（对比度 ≥ 4.5:1）
++3. **流畅交互**: 150-300ms 的微交互动画，提供自然的反馈
++4. **响应式设计**: 从 375px 移动端到 1440px+ 桌面端的全设备适配
++5. **性能优化**: 使用 transform 和 opacity 实现高性能动画
++
++## 设计系统
++
++### 配色方案
++
++#### 主色调
++```
++Primary:    #2563EB (专业蓝)
++Secondary:  #3B82F6 (明亮蓝)
++Accent:     #F97316 (橙色 CTA)
++```
++
++#### 中性色
++```
++Background:  #F8FAFC (优雅浅灰)
++Surface:     #FFFFFF (白色)
++Text:        #1E293B (深灰黑)
++Text Muted:  #64748B (中灰)
++Border:      #E2E8F0 (浅灰边框)
++```
++
++#### 语义色
++```
++Error:       #DC2626 (错误红)
++Error BG:    #FEE2E2 (错误背景)
++Success:     #16A34A (成功绿)
++Success BG:  #DCFFE4 (成功背景)
++Warning:     #D97706 (警告黄)
++```
++
++### 字体系统
++
++#### 字体家族
++```
++Primary: Inter (Google Fonts)
++  - Weights: 300, 400, 500, 600, 700
++  - Usage: 所有界面文字
++```
++
++#### 字体层级
++```
++Heading 1:  32px / 700 / 1.2
++Heading 2:  24px / 700 / 1.3
++Heading 3:  20px / 600 / 1.4
++Body:       16px / 400 / 1.6
++Caption:    14px / 500 / 1.5
++Small:      13px / 500 / 1.6
++```
++
++#### 行高规范
++```
++Heading:  1.2 - 1.4
++Body:     1.5 - 1.6
++Caption:  1.5
++```
++
++### 间距系统
++
++采用 4px 基础单位，构建一致的间距节奏：
++
++```
++xs:   4px   (0.25rem)
++sm:   8px   (0.5rem)
++md:   12px  (0.75rem)
++lg:   16px  (1rem)
++xl:   24px  (1.5rem)
++2xl:  32px  (2rem)
++3xl:  48px  (3rem)
++4xl:  64px  (4rem)
++```
++
++### 圆角系统
++
++```
++sm:   6px   (小元素)
++md:   8px   (按钮)
++lg:   12px  (卡片)
++xl:   16px  (大卡片)
++2xl:  20px  (模态框)
++full: 9999px (圆形)
++```
++
++### 阴影系统
++
++#### Soft UI Evolution 阴影
++
++```
++shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.04)
++shadow-sm:  0 2px 4px rgba(0, 0, 0, 0.06)
++shadow-md:  0 4px 12px rgba(37, 99, 235, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08)
++shadow-lg:  0 8px 20px rgba(37, 99, 235, 0.25), 0 4px 8px rgba(0, 0, 0, 0.08)
++shadow-xl:  0 20px 60px rgba(0, 0, 0, 0.25)
++```
++
++#### 焦点阴影
++```
++focus-ring: 0 0 0 4px rgba(37, 99, 235, 0.1), 0 4px 12px rgba(37, 99, 235, 0.15)
++```
++
++### 动画系统
++
++#### 时长规范
++```
++fast:  150ms (微交互)
++base:  200ms (标准过渡)
++slow:  300ms (复杂动画)
++slower: 400ms (页面切换)
++```
++
++#### 缓动函数
++```
++ease-out:  cubic-bezier(0.4, 0, 0.2, 1)  (进入)
++ease-in:   cubic-bezier(0, 0, 0.2, 1)  (退出)
++spring:    cubic-bezier(0.4, 0, 0.2, 1)  (弹性)
++```
++
++#### 动画类型
++```
++opacity:   透明度变化（推荐）
++transform: 位移/缩放/旋转（推荐）
++all:       所有属性过渡（谨慎使用）
++```
++
++## 组件设计规范
++
++### 按钮
++
++#### 主要按钮（Primary Button）
++- **背景**: 线性渐变 #2563EB → #3B82F6
++- **尺寸**: 高度 48px
++- **圆角**: 12px
++- **文字**: 白色, 16px, 700
++- **阴影**: shadow-md
++- **悬停**: 向上位移 2px, shadow-lg
++- **按下**: scale(0.98), shadow-md
++- **焦点**: 3px 蓝色外边框
++- **禁用**: 灰度背景, 无阴影
++
++#### 次要按钮（Secondary Button）
++- **背景**: 白色或透明
++- **边框**: 2px solid #E2E8F0
++- **文字**: #64748B, 14px, 600
++- **悬停**: 边框色加深, 背景色变化
++
++### 输入框
++
++#### 标准输入框
++- **高度**: 48px
++- **内边距**: 16px 垂直, 48px 水平（含图标）
++- **圆角**: 12px
++- **边框**: 2px solid #E2E8F0
++- **文字**: #1E293B, 15px, 500
++- **占位符**: #94A3B8
++- **悬停**: 边框色 #CBD5E1, shadow-sm
++- **焦点**: 边框 #2563EB, focus-ring, 向上位移 1px
++- **禁用**: 背景 #F8FAFC, 边框 #E2E8F0, 透明度 0.6
++
++### Tab 切换
++
++#### Tab 按钮
++- **高度**: 48px 最小
++- **内边距**: 14px 20px
++- **圆角**: 12px
++- **文字**: #64748B, 14px, 600
++- **背景**: 透明
++- **悬停**: 文字 #2563EB, 背景 rgba(255, 255, 255, 0.8), 向上位移 1px
++- **激活**: 白色背景, 文字 #2563EB, shadow-md, 向上位移 2px
++
++### 卡片
++
++#### 标准卡片
++- **圆角**: 16px
++- **背景**: 白色
++- **边框**: 1px solid #E2E8F0
++- **阴影**: shadow-md
++- **内边距**: 24px
++- **悬停**: 阴影增强, 向上位移 2px
++
++### 模态框
++
++#### 标准模态框
++- **圆角**: 16px
++- **背景**: 白色
++- **阴影**: shadow-xl
++- **最大宽度**: 400px (移动端), 600px (桌面端)
++- **内边距**: 24px
++- **遮罩**: rgba(0, 0, 0, 0.5), backdrop-filter blur(4px)
++
++## 响应式断点
++
++```
++Mobile:    < 640px  (小屏手机)
++Tablet:    640px - 1024px  (平板)
++Desktop:   > 1024px  (桌面端)
++Large:     > 1440px  (大屏)
++```
++
++### 移动端优先
++- 从 375px 小屏开始设计
++- 逐步适配到更大屏幕
++- 触摸目标 ≥ 44×44px
++- 横向滚动必须避免
++
++### 桌面端增强
++- 最大宽度控制（max-w-6xl / 7xl）
++- 充分利用横向空间
++- 鼠标悬停效果
++- 键盘导航完整支持
++
++## 可访问性规范
++
++### 对比度要求
++- **普通文字**: ≥ 4.5:1 (AA)
++- **大号文字**: ≥ 3:1 (AA)
++- **组件边框**: ≥ 3:1
++
++### 焦点状态
++- 所有交互元素必须有可见焦点
++- 焦点样式: 2-3px 外边框
++- 焦点顺序符合视觉顺序
++- 支持键盘导航
++
++### 屏幕阅读器
++- 所有图标有 aria-label
++- 表单元素有关联 label
++- 状态变化有 aria-live 通知
++- 语义化 HTML 结构
++
++### 减少运动
++- 支持 prefers-reduced-motion
++- 可选择禁用动画
++- 保持功能完整性
++
++## 性能优化
++
++### CSS 动画
++- 只使用 transform 和 opacity
++- 避免触发 layout 重排
++- 使用 will-change 优化已知动画
++- 动画时长 ≤ 400ms
++
++### 图片优化
++- 使用 WebP/AVIF 格式
++- 响应式图片（srcset）
++- 懒加载非关键图片
++- 预留空间防止布局偏移
++
++### 字体加载
++- 使用 font-display: swap
++- 预加载关键字体
++- 避免隐形文字（FOIT）
++
++### 代码分割
++- 路由级别代码分割
++- 懒加载非关键组件
++- 动态导入大型库
++
++## 设计 Token
++
++### 颜色 Token
++```css
++--color-primary: #2563EB;
++--color-primary-light: #3B82F6;
++--color-background: #F8FAFC;
++--color-surface: #FFFFFF;
++--color-text: #1E293B;
++--color-text-muted: #64748B;
++--color-border: #E2E8F0;
++--color-error: #DC2626;
++--color-success: #16A34A;
++```
++
++### 间距 Token
++```css
++--space-xs: 4px;
++--space-sm: 8px;
++--space-md: 12px;
++--space-lg: 16px;
++--space-xl: 24px;
++--space-2xl: 32px;
++--space-3xl: 48px;
++```
++
++### 圆角 Token
++```css
++--radius-sm: 6px;
++--radius-md: 8px;
++--radius-lg: 12px;
++--radius-xl: 16px;
++--radius-2xl: 20px;
++```
++
++### 阴影 Token
++```css
++--shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
++--shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
++--shadow-md: 0 4px 12px rgba(37, 99, 235, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08);
++--shadow-lg: 0 8px 20px rgba(37, 99, 235, 0.25), 0 4px 8px rgba(0, 0, 0, 0.08);
++```
++
++### 动画 Token
++```css
++--duration-fast: 150ms;
++--duration-base: 200ms;
++--duration-slow: 300ms;
++--easing-out: cubic-bezier(0.4, 0, 0.2, 1);
++--easing-in: cubic-bezier(0, 0, 0.2, 1);
++```
++
++## 设计资源
++
++### 设计工具
++- **Figma**: 可用设计 Token 和组件库
++- **Sketch**: 可用设计 Token
++- **Adobe XD**: 可用设计 Token
++
++### 字体资源
++- **Google Fonts**: https://fonts.google.com/share?selection?family=Inter:wght@300;400;500;600;700
++- **NPM**: `@fontsource/inter`
++
++### 图标库
++- **Lucide React**: https://lucide.dev/
++- **Heroicons**: https://heroicons.com/
++
++## 实施检查清单
++
++### 设计一致性
++- [ ] 使用设计 Token（不硬编码颜色/间距）
++- [ ] 统一的圆角大小
++- [ ] 一致的阴影层次
++- [ ] 统一的动画时长和缓动
++
++### 可访问性
++- [ ] 对比度 ≥ 4.5:1
++- [ ] 所有交互元素有焦点状态
++- [ ] 键盘导航完整支持
++- [ ] 屏幕阅读器标签正确
++- [ ] 支持减少运动偏好
++
++### 响应式
++- [ ] 375px 小屏测试通过
++- [ ] 768px 平板测试通过
++- [ ] 1024px 桌面测试通过
++- [ ] 1440px 大屏测试通过
++- [ ] 横向模式测试通过
++
++### 性能
++- [ ] 动画使用 transform/opacity
++- [ ] 无不必要的重排
++- [ ] 图片懒加载
++- [ ] 代码分割优化
++- [ ] 字体加载优化
++
++### 用户体验
++- [ ] 清晰的视觉层次
++- [ ] 直观的交互反馈
++- [ ] 合理的动画时长
++- [ ] 流畅的过渡效果
++- [ ] 错误提示清晰明确
++
++## 更新日志
++
++### 2026-03-30
++- ✅ 创建 Soft UI Evolution 设计系统
++- ✅ 定义配色方案、字体系统、间距系统
++- ✅ 建立组件设计规范
++- ✅ 实现登录页面 UI/UX 优化
++- ✅ 添加可访问性支持
++- ✅ 完善响应式设计
++
++## 参考资料
++
++- [WCAG 2.1 Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
++- [Material Design 3](https://m3.material.io/)
++- [Apple Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/)
++- [Soft UI Evolution](https://www.figma.com/community/file/1159615734354037418)
+\ No newline at end of file
+diff --git a/docs/dev2/features/video-source/video-api.md b/docs/dev2/features/video-source/video-api.md
+new file mode 100644
+index 0000000..2f2f05c
+--- /dev/null
++++ b/docs/dev2/features/video-source/video-api.md
+@@ -0,0 +1,354 @@
++# 视频相关API文档
++
++## 收藏夹相关API
++
++### 获取收藏夹列表
++```
++GET /x/v3/fav/folder/created/list
++```
++
++**参数**:
++- `pn`: 页码
++- `ps`: 页面大小
++- `up_mid`: UP主ID（可选）
++
++**返回**: 收藏夹列表（id, title, cover, media_count等）
++
++### 获取收藏夹详情
++```
++GET /x/v3/fav/resource/list
++```
++
++**参数**:
++- `media_id`: 收藏夹ID
++- `pn`: 页码
++- `ps`: 页面大小
++- `keyword`: 关键词筛选
++- `order`: 排序方式（view/mtime/pubtime）
++- `type`: 类型筛选
++- `tid`: 分类筛选
++- `platform`: 平台
++
++**返回**: 视频列表（bvid, title, cover, duration, view, danmaku等）
++
++## 稍后再看API
++
++### 获取稍后再看列表
++```
++GET /x/v2/history/toview
++```
++
++**返回**: 稍后再看视频列表
++
++### 添加到稍后再看
++```
++POST /x/v2/history/toview/add
++```
++
++**参数**:
++- `bvid`: 视频BV号
++
++### 从稍后再看删除
++```
++POST /x/v2/history/toview/del
++```
++
++**参数**:
++- `bvid`: 视频BV号
++
++### 清空稍后再看
++```
++POST /x/v2/history/toview/clear
++```
++
++## 视频信息API
++
++### 视频详情
++```
++GET /x/web-interface/view
++```
++
++**参数**:
++- `bvid`: 视频BV号
++- `aid`: 视频AID
++
++**返回**: 完整视频信息（标题、封面、UP主、统计数据、分P信息等）
++
++**注意**: 由于B站加强反爬虫机制，此接口可能返回412错误
++
++### 视频播放地址
++```
++GET /x/player/wbi/playurl
++```
++
++**参数**:
++- `bvid`: 视频BV号
++- `cid`: 视频CID
++- `qn`: 画质
++- `fnval`: 格式值
++- `fnver`: 格式版本
++- `fourk`: 是否4K
++
++**返回**: 视频播放地址（多个清晰度）
++
++### 字幕列表
++```
++GET /x/player/wbi/v2
++```
++
++**参数**:
++- `aid`: 视频AID
++- `cid`: 视频CID
++
++**返回**: 播放器信息，包含字幕列表
++
++**字幕数据结构**:
++```typescript
++{
++  "subtitle": {
++    "subtitles": [
++      {
++        "id": 123456,
++        "lan": "zh-CN",
++        "lan_doc": "中文（中国）",
++        "subtitle_url": "//i0.hdslb.com/bfs/subtitle/...",
++        "author": {
++          "mid": 123456,
++          "name": "UP主名称"
++        }
++      }
++    ]
++  }
++}
++```
++
++**AI字幕**: 语言代码为 `ai-zh`（中文AI）或 `ai-en`（英文AI）
++
++**需要WBI签名**: 此接口需要WBI签名才能正常访问
++
++### 弹幕API
++```
++GET /x/v1/dm/list.so
++```
++
++**参数**:
++- `oid`: 视频OID
++
++**返回**: 弹幕数据（XML格式）
++
++## 统计信息获取（薯片数据）
++
++### 统一统计信息结构
++所有视频资源的统计信息都包含以下7项数据：
++```typescript
++interface MediaStats {
++  play: number;      // 播放量
++  danmaku: number;   // 弹幕数
++  reply: number;     // 评论数
++  like: number;      // 点赞数
++  coin: number;      // 投币数
++  favorite: number;  // 收藏数
++  share: number;     // 转发数
++}
++```
++
++### 统计信息获取方式
++
++#### 1. HTML解析方法（推荐）
++**适用场景**: 视频详情获取
++**优势**: 绕过API限制，获取完整7项统计信息
++
++#### 2. API方法（备用）
++**适用场景**: 番剧、课程等特殊类型
++**注意**: 可能受到B站API限制
++
++#### 3. 收藏夹API方法
++**适用场景**: 收藏夹列表
++**数据来源**: 收藏夹详情API的`cnt_info`字段
++
++## 媒体类型支持
++
++系统支持以下12种媒体类型：
++- `VIDEO` - 普通视频
++- `BANGUMI` - 番剧
++- `MUSIC` - 音乐
++- `MUSIC_LIST` - 歌单
++- `LESSON` - 课程
++- `WATCH_LATER` - 稍后再看
++- `FAVORITE` - 收藏夹
++- `OPUS` - 图文
++- `OPUS_LIST` - 图文合集
++- `USER_VIDEO` - 用户视频
++- `USER_OPUS` - 用户图文
++- `USER_AUDIO` - 用户音频
++
++## 链接识别功能
++
++### ID格式识别
++直接支持以下ID格式：
++- `av12345678` - 视频AV号
++- `BV1xx411c7mh` - 视频BV号
++- `ep12345` - 番剧分集
++- `ss12345` - 番剧季/课程
++- `md12345` - 番剧
++- `au12345` - 音乐
++- `am12345` - 歌单
++- `cv12345` - 图文
++- `rl12345` - 图文合集
++
++### URL格式识别
++支持完整的B站URL格式：
++- 视频URL: `https://www.bilibili.com/video/BV1xx411c7mh`
++- 番剧URL: `https://www.bilibili.com/bangumi/play/ep12345`
++- 稍后再看: `https://www.bilibili.com/watchlater`
++- 收藏夹: `https://space.bilibili.com/123456/favlist?fid=789`
++- 用户空间: `https://space.bilibili.com/123456/video`
++- 短链接: `https://b23.tv/BV1xx411c7mh`
++
++### 特殊处理
++- **短链接**: 自动重定向获取真实URL
++- **BV/AV转换**: 自动支持BV号和AV号的相互识别
++- **路径简化**: 支持无协议前缀的链接
++
++## 后端API端点
++
++### 收藏夹模块 (`/api/favorites`)
++- `GET /api/favorites/folders` - 获取收藏夹列表
++- `GET /api/favorites/folders/{folder_id}` - 获取收藏夹详情
++
++### 稍后再看模块 (`/api/watchlater`)
++- `GET /api/watchlater/list` - 获取稍后再看列表
++
++### 视频模块 (`/api/video`)
++- `GET /api/video/{video_id}` - 获取视频详情
++
++## 数据处理
++
++### MediaDataProcessor类
++**功能**: 统一处理所有媒体类型的数据获取
++**位置**: `apps/api/src/services/media_processor.py`
++
++**核心方法**:
++```python
++class MediaDataProcessor:
++    async def get_media_info(
++        self, 
++        media_id: str, 
++        media_type: MediaType,
++        sessdata: Optional[str] = None,
++        options: Optional[Dict[str, Any]] = None
++    ) -> Dict[str, Any]:
++        """统一的媒体数据获取接口"""
++        if media_type == MediaType.VIDEO:
++            return await self._process_video(media_id, sessdata)
++        elif media_type == MediaType.BANGUMI:
++            return await self._process_bangumi(media_id, sessdata)
++        # ... 其他媒体类型
++```
++
++### 数据结构
++```python
++class MediaStats(BaseModel):
++    """媒体统计信息 - 统一的7项统计数据"""
++    play: Optional[int] = Field(None, description="播放量")
++    danmaku: Optional[int] = Field(None, description="弹幕数")
++    reply: Optional[int] = Field(None, description="评论数")
++    like: Optional[int] = Field(None, description="点赞数")
++    coin: Optional[int] = Field(None, description="投币数")
++    favorite: Optional[int] = Field(None, description="收藏数")
++    share: Optional[int] = Field(None, description="转发数")
++
++class MediaInfo(BaseModel):
++    """媒体信息容器 - 统一的媒体数据结构"""
++    type: MediaType = Field(..., description="媒体类型")
++    id: str = Field(..., description="媒体ID")
++    pn: bool = Field(False, description="是否支持分页")
++    nfo: MediaNfo = Field(..., description="媒体元数据")
++    list: List[MediaItem] = Field(default_factory=list, description="媒体项目列表")
++```
++
++## 反爬虫绕过技术
++
++### HTML解析优势
++- ✅ 绕过API反爬虫机制
++- ✅ 获取完整的7项统计信息
++- ✅ 包含视频元数据和UP主信息
++- ✅ 支持分P视频信息
++- ✅ 稳定性高，不容易被限制
++
++### 请求头优化
++```python
++headers = {
++    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
++    "Referer": f"https://www.bilibili.com/video/{bvid}",
++    "Accept": "application/json, text/plain, */*",
++    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
++    "Accept-Encoding": "gzip, deflate, br",
++    "Connection": "keep-alive",
++    "Sec-Fetch-Dest": "empty",
++    "Sec-Fetch-Mode": "cors",
++    "Sec-Fetch-Site": "same-site",
++    "Origin": "https://www.bilibili.com"
++}
++```
++
++## 前端统计信息显示
++
++### 显示逻辑
++```typescript
++// 所有统计信息都显示，即使数值为0
++<div className="video-card-stats">
++  <span className="stat-item" title="播放量">
++    <Eye />
++    {views}
++  </span>
++  <span className="stat-item" title="弹幕数">
++    <MessageSquare />
++    {danmaku}
++  </span>
++  <!-- 其他统计项 -->
++</div>
++```
++
++### 数据格式化
++```typescript
++// 数字格式化（万级显示）
++const formatNumber = (num: number): string => {
++  if (num >= 10000) {
++    return `${(num / 10000).toFixed(1)}万`
++  }
++  return num.toString()
++}
++```
++
++## 测试工具
++
++### 收藏夹列表测试
++```bash
++curl "http://localhost:8000/api/favorites/folders?sessdata=YOUR_SESSDATA&up_mid=YOUR_MID"
++```
++
++### 视频详情测试
++```bash
++curl "http://localhost:8000/api/video/BV1xx411c7mD"
++```
++
++### 链接解析测试
++```bash
++curl -X POST http://localhost:8000/api/download/parse \
++  -H "Content-Type: application/json" \
++  -d '{"url":"BV1xx411c7mh"}'
++```
++
++## 更新日志
++
++### 2026-03-30
++- ✅ 扩展链接识别功能：从4种类型扩展到12种媒体类型
++- ✅ 完整复刻BiliTools链接识别功能
++- ✅ 实现BV/AV双向转换算法
++- ✅ 支持短链接自动重定向
++- ✅ 支持番剧/课程的完整信息解析
++- ✅ 支持用户视频/图文/音频列表
++- ✅ 实现HTML页面数据提取绕过API限制
++- ✅ 统一7项统计数据获取
++- ✅ 解决B站API 412 Precondition Failed错误
+\ No newline at end of file
+diff --git a/docs/dev2/implementation/bilitools-reference.md b/docs/dev2/implementation/bilitools-reference.md
+new file mode 100644
+index 0000000..42c1ce5
+--- /dev/null
++++ b/docs/dev2/implementation/bilitools-reference.md
+@@ -0,0 +1,552 @@
++# BiliTools 设置面板参考文档
++
++## 概述
++
++本文档详细说明了BiliTools设置面板的数据结构、存储方式和管理机制，为PiliNote项目的设置系统设计提供参考。
++
++## 完整的设置数据结构
++
++### Settings 类型定义
++
++```typescript
++type Settings = {
++  // 通用设置
++  add_metadata: boolean;           // 添加元数据
++  auto_check_update: boolean;      // 自动检查更新
++  auto_download: boolean;          // 自动下载
++  block_pcdn: boolean;             // 阻止PCDN
++  check_update: boolean;           // 检查更新
++  clipboard: boolean;              // 剪贴板监听
++  convert: {
++    danmaku: boolean;              // 转换弹幕
++    mp3: boolean;                  // 转换MP3
++    mp4: boolean;                  // 转换MP4
++  };
++  default: {
++    res: number;                   // 默认分辨率
++    abr: number;                   // 默认音频码率
++    enc: number;                   // 默认编码
++  };
++  down_dir: string;                // 下载目录
++  drag_search: boolean;            // 拖拽搜索
++  format: {
++    series: string;                // 系列命名格式
++    item: string;                  // 项目命名格式
++    file: string;                  // 文件命名格式
++  };
++  language: string;                // 语言
++  max_conc: number;                // 最大并发数
++  notify: boolean;                 // 通知
++  temp_dir: string;                // 临时目录
++  theme: 'light' | 'dark' | 'auto'; // 主题
++  window_effect: 'auto' | 'mica' | 'acrylic' | 'sidebar' | 'none'; // 窗口效果
++  organize: {
++    auto_rename: boolean;          // 自动重命名
++    top_folder: boolean;           // 顶层文件夹
++    sub_folder: boolean;           // 子文件夹
++  };
++  proxy: {
++    address: string;               // 代理地址
++    username: string;              // 代理用户名
++    password: string;              // 代理密码
++  };
++  sidecar: {
++    aria2c: string;                // aria2c路径
++    ffmpeg: string;                // ffmpeg路径
++    danmakufactory: string;        // danmakufactory路径
++  };
++  speed_limit: number;             // 速度限制
++}
++```
++
++## 设置页面分类
++
++### 1. 通用设置
++
++#### 语言
++- 选项：多语言支持
++- 类型：`string`
++- 默认值：根据系统语言自动选择
++
++#### 主题
++- 选项：`light` | `dark` | `auto`
++- 类型：`string`
++- 默认值：`auto`
++- 说明：自动主题根据系统主题切换
++
++#### 窗口效果
++- 选项：`auto` | `mica` | `acrylic` | `sidebar` | `none`
++- 类型：`string`
++- 默认值：`auto`
++- 说明：
++  - `auto`: 根据平台自动选择
++  - `mica`: Windows 11+ Mica效果
++  - `acrylic`: Windows 10+ Acrylic效果
++  - `sidebar`: macOS Sidebar效果
++  - `none`: 无窗口效果
++
++#### 剪贴板监听
++- 类型：`boolean`
++- 默认值：`false`
++- 说明：监听剪贴板自动解析B站链接
++
++#### 拖拽搜索
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：支持拖拽链接到应用内搜索
++
++#### 通知
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：下载完成时显示系统通知
++
++#### 自动下载
++- 类型：`boolean`
++- 默认值：`false`
++- 说明：解析后自动开始下载
++
++#### 自动检查更新
++- 类型：`boolean`
++- 默认值：`false`
++- 说明：启动时自动检查应用更新
++
++### 2. 存储设置
++
++#### 下载目录
++- 类型：`string`
++- 默认值：用户下载目录
++- 说明：视频文件保存路径
++
++#### 临时目录
++- 类型：`string`
++- 默认值：系统临时目录
++- 说明：临时文件存储路径
++
++#### 辅助工具路径
++##### aria2c路径
++- 类型：`string`
++- 说明：aria2c下载工具路径
++- 过滤器：`Executable File (*.exe)`
++
++##### ffmpeg路径
++- 类型：`string`
++- 说明：ffmpeg视频处理工具路径
++- 过滤器：`Executable File (*.exe)`
++
++##### danmakufactory路径
++- 类型：`string`
++- 说明：弹幕处理工具路径
++- 过滤器：`Executable File (*.exe)`
++
++#### 缓存管理
++##### 缓存类型
++- `log`: 日志缓存
++- `temp`: 临时缓存
++- `webview`: WebView缓存
++- `database`: 数据库缓存
++
++##### 操作
++- 查看缓存大小
++- 清理指定缓存
++- 打开缓存目录
++
++#### 数据库管理
++##### 导入数据库
++- 选择数据库文件导入
++- 支持数据恢复
++
++##### 导出数据库
++- 选择保存路径
++- 文件名格式：`Storage_{timestamp}`
++- 支持数据备份
++
++### 3. 下载设置
++
++#### 默认质量设置
++
++##### 分辨率
++- 类型：`number`
++- 选项：B站支持的分辨率级别
++- 说明：默认视频分辨率
++
++##### 音频码率
++- 类型：`number`
++- 选项：B站支持的音频码率
++- 说明：默认音频码率
++
++##### 编码
++- 类型：`number`
++- 选项：B站支持的编码格式
++- 说明：默认视频编码
++
++#### 最大并发数
++- 类型：`number`
++- 选项：1-5
++- 默认值：根据系统性能自动选择
++- 说明：同时下载的最大任务数
++
++#### 速度限制
++- 类型：`number`
++- 单位：MiB/s
++- 最大值：10 GiB/s
++- 说明：下载速度限制，0表示不限制
++
++#### 代理设置
++
++##### 代理地址
++- 类型：`string`
++- 格式：`http://proxy.example.com:port` 或 `socks5://proxy.example.com:port`
++- 占位符：代理地址示例
++
++##### 代理用户名
++- 类型：`string`
++- 说明：代理认证用户名（可选）
++
++##### 代理密码
++- 类型：`string`
++- 说明：代理认证密码（可选）
++
++### 4. 策略设置
++
++#### 添加元数据
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：下载时添加NFO等元数据文件
++
++#### 阻止PCDN
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：阻止使用PCDN节点，提高下载速度
++
++#### 转换设置
++
++##### 转换弹幕
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：将弹幕转换为ASS等格式
++
++##### 转换MP3
++- 类型：`boolean`
++- 默认值：`false`
++- 说明：提取音频并转换为MP3格式
++
++##### 转换MP4
++- 类型：`boolean`
++- 默认值：`false`
++- 说明：转换视频为MP4容器格式
++
++#### 文件组织
++
++##### 自动重命名
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：根据命名规则自动重命名文件
++
++##### 顶层文件夹
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：为每个系列创建顶层文件夹
++
++##### 子文件夹
++- 类型：`boolean`
++- 默认值：`true`
++- 说明：为每个项目创建子文件夹
++
++参考文档：https://btjawa.top/bilitools/organize
++
++### 5. 格式设置
++
++#### 命名格式
++
++##### 系列命名格式
++- 类型：`string`
++- 说明：文件夹命名规则
++- 占位符示例：
++  - `{title}`: 系列标题
++  - `{up}`: UP主名称
++  - `{pubtime:YYYY-MM-DD}`: 发布时间
++  - `{mid}`: UP主MID
++
++##### 项目命名格式
++- 类型：`string`
++- 说明：项目文件夹命名规则
++- 占位符示例：
++  - `{title}`: 项目标题
++  - `{idx}`: 项目序号
++  - `{bvid}`: 视频BV号
++  - `{pubtime:YYYY-MM-DD}`: 发布时间
++
++##### 文件命名格式
++- 类型：`string`
++- 说明：文件命名规则
++- 占位符示例：
++  - `{title}`: 视频标题
++  - `{idx}`: 视频序号
++  - `{part}`: 分P序号
++  - `{pubtime:YYYY-MM-DD_HH-mm-ss}`: 完整时间戳
++  - `{bvid}`: 视频BV号
++  - `{aid}`: 视频AID
++  - `{p}`: 分P序号
++  - `{quality}`: 视频质量
++  - `{res}`: 分辨率
++  - `{fps}`: 帧率
++  - `{codec}`: 编码格式
++  - `{size}`: 文件大小
++
++#### 命名模板快捷按钮
++- 系列模板：`{pubtime:YYYY-MM-DD} {title}`, `{title}`, `{up} - {title}`
++- 项目模板：`{title}`, `{idx:02d} {title}`, `{bvid}`, `{pubtime:YYYY-MM-DD} {title}`
++- 文件模板：`{title}`, `{p} {title}`, `{idx:02d} {title}`, `{pubtime:YYYY-MM-DD_HH-mm-ss} {title}`
++
++参考文档：https://btjawa.top/bilitools/naming
++
++## 数据管理方式
++
++### 1. Pinia Store管理
++
++#### Store定义
++```typescript
++export const useSettingsStore = defineStore('settings', () => {
++  const s = reactive<Settings>({
++    add_metadata: true,
++    auto_check_update: false,
++    auto_download: false,
++    block_pcdn: true,
++    check_update: true,
++    clipboard: false,
++    convert: {
++      danmaku: true,
++      mp3: false,
++      mp4: false,
++    },
++    default: {
++      res: Number(),
++      abr: Number(),
++      enc: Number(),
++    },
++    down_dir: String(),
++    drag_search: true,
++    format: {
++      series: String(),
++      item: String(),
++      file: String(),
++    },
++    language: String(),
++    max_conc: Number(),
++    notify: true,
++    temp_dir: String(),
++    theme: 'auto',
++    window_effect: 'auto',
++    organize: {
++      auto_rename: true,
++      top_folder: true,
++      sub_folder: true,
++    },
++    proxy: {
++      address: String(),
++      username: String(),
++      password: String(),
++    },
++    sidecar: {
++      aria2c: String(),
++      ffmpeg: String(),
++      danmakufactory: String(),
++    },
++    speed_limit: Number(),
++  });
++
++  const isDark = ref(false);
++
++  const observer = new MutationObserver(() => {
++    isDark.value = document.documentElement.classList.contains('dark');
++  });
++
++  observer.observe(document.documentElement, {
++    attributes: true,
++    attributeFilter: ['class'],
++  });
++
++  const proxyUrl = computed(() => {
++    if (!s.proxy.address.length) return null;
++    const url = new URL(s.proxy.address);
++    url.username = s.proxy.username || '';
++    url.password = s.proxy.password || '';
++    return url.toString();
++  });
++
++  const proxyConfig = computed(() => ({
++    url: s.proxy.address || '*',
++    basicAuth: {
++      username: s.proxy.username,
++      password: s.proxy.password,
++    },
++    noProxy: s.proxy.address ? undefined : '*',
++  }));
++
++  return { ...toRefs(s), isDark, proxyUrl, proxyConfig };
++});
++```
++
++#### 特点
++- 使用Vue 3 Composition API
++- 响应式数据管理
++- 计算属性自动更新
++- 主题实时监听
++
++### 2. Tauri后端存储
++
++#### 配置写入
++```typescript
++async configWrite(settings: Partial<{ [key in string]: JsonValue }>): Promise<Result<null, TauriError>>
++```
++
++#### 特点
++- 双向数据绑定
++- 自动持久化
++- 部分更新支持
++- 错误处理机制
++
++### 3. 缓存管理
++
++#### 获取缓存大小
++```typescript
++async getSize(key: CacheKey, event: TAURI_CHANNEL<number>): Promise<Result<null, TauriError>>
++```
++
++#### 清理缓存
++```typescript
++async cleanCache(key: CacheKey): Promise<Result<null, TauriError>>
++```
++
++#### 打开缓存目录
++```typescript
++async openCache(key: CacheKey): Promise<Result<null, TauriError>>
++```
++
++#### 缓存类型
++- `log`: 日志文件
++- `temp`: 临时文件
++- `webview`: WebView缓存
++- `database`: 数据库文件
++
++### 4. 数据库管理
++
++#### 导入数据库
++```typescript
++async dbImport(input: string): Promise<Result<null, TauriError>>
++```
++
++#### 导出数据库
++```typescript
++async dbExport(output: string): Promise<Result<null, TauriError>>
++```
++
++#### 特点
++- 支持数据备份
++- 支持数据迁移
++- 支持数据恢复
++
++## 关键特点
++
++### 1. 响应式数据管理
++- Vue 3 + Pinia实现
++- 自动响应式更新
++- 计算属性自动计算
++
++### 2. 分层存储架构
++- 前端：Pinia Store
++- 后端：Tauri配置文件
++- 数据同步：自动双向绑定
++
++### 3. 类型安全
++- 完整的TypeScript类型定义
++- 编译时类型检查
++- IDE智能提示
++
++### 4. 实时同步
++- 设置修改立即生效
++- 自动保存到后端
++- 无需手动保存
++
++### 5. 缓存管理
++- 分类缓存管理
++- 查看缓存大小
++- 一键清理缓存
++
++### 6. 数据备份
++- 数据库导入导出
++- 支持完整备份
++- 支持数据迁移
++
++### 7. 命名模板
++- 自定义命名规则
++- 丰富的占位符
++- 快捷模板按钮
++
++### 8. 代理支持
++- HTTP/HTTPS代理
++- SOCKS5代理
++- 用户名密码认证
++
++### 9. 性能优化
++- 最大并发数控制
++- 速度限制功能
++- 阻止PCDN节点
++
++### 10. 主题系统
++- 浅色/深色/自动主题
++- 多种窗口效果
++- 平台自适应
++
++## PiliNote应用建议
++
++### 1. 数据库表设计
++```sql
++CREATE TABLE settings (
++    id INTEGER PRIMARY KEY,
++    key VARCHAR(100) UNIQUE NOT NULL,
++    value TEXT NOT NULL,
++    type VARCHAR(20) NOT NULL,  -- boolean, string, number, object
++    category VARCHAR(50),       -- general, storage, download, strategy, format
++    description TEXT,
++    default_value TEXT,
++    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
++    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
++);
++```
++
++### 2. 必需设置项
++- 下载目录
++- 默认视频质量
++- 最大并发数
++- 主题设置
++
++### 3. 可选设置项
++- 代理设置
++- 速度限制
++- 命名格式
++- 文件组织规则
++
++### 4. 参考实现
++- 使用Pinia Store管理前端状态
++- 通过API同步到后端数据库
++- 实现设置导入导出功能
++- 支持缓存管理和清理
++
++### 5. 差异化考虑
++- PiliNote是Web应用，不需要窗口效果
++- PiliNote的下载策略可能更简单
++- PiliNote可以增加更多云存储相关设置
++- PiliNote的命名格式可以更灵活
++
++## 总结
++
++BiliTools的设置系统设计非常完善，具有以下优点：
++
++1. **全面性**：覆盖了用户可能需要的所有配置选项
++2. **易用性**：直观的分类和清晰的说明
++3. **灵活性**：支持自定义命名和多种配置
++4. **可靠性**：完善的备份和恢复机制
++5. **性能**：精细的性能控制和优化选项
++
++PiliNote可以参考这个设计，结合Web应用特点，构建自己的设置系统。
+\ No newline at end of file
+diff --git a/docs/dev2/implementation/html-parsing.md b/docs/dev2/implementation/html-parsing.md
+new file mode 100644
+index 0000000..ad250a7
+--- /dev/null
++++ b/docs/dev2/implementation/html-parsing.md
+@@ -0,0 +1,646 @@
++# HTML解析方法 - 绕过B站API限制
++
++## 背景
++
++B站于2026年3月底加强了API反爬虫机制，导致`/x/web-interface/view`等核心接口频繁返回`412 Precondition Failed`错误。为了解决这个问题，我们开发了HTML解析方法，通过解析B站视频页面的HTML内容来获取完整的视频信息。
++
++## 问题分析
++
++### API限制症状
++```
++Client error '412 Precondition Failed' for url 
++'https://api.bilibili.com/x/web-interface/view?bvid=BV1xx411c7mh'
++```
++
++### 常规解决方案失效
++1. **添加Referer头**: 效果有限，仍然返回412
++2. **完善User-Agent**: 无法绕过限制
++3. **添加Cookie**: 仍然被限制
++4. **使用不同User-Agent**: 多种UA都失败
++
++### 根本原因
++B站API加强了反爬虫机制，可能包括：
++- IP地址限制
++- 请求频率限制
++- 浏览器指纹检测
++- 动态验证机制
++
++## HTML解析方案
++
++### 核心原理
++B站视频页面在前端渲染时会将完整的视频数据嵌入到HTML中的`__INITIAL_STATE__`变量里，我们可以通过解析这个变量来获取完整的视频信息。
++
++### 技术优势
++- ✅ **绕过API限制**: 不直接调用API接口
++- ✅ **数据完整性**: 包含所有需要的字段
++- ✅ **稳定性高**: 前端页面相对稳定
++- ✅ **获取成本低**: 单次HTTP请求即可获取完整数据
++- ✅ **兼容性好**: 适用于各种视频类型
++
++## 实现细节
++
++### 数据提取流程
++
++#### 1. 获取视频页面
++```python
++async def get_video_page(bvid: str) -> str:
++    url = f"https://www.bilibili.com/video/{bvid}"
++    headers = {
++        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
++        "Referer": f"https://www.bilibili.com/video/{bvid}",
++        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
++    }
++    
++    async with httpx.AsyncClient(timeout=30.0) as client:
++        response = await client.get(url, headers=headers)
++        response.raise_for_status()
++        return response.text
++```
++
++#### 2. 提取INITIAL_STATE数据
++```python
++def extract_initial_state(html: str) -> Optional[Dict]:
++    """从HTML中提取__INITIAL_STATE__数据"""
++    patterns = [
++        r'__INITIAL_STATE__\s*=\s*({.*?});',                    # 标准格式
++        r'window\.__INITIAL_STATE__\s*=\s*({.*?});',             # window对象
++        r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'      # script标签内
++    ]
++    
++    for pattern in patterns:
++        match = re.search(pattern, html, re.DOTALL)
++        if match:
++            try:
++                return json.loads(match.group(1))
++            except json.JSONDecodeError:
++                continue
++    
++    return None
++```
++
++#### 3. 解析视频数据
++```python
++def parse_video_data(state_data: Dict) -> Optional[Dict]:
++    """从INITIAL_STATE中解析视频数据"""
++    if 'videoData' not in state_data:
++        return None
++    
++    video_data = state_data['videoData']
++    
++    return {
++        'bvid': video_data.get('bvid'),
++        'aid': video_data.get('aid'),
++        'title': video_data.get('title'),
++        'desc': video_data.get('desc'),
++        'pic': video_data.get('pic'),
++        'duration': video_data.get('duration'),
++        'pubdate': video_data.get('pubdate'),
++        'owner': video_data.get('owner'),
++        'stat': video_data.get('stat', {}),
++        'pages': video_data.get('pages', []),
++        'upData': state_data.get('upData', {}),
++        'staffData': state_data.get('staffData', {})
++    }
++```
++
++#### 4. 提取统计信息
++```python
++def extract_stats(video_data: Dict) -> Dict[str, int]:
++    """提取7项统计信息"""
++    stat = video_data.get('stat', {})
++    
++    return {
++        'play': stat.get('view', 0),
++        'danmaku': stat.get('danmaku', 0),
++        'reply': stat.get('reply', 0),
++        'like': stat.get('like', 0),
++        'coin': stat.get('coin', 0),
++        'favorite': stat.get('favorite', 0),
++        'share': stat.get('share', 0)
++    }
++```
++
++### 完整实现示例
++
++```python
++async def get_video_info_via_html(bvid: str) -> Dict[str, Any]:
++    """通过HTML解析获取视频信息"""
++    try:
++        # 1. 获取视频页面
++        html = await get_video_page(bvid)
++        
++        # 2. 提取INITIAL_STATE
++        state_data = extract_initial_state(html)
++        if not state_data:
++            return {
++                "success": False,
++                "message": "无法从页面中提取视频数据"
++            }
++        
++        # 3. 解析视频数据
++        video_data = parse_video_data(state_data)
++        if not video_data:
++            return {
++                "success": False,
++                "message": "视频数据格式异常"
++            }
++        
++        # 4. 构建返回结果
++        stat = extract_stats(video_data)
++        owner = video_data.get('owner', {})
++        
++        return {
++            "success": True,
++            "data": {
++                "bvid": video_data.get('bvid'),
++                "aid": video_data.get('aid'),
++                "title": video_data.get('title'),
++                "desc": video_data.get('desc'),
++                "pic": video_data.get('pic'),
++                "duration": video_data.get('duration'),
++                "pubdate": video_data.get('pubdate'),
++                "cid": video_data.get('pages', [{}])[0].get('cid', 0),
++                "owner": {
++                    "mid": owner.get('mid', 0),
++                    "name": owner.get('name', ''),
++                    "face": owner.get('face', '')
++                },
++                "stat": stat,
++                "pages": video_data.get('pages', [])
++            }
++        }
++        
++    except Exception as e:
++        return {
++            "success": False,
++            "message": f"HTML解析失败: {str(e)}"
++        }
++```
++
++## 数据结构详解
++
++### INITIAL_STATE结构
++```javascript
++__INITIAL_STATE__ = {
++  // 视频数据
++  videoData: {
++    aid: 725206720,
++    bvid: "BV1PS4y1m79X",
++    title: "视频标题",
++    desc: "视频描述",
++    pic: "https://i0.hdslb.com/bfs/archive/...",
++    duration: 418,
++    pubdate: 1648349780,
++    
++    // 统计信息（7项薯片数据）
++    stat: {
++      aid: 725206720,
++      view: 165939,      // 播放量
++      danmaku: 229,      // 弹幕数
++      reply: 338,        // 评论数
++      favorite: 6362,    // 收藏数
++      coin: 1440,        // 投币数
++      share: 1363,       // 转发数
++      now_rank: 0,
++      his_rank: 0,
++      like: 4358,        // 点赞数
++      dislike: 0
++    },
++    
++    // 分P信息
++    pages: [
++      {
++        cid: 559932215,
++        page: 1,
++        part: "分P标题",
++        duration: 418
++      }
++    ],
++    
++    // UP主信息
++    owner: {
++      mid: 123456,
++      name: "UP主名称",
++      face: "https://i2.hdslb.com/bfs/face/..."
++    }
++  },
++  
++  // UP主详情
++  upData: {
++    mid: 123456,
++    name: "UP主名称",
++    sex: "男",
++    face: "https://i2.hdslb.com/bfs/face/...",
++    sign: "签名",
++    level: 6,
++    official: {
++      role: 1,
++      title: "知名UP主",
++      desc: "认证信息"
++    }
++  },
++  
++  // 分区信息
++  tags: [
++    { tag_id: 123, tag_name: "标签1" },
++    { tag_id: 456, tag_name: "标签2" }
++  ]
++}
++```
++
++## 集成到现有系统
++
++### 替换API调用
++```python
++# 原来的API调用方法
++async def get_video_info_old(bvid: str):
++    response = await client.get(
++        "https://api.bilibili.com/x/web-interface/view",
++        params={"bvid": bvid},
++        headers=headers
++    )
++    # 可能返回412错误
++
++# 新的HTML解析方法
++async def get_video_info_new(bvid: str):
++    return await get_video_info_via_html(bvid)
++    # 绕过API限制，成功率更高
++```
++
++### 在MediaDataProcessor中的应用
++```python
++class MediaDataProcessor:
++    async def _process_video(self, bvid: str, sessdata: Optional[str]) -> Dict[str, Any]:
++        """处理视频类型 - 使用HTML解析方法"""
++        try:
++            # 使用HTML解析方法获取视频信息
++            result = await get_video_info_via_html(bvid)
++            
++            if result['success']:
++                video_data = result['data']
++                
++                # 构建MediaStats
++                stat = MediaStats(**video_data['stat'])
++                
++                # 构建MediaUpper
++                owner = video_data['owner']
++                upper = MediaUpper(
++                    name=owner['name'],
++                    mid=owner['mid'],
++                    avatar=owner['face']
++                )
++                
++                # 构建MediaNfo
++                nfo = MediaNfo(
++                    showtitle=video_data['title'],
++                    intro=video_data['desc'],
++                    url=f"https://www.bilibili.com/video/{bvid}",
++                    stat=stat,
++                    thumbs=[MediaThumbnail(id="cover", url=video_data['pic'])],
++                    premiered=video_data['pubdate'],
++                    upper=upper
++                )
++                
++                # 构建MediaItem列表
++                items = []
++                for i, page in enumerate(video_data['pages']):
++                    items.append(MediaItem(
++                        title=page['part'],
++                        cover=video_data['pic'],
++                        desc=video_data['desc'],
++                        duration=page['duration'],
++                        pubtime=video_data['pubdate'],
++                        is_target=(i == 0),
++                        type=MediaType.VIDEO,
++                        url=f"https://www.bilibili.com/video/{bvid}",
++                        aid=video_data['aid'],
++                        bvid=bvid,
++                        cid=page['cid'],
++                        index=i,
++                        stat=stat
++                    ))
++                
++                return {
++                    "success": True,
++                    "data": MediaInfo(
++                        type=MediaType.VIDEO,
++                        id=bvid,
++                        pn=len(items) > 1,
++                        nfo=nfo,
++                        list=items
++                    )
++                }
++                
++        except Exception as e:
++            return {
++                "success": False,
++                "message": f"获取视频信息失败: {str(e)}"
++            }
++```
++
++## 性能优化
++
++### 缓存策略
++```python
++from functools import lru_cache
++import hashlib
++
++# 缓存视频信息，避免重复请求
++@lru_cache(maxsize=100)
++def get_video_info_cache_key(bvid: str) -> str:
++    """生成缓存键"""
++    return hashlib.md5(bvid.encode()).hexdigest()
++
++async def get_video_info_with_cache(bvid: str, ttl: int = 3600) -> Dict[str, Any]:
++    """带缓存的视频信息获取"""
++    cache_key = get_video_info_cache_key(bvid)
++    
++    # 检查缓存
++    cached_data = redis_client.get(cache_key)
++    if cached_data:
++        return json.loads(cached_data)
++    
++    # 获取新数据
++    result = await get_video_info_via_html(bvid)
++    
++    # 存入缓存
++    if result['success']:
++        redis_client.setex(cache_key, ttl, json.dumps(result))
++    
++    return result
++```
++
++### 并发处理
++```python
++async def get_multiple_videos_info(bvids: List[str]) -> Dict[str, Dict]:
++    """批量获取视频信息"""
++    tasks = [get_video_info_via_html(bvid) for bvid in bvids]
++    results = await asyncio.gather(*tasks, return_exceptions=True)
++    
++    return {
++        bvid: result if isinstance(result, dict) else {"success": False, "message": str(result)}
++        for bvid, result in zip(bvids, results)
++    }
++```
++
++## 测试验证
++
++### 功能测试
++```python
++async def test_html_parsing():
++    """测试HTML解析功能"""
++    test_cases = [
++        "BV1PS4y1m79X",  # 普通视频
++        "BV1xx411c7mD",  # 老视频
++        "BV1TDQoBTEZX",  # 新视频
++    ]
++    
++    for bvid in test_cases:
++        result = await get_video_info_via_html(bvid)
++        print(f"BV: {bvid}")
++        print(f"  成功: {result['success']}")
++        if result['success']:
++            video_data = result['data']
++            print(f"  标题: {video_data['title']}")
++            print(f"  统计: {video_data['stat']}")
++        else:
++            print(f"  错误: {result['message']}")
++```
++
++### 性能测试
++```python
++async def test_performance():
++    """性能测试"""
++    import time
++    
++    start_time = time.time()
++    result = await get_video_info_via_html("BV1PS4y1m79X")
++    end_time = time.time()
++    
++    print(f"耗时: {end_time - start_time:.2f}秒")
++    print(f"结果: {result['success']}")
++```
++
++## 错误处理
++
++### 常见错误
++```python
++async def robust_get_video_info(bvid: str) -> Dict[str, Any]:
++    """健壮的视频信息获取"""
++    try:
++        # 1. 尝试HTML解析方法
++        result = await get_video_info_via_html(bvid)
++        if result['success']:
++            return result
++        
++        # 2. HTML解析失败，尝试API方法
++        api_result = await get_video_info_via_api(bvid)
++        if api_result['success']:
++            return api_result
++        
++        # 3. 两种方法都失败
++        return {
++            "success": False,
++            "message": f"获取视频信息失败: HTML解析({result.get('message')}) 和 API({api_result.get('message')}) 都失败"
++        }
++        
++    except Exception as e:
++        return {
++            "success": False,
++            "message": f"系统错误: {str(e)}"
++        }
++```
++
++## 最佳实践
++
++### 1. 请求头设置
++```python
++headers = {
++    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
++    "Referer": f"https://www.bilibili.com/video/{bvid}",
++    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
++    "Connection": "keep-alive"
++}
++```
++
++### 2. 超时控制
++```python
++async def get_video_info_with_timeout(bvid: str, timeout: int = 30) -> Dict[str, Any]:
++    """带超时控制的视频信息获取"""
++    try:
++        async with httpx.AsyncClient(timeout=timeout) as client:
++            # ... 实现代码
++            pass
++    except httpx.TimeoutException:
++        return {
++            "success": False,
++            "message": f"请求超时（{timeout}秒）"
++        }
++```
++
++### 3. 重试机制
++```python
++async def get_video_info_with_retry(bvid: str, max_retries: int = 3) -> Dict[str, Any]:
++    """带重试的视频信息获取"""
++    for attempt in range(max_retries):
++        result = await get_video_info_via_html(bvid)
++        
++        if result['success']:
++            return result
++        
++        if attempt < max_retries - 1:
++            await asyncio.sleep(2 ** attempt)  # 指数退避
++        else:
++            return result
++```
++
++## 扩展应用场景
++
++### 收藏页统计数据获取
++```python
++async def _process_favorite(self, media_id: str, sessdata: Optional[str], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
++    """处理收藏夹类型 - 使用HTML解析获取完整统计信息"""
++    
++    # 获取收藏夹列表
++    medias = data["data"]["medias"]
++    
++    items = []
++    for i, media in enumerate(medias):
++        bvid = media.get("bvid", "")
++        
++        # 为每个视频使用HTML解析方法获取完整统计信息
++        if bvid:
++            video_headers = self._build_complete_headers(bvid, sessdata)
++            
++            try:
++                html_response = await client.get(
++                    f"https://www.bilibili.com/video/{bvid}",
++                    headers=video_headers,
++                    follow_redirects=True
++                )
++                
++                video_data = self._extract_video_data(html_response.text)
++                
++                if video_data:
++                    item_stat = MediaStats(
++                        play=video_data.get("stat", {}).get("view", 0),
++                        danmaku=video_data.get("stat", {}).get("danmaku", 0),
++                        reply=video_data.get("stat", {}).get("reply", 0),
++                        like=video_data.get("stat", {}).get("like", 0),
++                        coin=video_data.get("stat", {}).get("coin", 0),
++                        favorite=video_data.get("stat", {}).get("favorite", 0),
++                        share=video_data.get("stat", {}).get("share", 0)
++                    )
++                else:
++                    # 回退到收藏夹API数据
++                    item_stat = MediaStats(**media.get("cnt_info", {}))
++            except Exception:
++                # 异常时使用收藏夹API数据
++                item_stat = MediaStats(**media.get("cnt_info", {}))
++```
++
++### 稍后再看页统计数据获取
++```python
++async def _process_watchlater(self, sessdata: Optional[str], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
++    """处理稍后再看类型 - 使用HTML解析获取完整统计信息"""
++    
++    # 获取稍后再看列表
++    list_data = data["data"]["list"]
++    
++    items = []
++    for i, video in enumerate(list_data):
++        bvid = video.get("bvid", "")
++        
++        # 为每个视频使用HTML解析方法获取完整统计信息
++        if bvid:
++            video_headers = self._build_complete_headers(bvid, sessdata)
++            
++            try:
++                html_response = await client.get(
++                    f"https://www.bilibili.com/video/{bvid}",
++                    headers=video_headers,
++                    follow_redirects=True
++                )
++                
++                video_data = self._extract_video_data(html_response.text)
++                
++                if video_data:
++                    stat = MediaStats(
++                        play=video_data.get("stat", {}).get("view", 0),
++                        danmaku=video_data.get("stat", {}).get("danmaku", 0),
++                        reply=video_data.get("stat", {}).get("reply", 0),
++                        like=video_data.get("stat", {}).get("like", 0),
++                        coin=video_data.get("stat", {}).get("coin", 0),
++                        favorite=video_data.get("stat", {}).get("favorite", 0),
++                        share=video_data.get("stat", {}).get("share", 0)
++                    )
++                else:
++                    # 回退到稍后再看API数据
++                    stat = MediaStats(**video.get("cnt_info", {}))
++            except Exception:
++                # 异常时使用稍后再看API数据
++                stat = MediaStats(**video.get("cnt_info", {}))
++```
++
++### Headers构建辅助函数
++```python
++def _build_complete_headers(self, bvid: str, sessdata: Optional[str]) -> Dict[str, str]:
++    """构建完整的请求headers"""
++    
++    # 构建cookie字符串
++    cookies = []
++    for key, value in self.default_cookies.items():
++        cookies.append(f"{key}={value}")
++    
++    if sessdata:
++        cookies.append(f"SESSDATA={sessdata}")
++    
++    # 构建完整headers
++    headers = {
++        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
++        "Referer": f"https://www.bilibili.com/video/{bvid}",
++        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
++        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
++        "Accept-Encoding": "gzip, deflate, br",
++        "Connection": "keep-alive",
++        "Sec-Fetch-Dest": "empty",
++        "Sec-Fetch-Mode": "cors",
++        "Sec-Fetch-Site": "same-site",
++        "Origin": "https://www.bilibili.com",
++        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
++        "Sec-Ch-Ua-Mobile": "?0",
++        "Sec-Ch-Ua-Platform": '"Windows"'
++    }
++    
++    if cookies:
++        headers["Cookie"] = "; ".join(cookies)
++    
++    return headers
++```
++
++### 关键注意事项
++
++1. **Headers完整性**: 必须使用完整的headers，否则B站可能限制返回的数据
++2. **Referer设置**: 必须设置为具体的视频URL，不能是通用值
++3. **Cookie组合**: 必须包含default_cookies和SESSDATA
++4. **容错处理**: HTML解析失败时要回退到API数据
++5. **性能考虑**: 每个视频需要单独请求，控制每页数量（默认20条）
++
++## 总结
++
++HTML解析方法成功解决了B站API反爬虫限制的问题，具有以下优势：
++
++1. **绕过限制**: 不直接调用受限的API接口
++2. **数据完整**: 获取完整的7项统计信息
++3. **稳定性高**: 前端页面相对稳定
++4. **易于维护**: 代码简洁，逻辑清晰
++5. **兼容性好**: 适用于各种视频类型
++
++通过将HTML解析方法集成到`MediaDataProcessor`中，我们成功恢复了所有视频相关功能，包括视频解析、统计信息获取等。
++
++## 参考资料
++- B站前端源码分析
++- JavaScript数据提取技术
++- HTTP客户端最佳实践
++- 反爬虫绕过技术
+\ No newline at end of file
+diff --git a/docs/dev2/tech-stack/tech-stack.md b/docs/dev2/tech-stack/tech-stack.md
+new file mode 100644
+index 0000000..ec1a367
+--- /dev/null
++++ b/docs/dev2/tech-stack/tech-stack.md
+@@ -0,0 +1,37 @@
++# 技术栈方案
++
++## 后端技术栈
++- **语言**: Python 3.11+
++- **Web框架**: FastAPI 0.104+
++- **下载引擎**: yt-dlp
++- **ORM**: SQLAlchemy 2.0+
++- **数据库**: SQLite (开发) / PostgreSQL (生产)
++- **任务队列**: Celery 5.3+ + Redis 7.0+
++- **数据验证**: Pydantic v2
++- **HTTP客户端**: httpx / aiohttp
++
++## 前端技术栈
++- **框架**: React 18+
++- **构建工具**: Vite 5.0+
++- **语言**: TypeScript 5.0+
++- **样式**: Tailwind CSS 3.4+ / shadcn/ui
++- **状态管理**: TanStack Query / Zustand
++- **路由**: React Router v6
++- **实时通信**: Socket.io-client / EventSource
++- **动画库**: @formkit/auto-animate
++
++## 桌面端技术栈
++- **框架**: Electron 28+
++- **构建工具**: electron-builder
++- **支持平台**: Windows, macOS, Linux
++
++## 部署技术栈
++- **容器化**: Docker + Docker Compose
++- **反向代理**: Caddy / Nginx
++- **进程管理**: Systemd / Supervisor
++
++## 参考项目
++- **认证实现**: `reference/pilipala/`
++- **自托管架构**: `reference/hermes/`
++- **Electron应用**: `reference/vidbee/`
++- **B站下载器**: `reference/bilibili-downloader/`
+\ No newline at end of file

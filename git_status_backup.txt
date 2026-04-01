@@ -1,0 +1,26 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   docs/dev2/README.md
+	new file:   docs/dev2/architecture/mvc-architecture.md
+	new file:   docs/dev2/architecture/project-structure.md
+	new file:   docs/dev2/architecture/system-architecture.drawio
+	new file:   docs/dev2/deployment/deployment.md
+	new file:   docs/dev2/features/authentication/api-auth.md
+	new file:   docs/dev2/features/authentication/auth-solution.md
+	new file:   docs/dev2/features/download/download-engine.md
+	new file:   docs/dev2/features/download/download-management.md
+	new file:   docs/dev2/features/download/download-settings.md
+	new file:   docs/dev2/features/ui-design/ui-ux-design.md
+	new file:   docs/dev2/features/video-source/video-api.md
+	new file:   docs/dev2/implementation/bilitools-reference.md
+	new file:   docs/dev2/implementation/html-parsing.md
+	new file:   docs/dev2/tech-stack/tech-stack.md
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git_status_backup.txt
+	pilinote.db.backup.20260401_024429
+

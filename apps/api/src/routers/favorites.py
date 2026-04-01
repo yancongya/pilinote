@@ -67,14 +67,18 @@ async def get_folder_detail(
     - 加载速度提升90%以上
     - 支持分页和无限滚动
     """
+    import traceback
     try:
+        print(f"[DEBUG] 收藏夹详情请求: folder_id={folder_id}, page={page}, page_size={page_size}")
         service = BilibiliService()
         try:
             result = await service.get_folder_detail(sessdata, folder_id, page, page_size, keyword, order, type, tid)
+            print(f"[DEBUG] BilibiliService.get_folder_detail 返回: {result}")
             
             if result["success"]:
                 data = result["data"]
                 medias = data.get("medias", [])
+                print(f"[DEBUG] 获取到 {len(medias)} 个视频")
                 
                 # 转换为前端需要的格式
                 videos = []
@@ -114,10 +118,13 @@ async def get_folder_detail(
                     "total": data.get("info", {}).get("media_count", 0)
                 }
             else:
+                print(f"[ERROR] BilibiliService返回失败: {result.get('message')}")
                 raise HTTPException(status_code=400, detail=result.get("message", "获取收藏夹详情失败"))
         finally:
             service.close()
     except Exception as e:
+        print(f"[ERROR] 收藏夹详情异常: {str(e)}")
+        print(f"[ERROR] 异常堆栈:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取收藏夹详情失败: {str(e)}")
 
 
