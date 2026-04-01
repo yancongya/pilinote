@@ -48,7 +48,7 @@ export default function FavoritesContent() {
       return apiService.getFolderDetail(selectedFolder.id, user.sessdata, page, pageSize)
     },
     pageSize: 10,
-    deps: [selectedFolder],
+    deps: [selectedFolder?.id],  // ✅ 只依赖ID，避免对象引用变化导致重复请求
     formatItem: (video: any) => ({
       id: video.id,
       bvid: video.bvid,

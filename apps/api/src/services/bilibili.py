@@ -488,6 +488,7 @@ class BilibiliService:
             # 使用异步请求
             response = await self._request("GET", url, params=params)
             data = response.json()
+            print(f"收藏夹详情响应: {data}")
             
             if data.get("code") == 0:
                 return {
