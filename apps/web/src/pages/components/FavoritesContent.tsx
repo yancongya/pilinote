@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
@@ -39,16 +39,19 @@ export default function FavoritesContent() {
     navigate('/favorites', { replace: true })
   }
 
+  // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
+  const fetchFavoriteVideos = useCallback(async (page: number, pageSize: number) => {
+    if (!selectedFolder || !user?.sessdata) {
+      return { success: false, message: '缺少必要参数' }
+    }
+    return apiService.getFolderDetail(selectedFolder.id, user.sessdata, page, pageSize)
+  }, [selectedFolder?.id, user?.sessdata])
+
   // 使用 useVideoList Hook 管理视频列表
   const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
-    fetchFn: async (page, pageSize) => {
-      if (!selectedFolder || !user?.sessdata) {
-        return { success: false, message: '缺少必要参数' }
-      }
-      return apiService.getFolderDetail(selectedFolder.id, user.sessdata, page, pageSize)
-    },
+    fetchFn: fetchFavoriteVideos,
     pageSize: 10,
-    deps: [selectedFolder?.id],  // ✅ 只依赖ID，避免对象引用变化导致重复请求
+    deps: [],  // ✅ 不需要deps，因为fetchFn已经用useCallback处理了依赖
     formatItem: (video: any) => ({
       id: video.id,
       bvid: video.bvid,

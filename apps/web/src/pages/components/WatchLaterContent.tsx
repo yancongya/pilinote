@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useDownloadStore } from '../../stores/download'
@@ -22,21 +22,20 @@ export default function WatchLaterContent() {
   // 同步下载列表
   useDownloadSync()
 
+  // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
+  const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number) => {
+    if (!user?.sessdata) {
+      return { success: false, message: '缺少必要参数' }
+    }
+    const response = await apiService.getWatchLaterList(user.sessdata, page, pageSize)
+    return response
+  }, [user?.sessdata])
+
   // 使用 useVideoList Hook 管理视频列表
   const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
-    fetchFn: async (page, pageSize) => {
-      if (!user?.sessdata) {
-        return { success: false, message: '缺少必要参数' }
-      }
-      const response = await apiService.getWatchLaterList(user.sessdata, page, pageSize)
-      // 更新总数
-      if (response.success && response.data?.total !== undefined) {
-        setTotalCount(response.data.total)
-      }
-      return response
-    },
+    fetchFn: fetchWatchLaterVideos,
     pageSize: 20,
-    deps: [user],
+    deps: [],  // ✅ 不需要deps，因为fetchFn已经用useCallback处理了依赖
     formatItem: (video: any) => ({
       id: video.id,
       bvid: video.bvid,
@@ -82,6 +81,13 @@ export default function WatchLaterContent() {
 
   // 使用 useVideoDownload Hook 处理单个视频下载
   const { toggleDownload } = useVideoDownload()
+
+  // 更新总数（从响应中获取）
+  useEffect(() => {
+    if (videos.length > 0 && videos.length >= totalCount) {
+      setTotalCount(videos.length)
+    }
+  }, [videos.length, totalCount])
 
   // 批量下载稍后再看（使用新系统API）
   const batchDownloadWatchLater = async () => {
