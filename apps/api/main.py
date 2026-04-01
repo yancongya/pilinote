@@ -13,6 +13,7 @@ from src.routers.download import router as download_router
 from src.routers.settings import router as settings_router
 from src.routers.queue import router as queue_router
 from src.routers.cache import router as cache_router
+from src.routers.media import router as media_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
 from src.services.cache.video_cache import video_cache
@@ -64,14 +65,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(media_router)
+app.include_router(cache_router)
+app.include_router(queue_router)
 app.include_router(auth_router)
 app.include_router(favorites_router)
 app.include_router(video_router)
 app.include_router(watchlater_router)
 app.include_router(download_router)
 app.include_router(settings_router)
-app.include_router(queue_router)
-app.include_router(cache_router)
 
 
 @app.get("/")
