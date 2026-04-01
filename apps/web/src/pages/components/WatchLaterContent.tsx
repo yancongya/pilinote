@@ -225,6 +225,8 @@ export default function WatchLaterContent() {
 
   // 批量下载选中的视频
   const batchDownloadSelected = async () => {
+    console.log('batchDownloadSelected 被调用', { selectedVideos, videos })
+    
     if (selectedVideos.size === 0) {
       alert('请先选择要下载的视频')
       return
