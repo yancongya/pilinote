@@ -27,21 +27,45 @@ class MediaType(str, Enum):
 class MediaNfo(BaseModel):
     """媒体NFO信息"""
     title: str = Field(default="")
+    showtitle: str = Field(default="")
     plot: str = Field(default="")
+    intro: str = Field(default="")
     studio: str = Field(default="")
     premiered: Optional[str] = None
     runtime: int = Field(default=0)
     thumb: str = Field(default="")
+    url: str = Field(default="")
+    stat: Optional[MediaStats] = None
+    thumbs: List[MediaThumbnail] = Field(default_factory=list)
+    upper: Optional[MediaUpper] = None
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "title": "视频标题",
+                "showtitle": "显示标题",
                 "plot": "视频描述",
+                "intro": "简介",
                 "studio": "UP主名称",
                 "premiered": "2024-01-01",
                 "runtime": 600,
-                "thumb": "https://..."
+                "thumb": "https://...",
+                "url": "https://...",
+                "stat": {
+                    "play": 10000,
+                    "danmaku": 500,
+                    "reply": 100,
+                    "like": 1000,
+                    "coin": 500,
+                    "favorite": 200,
+                    "share": 50
+                },
+                "thumbs": [],
+                "upper": {
+                    "mid": 123456789,
+                    "name": "UP主名称",
+                    "avatar": "https://..."
+                }
             }
         }
     }

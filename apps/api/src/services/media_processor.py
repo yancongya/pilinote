@@ -222,8 +222,11 @@ class MediaDataProcessor:
                 "data": MediaInfo(
                     type=MediaType.VIDEO,
                     id=bvid,
-                    pn=len(pages) > 1,
+                    title=nfo.showtitle or nfo.title or "",
+                    cover=nfo.thumb or "",
+                    desc=nfo.intro or nfo.plot or "",
                     nfo=nfo,
+                    stats=nfo.stat or MediaStats(),
                     list=items
                 )
             }
@@ -331,8 +334,11 @@ class MediaDataProcessor:
                 "data": MediaInfo(
                     type=MediaType.BANGUMI,
                     id=f"ss{season_id}",
-                    pn=True,
+                    title=nfo.showtitle or nfo.title or "",
+                    cover=nfo.thumb or "",
+                    desc=nfo.intro or nfo.plot or "",
                     nfo=nfo,
+                    stats=nfo.stat or MediaStats(),
                     list=items
                 )
             }
@@ -427,8 +433,11 @@ class MediaDataProcessor:
                     "data": MediaInfo(
                         type=MediaType.LESSON,
                         id=f"ss{season_id}",
-                        pn=True,
+                        title=nfo.showtitle or nfo.title or "",
+                        cover=nfo.thumb or "",
+                        desc=nfo.intro or nfo.plot or "",
                         nfo=nfo,
+                        stats=nfo.stat or MediaStats(),
                         list=items
                     )
                 }
@@ -646,8 +655,11 @@ class MediaDataProcessor:
                 "data": MediaInfo(
                     type=MediaType.FAVORITE,
                     id=media_id,
-                    pn=True,
+                    title=nfo.showtitle or nfo.title or "",
+                    cover=nfo.thumb or "",
+                    desc=nfo.intro or nfo.plot or "",
                     nfo=nfo,
+                    stats=nfo.stat or MediaStats(),
                     list=items
                 )
             }
@@ -829,8 +841,11 @@ class MediaDataProcessor:
                 "data": MediaInfo(
                     type=MediaType.WATCH_LATER,
                     id="watchlater",
-                    pn=True,
+                    title=nfo.showtitle or nfo.title or "",
+                    cover=nfo.thumb or "",
+                    desc=nfo.intro or nfo.plot or "",
                     nfo=nfo,
+                    stats=nfo.stat or MediaStats(),
                     list=items
                 ),
                 "total": len(list_data)  # 添加总数量
