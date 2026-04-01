@@ -6602,9 +6602,13 @@ body {
 
 /* 分段控制器 Tab 导航 */
 .settings-segmented-control {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   padding: 16px 20px;
   background: white;
   border-bottom: 1px solid #E2E8F0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .settings-segmented-track {
@@ -6656,11 +6660,92 @@ body {
 .settings-segment-icon {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
 }
 
 .settings-segment-label {
   font-size: 14px;
   font-weight: 600;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Tab 保存按钮 */
+.settings-tab-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #F1F5F9;
+  color: #64748B;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  outline: none;
+}
+
+.settings-tab-save-btn:hover:not([style*="not-allowed"]) {
+  background: #E2E8F0;
+  color: #2563EB;
+}
+
+.settings-tab-save-btn:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+.settings-tab-save-btn.has-changes {
+  background: #FEF3C7;
+  color: #F59E0B;
+}
+
+.settings-tab-save-btn.has-changes:hover:not([style*="not-allowed"]) {
+  background: #FDE68A;
+  color: #D97706;
+}
+
+.settings-save-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-save-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Tab 未保存指示器 */
+.settings-tab-unsaved-indicator {
+  color: #F59E0B;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.settings-tab-saving-indicator {
+  color: #64748B;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.settings-tab-saved-indicator {
+  color: #10B981;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 4px;
 }
 
 /* 设置内容区域 */
@@ -8583,4 +8668,81 @@ html {
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* 悬浮保存按钮 */
+.settings-fab-save-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #2563EB;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  animation: fab-appear 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fab-appear {
+  from {
+    transform: scale(0) translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.settings-fab-save-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+  background: #1D4ED8;
+}
+
+.settings-fab-save-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+.settings-fab-save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.settings-fab-save-btn.saving {
+  background: #64748B;
+  box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
+}
+
+.settings-fab-save-btn.saving:hover:not(:disabled) {
+  background: #475569;
+  box-shadow: 0 6px 16px rgba(100, 116, 139, 0.5);
+}
+
+.settings-fab-save-btn.saved {
+  background: #10B981;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.settings-fab-save-btn.saved:hover:not(:disabled) {
+  background: #059669;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
+}
+
+.settings-fab-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.settings-fab-icon.spinning {
+  animation: spin 1s linear infinite;
 }

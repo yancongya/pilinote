@@ -1,18 +1,39 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+
+export interface VideoSettings {
+  default_quality: number
+  audio_bitrate: number
+  codec: string
+  output_format: string
+}
+
+export interface MetadataSettings {
+  enable_nfo: boolean
+  enable_subtitle: boolean
+  enable_danmaku: boolean
+  danmaku_format: string
+  enable_cover: boolean
+  enable_avatar: boolean
+  block_pcdn: boolean
+}
 
 export interface DownloadSettings {
-  default_quality: number
+  video: VideoSettings
   max_concurrent: number
   speed_limit: number
-  output_format: string
-  download_path: string
+  metadata: MetadataSettings
 }
 
 export interface IStorageSettings {
+  download_path: string
   temp_path: string
   auto_cleanup: boolean
   keep_failed: boolean
+  sidecar: {
+    ffmpeg: string
+    aria2c: string
+    danmakufactory: string
+  }
 }
 
 export interface IGeneralSettings {
@@ -40,121 +61,115 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set, get) => ({
-      settings: null,
-      loading: false,
-      error: null,
+  (set, get) => ({
+    settings: null,
+    loading: false,
+    error: null,
 
-      fetchSettings: async () => {
-        set({ loading: true, error: null })
-        try {
-          const response = await fetch('http://localhost:8000/api/settings/')
-          if (!response.ok) {
-            throw new Error('Failed to fetch settings')
-          }
-          const data = await response.json()
-          set({ settings: data, loading: false })
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Unknown error',
-            loading: false
-          })
+    fetchSettings: async () => {
+      set({ loading: true, error: null })
+      try {
+        const response = await fetch('http://localhost:8000/api/settings/')
+        if (!response.ok) {
+          throw new Error('Failed to fetch settings')
         }
-      },
+        const data = await response.json()
+        set({ settings: data, loading: false })
+      } catch (error) {
+        set({ 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          loading: false
+        })
+      }
+    },
 
-      updateSettings: async (updates: Partial<Settings>) => {
-        set({ loading: true, error: null })
-        try {
-          const response = await fetch('http://localhost:8000/api/settings/', {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(updates),
-          })
+    updateSettings: async (updates: Partial<Settings>) => {
+      set({ loading: true, error: null })
+      try {
+        const response = await fetch('http://localhost:8000/api/settings/', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updates),
+        })
 
-          if (!response.ok) {
-            throw new Error('Failed to update settings')
-          }
-
-          const data = await response.json()
-          set({ settings: data, loading: false })
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Unknown error',
-            loading: false
-          })
+        if (!response.ok) {
+          throw new Error('Failed to update settings')
         }
-      },
 
-      resetSettings: async (category?: string) => {
-        set({ loading: true, error: null })
-        try {
-          const url = category 
-            ? `http://localhost:8000/api/settings/reset?category=${category}`
-            : 'http://localhost:8000/api/settings/reset'
+        const data = await response.json()
+        set({ settings: data, loading: false })
+      } catch (error) {
+        set({ 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          loading: false
+        })
+      }
+    },
+
+    resetSettings: async (category?: string) => {
+      set({ loading: true, error: null })
+      try {
+        const url = category 
+          ? `http://localhost:8000/api/settings/reset?category=${category}`
+          : 'http://localhost:8000/api/settings/reset'
           
-          const response = await fetch(url, {
-            method: 'POST',
-          })
+        const response = await fetch(url, {
+          method: 'POST',
+        })
 
-          if (!response.ok) {
-            throw new Error('Failed to reset settings')
-          }
-
-          const data = await response.json()
-          set({ settings: data, loading: false })
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Unknown error',
-            loading: false
-          })
+        if (!response.ok) {
+          throw new Error('Failed to reset settings')
         }
-      },
 
-      exportSettings: async () => {
-        try {
-          const response = await fetch('http://localhost:8000/api/settings/export')
-          if (!response.ok) {
-            throw new Error('Failed to export settings')
-          }
-          const data = await response.json()
-          return JSON.stringify(data, null, 2)
-        } catch (error) {
-          throw new Error(error instanceof Error ? error.message : 'Unknown error')
+        const data = await response.json()
+        set({ settings: data, loading: false })
+      } catch (error) {
+        set({ 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          loading: false
+        })
+      }
+    },
+
+    exportSettings: async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/settings/export')
+        if (!response.ok) {
+          throw new Error('Failed to export settings')
         }
-      },
+        const data = await response.json()
+        return JSON.stringify(data, null, 2)
+      } catch (error) {
+        throw new Error(error instanceof Error ? error.message : 'Unknown error')
+      }
+    },
 
-      importSettings: async (data: string) => {
-        set({ loading: true, error: null })
-        try {
-          const parsedData = JSON.parse(data)
-          const response = await fetch('http://localhost:8000/api/settings/import', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(parsedData.settings),
-          })
+    importSettings: async (data: string) => {
+      set({ loading: true, error: null })
+      try {
+        const parsedData = JSON.parse(data)
+        const response = await fetch('http://localhost:8000/api/settings/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(parsedData.settings),
+        })
 
-          if (!response.ok) {
-            throw new Error('Failed to import settings')
-          }
-
-          await get().fetchSettings()
-          set({ loading: false })
-        } catch (error) {
-          set({ 
-            error: error instanceof Error ? error.message : 'Unknown error',
-            loading: false
-          })
+        if (!response.ok) {
+          throw new Error('Failed to import settings')
         }
-      },
-    }),
-    {
-      name: 'pilinote-settings',
-      partialize: (state) => ({ settings: state.settings }),
-    }
-  )
+
+        await get().fetchSettings()
+        set({ loading: false })
+      } catch (error) {
+        set({ 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          loading: false
+        })
+      }
+    },
+  })
 )

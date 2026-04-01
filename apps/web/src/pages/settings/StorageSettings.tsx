@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
 import { 
   Database, 
@@ -29,8 +29,15 @@ interface CacheData {
   [key: string]: CacheInfo
 }
 
-export default function StorageSettings() {
-  const { settings, loading, error, updateSettings, resetSettings, exportSettings, importSettings } = useSettingsStore()
+// 定义ref类型
+interface StorageSettingsRef {
+  hasUnsavedChanges: () => boolean
+  saveSettings: () => Promise<void>
+  getSavedStatus: () => 'idle' | 'saving' | 'saved' | 'error'
+}
+
+const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
+  const { settings, loading, updateSettings, resetSettings } = useSettingsStore()
   const [cacheData, setCacheData] = useState<CacheData>({})
   const [storageInfo, setStorageInfo] = useState({
     totalSizeFormatted: '0 B',
@@ -43,7 +50,77 @@ export default function StorageSettings() {
     message: '',
     type: 'success'
   })
-  const [savingFields, setSavingFields] = useState<Set<string>>(new Set())
+  
+  // 本地状态暂存修改
+  const [localSettings, setLocalSettings] = useState<Record<string, any>>({})
+  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    hasUnsavedChanges: () => {
+      const pathFields = ['download_path', 'temp_path', 'auto_cleanup', 'keep_failed']
+      const pathFieldsHaveChanges = pathFields.some(field => field in localSettings)
+      const sidecarHasChanges = (localSettings.sidecar as any) && Object.keys(localSettings.sidecar).length > 0
+      return pathFieldsHaveChanges || sidecarHasChanges
+    },
+    saveSettings: async () => {
+      const pathFields = ['download_path', 'temp_path', 'auto_cleanup', 'keep_failed']
+      const pathFieldsHaveChanges = pathFields.some(field => field in localSettings)
+      const sidecarHasChanges = (localSettings.sidecar as any) && Object.keys(localSettings.sidecar).length > 0
+      
+      if (!pathFieldsHaveChanges && !sidecarHasChanges) {
+        throw new Error('没有需要保存的修改')
+      }
+
+      setSavedStatus('saving')
+
+      try {
+        const updates: any = {}
+        
+        // 保存路径设置
+        if (pathFieldsHaveChanges) {
+          pathFields.forEach(field => {
+            if (field in localSettings) {
+              updates[field] = localSettings[field]
+            }
+          })
+        }
+        
+        // 保存sidecar设置
+        if (sidecarHasChanges) {
+          updates.sidecar = localSettings.sidecar
+        }
+        
+        // 合并现有的 storage 设置
+        await updateSettings({
+          storage: {
+            ...(settings?.storage || {}),
+            ...updates
+          }
+        })
+        
+        setSavedStatus('saved')
+        showSaveMessage('设置已保存', 'success')
+        
+        // 清除已保存的字段
+        const newLocalSettings = { ...localSettings }
+        pathFields.forEach(field => delete newLocalSettings[field])
+        delete (newLocalSettings as any).sidecar
+        setLocalSettings(newLocalSettings)
+        
+        // 2秒后重置状态
+        setTimeout(() => {
+          setSavedStatus('idle')
+        }, 2000)
+      } catch (error) {
+        setSavedStatus('error')
+        showSaveMessage('保存失败', 'error')
+        console.error('保存设置失败:', error)
+        throw error
+      }
+    },
+    getSavedStatus: () => savedStatus
+  }))
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
@@ -80,6 +157,43 @@ export default function StorageSettings() {
       console.error('获取缓存信息失败:', error)
     }
   }
+
+  // 显示保存消息
+  const showSaveMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setSaveMessage({ show: true, message, type })
+    setTimeout(() => setSaveMessage({ show: false, message: '', type: 'success' }), 2000)
+  }, [])
+
+  // 本地更新函数（不立即保存）
+  const handleLocalUpdate = useCallback((field: string, value: any) => {
+    setLocalSettings(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }, [])
+
+  // 本地更新 sidecar
+  const handleLocalUpdateSidecar = useCallback((tool: string, value: string) => {
+    setLocalSettings(prev => {
+      const sidecar = (prev as any).sidecar || {}
+      return {
+        ...prev,
+        sidecar: {
+          ...sidecar,
+          [tool]: value
+        }
+      }
+    })
+  }, [])
+
+  // 获取当前设置值（优先使用本地暂存的值）
+  const getCurrentValue = useCallback((field: string) => {
+    if (!settings?.storage) return undefined
+    if (field in localSettings) {
+      return (localSettings as any)[field]
+    }
+    return (settings.storage as any)[field]
+  }, [localSettings, settings])
 
   const handleClearCache = async (cacheType: string) => {
     const confirmMessages = {
@@ -199,82 +313,109 @@ export default function StorageSettings() {
     )
   }
 
-  // Debounce函数：延迟执行，避免频繁保存
-  const debounce = useCallback((func: Function, delay: number) => {
-    let timeoutId: NodeJS.Timeout
-    return (...args: any[]) => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => func(...args), delay)
-    }
-  }, [])
-
-  // 显示保存消息
-  const showSaveMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setSaveMessage({ show: true, message, type })
-    setTimeout(() => setSaveMessage({ show: false, message: '', type: 'success' }), 2000)
-  }, [])
-
-  // 处理设置更新（带debounce）
-  const handleUpdate = useCallback(debounce(async (field: string, value: any) => {
-    setSavingFields(prev => new Set(prev).add(field))
-    try {
-      const currentSettings = useSettingsStore.getState().settings
-      if (!currentSettings?.storage) {
-        throw new Error('Settings not loaded')
-      }
-      await updateSettings({
-        storage: {
-          ...currentSettings.storage,
-          [field]: value,
-        },
-      })
-      showSaveMessage('设置已保存', 'success')
-    } catch (error) {
-      showSaveMessage('保存失败', 'error')
-      console.error('更新设置失败:', error)
-    } finally {
-      setSavingFields(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(field)
-        return newSet
-      })
-    }
-  }, 1000), [updateSettings, showSaveMessage])
-
-  // 处理sidecar更新（带debounce）
-  const handleUpdateSidecar = useCallback(debounce(async (tool: string, value: string) => {
-    setSavingFields(prev => new Set(prev).add(`sidecar_${tool}`))
-    try {
-      const sidecar = settings.storage.sidecar || {}
-      await updateSettings({
-        storage: {
-          sidecar: {
-            ...sidecar,
-            [tool]: value,
-          },
-        },
-      })
-      showSaveMessage('设置已保存', 'success')
-    } catch (error) {
-      showSaveMessage('保存失败', 'error')
-      console.error('更新sidecar失败:', error)
-    } finally {
-      setSavingFields(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(`sidecar_${tool}`)
-        return newSet
-      })
-    }
-  }, 1000), [settings, updateSettings, debounce, showSaveMessage])
-
   const handleReset = async () => {
     if (confirm('确定要重置存储设置吗？')) {
       await resetSettings('storage')
+      setLocalSettings({})
     }
   }
 
   return (
     <div className="storage-settings-new">
+      <style>{`
+        .storage-section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
+          position: relative;
+        }
+        
+        .storage-section-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        
+        .storage-section-save-btn {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 4px 8px;
+          background: transparent;
+          color: #6b7280;
+          border: none;
+          border-radius: 4px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .storage-section-save-btn:hover:not(:disabled) {
+          color: #2563eb;
+          background: #eff6ff;
+        }
+        
+        .storage-section-save-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .storage-section-save-btn.has-changes {
+          color: #f59e0b;
+        }
+        
+        .storage-section-save-btn.has-changes:hover:not(:disabled) {
+          color: #d97706;
+          background: #fef3c7;
+        }
+        
+        .storage-section-save-btn-icon {
+          width: 14px;
+          height: 14px;
+        }
+        
+        .storage-section-save-btn-icon.spinning {
+          animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        
+        .storage-unsaved-indicator {
+          display: inline-block;
+          margin-left: 4px;
+          color: #f59e0b;
+          font-size: 14px;
+          font-weight: bold;
+        }
+        
+        .storage-saving-indicator {
+          display: inline-block;
+          margin-left: 4px;
+          color: #2563eb;
+          font-size: 12px;
+          font-weight: 500;
+        }
+        
+        .storage-saved-indicator {
+          display: inline-block;
+          margin-left: 4px;
+          color: #10b981;
+          font-size: 12px;
+          font-weight: 500;
+        }
+      `}</style>
+      
       {/* 保存成功提示 */}
       {saveMessage.show && (
         <div className={`save-message save-message-${saveMessage.type}`}>
@@ -319,7 +460,9 @@ export default function StorageSettings() {
 
       {/* 路径设置 */}
       <div className="storage-section">
-        <h3 className="storage-section-title">路径设置</h3>
+        <h3 className="storage-section-title">
+          路径设置
+        </h3>
         <p className="storage-section-desc">
           "临时文件"存储未下载完毕的文件，经过处理后转移至"输出文件"。
         </p>
@@ -328,16 +471,13 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="download-path-input">
             <Folder className="storage-form-icon" />
             <span className="storage-form-text">下载路径</span>
-            {savingFields.has('download_path') && (
-              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
-            )}
           </label>
           <input
             id="download-path-input"
             type="text"
-            className={`storage-form-input ${savingFields.has('download_path') ? 'storage-form-input-saving' : ''}`}
-            value={settings.storage.download_path || './downloads'}
-            onChange={(e) => handleUpdate('download_path', e.target.value)}
+            className="storage-form-input"
+            value={String(getCurrentValue('download_path') || './downloads')}
+            onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
             disabled={loading}
             placeholder="./downloads"
             aria-label="输入下载路径"
@@ -348,16 +488,13 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="temp-path-input">
             <Database className="storage-form-icon" />
             <span className="storage-form-text">临时文件路径</span>
-            {savingFields.has('temp_path') && (
-              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
-            )}
           </label>
           <input
             id="temp-path-input"
             type="text"
-            className={`storage-form-input ${savingFields.has('temp_path') ? 'storage-form-input-saving' : ''}`}
-            value={settings.storage.temp_path || './temp'}
-            onChange={(e) => handleUpdate('temp_path', e.target.value)}
+            className="storage-form-input"
+            value={String(getCurrentValue('temp_path') || './temp')}
+            onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
             disabled={loading}
             placeholder="./temp"
             aria-label="输入临时文件路径"
@@ -369,8 +506,8 @@ export default function StorageSettings() {
             <input
               type="checkbox"
               className="storage-checkbox-input"
-              checked={settings.storage.auto_cleanup}
-              onChange={(e) => handleUpdate('auto_cleanup', e.target.checked)}
+              checked={getCurrentValue('auto_cleanup') as boolean || false}
+              onChange={(e) => handleLocalUpdate('auto_cleanup', e.target.checked)}
               disabled={loading}
               aria-label="自动清理临时文件"
             />
@@ -383,8 +520,8 @@ export default function StorageSettings() {
             <input
               type="checkbox"
               className="storage-checkbox-input"
-              checked={settings.storage.keep_failed}
-              onChange={(e) => handleUpdate('keep_failed', e.target.checked)}
+              checked={getCurrentValue('keep_failed') as boolean || false}
+              onChange={(e) => handleLocalUpdate('keep_failed', e.target.checked)}
               disabled={loading}
               aria-label="保留失败的任务"
             />
@@ -395,7 +532,9 @@ export default function StorageSettings() {
 
       {/* 自定义执行路径 */}
       <div className="storage-section">
-        <h3 className="storage-section-title">自定义执行路径</h3>
+        <h3 className="storage-section-title">
+          自定义执行路径
+        </h3>
         <p className="storage-section-desc">
           此处可以自定义各 Sidecar 的执行路径，请注意权限等问题。重启后生效。
         </p>
@@ -404,16 +543,13 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="ffmpeg-path-input">
             <FileVideo className="storage-form-icon" />
             <span className="storage-form-text">FFmpeg 路径</span>
-            {savingFields.has('sidecar_ffmpeg') && (
-              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
-            )}
           </label>
           <input
             id="ffmpeg-path-input"
             type="text"
-            className={`storage-form-input ${savingFields.has('sidecar_ffmpeg') ? 'storage-form-input-saving' : ''}`}
-            value={settings.storage.sidecar?.ffmpeg || 'ffmpeg'}
-            onChange={(e) => handleUpdateSidecar('ffmpeg', e.target.value)}
+            className="storage-form-input"
+            value={getCurrentValue('sidecar')?.ffmpeg || 'ffmpeg'}
+            onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
             disabled={loading}
             placeholder="ffmpeg"
             aria-label="输入FFmpeg路径"
@@ -424,16 +560,13 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="aria2c-path-input">
             <Zap className="storage-form-icon" />
             <span className="storage-form-text">Aria2c 路径</span>
-            {savingFields.has('sidecar_aria2c') && (
-              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
-            )}
           </label>
           <input
             id="aria2c-path-input"
             type="text"
-            className={`storage-form-input ${savingFields.has('sidecar_aria2c') ? 'storage-form-input-saving' : ''}`}
-            value={settings.storage.sidecar?.aria2c || 'aria2c'}
-            onChange={(e) => handleUpdateSidecar('aria2c', e.target.value)}
+            className="storage-form-input"
+            value={getCurrentValue('sidecar')?.aria2c || 'aria2c'}
+            onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
             disabled={loading}
             placeholder="aria2c"
             aria-label="输入Aria2c路径"
@@ -444,16 +577,13 @@ export default function StorageSettings() {
           <label className="storage-form-label" htmlFor="danmakufactory-path-input">
             <SettingsIcon className="storage-form-icon" />
             <span className="storage-form-text">Danmakufactory 路径</span>
-            {savingFields.has('sidecar_danmakufactory') && (
-              <RefreshCw className="storage-form-saving storage-form-saving-spin" />
-            )}
           </label>
           <input
             id="danmakufactory-path-input"
             type="text"
-            className={`storage-form-input ${savingFields.has('sidecar_danmakufactory') ? 'storage-form-input-saving' : ''}`}
-            value={settings.storage.sidecar?.danmakufactory || 'danmakufactory'}
-            onChange={(e) => handleUpdateSidecar('danmakufactory', e.target.value)}
+            className="storage-form-input"
+            value={getCurrentValue('sidecar')?.danmakufactory || 'danmakufactory'}
+            onChange={(e) => handleLocalUpdateSidecar('danmakufactory', e.target.value)}
             disabled={loading}
             placeholder="danmakufactory"
             aria-label="输入Danmakufactory路径"
@@ -573,4 +703,6 @@ export default function StorageSettings() {
       </div>
     </div>
   )
-}
+})
+
+export default StorageSettings

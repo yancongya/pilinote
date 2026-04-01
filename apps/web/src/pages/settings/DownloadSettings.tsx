@@ -1,36 +1,168 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { Download, HardDrive, Gauge, Monitor, Music, RotateCcw, Check } from 'lucide-react'
+import { Download, HardDrive, Gauge, Monitor, Music, RotateCw, Check } from 'lucide-react'
 
-export default function DownloadSettings() {
-  const { settings, loading, error, updateSettings, resetSettings } = useSettingsStore()
+// 定义ref类型
+interface DownloadSettingsRef {
+  hasUnsavedChanges: () => boolean
+  saveSettings: () => Promise<void>
+  getSavedStatus: () => 'idle' | 'saving' | 'saved' | 'error'
+}
+
+const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
+  const { settings, loading, updateSettings, resetSettings } = useSettingsStore()
   const [saveMessage, setSaveMessage] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
     show: false,
     message: '',
     type: 'success'
   })
-  const [savingFields, setSavingFields] = useState<Set<string>>(new Set())
+  
+  // 本地状态暂存修改
+  const [localSettings, setLocalSettings] = useState<Record<string, any>>({
+    video: {},
+    metadata: {}
+  })
+  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    hasUnsavedChanges: () => {
+      return Object.keys(localSettings.video || {}).length > 0 ||
+             Object.keys(localSettings.metadata || {}).length > 0 ||
+             'max_concurrent' in localSettings ||
+             'speed_limit' in localSettings
+    },
+    saveSettings: async () => {
+      if (Object.keys(localSettings.video || {}).length === 0 &&
+          Object.keys(localSettings.metadata || {}).length === 0 &&
+          !('max_concurrent' in localSettings) &&
+          !('speed_limit' in localSettings)) {
+        throw new Error('没有需要保存的修改')
+      }
+
+      setSavedStatus('saving')
+
+      try {
+        // 合并现有的 download 设置，确保提供完整的对象结构
+        const currentDownload = settings?.download || {
+          video: {
+            default_quality: 64,
+            audio_bitrate: 192,
+            codec: 'avc',
+            output_format: 'mp4'
+          },
+          max_concurrent: 3,
+          speed_limit: 0,
+          metadata: {
+            enable_nfo: true,
+            enable_subtitle: true,
+            enable_danmaku: false,
+            danmaku_format: 'xml',
+            enable_cover: true,
+            enable_avatar: false,
+            block_pcdn: true
+          }
+        }
+
+        // 深度合并设置
+        const mergedSettings = {
+          video: { ...currentDownload.video, ...(localSettings.video || {}) },
+          max_concurrent: localSettings.max_concurrent ?? currentDownload.max_concurrent,
+          speed_limit: localSettings.speed_limit ?? currentDownload.speed_limit,
+          metadata: { ...currentDownload.metadata, ...(localSettings.metadata || {}) }
+        }
+
+        await updateSettings({
+          download: mergedSettings
+        })
+        
+        setSavedStatus('saved')
+        showSaveMessage('设置已保存', 'success')
+        
+        // 清除已保存的字段
+        setLocalSettings({
+          video: {},
+          metadata: {}
+        })
+        
+        // 2秒后重置状态
+        setTimeout(() => {
+          setSavedStatus('idle')
+        }, 2000)
+      } catch (error) {
+        setSavedStatus('error')
+        showSaveMessage('保存失败', 'error')
+        console.error('保存设置失败:', error)
+        throw error
+      }
+    },
+    getSavedStatus: () => savedStatus
+  }))
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings()
   }, [])
 
   // 显示保存消息
-  const showSaveMessage = useCallback((message: string, type: 'success' | 'error') => {
+  const showSaveMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setSaveMessage({ show: true, message, type })
     setTimeout(() => {
       setSaveMessage({ show: false, message: '', type: 'success' })
     }, 2000)
   }, [])
 
-  // Debounce函数：延迟执行，避免频繁保存
-  const debounce = useCallback((func: Function, delay: number) => {
-    let timeoutId: NodeJS.Timeout
-    return (...args: any[]) => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => func(...args), delay)
-    }
+  // 本地更新函数
+  const handleLocalUpdate = useCallback((field: string, value: any) => {
+    setLocalSettings(prev => {
+      // 处理嵌套字段（如 video.default_quality）
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.')
+        return {
+          ...prev,
+          [parent]: {
+            ...(prev[parent] || {}),
+            [child]: value
+          }
+        }
+      }
+      // 处理顶级字段（如 max_concurrent）
+      return {
+        ...prev,
+        [field]: value
+      }
+    })
   }, [])
+
+  // 获取当前设置值（优先使用本地暂存的值）
+  const getCurrentValue = useCallback((field: string) => {
+    if (!settings?.download) return undefined
+    
+    // 处理嵌套字段
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.')
+      const localValue = localSettings[parent]?.[child]
+      if (localValue !== undefined) {
+        return localValue
+      }
+      return (settings.download as any)[parent]?.[child]
+    }
+    
+    // 处理顶级字段
+    if (field in localSettings) {
+      return localSettings[field]
+    }
+    return (settings.download as any)[field]
+  }, [localSettings, settings])
+
+  const handleReset = async () => {
+    if (confirm('确定要重置下载设置吗？')) {
+      await resetSettings('download')
+      setLocalSettings({
+        video: {},
+        metadata: {}
+      })
+    }
+  }
 
   if (!settings) {
     return (
@@ -42,39 +174,6 @@ export default function DownloadSettings() {
         <p className="download-loading-text">加载中...</p>
       </div>
     )
-  }
-
-  // 处理设置更新（带debounce）
-  const handleUpdate = useCallback(debounce(async (field: string, value: any) => {
-    setSavingFields(prev => new Set(prev).add(field))
-    try {
-      const currentSettings = useSettingsStore.getState().settings
-      if (!currentSettings?.download) {
-        throw new Error('Settings not loaded')
-      }
-      await updateSettings({
-        download: {
-          ...currentSettings.download,
-          [field]: value,
-        },
-      })
-      showSaveMessage('设置已保存', 'success')
-    } catch (error) {
-      showSaveMessage('保存失败', 'error')
-      console.error('更新设置失败:', error)
-    } finally {
-      setSavingFields(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(field)
-        return newSet
-      })
-    }
-  }, 1000), [updateSettings, showSaveMessage])
-
-  const handleReset = async () => {
-    if (confirm('确定要重置下载设置吗？')) {
-      await resetSettings('download')
-    }
   }
 
   return (
@@ -104,8 +203,8 @@ export default function DownloadSettings() {
           <select
             id="resolution-select"
             className="download-form-select"
-            value={settings.download.default_quality}
-            onChange={(e) => handleUpdate('default_quality', parseInt(e.target.value))}
+            value={getCurrentValue('video.default_quality') || 64}
+            onChange={(e) => handleLocalUpdate('video.default_quality', parseInt(e.target.value))}
             disabled={loading}
             aria-label="选择默认分辨率"
           >
@@ -128,8 +227,8 @@ export default function DownloadSettings() {
           <select
             id="bitrate-select"
             className="download-form-select"
-            value={settings.download.audio_bitrate || 192}
-            onChange={(e) => handleUpdate('audio_bitrate', parseInt(e.target.value))}
+            value={getCurrentValue('video.audio_bitrate') || 192}
+            onChange={(e) => handleLocalUpdate('video.audio_bitrate', parseInt(e.target.value))}
             disabled={loading}
             aria-label="选择默认音频码率"
           >
@@ -152,8 +251,8 @@ export default function DownloadSettings() {
           <select
             id="codec-select"
             className="download-form-select"
-            value={settings.download.codec || 'avc'}
-            onChange={(e) => handleUpdate('codec', e.target.value)}
+            value={getCurrentValue('video.codec') || 'avc'}
+            onChange={(e) => handleLocalUpdate('video.codec', e.target.value)}
             disabled={loading}
             aria-label="选择默认编码格式"
           >
@@ -173,8 +272,8 @@ export default function DownloadSettings() {
           <select
             id="concurrent-select"
             className="download-form-select"
-            value={settings.download.max_concurrent}
-            onChange={(e) => handleUpdate('max_concurrent', parseInt(e.target.value))}
+            value={getCurrentValue('max_concurrent') || 3}
+            onChange={(e) => handleLocalUpdate('max_concurrent', parseInt(e.target.value))}
             disabled={loading}
             aria-label="选择最大并发下载数"
           >
@@ -196,8 +295,8 @@ export default function DownloadSettings() {
             id="speed-limit-input"
             type="number"
             className="download-form-input"
-            value={settings.download.speed_limit}
-            onChange={(e) => handleUpdate('speed_limit', parseInt(e.target.value) || 0)}
+            value={getCurrentValue('speed_limit') || 0}
+            onChange={(e) => handleLocalUpdate('speed_limit', parseInt(e.target.value) || 0)}
             min="0"
             disabled={loading}
             placeholder="0 表示不限制"
@@ -216,10 +315,12 @@ export default function DownloadSettings() {
           disabled={loading}
           aria-label="重置下载设置"
         >
-          <RotateCcw className="download-reset-icon" />
+          <RotateCw className="download-reset-icon" />
           <span>重置下载设置</span>
         </button>
       </div>
     </div>
   )
-}
+})
+
+export default DownloadSettings

@@ -90,22 +90,16 @@ async def update_settings(settings_update: SettingsUpdate, db: Session = Depends
     try:
         service = SettingsService(db)
 
-        # 更新下载设置
-        if settings_update.download:
-            service.update_settings(settings_update.download)
+        # 将 Pydantic 模型转换为字典
+        settings_dict = settings_update.model_dump(exclude_none=True)
 
-        # 更新存储设置（包含sidecar）
-        if settings_update.storage:
-            service.update_settings(settings_update.storage)
+        # 一次性更新所有设置
+        service.update_settings(settings_dict)
 
-            # 如果更新了sidecar，刷新下载引擎
-            if 'sidecar' in settings_update.storage:
-                from src.services.download_service import download_service
-                download_service.update_engine_settings()
-
-        # 更新通用设置
-        if settings_update.general:
-            service.update_settings(settings_update.general)
+        # 如果更新了sidecar，刷新下载引擎
+        if settings_update.storage and 'sidecar' in settings_update.storage:
+            from src.services.download_service import download_service
+            download_service.update_engine_settings()
         
         return service.get_settings()
     except Exception as e:
