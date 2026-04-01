@@ -83,13 +83,12 @@ function SettingsPage() {
       setShowLogoutConfirm(false)
       navigate('/')
     } catch (err) {
-      setError('退出登录失败')
+      showToast('退出登录失败', 'error')
     }
   }
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId)
-    setError('')
   }
 
   // 检查是否有未保存的修改
