@@ -6,32 +6,8 @@ import { useCacheStore } from '../../stores/cache'
 import { useDownloadStore } from '../../stores/download'
 import { ArrowLeft, Folder, CheckSquare, X, Download as DownloadIcon } from 'lucide-react'
 import VideoListCard from './VideoListCard'
-
-// 格式化时长（秒转为 MM:SS）
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
-
-// 格式化数字（播放量、评论数）
-const formatNumber = (num: number): string => {
-  if (num >= 10000) {
-    return `${(num / 10000).toFixed(1)}万`
-  }
-  return num.toString()
-}
-
-// 格式化时间戳为具体日期时间
-const formatTime = (timestamp: number): string => {
-  const date = new Date(timestamp * 1000)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
+import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
+import { useDownloadSync } from '../../hooks/useDownloadSync'
 
 export default function FavoritesContent() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
@@ -57,9 +33,11 @@ export default function FavoritesContent() {
   const { 
     getDownloadStatus,
     addToDownloadList, 
-    removeFromDownloadListByBvid,
-    syncFromServer 
+    removeFromDownloadListByBvid
   } = downloadStore
+
+  // 同步下载列表
+  useDownloadSync()
 
   // 调试：打印用户状态
   useEffect(() => {
@@ -438,19 +416,6 @@ export default function FavoritesContent() {
       }
     }
   }, [currentPage, loading, loadingMore, hasMore, selectedFolder, fetchVideos])
-
-  // 同步下载列表
-  useEffect(() => {
-    // 初始同步
-    syncFromServer()
-    
-    // 每30秒同步一次
-    const interval = setInterval(() => {
-      syncFromServer()
-    }, 30000)
-    
-    return () => clearInterval(interval)
-  }, [syncFromServer])
 
   const toggleDownload = async (video: any, e: React.MouseEvent) => {
     e.stopPropagation()
