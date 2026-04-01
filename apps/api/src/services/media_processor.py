@@ -7,13 +7,25 @@ from typing import Dict, Any, Optional, List
 import asyncio
 import re
 import json
+from datetime import datetime
 
 from src.config import settings
 from src.schemas.media import (
-    MediaType, MediaInfo, MediaNfo, MediaItem, 
+    MediaType, MediaInfo, MediaNfo, MediaItem,
     MediaStats, MediaUpper, MediaThumbnail, MediaSection
 )
 from src.schemas.login import SessdataLoginRequest
+
+
+def _format_timestamp(timestamp: Optional[int]) -> Optional[str]:
+    """格式化时间戳为日期字符串"""
+    if not timestamp:
+        return None
+    try:
+        dt = datetime.fromtimestamp(timestamp)
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return None
 
 
 class MediaDataProcessor:
@@ -181,7 +193,7 @@ class MediaDataProcessor:
                 url=f"https://www.bilibili.com/video/{bvid}",
                 stat=stat,
                 thumbs=[MediaThumbnail(id="cover", url=video_data.get("pic", ""))],
-                premiered=video_data.get("pubdate", 0),
+                premiered=_format_timestamp(video_data.get("pubdate", 0)),
                 upper=upper
             )
             
@@ -290,7 +302,7 @@ class MediaDataProcessor:
                 url=f"https://www.bilibili.com/bangumi/play/ss{season_id}",
                 stat=stat,
                 thumbs=[MediaThumbnail(id="cover", url=bangumi_data.get("cover", ""))],
-                premiered=0
+                premiered=_format_timestamp(bangumi_data.get("pubtime", 0))
             )
             
             # 构建媒体项目列表
@@ -387,7 +399,7 @@ class MediaDataProcessor:
                     url=f"https://www.bilibili.com/cheese/play/ss{season_id}",
                     stat=stat,
                     thumbs=[MediaThumbnail(id="cover", url=course_detail.get("cover", ""))],
-                    premiered=course_detail.get("pubtime", 0) or int(course_detail.get("release_date", 0))
+                    premiered=_format_timestamp(course_detail.get("pubtime", 0) or int(course_detail.get("release_date", 0)))
                 )
                 
                 # 构建媒体项目列表
@@ -504,7 +516,7 @@ class MediaDataProcessor:
                 url=f"https://space.bilibili.com/{media_id}/favlist?fid={target}",
                 stat=stat,
                 thumbs=[MediaThumbnail(id="cover", url=info.get("cover", ""))],
-                premiered=info.get("ctime", 0)
+                premiered=_format_timestamp(info.get("ctime", 0))
             )
             
             # 构建媒体项目列表
@@ -809,7 +821,7 @@ class MediaDataProcessor:
                 url="https://www.bilibili.com/watchlater",
                 stat=MediaStats(),  # 总体统计信息
                 thumbs=[],
-                premiered=0
+                premiered=None
             )
             
             return {
