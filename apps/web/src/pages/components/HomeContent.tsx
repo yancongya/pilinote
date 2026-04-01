@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { apiService } from '../../services/api'
 import { useDownloadStore } from '../../stores/download'
+import { useSettingsStore } from '../../stores/settings'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
 
 interface VideoInfo {
@@ -55,6 +56,8 @@ export default function HomeContent() {
   const [parseData, setParseData] = useState<ParseResponse | null>(null)
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
   const downloadStore = useDownloadStore()
+  const settingsStore = useSettingsStore()
+  const { settings } = settingsStore
 
   const handleParseUrl = async () => {
     if (!urlInput.trim()) return
@@ -144,7 +147,14 @@ export default function HomeContent() {
           duration: page.duration,
           uploader: video.owner.name,
           uploader_mid: video.owner.mid,
-          sessdata: sessdata || undefined
+          sessdata: sessdata || undefined,
+          enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+          enable_danmaku: settings?.download?.metadata?.enable_danmaku ?? false,
+          danmaku_format: settings?.download?.metadata?.danmaku_format ?? 'xml',
+          enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+          enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+          enable_avatar: settings?.download?.metadata?.enable_avatar ?? false,
+          block_pcdn: settings?.download?.metadata?.block_pcdn ?? true
         }
         
         const response = await apiService.addToDownloadQueue(downloadData)

@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { useDownloadStore } from '../stores/download'
+import { useSettingsStore } from '../stores/settings'
 import { ArrowLeft, Film, User } from 'lucide-react'
 
 export default function VideoDetailPage() {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
   const downloadStore = useDownloadStore()
+  const settingsStore = useSettingsStore()
   const [video, setVideo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
@@ -17,6 +19,7 @@ export default function VideoDetailPage() {
   const [downloadedCids, setDownloadedCids] = useState<Set<number>>(new Set())
   const { user } = useAuthStore()
   const sessdata = user?.sessdata
+  const { settings } = settingsStore
 
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
@@ -280,7 +283,14 @@ export default function VideoDetailPage() {
           duration: page.duration,
           uploader: video.uploader?.name,
           uploader_mid: video.uploader?.mid,
-          sessdata: sessdata || undefined
+          sessdata: sessdata || undefined,
+          enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+          enable_danmaku: settings?.download?.metadata?.enable_danmaku ?? false,
+          danmaku_format: settings?.download?.metadata?.danmaku_format ?? 'xml',
+          enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+          enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+          enable_avatar: settings?.download?.metadata?.enable_avatar ?? false,
+          block_pcdn: settings?.download?.metadata?.block_pcdn ?? true
         }
         
         return apiService.addToDownloadQueue(downloadData)

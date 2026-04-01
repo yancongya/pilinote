@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check, Download, Clock, AlertCircle, Play, Trash, RefreshCw, CheckSquare, Square, GitCompare } from 'lucide-react'
 import { useDownloadStore } from '../stores/download'
+import { useSettingsStore } from '../stores/settings'
 import { apiService } from '../services/api'
 
 export default function DownloadDetailPage() {
   const { bvid } = useParams<{ bvid: string }>()
   const navigate = useNavigate()
   const downloadStore = useDownloadStore()
+  const settingsStore = useSettingsStore()
+  const { settings } = settingsStore
   
   const [downloads, setDownloads] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -323,7 +326,14 @@ const handleStartBatch = async () => {
             duration: page.duration,
             uploader: videoResponse.data.owner.name,
             uploader_mid: videoResponse.data.owner.mid,
-            sessdata: sessdata || undefined
+            sessdata: sessdata || undefined,
+            enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+            enable_danmaku: settings?.download?.metadata?.enable_danmaku ?? false,
+            danmaku_format: settings?.download?.metadata?.danmaku_format ?? 'xml',
+            enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+            enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+            enable_avatar: settings?.download?.metadata?.enable_avatar ?? false,
+            block_pcdn: settings?.download?.metadata?.block_pcdn ?? true
           })
         }
         

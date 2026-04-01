@@ -1113,7 +1113,7 @@ class DownloadService:
 
             if not subtitle_info:
                 logger.warning(f"Subtitle with language '{subtitle_lan}' not found")
-                return []
+                return False
 
             # 获取字幕URL
             subtitle_url = subtitle_info.get("subtitle_url", "")
