@@ -18,7 +18,8 @@ import {
 import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
 import StorageSettings from './settings/StorageSettings'
-import { ConfirmModal } from '../components/Modal'
+import ConfirmModal from '../components/ConfirmModal'
+import { useToast } from '../components/Toast'
 import '../settings-page.css'
 
 type TabType = 'accounts' | 'download' | 'storage'
@@ -35,6 +36,7 @@ function SettingsPage() {
   const location = useLocation()
   const { logout } = useAuthStore()
   const [animationParent] = useAutoAnimate({ duration: 200, easing: 'ease-out' })
+  const { showToast } = useToast()
   
   const tabs = [
     { id: 'accounts' as TabType, label: '账号管理', icon: User },
@@ -56,9 +58,7 @@ function SettingsPage() {
   const downloadSettingsRef = useRef<SettingsComponentRef>(null)
   
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   // 监听hash变化（通过浏览器前进/后退按钮）
   useEffect(() => {
@@ -107,7 +107,6 @@ function SettingsPage() {
   // 保存当前Tab的设置
   const handleSave = async () => {
     setSaving(true)
-    setSavedStatus('saving')
 
     try {
       if (activeTab === 'storage' && storageSettingsRef.current) {
@@ -116,17 +115,12 @@ function SettingsPage() {
         await downloadSettingsRef.current.saveSettings()
       }
       
-      setSavedStatus('saved')
-      // 2秒后重置状态
-      setTimeout(() => {
-        setSavedStatus('idle')
-      }, 2000)
+      showToast('设置已保存', 'success')
     } catch (err) {
-      setSavedStatus('error')
       if (err instanceof Error && err.message === '没有需要保存的修改') {
-        setError('没有需要保存的修改')
+        showToast('没有需要保存的修改', 'info')
       } else {
-        setError('保存失败')
+        showToast('保存失败', 'error')
       }
       console.error('保存设置失败:', err)
     } finally {
@@ -165,14 +159,8 @@ function SettingsPage() {
                 <tab.icon className="settings-segment-icon" />
                 <span className="settings-segment-label">
                   {tab.label}
-                  {hasUnsavedChanges(tab.id) && savedStatus === 'idle' && (
+                  {hasUnsavedChanges(tab.id) && (
                     <span className="settings-tab-unsaved-indicator">*</span>
-                  )}
-                  {savedStatus === 'saving' && (
-                    <span className="settings-tab-saving-indicator">保存中...</span>
-                  )}
-                  {savedStatus === 'saved' && (
-                    <span className="settings-tab-saved-indicator">已保存</span>
                   )}
                 </span>
               </button>
@@ -189,23 +177,6 @@ function SettingsPage() {
         role="tabpanel"
         aria-label={`${tabs.find(t => t.id === activeTab)?.label}内容`}
       >
-        {error && (
-          <div 
-            className="settings-error-toast"
-            role="alert"
-            aria-live="assertive"
-          >
-            <span className="settings-error-text">{error}</span>
-            <button 
-              className="settings-error-close"
-              onClick={() => setError('')}
-              aria-label="关闭错误提示"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         {activeTab === 'accounts' && <AccountsSettings />}
         {activeTab === 'download' && (
           <DownloadSettings ref={downloadSettingsRef} />
@@ -242,16 +213,14 @@ function SettingsPage() {
       {/* 悬浮保存按钮 */}
       {(activeTab === 'storage' || activeTab === 'download') && (
         <button
-          className={`settings-fab-save-btn ${hasUnsavedChanges() ? 'has-changes' : ''} ${savedStatus === 'saving' ? 'saving' : ''} ${savedStatus === 'saved' ? 'saved' : ''}`}
+          className={`settings-fab-save-btn ${hasUnsavedChanges() ? 'has-changes' : ''} ${saving ? 'saving' : ''}`}
           onClick={handleSave}
           disabled={saving}
           aria-label="保存设置"
           title={hasUnsavedChanges() ? "保存设置" : "没有需要保存的修改"}
         >
-          {savedStatus === 'saving' ? (
+          {saving ? (
             <RefreshCw className="settings-fab-icon spinning" />
-          ) : savedStatus === 'saved' ? (
-            <Check className="settings-fab-icon" />
           ) : (
             <Save className="settings-fab-icon" />
           )}
