@@ -669,62 +669,39 @@ export default function VideoDetailPage() {
               </div>
             </>
           ) : (
-            /* 单个视频下载 */
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={handleAddToDownload}
-                disabled={downloading || allSelectedAdded}
-                style={{
-                  flex: 1,
-                  padding: '14px',
-                  background: downloading || allSelectedAdded ? '#ccc' : '#fb7299',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: downloading || allSelectedAdded ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                {getButtonText()}
-              </button>
-              
-              <button
-                onClick={async () => {
-                  const downloadTasks = downloadStore.getDownloadsByBvid(video.bvid)
-                  if (downloadTasks.length > 0) {
-                    const success = await downloadStore.startBatchDownloads([downloadTasks[0].id])
-                    if (!success) {
-                      alert('开始下载失败')
-                    } else {
-                      alert('已开始下载')
-                    }
-                  }
-                }}
-                disabled={downloading}
-                style={{
-                  flex: 1,
-                  padding: '14px',
-                  background: downloading ? '#ccc' : '#52c41a',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: downloading ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px'
-                }}
-              >
-                {downloading ? '启动中...' : '开始下载'}
-              </button>
-            </div>
+            /* 单个视频下载 - 只显示添加到列表按钮 */
+            <button
+              onClick={handleAddToDownload}
+              disabled={downloading || allSelectedAdded}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: downloading || allSelectedAdded ? '#ccc' : '#fb7299',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: downloading || allSelectedAdded ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!downloading && !allSelectedAdded) {
+                  e.currentTarget.style.background = '#ff5c8d'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!downloading && !allSelectedAdded) {
+                  e.currentTarget.style.background = '#fb7299'
+                }
+              }}
+            >
+              {getButtonText()}
+            </button>
           )}
         </div>
       </div>
