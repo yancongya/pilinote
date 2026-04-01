@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useAuthStore } from '../stores/auth'
 import { apiService } from '../services/api'
@@ -31,9 +31,26 @@ interface SettingsComponentRef {
 
 function SettingsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { logout } = useAuthStore()
   const [animationParent] = useAutoAnimate({ duration: 200, easing: 'ease-out' })
-  const [activeTab, setActiveTab] = useState<TabType>('accounts')
+  
+  const tabs = [
+    { id: 'accounts' as TabType, label: '账号管理', icon: User },
+    { id: 'download' as TabType, label: '下载设置', icon: Download },
+    { id: 'storage' as TabType, label: '数据管理', icon: Database }
+  ]
+
+  // 从hash初始化activeTab
+  const getInitialTab = (): TabType => {
+    const hash = location.hash.slice(1)
+    if (hash && tabs.some(tab => tab.id === hash)) {
+      return hash as TabType
+    }
+    return 'accounts'
+  }
+  
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
   const storageSettingsRef = useRef<SettingsComponentRef>(null)
   const downloadSettingsRef = useRef<SettingsComponentRef>(null)
   
@@ -42,11 +59,21 @@ function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  const tabs = [
-    { id: 'accounts' as TabType, label: '账号管理', icon: User },
-    { id: 'download' as TabType, label: '下载设置', icon: Download },
-    { id: 'storage' as TabType, label: '数据管理', icon: Database }
-  ]
+  // 监听hash变化（通过浏览器前进/后退按钮）
+  useEffect(() => {
+    const hash = location.hash.slice(1)
+    if (hash && tabs.some(tab => tab.id === hash) && hash !== activeTab) {
+      setActiveTab(hash as TabType)
+    }
+  }, [location.hash])
+
+  // 更新hash（当activeTab变化时）
+  useEffect(() => {
+    const currentHash = location.hash.slice(1)
+    if (currentHash !== activeTab) {
+      navigate(`#${activeTab}`, { replace: true })
+    }
+  }, [activeTab, navigate])
 
   const handleLogout = async () => {
     try {
