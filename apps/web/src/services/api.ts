@@ -401,6 +401,128 @@ class ApiService {
       method: 'GET',
     });
   }
+
+  // ===== 新系统API =====
+
+  // 队列管理
+  async getAllQueues(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/queue', { method: 'GET' });
+  }
+
+  async getQueue(queueType: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/${queueType}`, { method: 'GET' });
+  }
+
+  // 任务管理
+  async submitTask(taskData: {
+    media_type: string;
+    media_id: string;
+    title?: string;
+    cover?: string;
+    desc?: string;
+    meta?: any;
+    prepare?: any;
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/queue/tasks', {
+      method: 'POST',
+      body: JSON.stringify(taskData),
+    });
+  }
+
+  async getTask(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/tasks/${taskId}`, { method: 'GET' });
+  }
+
+  async updateTask(taskId: string, updateData: {
+    state?: number;
+    status?: any;
+    meta?: any;
+    prepare?: any;
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+  }
+
+  // 调度器管理
+  async createScheduler(schedulerData: {
+    title: string;
+    list: string[];
+    queue_type: number;
+    folder: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/queue/schedulers', {
+      method: 'POST',
+      body: JSON.stringify(schedulerData),
+    });
+  }
+
+  async getSchedulers(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/queue/schedulers', { method: 'GET' });
+  }
+
+  async getScheduler(schedulerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/schedulers/${schedulerId}`, {
+      method: 'GET',
+    });
+  }
+
+  async startScheduler(schedulerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/schedulers/${schedulerId}/start`, {
+      method: 'POST',
+    });
+  }
+
+  async pauseScheduler(schedulerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/schedulers/${schedulerId}/pause`, {
+      method: 'POST',
+    });
+  }
+
+  async resumeScheduler(schedulerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/schedulers/${schedulerId}/resume`, {
+      method: 'POST',
+    });
+  }
+
+  async cancelScheduler(schedulerId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/queue/schedulers/${schedulerId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  // 统一媒体API
+  async getMediaInfo(mediaType: string, mediaId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/media/${mediaType}/${mediaId}`, {
+      method: 'GET',
+    });
+  }
+
+  async getFavoriteMedia(fid: string, mid?: string): Promise<ApiResponse<any>> {
+    const params = mid ? `?mid=${encodeURIComponent(mid)}` : '';
+    return this.request<any>(`/api/media/favorite/${fid}${params}`, {
+      method: 'GET',
+    });
+  }
+
+  async getWatchlaterMedia(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/media/watchlater', { method: 'GET' });
+  }
+
+  // 缓存管理API
+  async clearCache(cacheType?: string): Promise<ApiResponse<any>> {
+    const params = cacheType ? `?type=${encodeURIComponent(cacheType)}` : '';
+    return this.request<any>(`/api/cache/clear${params}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getCacheStats(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/cache/stats', {
+      method: 'GET',
+    });
+  }
 }
 
 export const apiService = new ApiService();

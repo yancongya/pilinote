@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw, Users } from 'lucide-react'
+import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw, Users, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
 
@@ -35,6 +35,10 @@ interface VideoCardProps {
   onActionDelete?: () => void
   canStart?: boolean
   canPause?: boolean
+  // 批量选择相关
+  batchMode?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }
 
 // Bilibili风格：格式化文件大小
@@ -77,11 +81,14 @@ export default function VideoListCard({
   onActionDelete,
   canStart = false,
   canPause = false,
+  batchMode = false,
+  selected = false,
+  onToggleSelect,
 }: VideoCardProps) {
   const navigate = useNavigate()
   
-  // 默认可点击，除非明确设置为false
-  const isClickable = clickable !== false
+  // 批量模式下卡片始终可点击（用于选中），否则默认可点击除非明确设置为false
+  const isClickable = batchMode || clickable !== false
   
   // 状态管理
   const [fetchedCoverUrl, setFetchedCoverUrl] = useState<string>('')
@@ -124,6 +131,12 @@ export default function VideoListCard({
       // 不可点击，不执行任何操作
       return
     }
+
+    // 批量模式下，点击卡片触发选择
+    if (batchMode && onToggleSelect) {
+      onToggleSelect()
+      return
+    }
     
     if (onVideoClick) {
       // 如果有自定义的点击处理，执行它并阻止默认行为
@@ -141,44 +154,42 @@ export default function VideoListCard({
     }
   }
 
+  // 获取封面URL
+  const coverUrl = getCoverUrl()
+  const hasCover = coverUrl && coverUrl.trim()
+
   return (
     <article 
-      className="video-card"
+      className={`video-card ${batchMode ? 'batch-mode' : ''} ${selected ? 'selected' : ''}`}
       onClick={isClickable ? handleVideoClick : undefined}
       style={{ cursor: isClickable ? 'pointer' : 'default' }}
     >
       <div className="video-card-cover">
         <div className="video-card-thumbnail">
-          {(() => {
-            const coverUrl = getCoverUrl()
-            if (!coverUrl) {
-              return (
+          {!hasCover ? (
                 <div className="thumbnail-placeholder">
                   <Film size={48} color="#42a5f5" />
                 </div>
-              )
-            }
-            return (
-              <>
-                <img 
-                  src={getProxyImageUrl(coverUrl)} 
-                  alt={title} 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={(e) => {
-                    // 图片加载失败时显示占位符
-                    e.currentTarget.style.display = 'none'
-                    const placeholder = e.currentTarget.parentElement?.querySelector('.thumbnail-placeholder')
-                    if (placeholder) {
-                      (placeholder as HTMLElement).style.display = 'flex'
-                    }
-                  }}
-                />
-                <div className="thumbnail-placeholder" style={{ display: 'none' }}>
-                  <Film size={48} color="#42a5f5" />
-                </div>
-              </>
-            )
-          })()}
+              ) : (
+                <>
+                  <img 
+                    src={getProxyImageUrl(coverUrl)} 
+                    alt={title} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={(e) => {
+                      // 图片加载失败时显示占位符
+                      e.currentTarget.style.display = 'none'
+                      const placeholder = e.currentTarget.parentElement?.querySelector('.thumbnail-placeholder')
+                      if (placeholder) {
+                        (placeholder as HTMLElement).style.display = 'flex'
+                      }
+                    }}
+                  />
+                  <div className="thumbnail-placeholder" style={{ display: 'none' }}>
+                    <Film size={48} color="#42a5f5" />
+                  </div>
+                </>
+              )}
           {/* Bilibili风格：所有视频都显示时长（右下角） */}
           {duration && <div className="video-duration-overlay">{duration}</div>}
           {/* Bilibili风格：系列视频额外显示集数（左下角） */}
@@ -309,7 +320,25 @@ export default function VideoListCard({
             </div>
           )}
       </div>
-      {showDownloadButton && onDownloadToggle && (
+      {/* 批量模式显示复选框，正常模式显示下载按钮 */}
+      {batchMode && onToggleSelect && (
+        <button
+          className="video-card-checkbox-btn"
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleSelect()
+          }}
+          aria-label={selected ? '取消选择' : '选择'}
+          title={selected ? '取消选择' : '选择'}
+          style={{
+            backgroundColor: selected ? '#fb7299' : 'white',
+            borderColor: selected ? '#fb7299' : '#ddd',
+          }}
+        >
+          {selected && <Check size={18} color="white" />}
+        </button>
+      )}
+      {!batchMode && showDownloadButton && onDownloadToggle && (
         <button
           className="video-card-download-btn"
           onClick={(e) => onDownloadToggle({ id, bvid, title, cover, duration, uploader, views, comments, time }, e)}

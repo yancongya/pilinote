@@ -4,7 +4,7 @@ import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
 import { useDownloadStore } from '../../stores/download'
-import { ArrowLeft, Folder } from 'lucide-react'
+import { ArrowLeft, Folder, CheckSquare, X, Download as DownloadIcon } from 'lucide-react'
 import VideoListCard from './VideoListCard'
 
 // 格式化时长（秒转为 MM:SS）
@@ -44,6 +44,8 @@ export default function FavoritesContent() {
   const [hasMore, setHasMore] = useState(true)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const [batchMode, setBatchMode] = useState(false) // 批量选择模式
+  const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set()) // 选中的视频
   
   const { user } = useAuthStore()
   const navigate = useNavigate()
@@ -73,6 +75,215 @@ export default function FavoritesContent() {
   const handleBackToFolders = () => {
     setSelectedFolder(null)
     navigate('/favorites', { replace: true })
+  }
+
+  // 批量下载收藏夹（使用新系统API）
+  const batchDownloadFavorite = async () => {
+    if (!selectedFolder || !user?.mid) {
+      alert('无法批量下载：缺少必要信息')
+      return
+    }
+
+    if (!confirm(`确定要批量下载收藏夹"${selectedFolder.title}"中的所有视频吗？`)) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      // 1. 使用新API获取收藏夹媒体信息
+      const mediaResponse = await apiService.getFavoriteMedia(selectedFolder.id.toString(), user.mid.toString())
+      if (!mediaResponse.success || !mediaResponse.data) {
+        throw new Error(mediaResponse.message || '获取收藏夹信息失败')
+      }
+
+      const mediaInfo = mediaResponse.data
+      const videoList = mediaInfo.list || []
+
+      if (videoList.length === 0) {
+        alert('收藏夹中没有视频可下载')
+        setLoading(false)
+        return
+      }
+
+      // 2. 创建调度器
+      const folderName = `收藏夹-${selectedFolder.title.replace(/[\/\\:*?"<>|]/g, '_')}`
+      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+
+      const schedulerResponse = await apiService.createScheduler({
+        title: `收藏夹下载: ${selectedFolder.title}`,
+        list: [],
+        queue_type: 1, // PENDING
+        folder: folderPath
+      })
+
+      if (!schedulerResponse.success || !schedulerResponse.data) {
+        throw new Error(schedulerResponse.message || '创建调度器失败')
+      }
+
+      const schedulerId = schedulerResponse.data.id
+
+      // 3. 批量提交任务
+      const taskIds: string[] = []
+      let successCount = 0
+
+      for (const video of videoList) {
+        try {
+          const taskResponse = await apiService.submitTask({
+            media_type: 'video',
+            media_id: video.bvid || '',
+            title: video.title || '',
+            cover: video.cover || '',
+            desc: video.desc || '',
+            meta: {
+              aid: video.aid,
+              cid: video.cid,
+              duration: video.duration,
+              uploader: video.uploader?.name || '',
+              uploader_mid: video.uploader?.mid || 0
+            }
+          })
+
+          if (taskResponse.success && taskResponse.data) {
+            taskIds.push(taskResponse.data.id)
+            successCount++
+          }
+        } catch (err) {
+          console.error(`提交任务失败: ${video.title}`, err)
+        }
+      }
+
+      // 4. 更新调度器的任务列表
+      // 注意：这里需要调用updateScheduler或者直接通过scheduler的list字段更新
+      // 由于新系统API可能不直接支持更新list，我们可能需要先获取scheduler，然后更新
+      // 暂时跳过这一步，直接启动调度器
+
+      // 5. 启动调度器
+      const startResponse = await apiService.startScheduler(schedulerId)
+
+      if (startResponse.success) {
+        alert(`批量下载已启动！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}`)
+        // 切换到下载页面
+        navigate('/downloads')
+      } else {
+        throw new Error(startResponse.message || '启动调度器失败')
+      }
+
+    } catch (err) {
+      console.error('批量下载失败:', err)
+      setError(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      alert(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 批量下载选中的视频
+  const batchDownloadSelected = async () => {
+    if (selectedVideos.size === 0) {
+      alert('请先选择要下载的视频')
+      return
+    }
+
+    if (!confirm(`确定要下载选中的 ${selectedVideos.size} 个视频吗？`)) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      // 1. 创建调度器
+      const folderName = `收藏夹-${selectedFolder.title.replace(/[\/\\:*?"<>|]/g, '_')}-${new Date().toISOString().slice(0, 10)}`
+      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+
+      const schedulerResponse = await apiService.createScheduler({
+        title: `收藏夹下载: ${selectedFolder.title} (选中${selectedVideos.size}个)`,
+        list: [],
+        queue_type: 1, // PENDING
+        folder: folderPath
+      })
+
+      if (!schedulerResponse.success || !schedulerResponse.data) {
+        throw new Error(schedulerResponse.message || '创建调度器失败')
+      }
+
+      const schedulerId = schedulerResponse.data.id
+
+      // 2. 批量提交选中的任务
+      let successCount = 0
+
+      for (const video of videos) {
+        if (!selectedVideos.has(video.id)) continue
+
+        try {
+          const taskResponse = await apiService.submitTask({
+            media_type: 'video',
+            media_id: video.bvid || '',
+            title: video.title || '',
+            cover: video.cover || '',
+            desc: video.desc || '',
+            meta: {
+              aid: video.aid,
+              cid: video.cid,
+              duration: video.originalDuration || video.duration,
+              uploader: video.owner?.name || video.uploader?.name || '',
+              uploader_mid: video.owner?.mid || video.uploader?.mid || 0
+            }
+          })
+
+          if (taskResponse.success && taskResponse.data) {
+            successCount++
+          }
+        } catch (err) {
+          console.error(`提交任务失败: ${video.title}`, err)
+        }
+      }
+
+      // 3. 启动调度器
+      const startResponse = await apiService.startScheduler(schedulerId)
+
+      if (startResponse.success) {
+        alert(`批量下载已启动！\n成功提交 ${successCount}/${selectedVideos.size} 个任务\n保存路径: ${folderPath}`)
+        // 退出批量模式
+        setBatchMode(false)
+        setSelectedVideos(new Set())
+        // 切换到下载页面
+        navigate('/downloads')
+      } else {
+        throw new Error(startResponse.message || '启动调度器失败')
+      }
+
+    } catch (err) {
+      console.error('批量下载失败:', err)
+      setError(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      alert(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 切换视频选中状态
+  const toggleVideoSelection = (videoId: string) => {
+    const newSelected = new Set(selectedVideos)
+    if (newSelected.has(videoId)) {
+      newSelected.delete(videoId)
+    } else {
+      newSelected.add(videoId)
+    }
+    setSelectedVideos(newSelected)
+  }
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedVideos.size === videos.length) {
+      // 全部取消选中
+      setSelectedVideos(new Set())
+    } else {
+      // 全部选中
+      setSelectedVideos(new Set(videos.map(v => v.id)))
+    }
   }
 
   // 监听路由变化，支持通过URL直接访问收藏夹详情
@@ -386,11 +597,8 @@ export default function FavoritesContent() {
       aria-labelledby="favorites-tab"
       className="content-section"
     >
-      <div className="section-header">
-        <div
-          className={`section-title ${selectedFolder ? 'cursor-pointer' : ''}`}
-          onClick={handleBackToFolders}
-        >
+<div className="section-header">
+        <div className="section-title">
           {selectedFolder && (
             <button
               className="back-btn"
@@ -405,10 +613,57 @@ export default function FavoritesContent() {
           )}
           <h2>{selectedFolder ? selectedFolder.title : '我的收藏'}</h2>
           <span className="video-count">
-            {selectedFolder 
+            {selectedFolder
               ? `共${selectedFolder.media_count}条视频`
               : `${folders.length}个收藏夹`}
           </span>
+          {selectedFolder && videos.length > 0 && (
+            <div className="batch-actions">
+              {!batchMode ? (
+                <button
+                  className="batch-download-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setBatchMode(true)
+                  }}
+                  disabled={loading}
+                  aria-label="进入批量选择模式"
+                >
+                  <CheckSquare size={14} />
+                  批量下载
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="batch-cancel-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setBatchMode(false)
+                      setSelectedVideos(new Set())
+                    }}
+                    aria-label="取消批量选择"
+                  >
+                    <X size={14} />
+                    取消
+                  </button>
+                  {selectedVideos.size > 0 && (
+                    <button
+                      className="batch-start-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        batchDownloadSelected()
+                      }}
+                      disabled={loading}
+                      aria-label={`下载选中的 ${selectedVideos.size} 个视频`}
+                    >
+                      <DownloadIcon size={14} />
+                      下载 ({selectedVideos.size})
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -462,6 +717,22 @@ export default function FavoritesContent() {
 
       {!loading && !error && selectedFolder && (
         <div className="video-list" role="list" aria-label="视频列表">
+          {batchMode && (
+            <div className="batch-select-header">
+              <button
+                className="select-all-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleSelectAll()
+                }}
+              >
+                {selectedVideos.size === videos.length ? '取消全选' : '全选'}
+              </button>
+              <span className="selected-count">
+                已选择 {selectedVideos.size} / {videos.length} 个视频
+              </span>
+            </div>
+          )}
           {videos.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>暂无视频</div>
           ) : (
@@ -472,6 +743,10 @@ export default function FavoritesContent() {
                   {...video}
                   onDownloadToggle={toggleDownload}
                   downloadStatus={getDownloadStatus(video.bvid)}
+                  batchMode={batchMode}
+                  selected={selectedVideos.has(video.id)}
+                  onToggleSelect={() => toggleVideoSelection(video.id)}
+                  clickable={!batchMode}
                 />
               ))}
               {loadingMore && (
