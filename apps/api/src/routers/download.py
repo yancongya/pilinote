@@ -1198,20 +1198,22 @@ async def delete_download(download_id: str):
                 # 删除文件和目录
                 if download.file_path:
                     file_path = Path(download.file_path)
-                    if file_path.is_dir():
+                    if file_path.is_file():
+                        # 如果file_path是文件，删除其父目录（包含所有相关文件）
+                        parent_dir = file_path.parent
+                        try:
+                            if parent_dir.exists() and parent_dir.is_dir():
+                                shutil.rmtree(parent_dir)
+                                logger.info(f"Deleted directory: {parent_dir}")
+                        except Exception as e:
+                            logger.error(f"Failed to delete directory {parent_dir}: {e}")
+                    elif file_path.is_dir():
                         # 如果file_path是目录，删除整个目录
                         try:
                             shutil.rmtree(file_path)
                             logger.info(f"Deleted directory: {file_path}")
                         except Exception as e:
                             logger.error(f"Failed to delete directory {file_path}: {e}")
-                    elif file_path.is_file():
-                        # 如果file_path是文件，删除文件
-                        try:
-                            os.remove(file_path)
-                            logger.info(f"Deleted file: {file_path}")
-                        except Exception as e:
-                            logger.error(f"Failed to delete file {file_path}: {e}")
                 
                 session.delete(download)
                 session.commit()
