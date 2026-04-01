@@ -124,7 +124,10 @@ export default function AccountsSettings() {
         setSuccessMessage(`已切换到账号: ${targetAccount?.username || '未知用户'}`)
         setTimeout(() => setSuccessMessage(''), 3000)
       } else {
-        setError(response.message || '切换账号失败')
+        // 显示详细的错误信息
+        const errorMsg = response.message || response.detail || '切换账号失败'
+        setError(errorMsg)
+        console.error('切换账号失败:', response)
       }
     } catch (err) {
       setError('网络请求失败')
