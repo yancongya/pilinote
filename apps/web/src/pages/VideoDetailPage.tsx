@@ -519,13 +519,31 @@ export default function VideoDetailPage() {
                             </div>
                   <div style={{
                     display: 'flex',
-                    gap: '12px',
+                    flexDirection: 'column',
+                    gap: '8px',
                     fontSize: '12px',
-                    color: '#999'
+                    color: '#666'
                   }}>
-                    <span>{formatNumber(video.view)}播放</span>
-                    <span>{formatNumber(video.danmaku)}弹幕</span>
-                    <span>{formatTime(video.pubtime)}</span>
+                    <div style={{
+                      display: 'flex',
+                      gap: '12px',
+                      alignItems: 'center'
+                    }}>
+                      <span>{formatNumber(video.view)}播放</span>
+                      <span>{formatNumber(video.danmaku)}弹幕</span>
+                      <span>{formatTime(video.pubtime)}</span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      gap: '16px',
+                      alignItems: 'center'
+                    }}>
+                      <span>❤️ {formatNumber(video.like)}点赞</span>
+                      <span>🪙 {formatNumber(video.coin)}硬币</span>
+                      <span>⭐ {formatNumber(video.favorite)}收藏</span>
+                      <span>💬 {formatNumber(video.reply)}评论</span>
+                      <span>🔗 {formatNumber(video.share)}分享</span>
+                    </div>
                   </div>
                           </div>        
                 {/* 分P信息 */}
