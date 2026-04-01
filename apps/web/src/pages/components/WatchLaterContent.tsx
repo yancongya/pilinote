@@ -254,14 +254,17 @@ export default function WatchLaterContent() {
         }
 
         try {
+          // 调试：打印视频对象结构
+          console.log('批量添加视频:', video.title, video)
+          
           const response = await apiService.addToDownloadQueue({
             bvid: video.bvid || '',
             title: video.title || '',
             cid: video.cid,
             aid: video.aid,
-            thumbnail_url: video.cover || '',
+            thumbnail_url: video.cover || video.pic || '',
             duration: video.originalDuration || video.duration,
-            uploader: video.uploader?.name || video.owner?.name || '',
+            uploader: video.uploader?.name || video.owner?.name || video.uploader || '未知',
             uploader_mid: video.uploader?.mid || video.owner?.mid || 0
           })
 
