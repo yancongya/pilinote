@@ -186,7 +186,7 @@ export default function FavoritesContent() {
       return
     }
 
-    if (!confirm(`确定要下载选中的 ${selectedVideos.size} 个视频吗？`)) {
+    if (!confirm(`确定要添加选中的 ${selectedVideos.size} 个视频到下载列表吗？`)) {
       return
     }
 
@@ -194,71 +194,52 @@ export default function FavoritesContent() {
     setError('')
 
     try {
-      // 1. 创建调度器
-      const folderName = `收藏夹-${selectedFolder.title.replace(/[\/\\:*?"<>|]/g, '_')}-${new Date().toISOString().slice(0, 10)}`
-      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
-
-      const schedulerResponse = await apiService.createScheduler({
-        title: `收藏夹下载: ${selectedFolder.title} (选中${selectedVideos.size}个)`,
-        list: [],
-        queue_type: 1, // PENDING
-        folder: folderPath
-      })
-
-      if (!schedulerResponse.success || !schedulerResponse.data) {
-        throw new Error(schedulerResponse.message || '创建调度器失败')
-      }
-
-      const schedulerId = schedulerResponse.data.id
-
-      // 2. 批量提交选中的任务
       let successCount = 0
+      let failCount = 0
 
+      // 批量添加到下载队列
       for (const video of videos) {
         if (!selectedVideos.has(video.id)) continue
 
         try {
-          const taskResponse = await apiService.submitTask({
-            media_type: 'video',
-            media_id: video.bvid || '',
+          const response = await apiService.addToDownloadQueue({
+            bvid: video.bvid || '',
             title: video.title || '',
-            cover: video.cover || '',
-            desc: video.desc || '',
-            meta: {
-              aid: video.aid,
-              cid: video.cid,
-              duration: video.originalDuration || video.duration,
-              uploader: video.owner?.name || video.uploader?.name || '',
-              uploader_mid: video.owner?.mid || video.uploader?.mid || 0
-            }
+            cid: video.cid,
+            aid: video.aid,
+            thumbnail_url: video.cover || '',
+            duration: video.originalDuration || video.duration,
+            uploader: video.owner?.name || video.uploader?.name || '',
+            uploader_mid: video.owner?.mid || video.uploader?.mid || 0
           })
 
-          if (taskResponse.success && taskResponse.data) {
+          if (response.success) {
             successCount++
+          } else {
+            failCount++
+            console.error(`添加到下载列表失败: ${video.title}`, response.message)
           }
         } catch (err) {
-          console.error(`提交任务失败: ${video.title}`, err)
+          failCount++
+          console.error(`添加到下载列表失败: ${video.title}`, err)
         }
       }
 
-      // 3. 启动调度器
-      const startResponse = await apiService.startScheduler(schedulerId)
-
-      if (startResponse.success) {
-        alert(`批量下载已启动！\n成功提交 ${successCount}/${selectedVideos.size} 个任务\n保存路径: ${folderPath}`)
+      if (successCount > 0) {
+        alert(`成功添加 ${successCount} 个视频到下载列表${failCount > 0 ? `，失败 ${failCount} 个` : ''}`)
         // 退出批量模式
         setBatchMode(false)
         setSelectedVideos(new Set())
-        // 切换到下载页面
-        navigate('/downloads')
+        // 刷新下载列表
+        downloadStore.fetchDownloads()
       } else {
-        throw new Error(startResponse.message || '启动调度器失败')
+        throw new Error('所有视频添加失败')
       }
 
     } catch (err) {
-      console.error('批量下载失败:', err)
-      setError(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
-      alert(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      console.error('批量添加失败:', err)
+      setError(`批量添加失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      alert(`批量添加失败: ${err instanceof Error ? err.message : '未知错误'}`)
     } finally {
       setLoading(false)
     }
