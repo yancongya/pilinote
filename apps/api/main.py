@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import logging
+
 from src.config import settings
 from src.database import engine, Base
 from src.routers.auth import router as auth_router
@@ -9,7 +11,11 @@ from src.routers.video import router as video_router
 from src.routers.watchlater import router as watchlater_router
 from src.routers.download import router as download_router
 from src.routers.settings import router as settings_router
+from src.routers.queue import router as queue_router
 from src.services.scheduler_service import scheduler_service
+from src.services.queue.manager import queue_manager
+
+logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
@@ -17,11 +23,23 @@ Base.metadata.create_all(bind=engine)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    # 启动队列管理器
+    logger.info("Starting queue manager...")
+    await queue_manager.initialize()
+    logger.info("Queue manager started")
+
     # 启动定时任务
     scheduler_service.start()
+
     yield
+
     # 停止定时任务
     scheduler_service.stop()
+
+    # 关闭队列管理器
+    logger.info("Shutting down queue manager...")
+    await queue_manager.shutdown()
+    logger.info("Queue manager shutdown")
 
 
 app = FastAPI(
@@ -45,6 +63,7 @@ app.include_router(video_router)
 app.include_router(watchlater_router)
 app.include_router(download_router)
 app.include_router(settings_router)
+app.include_router(queue_router)
 
 
 @app.get("/")
