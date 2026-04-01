@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
-import { Check, Smartphone } from 'lucide-react'
+import { Check, Smartphone, User } from 'lucide-react'
 import GeetestCaptcha from '../components/GeetestCaptcha'
 
 interface LoginPageProps {
@@ -313,6 +313,14 @@ function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div className="login-container">
       <div className="login-card">
+        <button
+          className="guest-mode-icon-btn"
+          onClick={() => navigate('/home')}
+          title="以游客身份进入"
+          aria-label="以游客身份进入"
+        >
+          <User className="guest-mode-icon" />
+        </button>
         <div className="login-header">
           <h1 className="login-title">PiliNote</h1>
           <p className="login-subtitle">B站视频下载管理系统</p>

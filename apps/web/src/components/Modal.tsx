@@ -154,7 +154,7 @@ export default function Modal({
         }
 
         .modal-panel-lg {
-          max-width: 560px;
+          max-width: 800px;
         }
 
         @keyframes scaleIn {

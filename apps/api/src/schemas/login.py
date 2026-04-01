@@ -60,43 +60,6 @@ class SessdataLoginResponse(BaseModel):
         }
 
 
-class PasswordLoginRequest(BaseModel):
-    username: str = Field(..., description="B站用户名/手机号/邮箱")
-    password: str = Field(..., description="B站密码")
-    token: Optional[str] = None
-    challenge: Optional[str] = None
-    geetest_validate: Optional[str] = Field(None, alias="validate", description="Geetest验证结果")
-    seccode: Optional[str] = None
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "username": "test@example.com",
-                "password": "password123"
-            }
-        }
-        populate_by_name = True
-
-
-class PasswordLoginResponse(BaseModel):
-    success: bool
-    message: str
-    data: Optional[dict] = None
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "success": True,
-                "message": "登录成功",
-                "data": {
-                    "mid": 123456789,
-                    "username": "test",
-                    "avatar": "https://..."
-                }
-            }
-        }
-
-
 class SmsCodeRequest(BaseModel):
     phone: str = Field(..., description="手机号")
 

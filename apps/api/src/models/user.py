@@ -17,3 +17,4 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_refresh_time = Column(DateTime, nullable=True)  # 上次刷新时间

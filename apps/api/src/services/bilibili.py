@@ -29,17 +29,25 @@ class BilibiliService:
     async def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
         """
         使用异步客户端发送请求的辅助方法
-        
+
         Args:
             method: HTTP方法 (GET, POST等)
             url: 请求URL
             **kwargs: 其他参数
-            
+
         Returns:
             httpx.Response: HTTP响应
         """
         async_client = await self._get_client()
-        return await async_client.request(method, url, **kwargs)
+        response = await async_client.request(method, url, **kwargs)
+
+        # 从响应中提取 cookies 并更新到 cookie_manager
+        if response.cookies:
+            for cookie in response.cookies:
+                await self.headers_manager.update_cookie(cookie.name, cookie.value)
+                print(f"[Cookie Updated] {cookie.name}: {cookie.value[:20]}..." if len(cookie.value) > 20 else f"[Cookie Updated] {cookie.name}: {cookie.value}")
+
+        return response
     
     async def init(self) -> Dict:
         """

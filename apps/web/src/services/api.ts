@@ -352,6 +352,12 @@ class ApiService {
     });
   }
 
+  async refreshAccount(accountId: number): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/auth/accounts/refresh?account_id=${accountId}`, {
+      method: 'POST',
+    });
+  }
+
   async deleteAccount(accountId: number): Promise<ApiResponse<any>> {
     return this.request<any>(`/api/auth/accounts/${accountId}`, {
       method: 'DELETE',

@@ -7,8 +7,6 @@ from src.schemas.login import (
     QrcodeStatusResponse,
     SessdataLoginRequest,
     SessdataLoginResponse,
-    PasswordLoginRequest,
-    PasswordLoginResponse,
     UserInfoResponse,
     SmsCodeRequest,
     SmsCodeWithCaptchaRequest,
@@ -154,11 +152,16 @@ async def query_qrcode_status(qrcode_key: str, db: Session = Depends(get_db)):
                 mid = data["mid"]
                 sessdata = data.get("sessdata", "")
 
+                # 将所有用户设置为非活跃
+                db.query(User).update({"is_active": False})
+
                 existing_user = db.query(User).filter(User.mid == mid).first()
                 if existing_user:
                     existing_user.sessdata = sessdata
                     existing_user.username = data.get("username", "")
                     existing_user.avatar = data.get("avatar", "")
+                    existing_user.is_active = True
+                    existing_user.last_refresh_time = datetime.now()
                     existing_user.updated_at = None
                     db.commit()
                 else:
@@ -166,10 +169,13 @@ async def query_qrcode_status(qrcode_key: str, db: Session = Depends(get_db)):
                         mid=mid,
                         username=data.get("username", ""),
                         avatar=data.get("avatar", ""),
-                        sessdata=sessdata
+                        sessdata=sessdata,
+                        is_active=True,
+                        last_refresh_time=datetime.now()
                     )
                     db.add(new_user)
                     db.commit()
+                    db.flush()
 
                 # 返回用户信息，包含code字段
                 return {
@@ -222,6 +228,7 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
                 existing_user.username = user_data["username"]
                 existing_user.avatar = user_data.get("avatar")
                 existing_user.is_active = True
+                existing_user.last_refresh_time = datetime.now()
                 existing_user.updated_at = None
                 db.commit()
                 user_id = existing_user.id
@@ -231,17 +238,18 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
                     username=user_data["username"],
                     avatar=user_data.get("avatar"),
                     sessdata=user_data["sessdata"],
-                    is_active=True
+                    is_active=True,
+                    last_refresh_time=datetime.now()
                 )
                 db.add(new_user)
                 db.commit()
                 db.flush()
                 user_id = new_user.id
-            
+
             # 保存所有cookie到数据库（关联user_id）
             cookies_dict = service.headers_manager.cookie_manager.get_cookies()
             save_result = await service.headers_manager.cookie_manager.save_to_db(user_id)
-            
+
             print(f"[Login] 用户 {user_data['username']} (mid={mid}) 登录成功")
             print(f"[Login] 保存了{save_result.get('saved_count', 0)}个cookie")
 
@@ -262,46 +270,6 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
         service.close()
 
 
-@router.post("/password", response_model=dict)
-async def login_by_password(request: PasswordLoginRequest, db: Session = Depends(get_db)):
-    """通过密码登录（使用HeadersManager）"""
-    service = BilibiliService()
-    try:
-        # 初始化HeadersManager
-        await service.init()
-        
-        result = await service.login_by_password(
-            request.username,
-            request.password,
-            request.token,
-            request.challenge,
-            request.geetest_validate,
-            request.seccode
-        )
-        if result["success"]:
-            return {
-                "success": True,
-                "message": "登录成功",
-                "data": result["data"]
-            }
-        
-        # 检查是否为验证码错误
-        message = result.get("message", "登录失败")
-        if "验证码" in message:
-            raise HTTPException(
-                status_code=422, 
-                detail={
-                    "message": "密码登录需要验证码",
-                    "error_type": "captcha_required",
-                    "hint": "请使用扫码登录或SESSDATA登录方式"
-                }
-            )
-        
-        raise HTTPException(status_code=400, detail=message)
-    finally:
-        service.close()
-
-
 @router.post("/sms/login", response_model=dict)
 async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
     """通过手机验证码登录（使用HeadersManager）"""
@@ -315,22 +283,39 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
             user_data = result["data"]
             mid = user_data["mid"]
 
+            # 将所有用户设置为非活跃
+            db.query(User).update({"is_active": False})
+
             existing_user = db.query(User).filter(User.mid == mid).first()
             if existing_user:
                 existing_user.sessdata = user_data["sessdata"]
                 existing_user.username = user_data["username"]
                 existing_user.avatar = user_data.get("avatar")
+                existing_user.is_active = True
+                existing_user.last_refresh_time = datetime.now()
                 existing_user.updated_at = None
                 db.commit()
+                user_id = existing_user.id
             else:
                 new_user = User(
                     mid=mid,
                     username=user_data["username"],
                     avatar=user_data.get("avatar"),
-                    sessdata=user_data["sessdata"]
+                    sessdata=user_data["sessdata"],
+                    is_active=True,
+                    last_refresh_time=datetime.now()
                 )
                 db.add(new_user)
                 db.commit()
+                db.flush()
+                user_id = new_user.id
+
+            # 保存所有cookie到数据库（关联user_id）
+            cookies_dict = service.headers_manager.cookie_manager.get_cookies()
+            save_result = await service.headers_manager.cookie_manager.save_to_db(user_id)
+
+            print(f"[SMS Login] 用户 {user_data['username']} (mid={mid}) 登录成功")
+            print(f"[SMS Login] 保存了{save_result.get('saved_count', 0)}个cookie")
 
             return {
                 "success": True,
@@ -525,7 +510,8 @@ async def get_accounts(db: Session = Depends(get_db)):
                 "username": user.username,
                 "avatar": user.avatar,
                 "is_active": user.is_active,
-                "created_at": user.created_at.isoformat() if user.created_at else None
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "last_refresh_time": user.last_refresh_time.isoformat() if user.last_refresh_time else None
             })
         
         return {
@@ -660,6 +646,7 @@ async def switch_account(account_id: int, db: Session = Depends(get_db)):
         Dict: 切换结果
     """
     from src.services.headers_manager import get_headers_manager
+    from datetime import datetime
     
     service = BilibiliService()
     try:
@@ -690,8 +677,7 @@ async def switch_account(account_id: int, db: Session = Depends(get_db)):
             await headers_manager.refresh()
         
         # 更新用户信息
-        user_info = await service.get_user_info(user.sessdata)
-        
+        user_info_result = await service.get_user_info(user.sessdata)
         
         return {
             "success": True,
@@ -701,7 +687,7 @@ async def switch_account(account_id: int, db: Session = Depends(get_db)):
                 "username": user.username,
                 "avatar": user.avatar,
                 "sessdata": user.sessdata,  # 添加sessdata字段
-                "user_info": user_info.get("data", {})
+                "user_info": user_info_result.get("data", {}) if user_info_result.get("success") else {}
             }
         }
     except Exception as e:
@@ -759,3 +745,232 @@ async def delete_account(account_id: int, db: Session = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"删除账号失败: {str(e)}")
+
+
+@router.post("/accounts/refresh", response_model=dict)
+async def refresh_account(account_id: int, db: Session = Depends(get_db)):
+    """
+    刷新账号数据（Cookie/SESSDATA/WBI等）
+    
+    功能：
+    - 刷新账号的cookie
+    - 刷新SESSDATA
+    - 刷新WBI签名
+    - 更新用户信息
+    - 保存到数据库
+    - 更新刷新时间
+    
+    Args:
+        account_id: 账号ID
+        
+    Returns:
+        Dict: 刷新结果
+    """
+    from src.services.headers_manager import get_headers_manager
+    from datetime import datetime
+    from src.models.cookie import Cookie
+    
+    service = BilibiliService()
+    try:
+        # 查找目标账号
+        user = db.query(User).filter(User.id == account_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="账号不存在")
+        
+        # 初始化 service
+        await service.init()
+        
+        # 设置SESSDATA
+        await service.headers_manager.update_cookie("SESSDATA", user.sessdata)
+        
+        # 检查并刷新cookie
+        print(f"[Account Refresh] 开始刷新账号: {user.username} (mid={user.mid})")
+        refresh_result = await service.headers_manager.check_and_refresh_cookies()
+
+        if refresh_result.get("success"):
+            print(f"[Account Refresh] Cookie刷新成功: {refresh_result.get('message')}")
+        else:
+            print(f"[Account Refresh] Cookie刷新失败: {refresh_result.get('message')}")
+
+        # 访问B站首页和 nav 接口以获取完整的cookies（bili_jct, DedeUserID等）
+        try:
+            client = await service._get_client()
+
+            # 访问首页
+            response = await client.get("https://www.bilibili.com/")
+            print(f"[Account Refresh] 访问首页获取cookies，状态码: {response.status_code}")
+
+            # 访问 nav 接口
+            response = await client.get("https://api.bilibili.com/x/web-interface/nav")
+            print(f"[Account Refresh] 访问nav接口获取cookies，状态码: {response.status_code}")
+        except Exception as e:
+            print(f"[Account Refresh] 访问页面失败: {str(e)}")
+
+        # 获取用户信息（验证有效性）
+        user_info_result = await service.get_user_info(user.sessdata)
+
+        if not user_info_result.get("success"):
+            raise HTTPException(status_code=400, detail="SESSDATA无效或已过期")
+
+        # 获取当前所有cookies
+        cookies_dict = service.headers_manager.cookie_manager.get_cookies()
+
+        # 保存 WBI 信息到 cookies
+        user_info = user_info_result.get("data", {})
+        wbi_img = user_info.get("wbi_img", {})
+        if wbi_img.get("img_url"):
+            await service.headers_manager.update_cookie("wbi_img_url", wbi_img.get("img_url"))
+        if wbi_img.get("sub_url"):
+            await service.headers_manager.update_cookie("wbi_sub_url", wbi_img.get("sub_url"))
+        
+        # 更新用户信息
+        user_info = user_info_result.get("data", {})
+        user.username = user_info.get("uname", user.username)
+        user.avatar = user_info.get("face", user.avatar)
+        user.bili_jct = cookies_dict.get("bili_jct", user.bili_jct)
+        user.dedeuserid = cookies_dict.get("DedeUserID", user.dedeuserid)
+        user.access_token = cookies_dict.get("access_token", user.access_token)
+        user.last_refresh_time = datetime.now()  # 始终更新刷新时间（使用本地时区）
+        user.updated_at = datetime.now()
+        
+        db.commit()
+        
+        # 保存所有cookie到数据库
+        save_result = await service.headers_manager.cookie_manager.save_to_db(user.id)
+        print(f"[Account Refresh] 保存了{save_result.get('saved_count', 0)}个cookie")
+        
+        print(f"[Account Refresh] 账号刷新成功: {user.username}")
+        
+        return {
+            "success": True,
+            "message": f"账号刷新成功: {user.username}",
+            "data": {
+                "mid": user.mid,
+                "username": user.username,
+                "avatar": user.avatar,
+                "last_refresh_time": user.last_refresh_time.isoformat() if user.last_refresh_time else None,
+                "user_info": user_info
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Account Refresh] 刷新失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"刷新账号失败: {str(e)}")
+    finally:
+        service.close()
+
+
+@router.get("/accounts/refresh/status", response_model=dict)
+async def get_refresh_status():
+    """
+    获取账号刷新服务状态
+
+    Returns:
+        Dict: 刷新服务状态
+    """
+    from src.services.account_refresh_service import get_account_refresh_service
+
+    service = get_account_refresh_service()
+    status = service.get_status()
+
+    return {
+        "success": True,
+        "data": status
+    }
+
+
+@router.get("/accounts/{account_id}/credentials", response_model=dict)
+async def get_account_credentials(account_id: int, db: Session = Depends(get_db)):
+    """
+    获取账号的验证数据（Cookie、SESSDATA、WBI等）
+
+    Args:
+        account_id: 账号ID
+
+    Returns:
+        Dict: 账号验证数据
+    """
+    from src.models.cookie import Cookie
+    from src.services.headers_manager import get_headers_manager
+
+    # 查找目标账号
+    user = db.query(User).filter(User.id == account_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="账号不存在")
+
+    # 获取该账号的所有cookies
+    cookies = db.query(Cookie).filter(Cookie.user_id == account_id).all()
+
+    # 构建cookies字典
+    cookies_dict = {}
+    for cookie in cookies:
+        cookies_dict[cookie.name] = cookie.value
+
+    # 从 cookies 中获取验证数据（优先从 cookies 表获取，因为 user 表可能没有更新）
+    bili_jct = cookies_dict.get("bili_jct") or user.bili_jct
+    dedeuserid = cookies_dict.get("DedeUserID") or user.dedeuserid
+    access_token = cookies_dict.get("access_token") or user.access_token
+
+    # 从WBI缓存中获取WBI签名
+    wbi_img_url = cookies_dict.get("wbi_img_url", "")
+    wbi_sub_url = cookies_dict.get("wbi_sub_url", "")
+
+    return {
+        "success": True,
+        "data": {
+            "mid": user.mid,
+            "username": user.username,
+            "sessdata": user.sessdata,
+            "bili_jct": bili_jct,
+            "dedeuserid": dedeuserid,
+            "access_token": access_token,
+            "cookies_count": len(cookies_dict),
+            "cookies": cookies_dict,
+            "wbi": {
+                "img_url": wbi_img_url,
+                "sub_url": wbi_sub_url
+            }
+        }
+    }
+
+
+@router.post("/accounts/refresh/start", response_model=dict)
+async def start_refresh_service(interval: int = 3600):
+    """
+    启动账号刷新服务
+    
+    Args:
+        interval: 刷新间隔（秒），默认1小时
+        
+    Returns:
+        Dict: 启动结果
+    """
+    from src.services.account_refresh_service import get_account_refresh_service
+    
+    service = get_account_refresh_service()
+    await service.start(interval)
+    
+    return {
+        "success": True,
+        "message": f"账号刷新服务已启动，刷新间隔: {interval}秒"
+    }
+
+
+@router.post("/accounts/refresh/stop", response_model=dict)
+async def stop_refresh_service():
+    """
+    停止账号刷新服务
+    
+    Returns:
+        Dict: 停止结果
+    """
+    from src.services.account_refresh_service import get_account_refresh_service
+    
+    service = get_account_refresh_service()
+    await service.stop()
+    
+    return {
+        "success": True,
+        "message": "账号刷新服务已停止"
+    }

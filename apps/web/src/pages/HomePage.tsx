@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import { useAuthStore } from '../stores/auth'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { LogIn, Home, Heart, Clock, Download } from 'lucide-react'
+import { LogIn, Home, Heart, Clock, Download, User } from 'lucide-react'
 import HomeContent from './components/HomeContent'
 import FavoritesContent from './components/FavoritesContent'
 import WatchLaterContent from './components/WatchLaterContent'
@@ -124,8 +124,8 @@ function HomePage() {
                 />
                 <span className="user-name">{user.username}</span>
                 {/* Week 1 & 2: 认证系统状态指示器 */}
-                <div 
-                  className={`auth-status ${authStatus}`} 
+                <div
+                  className={`auth-status ${authStatus}`}
                   title={`认证系统状态: ${authStatus === 'initialized' ? '已启用' : authStatus === 'error' ? '异常' : '初始化中...'}`}
                 >
                   {authStatus === 'initialized' && <span>✓</span>}
@@ -145,9 +145,12 @@ function HomePage() {
               )}
             </>
           ) : (
-            <button className="login-btn" aria-label="登录">
-              <LogIn />
-            </button>
+            <div className="user-info guest-info" onClick={handleAvatarClick}>
+              <div className="user-avatar guest-avatar">
+                <User className="guest-avatar-icon" />
+              </div>
+              <span className="user-name">游客</span>
+            </div>
           )}
         </div>
       </header>
@@ -202,8 +205,64 @@ function HomePage() {
 
         <main ref={animationParent} className="home-content">
           {activeTab === 'home' && <HomeContent />}
-          {activeTab === 'favorites' && <FavoritesContent />}
-          {activeTab === 'watch-later' && <WatchLaterContent />}
+          {activeTab === 'favorites' && (
+            user?.sessdata ? (
+              <FavoritesContent />
+            ) : (
+              <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
+                <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
+                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1E293B', marginBottom: '12px' }}>请先登录</h3>
+                <p style={{ fontSize: '16px', color: '#64748B', marginBottom: '24px' }}>登录后可以查看和管理您的收藏夹</p>
+                <button
+                  onClick={() => navigate('/login')}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#2563EB',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#1D4ED8'}
+                  onMouseOut={(e) => e.currentTarget.style.background = '#2563EB'}
+                >
+                  去登录
+                </button>
+              </section>
+            )
+          )}
+          {activeTab === 'watch-later' && (
+            user?.sessdata ? (
+              <WatchLaterContent />
+            ) : (
+              <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
+                <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
+                <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1E293B', marginBottom: '12px' }}>请先登录</h3>
+                <p style={{ fontSize: '16px', color: '#64748B', marginBottom: '24px' }}>登录后可以查看和管理您的稍后再看列表</p>
+                <button
+                  onClick={() => navigate('/login')}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#2563EB',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#1D4ED8'}
+                  onMouseOut={(e) => e.currentTarget.style.background = '#2563EB'}
+                >
+                  去登录
+                </button>
+              </section>
+            )
+          )}
           {activeTab === 'downloads' && (
             <div id="downloads-panel">
               <DownloadsContent />

@@ -17,6 +17,7 @@ from src.routers.media import router as media_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
 from src.services.cache.video_cache import video_cache
+from src.services.account_refresh_service import get_account_refresh_service
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,18 @@ async def lifespan(app: FastAPI):
     # 启动定时任务
     scheduler_service.start()
 
+    # 启动账号刷新服务（默认1小时刷新一次）
+    logger.info("Starting account refresh service...")
+    account_refresh_service = get_account_refresh_service()
+    await account_refresh_service.start(interval=3600)
+    logger.info("Account refresh service started")
+
     yield
+
+    # 停止账号刷新服务
+    logger.info("Stopping account refresh service...")
+    await account_refresh_service.stop()
+    logger.info("Account refresh service stopped")
 
     # 停止定时任务
     scheduler_service.stop()
