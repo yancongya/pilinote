@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
@@ -21,7 +21,6 @@ interface Account {
 
 function LoginPage({ onLogin }: LoginPageProps) {
   const navigate = useNavigate()
-  const location = useLocation()
   
   const [activeTab, setActiveTab] = useState('qrcode')
   const [qrcodeUrl, setQrcodeUrl] = useState('')
@@ -37,9 +36,10 @@ function LoginPage({ onLogin }: LoginPageProps) {
   const [phone, setPhone] = useState('')
   const [smsCode, setSmsCode] = useState('')
   const [smsSent, setSmsSent] = useState(false)
-  const [captchaData, setCaptchaData] = useState<{ challenge: string; validate: string; seccode: string; token: string } | null>(null)
+  const [countdown, setCountdown] = useState(0)
+  const [captchaData, setCaptchaData] = useState<{ token: string; gt: string; challenge: string; validate?: string; seccode?: string } | null>(null)
   const [smsCaptchaKey, setSmsCaptchaKey] = useState('')
-  const [countryCode, setCountryCode] = useState('86')
+  const countryCode = '86'
 
   // 账号列表
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -49,6 +49,13 @@ function LoginPage({ onLogin }: LoginPageProps) {
   useEffect(() => {
     if (activeTab === 'qrcode') {
       fetchQrcode()
+    }
+    // 切换标签页时重置验证码相关状态
+    if (activeTab !== 'sms') {
+      setSmsSent(false)
+      setCountdown(0)
+      setSmsCaptchaKey('')
+      setSmsCode('')
     }
     return () => {
       if (pollIntervalRef.current) {
@@ -61,6 +68,19 @@ function LoginPage({ onLogin }: LoginPageProps) {
   useEffect(() => {
     loadAccounts()
   }, [])
+
+  // 验证码倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown(prev => prev - 1)
+      }, 1000)
+      return () => clearInterval(timer)
+    } else if (countdown === 0 && smsSent) {
+      // 倒计时结束，允许重新获取验证码
+      setSmsSent(false)
+    }
+  }, [countdown, smsSent])
 
   const loadAccounts = async () => {
     setAccountsLoading(true)
@@ -192,7 +212,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
       const response = await apiService.loginBySessdata(sessdata.trim())
       if (response.success && response.data) {
         setUser(response.data)
-        
+
         // 初始化指纹系统
         try {
           await apiService.initFingerprint()
@@ -200,13 +220,16 @@ function LoginPage({ onLogin }: LoginPageProps) {
         } catch (err) {
           console.warn('指纹系统初始化失败:', err)
         }
-        
+
         onLogin()
       } else {
-        setError(response.message || 'SESSDATA登录失败')
+        // 显示详细的错误信息
+        const errorMsg = response.message || 'SESSDATA登录失败'
+        const errorCode = response.code ? ` (错误码: ${response.code})` : ''
+        setError(`${errorMsg}${errorCode}`)
       }
     } catch (err) {
-      setError('网络请求失败')
+      setError(err instanceof Error ? err.message : '网络请求失败')
     } finally {
       setLoading(false)
     }
@@ -229,11 +252,13 @@ function LoginPage({ onLogin }: LoginPageProps) {
         throw new Error(captchaParamsResponse.message || '获取验证码参数失败')
       }
 
-      const { token } = captchaParamsResponse.data
+      const { token, gt, challenge } = captchaParamsResponse.data
 
-      // 使用Geetest发送短信验证码
+      // 保存完整的验证码参数
+      setCaptchaData({ token, gt, challenge })
+
+      // 显示Geetest验证码
       setShowCaptcha(true)
-      setCaptchaData({ ...captchaData, token } || { token })
     } catch (err) {
       setError(err instanceof Error ? err.message : '发送短信验证码失败')
       setLoading(false)
@@ -257,6 +282,8 @@ function LoginPage({ onLogin }: LoginPageProps) {
         setShowCaptcha(false)
         setSmsCaptchaKey(response.data?.captcha_key || '')
         setError('')
+        // 启动倒计时（验证码有效期通常为5分钟，这里设置为60秒提醒用户尽快输入）
+        setCountdown(60)
       } else {
         setError(response.message || '发送短信验证码失败')
         setShowCaptcha(false)
@@ -290,7 +317,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
         setUser({
           ...response.data,
         })
-        
+
         // 初始化指纹系统
         try {
           await apiService.initFingerprint()
@@ -298,13 +325,16 @@ function LoginPage({ onLogin }: LoginPageProps) {
         } catch (err) {
           console.warn('指纹系统初始化失败:', err)
         }
-        
+
         onLogin()
       } else {
-        setError(response.message || '短信登录失败')
+        // 显示详细的错误信息
+        const errorMsg = response.message || '短信登录失败'
+        const errorCode = response.code ? ` (错误码: ${response.code})` : ''
+        setError(`${errorMsg}${errorCode}`)
       }
     } catch (err) {
-      setError('网络请求失败')
+      setError(err instanceof Error ? err.message : '网络请求失败')
     } finally {
       setLoading(false)
     }
@@ -526,21 +556,21 @@ function LoginPage({ onLogin }: LoginPageProps) {
                 <button
                   className="send-sms-btn"
                   onClick={handleSendSmsCode}
-                  disabled={loading || smsSent}
+                  disabled={loading || countdown > 0}
                 >
-                  {smsSent ? '已发送' : '获取验证码'}
+                  {countdown > 0 ? `${countdown}秒后重新获取` : '获取验证码'}
                 </button>
               </div>
 
               <button
                 className="login-btn"
                 onClick={handleSmsLogin}
-                disabled={loading || !smsSent}
+                disabled={loading || !smsCaptchaKey}
               >
                 {loading ? '登录中...' : '登录'}
               </button>
               <p className="hint-text">
-                点击获取验证码后会显示Geetest验证码
+                点击获取验证码后会显示Geetest验证码，验证码有效期为5分钟
               </p>
             </div>
           )}
@@ -567,13 +597,16 @@ function LoginPage({ onLogin }: LoginPageProps) {
                 </button>
               </div>
               <div className="captcha-body">
-                <GeetestCaptcha 
-                  onSuccess={handleSmsCaptchaSuccess}
-                  onError={(error) => {
-                    setError(error)
-                    setShowCaptcha(false)
-                  }}
-                />
+                {captchaData && (
+                  <GeetestCaptcha 
+                    captchaParams={captchaData}
+                    onSuccess={handleSmsCaptchaSuccess}
+                    onError={(error) => {
+                      setError(error)
+                      setShowCaptcha(false)
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>

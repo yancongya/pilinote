@@ -60,6 +60,35 @@ class ApiService {
       });
 
       const data = await response.json();
+
+      // 如果HTTP状态码不是2xx，检查是否有detail字段
+      if (!response.ok) {
+        // FastAPI的HTTPException会返回detail字段
+        if (data.detail) {
+          // 如果detail是字符串
+          if (typeof data.detail === 'string') {
+            return {
+              success: false,
+              message: data.detail
+            };
+          }
+          // 如果detail是对象（包含message、code等）
+          if (typeof data.detail === 'object') {
+            return {
+              success: false,
+              message: data.detail.message || '请求失败',
+              code: data.detail.code
+            };
+          }
+        }
+        // 如果没有detail字段，返回整个data
+        return {
+          success: false,
+          message: data.message || '请求失败',
+          code: data.code
+        };
+      }
+
       return data;
     } catch (error) {
       return {

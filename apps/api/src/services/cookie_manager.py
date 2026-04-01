@@ -116,7 +116,16 @@ class CookieManager:
             if data.get("code") == 0 and data.get("data"):
                 # 更新cookie
                 for cookie in response.cookies:
-                    self.cookies[cookie.name] = cookie.value
+                    # 处理不同类型的cookie对象
+                    if hasattr(cookie, 'name') and hasattr(cookie, 'value'):
+                        cookie_name = cookie.name
+                        cookie_value = cookie.value
+                    else:
+                        # 如果是字典项，使用键值
+                        cookie_name = cookie[0] if isinstance(cookie, tuple) else cookie
+                        cookie_value = response.cookies[cookie_name]
+                    
+                    self.cookies[cookie_name] = cookie_value
                 
                 # 更新refresh_token
                 refresh_data = data["data"]
@@ -280,14 +289,18 @@ class CookieManager:
                 # 加载cookie
                 loaded_count = 0
                 for cookie in cookies:
-                    self.cookies[cookie.name] = cookie.value
-                    loaded_count += 1
-                    
-                    # 特殊处理refresh_token
-                    if cookie.name == "refresh_token":
-                        self.refresh_token = cookie.value
-                        if cookie.expires_at:
-                            self.expires_at = datetime.fromtimestamp(cookie.expires_at)
+                    # 确保cookie对象有name和value属性
+                    if hasattr(cookie, 'name') and hasattr(cookie, 'value'):
+                        self.cookies[cookie.name] = cookie.value
+                        loaded_count += 1
+                        
+                        # 特殊处理refresh_token
+                        if cookie.name == "refresh_token":
+                            self.refresh_token = cookie.value
+                            if hasattr(cookie, 'expires_at') and cookie.expires_at:
+                                self.expires_at = datetime.fromtimestamp(cookie.expires_at)
+                    else:
+                        print(f"[Cookie Persistence] 警告: cookie对象缺少name或value属性: {cookie}")
                 
                 print(f"[Cookie Persistence] 从数据库加载了{loaded_count}个cookie")
                 

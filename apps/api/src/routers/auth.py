@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from datetime import datetime
 from src.database import get_db
 from src.schemas.login import (
     QrcodeResponse,
@@ -146,10 +147,16 @@ async def query_qrcode_status(qrcode_key: str, db: Session = Depends(get_db)):
         result = await service.query_qrcode_status(qrcode_key)
         if result["success"]:
             data = result["data"]
+            # 确保data是字典类型
+            if not isinstance(data, dict):
+                return {
+                    "success": False,
+                    "message": f"返回数据格式错误: {type(data)}"
+                }
 
             # 如果登录成功，保存用户信息到数据库
             if data.get("code") == 0 and "mid" in data:
-                mid = data["mid"]
+                mid = data.get("mid")
                 sessdata = data.get("sessdata", "")
 
                 # 将所有用户设置为非活跃
@@ -265,7 +272,13 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
                     "sessdata": user_data["sessdata"]  # 添加sessdata字段
                 }
             }
-        raise HTTPException(status_code=400, detail=result["message"])
+        raise HTTPException(
+    status_code=400,
+    detail={
+        "message": result.get("message", "SESSDATA登录失败"),
+        "success": False
+    }
+)
     finally:
         service.close()
 
@@ -281,15 +294,30 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
         result = await service.login_by_sms(request.phone, request.code, request.captcha_key)
         if result["success"]:
             user_data = result["data"]
-            mid = user_data["mid"]
+            # 确保user_data是字典类型
+            if not isinstance(user_data, dict):
+                raise HTTPException(status_code=500, detail=f"用户数据格式错误: {type(user_data)}")
+
+            # 检查是否有必要的字段
+            mid = user_data.get("mid")
+            if not mid:
+                # 如果没有mid，可能用户信息获取失败，返回基本登录成功信息
+                return {
+                    "success": True,
+                    "message": "登录成功（未获取到用户信息）",
+                    "data": {
+                        "code": 0,
+                        "sessdata": user_data.get("sessdata", "")
+                    }
+                }
 
             # 将所有用户设置为非活跃
             db.query(User).update({"is_active": False})
 
             existing_user = db.query(User).filter(User.mid == mid).first()
             if existing_user:
-                existing_user.sessdata = user_data["sessdata"]
-                existing_user.username = user_data["username"]
+                existing_user.sessdata = user_data.get("sessdata", "")
+                existing_user.username = user_data.get("username", "")
                 existing_user.avatar = user_data.get("avatar")
                 existing_user.is_active = True
                 existing_user.last_refresh_time = datetime.now()
@@ -299,9 +327,9 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
             else:
                 new_user = User(
                     mid=mid,
-                    username=user_data["username"],
+                    username=user_data.get("username", ""),
                     avatar=user_data.get("avatar"),
-                    sessdata=user_data["sessdata"],
+                    sessdata=user_data.get("sessdata", ""),
                     is_active=True,
                     last_refresh_time=datetime.now()
                 )
@@ -314,7 +342,7 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
             cookies_dict = service.headers_manager.cookie_manager.get_cookies()
             save_result = await service.headers_manager.cookie_manager.save_to_db(user_id)
 
-            print(f"[SMS Login] 用户 {user_data['username']} (mid={mid}) 登录成功")
+            print(f"[SMS Login] 用户 {user_data.get('username', '')} (mid={mid}) 登录成功")
             print(f"[SMS Login] 保存了{save_result.get('saved_count', 0)}个cookie")
 
             return {
@@ -322,15 +350,22 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
                 "message": "登录成功",
                 "data": {
                     "code": 0,
-                    "mid": user_data["mid"],
-                    "username": user_data["username"],
+                    "mid": user_data.get("mid"),
+                    "username": user_data.get("username"),
                     "avatar": user_data.get("avatar"),
                     "level": user_data.get("level"),
                     "vip_status": user_data.get("vip_status"),
-                    "sessdata": user_data["sessdata"]
+                    "sessdata": user_data.get("sessdata")
                 }
             }
-        raise HTTPException(status_code=400, detail=result.get("message", "登录失败"))
+        raise HTTPException(
+    status_code=400,
+    detail={
+        "message": result.get("message", "登录失败"),
+        "code": result.get("code"),
+        "success": False
+    }
+)
     finally:
         service.close()
 

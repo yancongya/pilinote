@@ -19,15 +19,17 @@ function App() {
     const user = useAuthStore.getState().user
   }, [isAuthenticated])
 
-  const handleLogin = () => {
-    // 登录成功后，用户信息已经在LoginPage中通过setUser设置
-    // 这里只需要确保isAuthenticated状态正确
-    // 实际上isAuthenticated会在setUser时自动更新
-    
-    // 如果是从Settings页面跳转过来的（新增账号），登录成功后返回首页
-    if (location.state?.fromSettings) {
-      navigate('/home')
+  // 如果用户已登录但仍在登录页面，自动跳转到首页
+  useEffect(() => {
+    if (isAuthenticated && location.pathname === '/login') {
+      navigate('/home', { replace: true })
     }
+  }, [isAuthenticated, location.pathname, navigate])
+
+  const handleLogin = () => {
+    // 登录成功后，跳转到首页
+    // 注意：用户信息已经在LoginPage中通过setUser设置，isAuthenticated会自动更新为true
+    navigate('/home')
   }
 
   // 定义需要登录的路由

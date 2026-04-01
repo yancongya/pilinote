@@ -44,8 +44,17 @@ class BilibiliService:
         # 从响应中提取 cookies 并更新到 cookie_manager
         if response.cookies:
             for cookie in response.cookies:
-                await self.headers_manager.update_cookie(cookie.name, cookie.value)
-                print(f"[Cookie Updated] {cookie.name}: {cookie.value[:20]}..." if len(cookie.value) > 20 else f"[Cookie Updated] {cookie.name}: {cookie.value}")
+                # 处理不同类型的cookie对象
+                if hasattr(cookie, 'name') and hasattr(cookie, 'value'):
+                    cookie_name = cookie.name
+                    cookie_value = cookie.value
+                else:
+                    # 如果是字典项，使用键值
+                    cookie_name = cookie[0] if isinstance(cookie, tuple) else cookie
+                    cookie_value = response.cookies[cookie_name]
+                
+                await self.headers_manager.update_cookie(cookie_name, cookie_value)
+                print(f"[Cookie Updated] {cookie_name}: {cookie_value[:20]}..." if len(cookie_value) > 20 else f"[Cookie Updated] {cookie_name}: {cookie_value}")
 
         return response
     
@@ -154,6 +163,9 @@ class BilibiliService:
                 refresh_token = login_data.get("refresh_token", "")
                 sessdata = cookies_dict.get("SESSDATA", "") or refresh_token
                 
+                print(f"[QRCode Login] 登录成功，sessdata: {sessdata[:20] if sessdata else 'None'}...")
+                print(f"[QRCode Login] cookies_dict keys: {list(cookies_dict.keys())}")
+                
                 if cookies_dict:
                     # 更新headers_manager中的cookies
                     await self.headers_manager.update_cookies(cookies_dict)
@@ -166,13 +178,20 @@ class BilibiliService:
                     
                     # 获取用户详细信息
                     try:
+                        print(f"[QRCode Login] 开始获取用户信息...")
                         user_info = await self.login_by_sessdata(sessdata)
+                        print(f"[QRCode Login] user_info: {user_info}")
+                        
                         if user_info.get("success"):
                             # 先提取用户信息，然后确保sessdata不为空
                             user_data = user_info.get("data", {})
+                            # 确保user_data是字典类型
+                            if not isinstance(user_data, dict):
+                                print(f"警告: user_data 不是字典类型: {type(user_data)}")
+                                user_data = {}
                             # 确保使用原始的sessdata（从cookie中获取的）
                             user_data["sessdata"] = sessdata
-                            
+
                             return {
                                 "success": True,
                                 "data": {
@@ -182,7 +201,10 @@ class BilibiliService:
                                 }
                             }
                     except Exception as e:
-                        print(f"获取用户信息失败: {e}")
+                        print(f"[QRCode Login Error] 获取用户信息失败: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        raise
                 
                 return {
                     "success": True,
@@ -217,14 +239,22 @@ class BilibiliService:
 
         if data.get("code") == 0 and data.get("data", {}).get("isLogin"):
             user_info = data.get("data", {})
+            
+            # 安全地获取level和vip_status
+            level_info = user_info.get("level_info")
+            level = level_info.get("current_level") if isinstance(level_info, dict) else None
+            
+            vip_info = user_info.get("vip")
+            vip_status = vip_info.get("status") if isinstance(vip_info, dict) else None
+            
             return {
                 "success": True,
                 "data": {
                     "mid": user_info.get("mid"),
                     "username": user_info.get("uname"),
                     "avatar": user_info.get("face"),
-                    "level": user_info.get("level_info", {}).get("current_level"),
-                    "vip_status": user_info.get("vip", {}).get("status"),
+                    "level": level,
+                    "vip_status": vip_status,
                     "sessdata": sessdata
                 }
             }
@@ -409,10 +439,15 @@ class BilibiliService:
                     try:
                         user_info = await self.login_by_sessdata(sessdata)
                         if user_info.get("success"):
+                            user_data = user_info.get("data", {})
+                            # 确保user_data是字典类型
+                            if not isinstance(user_data, dict):
+                                print(f"警告: user_data 不是字典类型: {type(user_data)}")
+                                user_data = {}
                             return {
                                 "success": True,
                                 "data": {
-                                    **user_info.get("data", {}),
+                                    **user_data,
                                     "sessdata": sessdata
                                 }
                             }
@@ -600,9 +635,18 @@ class BilibiliService:
             data = response.json()
             
             if data.get("code") == 0:
+                user_data = data.get("data")
+                # 确保user_data是字典类型
+                if not isinstance(user_data, dict):
+                    print(f"[get_user_info Error] user_data不是字典类型: {type(user_data)}, value: {user_data}")
+                    return {
+                        "success": False,
+                        "message": "获取用户信息失败：数据格式错误",
+                        "code": data.get("code")
+                    }
                 return {
                     "success": True,
-                    "data": data.get("data", {})
+                    "data": user_data
                 }
             return {
                 "success": False,
@@ -610,6 +654,7 @@ class BilibiliService:
                 "code": data.get("code")
             }
         except Exception as e:
+            print(f"[get_user_info Exception] {str(e)}")
             return {
                 "success": False,
                 "message": f"获取用户信息异常: {str(e)}"

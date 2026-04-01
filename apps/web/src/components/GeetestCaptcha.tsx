@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react'
-import { apiService } from '../services/api'
 
 interface GeetestCaptchaProps {
+  captchaParams: {
+    token: string
+    gt: string
+    challenge: string
+  }
   onSuccess: (captchaData: { challenge: string; validate: string; seccode: string }) => void
   onError?: (error: string) => void
 }
@@ -12,7 +16,7 @@ declare global {
   }
 }
 
-function GeetestCaptcha({ onSuccess, onError }: GeetestCaptchaProps) {
+function GeetestCaptcha({ captchaParams, onSuccess, onError }: GeetestCaptchaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,16 +42,9 @@ function GeetestCaptcha({ onSuccess, onError }: GeetestCaptchaProps) {
     }
   }, [])
 
-  const initGeetestCaptcha = async () => {
+  const initGeetestCaptcha = () => {
     try {
-      // 获取验证码参数
-      const response = await apiService.getCaptchaParams()
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.message || '获取验证码参数失败')
-      }
-
-      const { token, gt, challenge } = response.data
+      const { gt, challenge } = captchaParams
 
       // 初始化Geetest
       if (window.initGeetest) {
