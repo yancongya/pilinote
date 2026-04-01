@@ -341,7 +341,7 @@ export default function VideoListCard({
       {!batchMode && showDownloadButton && onDownloadToggle && (
         <button
           className="video-card-download-btn"
-          onClick={(e) => onDownloadToggle({ id, bvid, title, cover, duration, uploader, views, comments, time }, e)}
+          onClick={(e) => onDownloadToggle({ id, bvid, title, cover, duration, uploader, views, comments, time, cid, aid, originalDuration, owner, pubtime, pic: cover }, e)}
           aria-label={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载列表'}
           title={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载'}
           style={{
