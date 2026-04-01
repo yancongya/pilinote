@@ -1,0 +1,157 @@
+/* ==========================================
+   SettingsPage组件兼容性样式
+   ==========================================
+   
+   这个文件为SettingsPage.tsx提供兼容的CSS类名
+   使用Tailwind工具类实现，确保与现有组件兼容
+   
+   ========================================== */
+
+/* 1. 主容器样式 */
+.settings-page-new {
+  @apply min-h-screen bg-gradient-to-br from-secondary-50 to-secondary-100 flex flex-col pb-6;
+}
+
+/* 2. 顶部导航栏样式 */
+.settings-tabs-with-back {
+  @apply sticky top-0 z-50 bg-white/98 backdrop-blur-settings border-b border-secondary-200 shadow-navbar px-4 pt-4 pb-4 md:px-5;
+}
+
+/* 3. 返回按钮样式 */
+.settings-back-button {
+  @apply flex items-center justify-center gap-2 px-3 py-3 bg-gradient-to-r from-white to-secondary-100 text-secondary-600 border-2 border-secondary-200 rounded-lg min-h-touch min-w-touch transition-all duration-300 hover:from-secondary-100 hover:to-secondary-200 hover:text-primary-600 hover:border-secondary-300 hover:-translate-y-0.5 hover:shadow-settings focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+.settings-back-icon {
+  @apply w-5 h-5 transition-transform duration-300 group-hover:-translate-x-1;
+}
+
+.settings-back-text {
+  @apply text-sm font-semibold hidden sm:inline;
+}
+
+/* 4. 分段控制器样式 */
+.settings-segmented-control {
+  @apply flex-1 bg-gradient-to-r from-secondary-100 to-secondary-200 rounded-xl p-1 shadow-inner;
+}
+
+.settings-segmented-track {
+  @apply flex w-full gap-1 items-center justify-between;
+}
+
+.settings-segment-button {
+  @apply flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold min-h-navbar transition-all duration-300 text-secondary-500 hover:text-primary-600 hover:bg-white/60 hover:-translate-y-px;
+}
+
+.settings-segment-button.active {
+  @apply bg-white text-primary-600 shadow-settings font-bold -translate-y-0.5;
+}
+
+.settings-segment-icon {
+  @apply w-4 h-4 md:w-5 md:h-5;
+}
+
+.settings-segment-label {
+  @apply hidden sm:inline;
+}
+
+/* 5. 状态指示器样式 */
+.settings-tab-unsaved-indicator {
+  @apply status-indicator bg-warning-100 text-warning-600 animate-fade-in;
+}
+
+.settings-tab-saving-indicator {
+  @apply status-indicator bg-secondary-100 text-secondary-600 animate-pulse-slow;
+}
+
+.settings-tab-saved-indicator {
+  @apply status-indicator bg-success-100 text-success-600 animate-fade-in;
+}
+
+/* 6. 内容区域样式 */
+.settings-content-new {
+  @apply flex-1 px-4 py-6 md:px-5 md:pb-40 max-w-settings mx-auto w-full;
+}
+
+/* 7. 错误提示样式 */
+.settings-error-toast {
+  @apply flex items-center justify-between gap-4 p-4 bg-gradient-to-r from-error-50 to-error-100 border border-error-200 rounded-xl mb-6 shadow-settings animate-slide-up;
+}
+
+.settings-error-text {
+  @apply flex-1 text-base font-medium text-error-600 leading-relaxed;
+}
+
+.settings-error-close {
+  @apply flex items-center justify-center w-8 h-8 min-w-8 min-h-8 bg-transparent border-none text-error-600 rounded-lg cursor-pointer transition-colors duration-200 hover:bg-error-100 focus:outline-none focus:ring-2 focus:ring-error-500;
+}
+
+/* 8. 底部操作区域样式 */
+.settings-footer {
+  @apply px-4 py-6 md:px-5 max-w-settings mx-auto w-full space-y-5;
+}
+
+.settings-info-card {
+  @apply settings-card rounded-xl overflow-hidden shadow-settings;
+}
+
+.settings-info-item {
+  @apply flex items-center gap-4 p-5;
+}
+
+.settings-info-icon {
+  @apply w-6 h-6 text-secondary-500 flex-shrink-0;
+}
+
+.settings-info-content {
+  @apply flex-1 flex items-center justify-between;
+}
+
+.settings-info-label {
+  @apply text-sm font-medium text-secondary-500;
+}
+
+.settings-info-value {
+  @apply text-xl font-bold text-secondary-800;
+}
+
+.settings-logout-button {
+  @apply settings-button-danger w-full flex items-center justify-center gap-3 px-6 py-5 rounded-xl text-xl font-semibold min-h-[60px] transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-error-500 focus:ring-offset-2;
+}
+
+.settings-logout-icon {
+  @apply w-6 h-6;
+}
+
+.settings-logout-text {
+  @apply text-xl font-semibold;
+}
+
+/* 9. 悬浮保存按钮样式 */
+.settings-fab-save-btn {
+  @apply fixed bottom-8 right-8 flex items-center justify-center rounded-2xl border-none cursor-pointer transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 w-15 h-15 z-100;
+}
+
+.settings-fab-save-btn.has-changes {
+  @apply bg-gradient-to-r from-warning-500 to-warning-600 text-white shadow-fab hover:-translate-y-1 hover:shadow-fab-hover animate-pulse-slow;
+}
+
+.settings-fab-save-btn.saving {
+  @apply bg-gradient-to-r from-secondary-400 to-secondary-500 text-white shadow-fab cursor-not-allowed;
+}
+
+.settings-fab-save-btn.saved {
+  @apply bg-gradient-to-r from-success-500 to-success-600 text-white shadow-fab;
+}
+
+.settings-fab-save-btn:not(.has-changes):not(.saving):not(.saved) {
+  @apply bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-fab hover:-translate-y-1 hover:shadow-fab-hover;
+}
+
+.settings-fab-icon {
+  @apply w-6 h-6;
+}
+
+.settings-fab-icon.spinning {
+  @apply animate-spin;
+}

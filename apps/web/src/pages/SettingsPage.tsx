@@ -19,6 +19,7 @@ import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
 import StorageSettings from './settings/StorageSettings'
 import { ConfirmModal } from '../components/Modal'
+import '../settings-page.css'
 
 type TabType = 'accounts' | 'download' | 'storage'
 
