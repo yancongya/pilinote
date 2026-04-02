@@ -48,7 +48,10 @@ class Task(Base):
     meta = Column(JSON, nullable=False, default=lambda: {})  # 完整元数据（视频信息、UP主信息等）
     prepare = Column(JSON, nullable=False, default=lambda: {})  # 准备数据（视频URL、字幕URL等）
     status = Column(JSON, nullable=False, default=lambda: {})  # 进度状态
-    state = Column(Integer, nullable=False, default=TaskState.BACKLOG)  # TaskState
+    state = Column(Integer, nullable=False, default=TaskState.BACKLOG, index=True)  # TaskState
+
+    # 调度器关联
+    scheduler_id = Column(String(50), nullable=True, index=True)  # 所属调度器ID
 
     # 时间戳
     created_at = Column(Integer, nullable=False, default=lambda: int(datetime.utcnow().timestamp()))

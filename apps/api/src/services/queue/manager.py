@@ -240,13 +240,28 @@ class QueueManager:
             db.add(scheduler)
             db.commit()
             db.refresh(scheduler)
+
+            # Update tasks with scheduler_id
+            for task_id in task_ids:
+                task = db.query(Task).filter_by(id=task_id).first()
+                if task:
+                    task.scheduler_id = scheduler.id
+                    task.state = TaskState.PENDING  # Update state to PENDING
+            
+            db.commit()
         finally:
             db.close()
 
-        # 4. Add to in-memory management
+        # 4. Update in-memory tasks
+        for task_id in task_ids:
+            if task_id in self.tasks:
+                self.tasks[task_id].scheduler_id = scheduler.id
+                self.tasks[task_id].state = TaskState.PENDING
+
+        # 5. Add to in-memory management
         self.schedulers[scheduler.id] = scheduler
 
-        # 5. Add to pending queue
+        # 6. Add to pending queue
         await self.queues[QueueType.PENDING].put(scheduler.id)
 
         # 6. Persist queue to database

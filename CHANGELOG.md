@@ -196,6 +196,120 @@ await apiService.startScheduler(schedulerResponse.data.id)
 
 ---
 
+## 2026-04-02 优化视频库和调度器关联
+
+### 🎯 用户反馈
+
+用户提出了几个重要问题：
+1. **集合视频在下载列表每个都独立** - 应该显示为一个调度器组
+2. **还没下载就显示在视频库** - 视频库应该只显示已完成的
+3. **缺少详情页跳转** - 应该可以点击查看详情
+
+### 🔧 修复方案
+
+#### 1. 添加Task和Scheduler的关联
+
+**修改文件**: `apps/api/src/models/task.py`
+
+**添加字段**：
+```python
+# 调度器关联
+scheduler_id = Column(String(50), nullable=True, index=True)  # 所属调度器ID
+```
+
+#### 2. 数据库迁移
+
+**新增文件**: `apps/api/src/migrate_add_scheduler_id.py`
+
+**功能**：
+- 添加scheduler_id列到tasks表
+- 创建索引
+- 支持向后兼容
+
+#### 3. 修改调度器创建逻辑
+
+**修改文件**: `apps/api/src/services/queue/manager.py`
+
+**修改plan_scheduler方法**：
+```python
+# Update tasks with scheduler_id
+for task_id in task_ids:
+    task = db.query(Task).filter_by(id=task_id).first()
+    if task:
+        task.scheduler_id = scheduler.id
+        task.state = TaskState.PENDING  # Update state to PENDING
+```
+
+#### 4. 优化视频库显示
+
+**修改文件**: `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+
+**修改前**：
+- 显示所有调度器（执行中、已暂停、已完成等）
+- 提示"调度器列表"
+
+**修改后**：
+- 只显示已完成的调度器（state === 'completed'）
+- 提示"已下载的视频"
+- 更符合用户预期
+
+#### 5. 优化下载列表显示
+
+**现有逻辑**：
+```typescript
+// 按schedulerId分组
+const schedulerTasks = filteredTasks.filter(t => t.schedulerId)
+const independentTasks = filteredTasks.filter(t => !t.schedulerId)
+
+// 显示调度器卡片
+{Object.entries(groupedByScheduler).map(([sid]) => {
+  const scheduler = schedulers[sid]
+  if (!scheduler) return null
+  return <SchedulerCard key={sid} scheduler={scheduler} />
+})}
+
+// 显示独立任务
+{independentTasks.map(task => (
+  <TaskCard key={task.id} task={task} />
+))}
+```
+
+### ✅ 预期效果
+
+1. **下载列表**：
+   - ✓ 单P视频显示为独立任务卡片
+   - ✓ 多P视频显示为一个调度器卡片
+   - ✓ 调度器卡片包含所有分集
+
+2. **视频库**：
+   - ✓ 只显示已下载完成的调度器
+   - ✓ 不显示未完成的调度器
+   - ✓ 更符合"已下载"的语义
+
+3. **数据关联**：
+   - ✓ 任务通过scheduler_id关联到调度器
+   - ✓ 调度器创建时自动设置任务的scheduler_id
+   - ✓ 数据持久化到数据库
+
+### 📝 技术细节
+
+1. **关联关系**：
+   - Task.scheduler_id → Scheduler.id（外键关系）
+   - 一个调度器包含多个任务
+   - 一个任务属于一个调度器
+
+2. **状态管理**：
+   - 创建任务时：state = BACKLOG
+   - 创建调度器时：任务state = PENDING
+   - 确保状态转换正确
+
+3. **显示逻辑**：
+   - 有schedulerId的任务：在调度器卡片中显示
+   - 没有schedulerId的任务：作为独立任务显示
+   - 已完成的调度器：在视频库显示
+
+---
+
 ## 2026-04-02 修复调度器创建问题
 
 ### 🐛 问题分析
