@@ -14,9 +14,9 @@ export interface Task {
   desc: string
   duration: number
   pubtime: number
-  mediaType: string
+  media_type: string
   url: string
-  mediaId: string
+  media_id: string
   schedulerId?: string
   state: TaskState
   status: Record<string, any>
@@ -230,7 +230,7 @@ export const useNewQueueStore = create<NewQueueState>()(
         try {
           const response = await fetch('http://localhost:8000/api/queue/tasks')
           if (response.ok) {
-            const data = await response.json()
+            const result = await response.json()
             const tasks: Record<string, Task> = {}
             const stateMap: Record<number, string> = {
               0: 'backlog',
@@ -241,7 +241,9 @@ export const useNewQueueStore = create<NewQueueState>()(
               5: 'failed',
               6: 'cancelled'
             }
-            data.forEach((task: any) => {
+            // 从新的API响应格式中获取数据
+            const taskList = result.data || []
+            taskList.forEach((task: any) => {
               // 转换状态数字为字符串
               const taskWithState = {
                 ...task,
@@ -260,9 +262,11 @@ export const useNewQueueStore = create<NewQueueState>()(
         try {
           const response = await fetch('http://localhost:8000/api/queue/schedulers')
           if (response.ok) {
-            const data = await response.json()
+            const result = await response.json()
             const schedulers: Record<string, Scheduler> = {}
-            data.forEach((scheduler: Scheduler) => {
+            // 从新的API响应格式中获取数据
+            const schedulerList = result.data || []
+            schedulerList.forEach((scheduler: Scheduler) => {
               schedulers[scheduler.id] = scheduler
             })
             set({ schedulers })

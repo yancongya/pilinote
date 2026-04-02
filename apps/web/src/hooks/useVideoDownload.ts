@@ -112,36 +112,61 @@ export function useVideoDownload(useNewSystem: boolean = false) {
               const videoDetailData = videoDetailResponse.data as VideoDetail
 
               if (pages.length > 1) {
-                // 多P视频，添加所有分集
+                // 多P视频：按照BiliTools方案，创建调度器统一管理
+                
+                // 步骤1：为每个分P创建任务并提交到backlog
+                const taskIds: string[] = []
                 let addedCount = 0
 
-                // 为每个分集创建下载任务
-                const addPromises = pages.map(async (page: any) => {
-                  const taskData = {
-                    title: page.part || `${video.title} - P${page.page}`,
-                    media_type: 'video',
-                    media_id: video.bvid,
-                    cover: video.pic || video.cover || '',
-                    desc: `CID: ${page.cid}`
-                  }
-
+                for (const page of pages) {
                   try {
-                    await newQueueStore.submitTask(taskData)
-                    return { success: true }
+                    const taskData = {
+                      title: page.part || `${video.title} - P${page.page}`,
+                      media_type: 'video',
+                      media_id: video.bvid,
+                      cover: video.pic || video.cover || '',
+                      desc: `CID: ${page.cid}`
+                    }
+
+                    const response = await apiService.submitTask(taskData)
+                    if (response.success && response.data) {
+                      taskIds.push(response.data.id)
+                      addedCount++
+                    }
                   } catch (error) {
-                    console.error('添加分集任务失败:', error)
-                    return { success: false }
+                    console.error(`添加分集任务失败: ${page.part}`, error)
                   }
+                }
+
+                if (addedCount === 0) {
+                  throw new Error('所有分集添加失败')
+                }
+
+                // 步骤2：创建调度器（list留空，会自动从backlog获取任务）
+                const folderName = `系列-${video.title.replace(/[\/\\:*?"<>|]/g, '_')}`
+                const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+
+                const schedulerResponse = await apiService.createScheduler({
+                  title: video.title,
+                  list: [],  // 留空，自动从backlog获取任务
+                  queue_type: 1,  // PENDING
+                  folder: folderPath
                 })
 
-                // 并发执行所有分集的添加操作
-                const results = await Promise.all(addPromises)
+                if (!schedulerResponse.success || !schedulerResponse.data) {
+                  throw new Error(schedulerResponse.message || '创建调度器失败')
+                }
 
-                // 统计成功的数量
-                addedCount = results.filter(r => r.success).length
+                const schedulerId = schedulerResponse.data.id
+
+                // 步骤3：启动调度器
+                const startResponse = await apiService.startScheduler(schedulerId)
+                if (!startResponse.success) {
+                  throw new Error(startResponse.message || '启动调度器失败')
+                }
 
                 // 显示结果提示
-                alert(`已添加 ${addedCount} 个分集到下载队列`)
+                alert(`已添加系列视频到下载队列！\n共 ${addedCount} 个分集\n保存路径: ${folderPath}`)
                 
                 // 立即刷新任务列表，确保状态更新
                 await newQueueStore.fetchTasks()
@@ -156,11 +181,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                 }
 
                 try {
-                  await newQueueStore.submitTask(taskData)
-                  alert('已添加到下载队列')
-                  
-                  // 立即刷新任务列表，确保状态更新
-                  await newQueueStore.fetchTasks()
+                  const response = await apiService.submitTask(taskData)
+                  if (response.success) {
+                    alert('已添加到下载队列')
+                    
+                    // 立即刷新任务列表，确保状态更新
+                    await newQueueStore.fetchTasks()
+                  } else {
+                    alert('添加到下载队列失败: ' + (response.message || '未知错误'))
+                  }
                 } catch (error) {
                   console.error('添加任务失败:', error)
                   alert('添加到下载队列失败')
@@ -179,11 +208,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
               }
 
               try {
-                await newQueueStore.submitTask(taskData)
-                alert('已添加到下载队列')
-                
-                // 立即刷新任务列表，确保状态更新
-                await newQueueStore.fetchTasks()
+                const response = await apiService.submitTask(taskData)
+                if (response.success) {
+                  alert('已添加到下载队列')
+                  
+                  // 立即刷新任务列表，确保状态更新
+                  await newQueueStore.fetchTasks()
+                } else {
+                  alert('添加到下载队列失败: ' + (response.message || '未知错误'))
+                }
               } catch (error) {
                 console.error('添加任务失败:', error)
                 alert('添加到下载队列失败')
@@ -202,11 +235,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
             }
 
             try {
-              await newQueueStore.submitTask(taskData)
-              alert('已添加到下载队列')
-              
-              // 立即刷新任务列表，确保状态更新
-              await newQueueStore.fetchTasks()
+              const response = await apiService.submitTask(taskData)
+              if (response.success) {
+                alert('已添加到下载队列')
+                
+                // 立即刷新任务列表，确保状态更新
+                await newQueueStore.fetchTasks()
+              } else {
+                alert('添加到下载队列失败: ' + (response.message || '未知错误'))
+              }
             } catch (error) {
               console.error('添加任务失败:', error)
               alert('添加到下载队列失败')

@@ -1,5 +1,201 @@
 # PiliNote 开发日志
 
+## 2026-04-03 下载系统API响应格式统一
+
+### 🎯 问题修复
+修复添加列表失败的问题，原因是前后端API响应格式不一致。
+
+### 🔧 后端开发
+
+#### ✅ 统一API响应格式
+- **修改文件**: `apps/api/src/routers/queue.py`
+- **实现**: 
+  - 添加 `ApiResponse` 统一响应模型
+  - 所有队列和调度器API端点返回标准格式：
+    ```python
+    {
+      "success": bool,
+      "message": str | None,
+      "data": Any | None,
+      "code": int | None
+    }
+    ```
+  - 修改的端点：
+    - `POST /api/queue/tasks` - 提交任务
+    - `GET /api/queue/tasks` - 获取任务列表
+    - `GET /api/queue/tasks/{task_id}` - 获取任务详情
+    - `PUT /api/queue/tasks/{task_id}` - 更新任务
+    - `DELETE /api/queue/tasks/{task_id}` - 删除任务
+    - `POST /api/queue/schedulers` - 创建调度器
+    - `GET /api/queue/schedulers` - 获取调度器列表
+    - `GET /api/queue/schedulers/{scheduler_id}` - 获取调度器详情
+    - `POST /api/queue/schedulers/{scheduler_id}/start` - 启动调度器
+    - `POST /api/queue/schedulers/{scheduler_id}/pause` - 暂停调度器
+    - `POST /api/queue/schedulers/{scheduler_id}/resume` - 恢复调度器
+    - `POST /api/queue/schedulers/{scheduler_id}/cancel` - 取消调度器
+
+#### ✅ 修复代码错误
+- **修复**: 删除重复的代码行（缩进错误）
+- **位置**: `apps/api/src/routers/queue.py:251`
+
+### 🎨 前端开发
+
+#### ✅ 修复前端API响应解析
+- **修改文件**: `apps/web/src/stores/newQueue.ts`
+- **修复**:
+  - `fetchTasks` 函数：从 `result.data` 中获取任务数组
+  - `fetchSchedulers` 函数：从 `result.data` 中获取调度器数组
+  - 修复 `data.forEach is not a function` 错误
+
+#### ✅ 修复图片加载403错误
+- **修改文件**: `apps/web/src/components/NewDownload/TaskCard.tsx`
+- **实现**:
+  - 添加 `getProxyImageUrl` 函数
+  - 使用后端代理 `/api/auth/proxy/avatar?url=...` 加载图片
+  - 避免直接访问B站图片URL导致的403错误
+  - 与旧的下载页保持一致的图片加载方式
+
+### 📝 技术细节
+
+#### 图片代理方案
+
+**之前的实现**（导致403错误）：
+```tsx
+<img 
+  src={task.cover} 
+  alt={task.title} 
+  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+/>
+```
+
+**现在的实现**（使用代理）：
+```tsx
+const getProxyImageUrl = (url: string | null | undefined): string => {
+  if (!url) return ''
+  return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+}
+
+<img 
+  src={getProxyImageUrl(task.cover)} 
+  alt={task.title} 
+  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+/>
+```
+
+#### 前后端响应格式对比
+
+**之前的后端响应**（直接返回任务对象）：
+```json
+{
+  "id": "xxx",
+  "media_type": "video",
+  "media_id": "BV1xx411c7mD",
+  ...
+}
+```
+
+**现在的后端响应**（统一格式）：
+```json
+{
+  "success": true,
+  "message": "任务提交成功",
+  "data": {
+    "id": "xxx",
+    "media_type": "video",
+    "media_id": "BV1xx411c7mD",
+    ...
+  }
+}
+```
+
+**前端期望的格式**：
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  code?: number;
+}
+```
+
+### 🎯 影响范围
+- ✅ 所有队列和调度器API现在都返回统一的响应格式
+- ✅ 前端可以正确解析API响应
+- ✅ 添加列表功能现在可以正常工作
+- ✅ 图片加载不再出现403错误
+
+---
+
+## 2026-04-03 下载系统重构 - 阶段1补充（Phase 1 Supplement）
+
+### 🎯 补充目标
+修复Phase 1中的关键问题并实现BiliTools调度器模式
+
+### 🔧 前端开发
+
+#### ✅ 修复多P视频处理逻辑
+- **修改文件**: `apps/web/src/hooks/useVideoDownload.ts`
+- **实现**: 按照BiliTools架构重新设计多P视频下载流程
+  - **之前问题**: 每个分P都创建独立的任务，导致任务列表混乱
+  - **新的流程**:
+    1. 为每个分P创建任务并提交到backlog队列
+    2. 创建调度器（scheduler）统一管理所有任务
+    3. 启动调度器开始下载
+    4. 任务自动分组显示在调度器卡片中
+  - **优势**:
+    - 系列视频统一管理，不再散乱显示
+    - 可以统一控制整个系列的暂停/恢复/取消
+    - 支持按系列文件夹自动保存
+
+#### ✅ 修复API调用方式
+- **修改文件**: `apps/web/src/hooks/useVideoDownload.ts`
+- **变更**: 
+  - 将 `newQueueStore.submitTask()` 改为 `apiService.submitTask()`
+  - 原因: `submitTask` 返回 `void`，无法获取创建的task ID
+  - 使用 `apiService.submitTask()` 可以获取完整任务信息，包括ID
+
+#### ✅ 修复Task接口字段命名
+- **修改文件**: `apps/web/src/stores/newQueue.ts`
+- **变更**:
+  - `mediaId` → `media_id`（蛇形命名，匹配后端）
+  - `mediaType` → `media_type`（蛇形命名，匹配后端）
+- **原因**: 前后端字段命名风格不一致导致类型错误
+
+#### ✅ 立即状态刷新
+- **修改文件**: `apps/web/src/hooks/useVideoDownload.ts`
+- **实现**: 在所有添加/删除操作后立即调用 `fetchTasks()`
+- **目的**: 确保UI状态与后端同步
+
+### 📝 技术细节
+
+#### 调度器创建流程
+```typescript
+// 1. 创建所有分P任务
+for (const page of pages) {
+  const response = await apiService.submitTask(taskData)
+  taskIds.push(response.data.id)
+}
+
+// 2. 创建调度器（list留空，自动从backlog获取任务）
+const schedulerResponse = await apiService.createScheduler({
+  title: video.title,
+  list: [],  // 留空，自动从backlog获取任务
+  queue_type: 1,  // PENDING
+  folder: folderPath
+})
+
+// 3. 启动调度器
+await apiService.startScheduler(schedulerResponse.data.id)
+```
+
+### 🎯 后续任务
+- [ ] 实现SchedulerCard组件显示调度器信息
+- [ ] 实现VideoLibrary组件管理调度器列表
+- [ ] 测试多P视频下载流程
+- [ ] 测试调度器的暂停/恢复/取消功能
+
+---
+
 ## 2026-04-02 下载系统重构 - 阶段1（Phase 1）
 
 ### 🎯 重构目标

@@ -6,6 +6,12 @@ interface Props {
   task: Task
 }
 
+// 代理图片URL，避免403错误
+const getProxyImageUrl = (url: string | null | undefined): string => {
+  if (!url) return ''
+  return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+}
+
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
   if (!bytes || bytes === 0) return '0 B'
@@ -26,6 +32,7 @@ const formatETA = (seconds: number): string => {
 export default function TaskCard({ task }: Props) {
   const { controlTask, getTaskProgress } = useNewQueueStore()
   const progress = getTaskProgress(task.id)
+  const coverUrl = getProxyImageUrl(task.cover)
 
   const statusConfig: Record<string, { label: string; color: string }> = {
     'backlog': { label: '待处理', color: '#f59e0b' },
@@ -67,7 +74,7 @@ export default function TaskCard({ task }: Props) {
             </div>
           ) : (
             <img 
-              src={task.cover} 
+              src={coverUrl} 
               alt={task.title} 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {

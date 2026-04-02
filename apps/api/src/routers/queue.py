@@ -1,8 +1,9 @@
 import asyncio
 from fastapi import APIRouter, HTTPException
-from typing import List
+from typing import List, Optional, Any
 from datetime import datetime
 import logging
+from pydantic import BaseModel
 
 from src.schemas.queue import QueueResponse, QueueType
 from src.schemas.task import TaskCreate, TaskResponse, TaskUpdate, TaskState
@@ -16,9 +17,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/queue", tags=["queue"])
 
 
+class ApiResponse(BaseModel):
+    """统一的API响应格式"""
+    success: bool
+    message: Optional[str] = None
+    data: Optional[Any] = None
+    code: Optional[int] = None
+
+
 # ========== Task APIs ==========
 
-@router.get("/tasks", response_model=List[TaskResponse])
+@router.get("/tasks", response_model=ApiResponse)
 async def get_all_tasks():
     """Get all tasks"""
     try:
@@ -39,46 +48,57 @@ async def get_all_tasks():
                 created_at=task.created_at,
                 updated_at=task.updated_at
             ))
-        return tasks
+        return ApiResponse(
+            success=True,
+            data=tasks
+        )
     except Exception as e:
         logger.error(f"Failed to get tasks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/tasks", response_model=TaskResponse)
+@router.post("/tasks", response_model=ApiResponse)
 async def submit_task(task_create: TaskCreate):
     """Submit task to backlog queue"""
     try:
-        return await queue_manager.submit_backlog(task_create)
+        task = await queue_manager.submit_backlog(task_create)
+        return ApiResponse(
+            success=True,
+            message="任务提交成功",
+            data=task
+        )
     except Exception as e:
         logger.error(f"Failed to submit task: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
+@router.get("/tasks/{task_id}", response_model=ApiResponse)
 async def get_task(task_id: str):
     """Get task details"""
     task = await queue_manager.get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return TaskResponse(
-        id=task.id,
-        media_type=task.media_type,
-        media_id=task.media_id,
-        title=task.title,
-        cover=task.cover,
-        desc=task.desc,
-        meta=task.meta,
-        prepare=task.prepare,
-        status=task.status,
-        state=task.state,
-        subtasks=[],
-        created_at=task.created_at,
-        updated_at=task.updated_at
+    return ApiResponse(
+        success=True,
+        data=TaskResponse(
+            id=task.id,
+            media_type=task.media_type,
+            media_id=task.media_id,
+            title=task.title,
+            cover=task.cover,
+            desc=task.desc,
+            meta=task.meta,
+            prepare=task.prepare,
+            status=task.status,
+            state=task.state,
+            subtasks=[],
+            created_at=task.created_at,
+            updated_at=task.updated_at
+        )
     )
 
 
-@router.put("/tasks/{task_id}", response_model=TaskResponse)
+@router.put("/tasks/{task_id}", response_model=ApiResponse)
 async def update_task(task_id: str, task_update: TaskUpdate):
     """Update task"""
     task = await queue_manager.get_task(task_id)
@@ -97,6 +117,26 @@ async def update_task(task_id: str, task_update: TaskUpdate):
         task.prepare = task_update.prepare
 
     task.updated_at = int(datetime.now().timestamp())
+
+    return ApiResponse(
+        success=True,
+        message="任务更新成功",
+        data=TaskResponse(
+            id=task.id,
+            media_type=task.media_type,
+            media_id=task.media_id,
+            title=task.title,
+            cover=task.cover,
+            desc=task.desc,
+            meta=task.meta,
+            prepare=task.prepare,
+            status=task.status,
+            state=task.state,
+            subtasks=[],
+            created_at=task.created_at,
+            updated_at=task.updated_at
+        )
+    )
 
     # Persist to database
     db = SessionLocal()
@@ -129,11 +169,16 @@ async def update_task(task_id: str, task_update: TaskUpdate):
 
 # ========== Scheduler APIs ==========
 
-@router.post("/schedulers", response_model=SchedulerResponse)
+@router.post("/schedulers", response_model=ApiResponse)
 async def create_scheduler(scheduler_create: SchedulerCreate):
     """Create scheduler"""
     try:
-        return await queue_manager.plan_scheduler(scheduler_create)
+        scheduler = await queue_manager.plan_scheduler(scheduler_create)
+        return ApiResponse(
+            success=True,
+            message="调度器创建成功",
+            data=scheduler
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -141,7 +186,7 @@ async def create_scheduler(scheduler_create: SchedulerCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/tasks/{task_id}")
+@router.delete("/tasks/{task_id}", response_model=ApiResponse)
 async def delete_task(task_id: str):
     """Delete task from queue"""
     task = await queue_manager.get_task(task_id)
@@ -155,10 +200,13 @@ async def delete_task(task_id: str):
     from src.routers.websocket import broadcast_task_updated
     broadcast_task_updated(task_id, 'cancelled', cancelled=True)
 
-    return {"message": f"Task {task_id} deleted"}
+    return ApiResponse(
+        success=True,
+        message="任务删除成功"
+    )
 
 
-@router.get("/schedulers", response_model=List[SchedulerResponse])
+@router.get("/schedulers", response_model=ApiResponse)
 async def list_schedulers():
     """Get all schedulers"""
     schedulers = []
@@ -174,25 +222,31 @@ async def list_schedulers():
             created_at=scheduler.created_at,
             updated_at=scheduler.updated_at
         ))
-    return schedulers
+    return ApiResponse(
+        success=True,
+        data=schedulers
+    )
 
 
-@router.get("/schedulers/{scheduler_id}", response_model=SchedulerResponse)
+@router.get("/schedulers/{scheduler_id}", response_model=ApiResponse)
 async def get_scheduler(scheduler_id: str):
     """Get scheduler details"""
     scheduler = await queue_manager.get_scheduler(scheduler_id)
     if not scheduler:
         raise HTTPException(status_code=404, detail="Scheduler not found")
-    return SchedulerResponse(
-        id=scheduler.id,
-        title=scheduler.title,
-        list=scheduler.list,
-        count=scheduler.count,
-        queue_type=scheduler.queue_type,
-        state=scheduler.state,
-        folder=scheduler.folder,
-        created_at=scheduler.created_at,
-        updated_at=scheduler.updated_at
+    return ApiResponse(
+        success=True,
+        data=SchedulerResponse(
+            id=scheduler.id,
+            title=scheduler.title,
+            list=scheduler.list,
+            count=scheduler.count,
+            queue_type=scheduler.queue_type,
+            state=scheduler.state,
+            folder=scheduler.folder,
+            created_at=scheduler.created_at,
+            updated_at=scheduler.updated_at
+        )
     )
 
 
@@ -217,10 +271,13 @@ async def start_scheduler(scheduler_id: str):
     # Dispatch tasks (run in background)
     asyncio.create_task(scheduler_service.dispatch())
 
-    return {"message": f"Scheduler {scheduler_id} started"}
+    return ApiResponse(
+        success=True,
+        message="调度器启动成功"
+    )
 
 
-@router.post("/schedulers/{scheduler_id}/pause")
+@router.post("/schedulers/{scheduler_id}/pause", response_model=ApiResponse)
 async def pause_scheduler(scheduler_id: str):
     """Pause scheduler"""
     scheduler = await queue_manager.get_scheduler(scheduler_id)
@@ -230,10 +287,13 @@ async def pause_scheduler(scheduler_id: str):
     scheduler_service = SchedulerService(scheduler)
     await scheduler_service.pause()
 
-    return {"message": f"Scheduler {scheduler_id} paused"}
+    return ApiResponse(
+        success=True,
+        message="调度器暂停成功"
+    )
 
 
-@router.post("/schedulers/{scheduler_id}/resume")
+@router.post("/schedulers/{scheduler_id}/resume", response_model=ApiResponse)
 async def resume_scheduler(scheduler_id: str):
     """Resume scheduler"""
     scheduler = await queue_manager.get_scheduler(scheduler_id)
@@ -243,10 +303,13 @@ async def resume_scheduler(scheduler_id: str):
     scheduler_service = SchedulerService(scheduler)
     await scheduler_service.resume()
 
-    return {"message": f"Scheduler {scheduler_id} resumed"}
+    return ApiResponse(
+        success=True,
+        message="调度器恢复成功"
+    )
 
 
-@router.post("/schedulers/{scheduler_id}/cancel")
+@router.post("/schedulers/{scheduler_id}/cancel", response_model=ApiResponse)
 async def cancel_scheduler(scheduler_id: str):
     """Cancel scheduler"""
     scheduler = await queue_manager.get_scheduler(scheduler_id)
@@ -256,7 +319,10 @@ async def cancel_scheduler(scheduler_id: str):
     scheduler_service = SchedulerService(scheduler)
     await scheduler_service.cancel()
 
-    return {"message": f"Scheduler {scheduler_id} cancelled"}
+    return ApiResponse(
+        success=True,
+        message="调度器取消成功"
+    )
 
 
 # ========== Queue APIs ==========
