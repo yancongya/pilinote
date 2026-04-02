@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+import json
 
 from src.config import settings
 from src.database import engine, Base
@@ -14,6 +15,7 @@ from src.routers.settings import router as settings_router
 from src.routers.queue import router as queue_router
 from src.routers.cache import router as cache_router
 from src.routers.media import router as media_router
+from src.routers.websocket import manager as ws_manager
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
 from src.services.cache.video_cache import video_cache
@@ -86,6 +88,39 @@ app.include_router(video_router)
 app.include_router(watchlater_router)
 app.include_router(download_router)
 app.include_router(settings_router)
+
+
+@app.websocket("/ws/queue")
+async def websocket_queue(websocket: WebSocket):
+    """队列系统 WebSocket 端点"""
+    await ws_manager.connect(websocket)
+
+    try:
+        # 发送连接确认
+        await websocket.send_json({
+            "type": "connected",
+            "message": "WebSocket connection established"
+        })
+
+        # 保持连接活跃
+        while True:
+            try:
+                # 接收客户端消息（心跳等）
+                data = await websocket.receive_text()
+                message = json.loads(data)
+
+                # 处理心跳
+                if message.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
+
+            except json.JSONDecodeError:
+                pass
+
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        ws_manager.disconnect(websocket)
 
 
 @app.get("/")

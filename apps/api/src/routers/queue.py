@@ -5,7 +5,7 @@ from datetime import datetime
 import logging
 
 from src.schemas.queue import QueueResponse, QueueType
-from src.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from src.schemas.task import TaskCreate, TaskResponse, TaskUpdate, TaskState
 from src.schemas.scheduler import SchedulerCreate, SchedulerResponse, SchedulerUpdate
 from src.services.queue.manager import queue_manager
 from src.services.queue.scheduler import SchedulerService
@@ -17,6 +17,33 @@ router = APIRouter(prefix="/api/queue", tags=["queue"])
 
 
 # ========== Task APIs ==========
+
+@router.get("/tasks", response_model=List[TaskResponse])
+async def get_all_tasks():
+    """Get all tasks"""
+    try:
+        tasks = []
+        for task in queue_manager.tasks.values():
+            tasks.append(TaskResponse(
+                id=task.id,
+                media_type=task.media_type,
+                media_id=task.media_id,
+                title=task.title,
+                cover=task.cover,
+                desc=task.desc,
+                meta=task.meta,
+                prepare=task.prepare,
+                status=task.status,
+                state=task.state,
+                subtasks=[],
+                created_at=task.created_at,
+                updated_at=task.updated_at
+            ))
+        return tasks
+    except Exception as e:
+        logger.error(f"Failed to get tasks: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/tasks", response_model=TaskResponse)
 async def submit_task(task_create: TaskCreate):
@@ -59,6 +86,7 @@ async def update_task(task_id: str, task_update: TaskUpdate):
         raise HTTPException(status_code=404, detail="Task not found")
 
     # Update fields
+    old_state = task.state
     if task_update.state is not None:
         task.state = task_update.state
     if task_update.status is not None:
@@ -77,6 +105,11 @@ async def update_task(task_id: str, task_update: TaskUpdate):
     finally:
         db.close()
 
+    # Broadcast WebSocket event
+    from src.routers.websocket import broadcast_task_updated
+    cancelled = task.state == 6  # CANCELLED state
+    broadcast_task_updated(task_id, str(task.state), cancelled)
+
     return TaskResponse(
         id=task.id,
         media_type=task.media_type,
@@ -87,7 +120,7 @@ async def update_task(task_id: str, task_update: TaskUpdate):
         meta=task.meta,
         prepare=task.prepare,
         status=task.status,
-        state=task.state,
+        state=TaskState(task.state),
         subtasks=[],
         created_at=task.created_at,
         updated_at=task.updated_at
@@ -106,6 +139,23 @@ async def create_scheduler(scheduler_create: SchedulerCreate):
     except Exception as e:
         logger.error(f"Failed to create scheduler: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(task_id: str):
+    """Delete task from queue"""
+    task = await queue_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Remove from all queues
+    await queue_manager.remove_task(task_id)
+
+    # Broadcast WebSocket event
+    from src.routers.websocket import broadcast_task_updated
+    broadcast_task_updated(task_id, 'cancelled', cancelled=True)
+
+    return {"message": f"Task {task_id} deleted"}
 
 
 @router.get("/schedulers", response_model=List[SchedulerResponse])

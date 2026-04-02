@@ -1,0 +1,923 @@
+/* NewDownload Component Styles */
+
+.new-download-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+/* Connection Status */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.connection-status.connected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.connection-status.disconnected {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.connection-status svg {
+  flex-shrink: 0;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 16px;
+  color: #64748b;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Tabs */
+.new-download-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.new-download-tabs .tab {
+  padding: 12px 20px;  /* 增加 padding 以达到最小触摸目标 */
+  border: none;
+  background: white;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease-out;
+  min-height: 44px;  /* 最小触摸目标 */
+}
+
+.new-download-tabs .tab:hover {
+  background: #f1f5f9;
+}
+
+.new-download-tabs .tab:active {
+  transform: scale(0.98);
+}
+
+.new-download-tabs .tab:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.new-download-tabs .tab.active {
+  background: #2563eb;
+  color: white;
+}
+
+.new-download-tabs .tab.active:hover {
+  background: #1d4ed8;
+}
+
+/* Content */
+.new-download-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Filter Bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-bar select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-bar .refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  min-height: 44px;
+}
+
+.filter-bar .refresh-button:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.filter-bar .refresh-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.filter-bar .refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.filter-bar .refresh-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.filter-bar .refresh-button span {
+  font-size: 14px;
+}
+
+/* Downloads List */
+.downloads-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ==========================================
+   NewDownload Component Styles
+   参考原VideoListCard的卡片式布局
+   ========================================== */
+
+/* 主容器 */
+.new-download-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  background: #f8fafc;
+}
+
+/* 连接状态 */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.connection-status.connected {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.connection-status.disconnected {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 16px;
+  color: #64748b;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Tab切换 */
+.new-download-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.new-download-tabs .tab {
+  padding: 12px 20px;
+  border: none;
+  background: white;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s ease-out;
+  min-height: 44px;
+}
+
+.new-download-tabs .tab:hover {
+  background: #f1f5f9;
+}
+
+.new-download-tabs .tab:active {
+  transform: scale(0.98);
+}
+
+.new-download-tabs .tab.active {
+  background: #2563eb;
+  color: white;
+}
+
+/* 内容区域 */
+.new-download-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 过滤栏 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-bar select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filter-bar .refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  min-height: 44px;
+}
+
+.filter-bar .refresh-button:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+/* 下载列表 - 参考原VideoListCard的布局 */
+.downloads-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+/* TaskCard - 复用VideoListCard样式 */
+.video-card {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #fafafa;
+}
+
+.video-card-cover {
+  position: relative;
+  flex-shrink: 0;
+  width: 160px;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.video-card-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.video-card-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-card-thumbnail svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  color: #ccc;
+}
+
+.thumbnail-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+}
+
+.video-duration-overlay {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.video-progress-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.video-progress-bar {
+  height: 100%;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.video-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.video-card-info h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.video-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #999;
+  flex-wrap: wrap;
+}
+
+.video-card-progress-text {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.video-card-file-size {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.video-card-eta {
+  font-size: 12px;
+  color: #666;
+}
+
+.video-download-progress {
+  padding: 8px 0;
+}
+
+.progress-text {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.progress-bar-container {
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.video-card-actions-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.action-icon-btn {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  transition: all 0.2s ease;
+}
+
+.action-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.action-icon-btn:active {
+  background: rgba(0, 0, 0, 0.1);
+  transform: scale(0.95);
+}
+
+.start-icon-btn {
+  color: #52c41a;
+}
+
+.start-icon-btn:hover {
+  color: #45a049;
+  background: rgba(82, 196, 26, 0.1);
+}
+
+.pause-icon-btn {
+  color: #faad14;
+}
+
+.pause-icon-btn:hover {
+  color: #d48806;
+  background: rgba(250, 173, 20, 0.1);
+}
+
+.delete-icon-btn {
+  color: #ff4d4f;
+}
+
+.delete-icon-btn:hover {
+  color: #f5222d;
+  background: rgba(255, 77, 79, 0.1);
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-state p {
+  font-size: 16px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* 响应式适配 */
+@media (max-width: 640px) {
+  .new-download-page {
+    padding: 12px;
+  }
+
+  .video-card {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .video-card-cover {
+    width: 120px;
+    height: 68px;
+  }
+
+  .video-card-info h3 {
+    font-size: 13px;
+  }
+
+  .video-card-meta {
+    font-size: 11px;
+  }
+
+  .action-icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Scheduler Card */
+.scheduler-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.scheduler-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.scheduler-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scheduler-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.scheduler-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.scheduler-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scheduler-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.scheduler-actions button:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.scheduler-actions button:active {
+  transform: scale(0.95);
+}
+
+.scheduler-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Video Library */
+.video-library {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.library-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.library-header span {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.folder-section {
+  margin-bottom: 24px;
+}
+
+.folder-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.video-item {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.video-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.video-thumbnail {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.video-info {
+  padding: 12px;
+}
+
+.video-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-duration {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Scheduler Card */
+.scheduler-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.scheduler-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.scheduler-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scheduler-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.scheduler-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.scheduler-meta .task-count {
+  color: #64748b;
+}
+
+.scheduler-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scheduler-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;  /* 最小触摸目标 44px */
+  height: 44px;  /* 最小触摸目标 44px */
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.scheduler-actions button:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.scheduler-actions button:active {
+  transform: scale(0.95);
+}
+
+.scheduler-actions button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.scheduler-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Video Library */
+.video-library {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.library-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.library-header span {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.folder-section {
+  margin-bottom: 24px;
+}
+
+.folder-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.video-item {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.video-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.video-thumbnail {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  background: #e2e8f0;
+}
+
+.video-info {
+  padding: 12px;
+}
+
+.video-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-duration {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-state p {
+  font-size: 16px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .new-download-page {
+    padding: 12px;
+  }
+
+  .task-header .thumbnail {
+    width: 80px;
+    height: 45px;
+  }
+
+  .video-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+}

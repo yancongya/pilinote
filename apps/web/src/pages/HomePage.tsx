@@ -7,6 +7,7 @@ import HomeContent from './components/HomeContent'
 import FavoritesContent from './components/FavoritesContent'
 import WatchLaterContent from './components/WatchLaterContent'
 import DownloadsContent from './components/DownloadsContent'
+import NewDownloadContent from '../components/NewDownload'
 import { apiService } from '../services/api'
 
 function HomePage() {
@@ -70,6 +71,7 @@ function HomePage() {
     if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
     if (path === '/watch-later') return 'watch-later'
     if (path === '/downloads') return 'downloads'
+    if (path === '/new-downloads') return 'new-downloads'
     return 'home'
   }
 
@@ -80,7 +82,8 @@ function HomePage() {
       home: '/home',
       favorites: '/favorites',
       'watch-later': '/watch-later',
-      downloads: '/downloads'
+      downloads: '/downloads',
+      'new-downloads': '/new-downloads'
     }
     navigate(routes[tab] || '/home')
   }
@@ -201,6 +204,17 @@ function HomePage() {
               <Download className="tab-icon" />
               <span className="tab-label">下载管理</span>
             </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'new-downloads'}
+              aria-controls="new-downloads-panel"
+              className={`home-tab ${activeTab === 'new-downloads' ? 'active' : ''}`}
+              onClick={() => handleTabChange('new-downloads')}
+              tabIndex={activeTab === 'new-downloads' ? 0 : -1}
+            >
+              <Download className="tab-icon" />
+              <span className="tab-label">新下载</span>
+            </button>
           </nav>
 
         <main ref={animationParent} className="home-content">
@@ -268,6 +282,11 @@ function HomePage() {
               <DownloadsContent />
             </div>
           )}
+          {activeTab === 'new-downloads' && (
+            <div id="new-downloads-panel">
+              <NewDownloadContent />
+            </div>
+          )}
         </main>
       </div>
 
@@ -307,6 +326,15 @@ function HomePage() {
         >
           <Download className="nav-icon" />
           <span className="nav-label">下载</span>
+        </button>
+        <button
+          className={`nav-item ${activeTab === 'new-downloads' ? 'active' : ''}`}
+          onClick={() => handleTabChange('new-downloads')}
+          aria-label="新下载"
+          aria-current={activeTab === 'new-downloads' ? 'page' : undefined}
+        >
+          <Download className="nav-icon" />
+          <span className="nav-label">新下载</span>
         </button>
       </nav>
     </div>

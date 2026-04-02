@@ -1,5 +1,179 @@
 # PiliNote 开发日志
 
+## 2026-04-02 下载系统重构 - 阶段1（Phase 1）
+
+### 🎯 重构目标
+基于BiliTools架构完全重构PiliNote的下载管理系统，实现：
+- 四级队列系统（backlog → pending → doing → complete）
+- WebSocket实时通信
+- 事件驱动架构
+- Task/Scheduler/SubTask分层模型
+- 并发控制和任务调度
+
+### 🔧 后端开发
+
+#### ✅ WebSocket实时通信
+- **新增文件**: `apps/api/src/routers/websocket.py`
+- **功能**: 
+  - WebSocket连接管理器（ConnectionManager）
+  - 事件广播系统（taskCreated, taskUpdated, progress, schedulerUpdated, queueUpdated）
+  - 支持多客户端同时连接
+  - 自动清理断开的连接
+
+#### ✅ 四级队列系统
+- **修改文件**: `apps/api/src/services/queue/manager.py`
+- **实现**:
+  - 四级异步队列（backlog, pending, doing, complete）
+  - 信号量并发控制（最大3个并发）
+  - 任务生命周期管理
+  - 数据库持久化
+  - 新增 `remove_task` 方法支持任务删除
+
+#### ✅ 任务管理API
+- **修改文件**: `apps/api/src/routers/queue.py`
+- **新增端点**:
+  - `DELETE /api/queue/tasks/{task_id}` - 删除任务
+  - `PUT /api/queue/tasks/{task_id}` - 更新任务状态
+  - `GET /api/queue/tasks` - 获取任务列表
+  - `GET /api/queue/schedulers` - 获取调度器列表
+  - `POST /api/queue/schedulers/{id}/start` - 启动调度器
+  - `POST /api/queue/schedulers/{id}/pause` - 暂停调度器
+  - `POST /api/queue/schedulers/{id}/resume` - 恢复调度器
+  - `POST /api/queue/schedulers/{id}/cancel` - 取消调度器
+- **修复**: 添加 `TaskState` 导入修复500错误
+
+#### ✅ WebSocket集成
+- **修改文件**: `apps/api/src/main.py`
+- **实现**: 注册WebSocket路由 `/ws/queue`
+
+### 🎨 前端开发
+
+#### ✅ 状态管理（Zustand）
+- **新增文件**: `apps/web/src/stores/newQueue.ts`
+- **功能**:
+  - 任务和调度器状态管理
+  - WebSocket连接和事件处理
+  - 状态映射（整数 → 字符串）
+  - 进度计算
+  - 持久化存储
+
+#### ✅ 新下载组件
+- **新增目录**: `apps/web/src/components/NewDownload/`
+- **组件列表**:
+  - `index.tsx` - 主组件，包含Tab切换和连接状态
+  - `DownloadsList.tsx` - 下载列表组件
+  - `TaskCard.tsx` - 任务卡片（参考VideoListCard布局）
+  - `index.css` - 样式文件
+
+#### ✅ TaskCard卡片式布局
+- **设计优化**:
+  - 横向布局（封面+信息）
+  - 封面固定尺寸（160px × 90px）
+  - 进度叠加层（封面底部）
+  - 时长叠加层（右下角）
+  - 状态标签（彩色）
+  - 操作按钮（内联显示）
+- **状态逻辑**:
+  - backlog: 显示"删除"和"开始下载"两个按钮
+  - active: 显示"暂停"按钮
+  - paused: 显示"继续"和"删除"按钮
+  - failed: 显示"重试"按钮
+  - completed/cancelled: 不显示按钮
+
+#### ✅ 删除功能
+- **实现**:
+  - 前端：DELETE API调用
+  - 后端：`remove_task` 方法从所有队列和数据库中删除
+  - WebSocket事件：`taskUpdated` with `cancelled: true`
+  - 前端处理：从任务列表中移除
+
+#### ✅ 集成到主页面
+- **修改文件**:
+  - `apps/web/src/App.tsx` - 添加新路由
+  - `apps/web/src/pages/HomePage.tsx` - 添加新下载Tab
+  - `apps/web/src/hooks/useVideoDownload.ts` - 添加新系统支持
+  - `apps/web/src/pages/components/FavoritesContent.tsx` - 修复字段映射
+  - `apps/web/src/pages/components/WatchLaterContent.tsx` - 修复字段映射
+
+#### ✅ 样式优化
+- **参考风格**: 原VideoListCard的卡片式布局
+- **特点**:
+  - B站风格设计
+  - 悬停效果（上移+阴影增强）
+  - 响应式布局
+  - 移动端优化
+
+#### ✅ 工具函数
+- **新增文件**: `apps/web/src/utils/cn.ts`
+- **功能**: 类名合并（clsx + tailwind-merge）
+
+#### ✅ 依赖管理
+- **新增依赖**: `clsx@2.1.1`, `tailwind-merge@3.5.0`
+
+### 📝 技术实现细节
+
+#### WebSocket事件系统
+```python
+# 事件类型
+- taskCreated: 新任务创建
+- taskUpdated: 任务状态更新（包括取消）
+- progress: 进度更新
+- schedulerUpdated: 调度器更新
+- queueUpdated: 队列更新（触发全量刷新）
+```
+
+#### 状态映射
+```typescript
+// 整数状态 → 字符串状态
+const stateMap: Record<number, string> = {
+  0: 'backlog',
+  1: 'pending',
+  2: 'active',
+  3: 'completed',
+  4: 'paused',
+  5: 'failed',
+  6: 'cancelled'
+}
+```
+
+#### 删除流程
+1. 用户点击删除按钮
+2. 前端调用 `DELETE /api/queue/tasks/{id}`
+3. 后端从所有队列中移除任务
+4. 后端从数据库中删除任务
+5. 后端广播 `taskUpdated` 事件（`cancelled: true`）
+6. 前端收到事件，从任务列表中移除
+
+### ✅ 测试验证
+- [x] WebSocket连接正常
+- [x] 任务创建和状态更新
+- [x] 任务删除功能
+- [x] 按钮状态逻辑正确
+- [x] 卡片式布局显示正常
+- [x] 进度显示正常
+- [x] 响应式布局正常
+
+### 📊 代码变更统计
+- **新增文件**: 7个
+- **修改文件**: 7个
+- **新增依赖**: 2个
+- **总代码行数**: ~2000行
+
+### 🚀 下一步计划
+- [ ] 实现调度器卡片组件（SchedulerCard.tsx）
+- [ ] 实现视频库组件（VideoLibrary.tsx）
+- [ ] 实现下载引擎集成
+- [ ] 实现系列视频下载
+- [ ] 完整测试所有功能
+- [ ] 性能优化
+
+### 🔗 相关文档
+- 重构方案: `todo/download-redo/plan/new-tab-implementation.md`
+- 技术规范: `todo/download-redo/spec/refactoring-spec.md`
+- 分析文档: `todo/download-redo/analysis/`
+
+---
+
 ## 2026-03-31 NFO文件生成功能改进
 
 ### 🎯 改进内容

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useDownloadStore } from '../../stores/download'
+import { useNewQueueStore } from '../../stores/newQueue'
 import { formatDuration, formatNumber, formatProgress, formatTime } from '../../utils/videoFormatters'
 import { useDownloadSync } from '../../hooks/useDownloadSync'
 import { useVideoList } from '../../hooks/useVideoList'
@@ -17,10 +18,27 @@ export default function WatchLaterContent() {
 
   const { user } = useAuthStore()
   const downloadStore = useDownloadStore()
-  const { getDownloadStatus } = downloadStore
+  const newQueueStore = useNewQueueStore()
+  const { getDownloadStatus: getOldDownloadStatus } = downloadStore
 
   // 同步下载列表
   useDownloadSync()
+
+  // 统一的下载状态检查函数（同时检查新旧系统）
+  const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
+    // 检查新系统
+    const newSystemTasks = Object.values(newQueueStore.tasks)
+    const hasInNewQueue = newSystemTasks.some(task => 
+      task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
+    )
+    
+    if (hasInNewQueue) {
+      return 'in_list'
+    }
+
+    // 检查旧系统（向后兼容）
+    return getOldDownloadStatus(bvid)
+  }, [newQueueStore.tasks, getOldDownloadStatus])
 
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number) => {
@@ -79,8 +97,15 @@ export default function WatchLaterContent() {
     setError
   })
 
-  // 使用 useVideoDownload Hook 处理单个视频下载
-  const { toggleDownload } = useVideoDownload()
+  // 使用 useVideoDownload Hook 处理单个视频下载（使用新的下载系统）
+  const { toggleDownload: baseToggleDownload } = useVideoDownload(true)
+
+  // 包装toggleDownload，在成功后刷新任务列表
+  const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
+    await baseToggleDownload(video, e)
+    // 刷新新系统的任务列表
+    await newQueueStore.fetchTasks()
+  }, [baseToggleDownload, newQueueStore])
 
   // 更新总数（从响应中获取）
   useEffect(() => {

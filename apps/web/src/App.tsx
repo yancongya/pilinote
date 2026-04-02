@@ -49,6 +49,7 @@ function App() {
         <Route path="/watch-later" element={<HomePage />} />
         <Route path="/downloads" element={<HomePage />} />
         <Route path="/downloads/:bvid" element={<DownloadDetailPage />} />
+        <Route path="/new-downloads" element={<HomePage />} />
 
         {/* 受保护路由 - 需要登录 */}
         <Route path="/settings" element={<SettingsPage />} />

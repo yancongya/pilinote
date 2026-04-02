@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
 import { useDownloadStore } from '../../stores/download'
+import { useNewQueueStore } from '../../stores/newQueue'
 import { ArrowLeft, Folder } from 'lucide-react'
 import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
@@ -21,11 +22,28 @@ export default function FavoritesContent() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const downloadStore = useDownloadStore()
+  const newQueueStore = useNewQueueStore()
   const { 
     getFoldersCache, 
     setFoldersCache
   } = useCacheStore()
-  const { getDownloadStatus } = downloadStore
+  const { getDownloadStatus: getOldDownloadStatus } = downloadStore
+
+  // 统一的下载状态检查函数（同时检查新旧系统）
+  const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
+    // 检查新系统
+    const newSystemTasks = Object.values(newQueueStore.tasks)
+    const hasInNewQueue = newSystemTasks.some(task => 
+      task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
+    )
+    
+    if (hasInNewQueue) {
+      return 'in_list'
+    }
+
+    // 检查旧系统（向后兼容）
+    return getOldDownloadStatus(bvid)
+  }, [newQueueStore.tasks, getOldDownloadStatus])
 
   // 处理收藏夹选择，更新路由
   const handleSelectFolder = (folder: any) => {
@@ -92,8 +110,15 @@ export default function FavoritesContent() {
     setError
   })
 
-  // 使用 useVideoDownload Hook 处理单个视频下载
-  const { toggleDownload } = useVideoDownload()
+  // 使用 useVideoDownload Hook 处理单个视频下载（使用新的下载系统）
+  const { toggleDownload: baseToggleDownload } = useVideoDownload(true)
+
+  // 包装toggleDownload，在成功后刷新任务列表
+  const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
+    await baseToggleDownload(video, e)
+    // 刷新新系统的任务列表
+    await newQueueStore.fetchTasks()
+  }, [baseToggleDownload, newQueueStore])
 
   // 批量下载收藏夹（使用新系统API）
   const batchDownloadFavorite = async () => {

@@ -149,6 +149,18 @@ class QueueManager:
 
         logger.info(f"Task {task.id} submitted to backlog")
 
+        # 6. Broadcast WebSocket event
+        from src.routers.websocket import broadcast_task_created
+        task_data = {
+            "id": task.id,
+            "media_type": task.media_type,
+            "media_id": task.media_id,
+            "title": task.title,
+            "cover": task.cover,
+            "state": "backlog"
+        }
+        broadcast_task_created(task_data)
+
         return TaskResponse(
             id=task.id,
             media_type=task.media_type,
@@ -242,6 +254,49 @@ class QueueManager:
     async def get_scheduler(self, scheduler_id: str) -> Optional[Scheduler]:
         """Get scheduler"""
         return self.schedulers.get(scheduler_id)
+
+    async def remove_task(self, task_id: str):
+        """Remove task from all queues and database"""
+        logger.info(f"Removing task: {task_id}")
+
+        # 1. Remove from in-memory tasks
+        if task_id in self.tasks:
+            del self.tasks[task_id]
+
+        # 2. Remove from all queues
+        for queue_type in QueueType:
+            queue = self.queues[queue_type]
+            # Create new queue without the task_id
+            new_items = []
+            while not queue.empty():
+                item = await queue.get()
+                if item != task_id:
+                    new_items.append(item)
+            # Put items back
+            for item in new_items:
+                await queue.put(item)
+
+        # 3. Remove from database
+        db = SessionLocal()
+        try:
+            # Delete task
+            task = db.query(Task).filter_by(id=task_id).first()
+            if task:
+                db.delete(task)
+
+            # Save all queues to database
+            for queue_type in QueueType:
+                queue = self.queues[queue_type]
+                items = list(queue._queue)
+                queue_obj = db.query(Queue).filter_by(queue_type=queue_type).first()
+                if queue_obj:
+                    queue_obj.value = items
+                    queue_obj.updated_at = int(datetime.now().timestamp())
+
+            db.commit()
+            logger.info(f"Task {task_id} removed from database and queues")
+        finally:
+            db.close()
 
     async def _save_queue_to_db(self, queue_type: QueueType):
         """Save queue to database"""
