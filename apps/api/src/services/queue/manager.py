@@ -74,13 +74,15 @@ class QueueManager:
         """Load queues from database"""
         db = SessionLocal()
         try:
+            # Recreate queues
+            for queue_type in QueueType:
+                self.queues[queue_type] = asyncio.Queue()
+
+            # Load queue data from database
             queues = db.query(Queue).all()
             for queue in queues:
                 queue_type = QueueType(queue.queue_type)
                 task_ids = queue.value or []
-
-                # Recreate queue
-                self.queues[queue_type] = asyncio.Queue()
                 for task_id in task_ids:
                     await self.queues[queue_type].put(task_id)
 
@@ -111,6 +113,32 @@ class QueueManager:
             logger.info(f"Loaded {len(tasks)} tasks from database")
         finally:
             db.close()
+
+        # After loading tasks, ensure all BACKLOG tasks are in backlog queue
+        await self._ensure_backlog_consistency()
+
+    async def _ensure_backlog_consistency(self):
+        """Ensure all BACKLOG tasks are in backlog queue"""
+        # Get all tasks with BACKLOG state
+        backlog_task_ids = [
+            task_id for task_id, task in self.tasks.items()
+            if task.state == TaskState.BACKLOG
+        ]
+
+        # Check which are already in queue
+        queue_items = list(self.queues[QueueType.BACKLOG]._queue)
+        existing_ids = set(queue_items)
+
+        # Add missing tasks to queue
+        added_count = 0
+        for task_id in backlog_task_ids:
+            if task_id not in existing_ids:
+                await self.queues[QueueType.BACKLOG].put(task_id)
+                added_count += 1
+
+        if added_count > 0:
+            logger.info(f"Added {added_count} BACKLOG tasks to queue")
+            await self._save_queue_to_db(QueueType.BACKLOG)
 
     async def submit_backlog(self, task_create: TaskCreate) -> TaskResponse:
         """Submit task to backlog queue"""
@@ -305,11 +333,19 @@ class QueueManager:
 
         db = SessionLocal()
         try:
-            # Update queue
+            # Update or create queue
             queue_obj = db.query(Queue).filter_by(queue_type=queue_type).first()
             if queue_obj:
                 queue_obj.value = items
                 queue_obj.updated_at = int(datetime.now().timestamp())
+            else:
+                # Create new queue record
+                queue_obj = Queue(
+                    queue_type=queue_type,
+                    value=items,
+                    updated_at=int(datetime.now().timestamp())
+                )
+                db.add(queue_obj)
             db.commit()
         finally:
             db.close()

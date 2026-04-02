@@ -196,6 +196,137 @@ await apiService.startScheduler(schedulerResponse.data.id)
 
 ---
 
+## 2026-04-02 修复调度器创建问题
+
+### 🐛 问题分析
+
+**症状**：添加合集视频后，提示"X个视频添加到了列表"，但新下载页看不到，只在旧下载页显示
+
+**根本原因**：
+1. 队列保存逻辑有bug - `_save_queue_to_db`只更新不创建Queue记录
+2. 服务器重启后，backlog队列（内存）丢失，但数据库中任务还在
+3. 创建调度器时，从backlog获取任务，但backlog队列为空
+4. 任务没有schedulerId，既不属于调度器，也不是独立任务
+
+### 🔧 修复方案
+
+#### 1. 修复队列保存逻辑
+**文件**: `apps/api/src/services/queue/manager.py`
+
+**修改前**：
+```python
+async def _save_queue_to_db(self, queue_type: QueueType):
+    # Update queue
+    queue_obj = db.query(Queue).filter_by(queue_type=queue_type).first()
+    if queue_obj:
+        queue_obj.value = items
+        queue_obj.updated_at = int(datetime.now().timestamp())
+    # 如果不存在就不创建！
+```
+
+**修改后**：
+```python
+async def _save_queue_to_db(self, queue_type: QueueType):
+    # Update or create queue
+    queue_obj = db.query(Queue).filter_by(queue_type=queue_type).first()
+    if queue_obj:
+        queue_obj.value = items
+        queue_obj.updated_at = int(datetime.now().timestamp())
+    else:
+        # Create new queue record
+        queue_obj = Queue(
+            queue_type=queue_type,
+            value=items,
+            updated_at=int(datetime.now().timestamp())
+        )
+        db.add(queue_obj)
+    db.commit()
+```
+
+#### 2. 添加队列一致性检查
+**新增方法**：`_ensure_backlog_consistency`
+
+**功能**：
+- 确保所有状态为BACKLOG的任务都在backlog队列中
+- 防止队列数据不一致
+
+```python
+async def _ensure_backlog_consistency(self):
+    """Ensure all BACKLOG tasks are in backlog queue"""
+    # Get all tasks with BACKLOG state
+    backlog_task_ids = [
+        task_id for task_id, task in self.tasks.items()
+        if task.state == TaskState.BACKLOG
+    ]
+
+    # Check which are already in queue
+    queue_items = list(self.queues[QueueType.BACKLOG]._queue)
+    existing_ids = set(queue_items)
+
+    # Add missing tasks to queue
+    added_count = 0
+    for task_id in backlog_task_ids:
+        if task_id not in existing_ids:
+            await self.queues[QueueType.BACKLOG].put(task_id)
+            added_count += 1
+
+    if added_count > 0:
+        logger.info(f"Added {added_count} BACKLOG tasks to queue")
+        await self._save_queue_to_db(QueueType.BACKLOG)
+```
+
+#### 3. 修改加载流程
+在`_load_tasks_from_db`中调用一致性检查：
+
+```python
+async def _load_tasks_from_db(self):
+    # Load tasks from database
+    ...
+
+    # After loading tasks, ensure all BACKLOG tasks are in backlog queue
+    await self._ensure_backlog_consistency()
+```
+
+### ✅ 验证结果
+
+1. **后端重启正常** ✓
+2. **从数据库恢复队列** ✓
+3. **BACKLOG任务自动加入队列** ✓
+4. **创建调度器成功** ✓
+
+测试结果：
+```json
+{
+  "success": true,
+  "message": "调度器创建成功",
+  "data": {
+    "id": "2e542f9c-b406-41d8-b812-1901422c0b51",
+    "list": ["task1", "task2", "task3"],
+    "count": 3,
+    "queue_type": 1,
+    "state": 0
+  }
+}
+```
+
+### 🎯 问题解决
+
+现在添加合集视频后：
+- ✓ 任务被创建并保存到数据库
+- ✓ 任务被添加到backlog队列
+- ✓ 调度器被创建
+- ✓ 任务被分配到调度器
+- ✓ 在新下载页可以看到调度器
+
+### 📝 技术要点
+
+1. **内存队列 vs 数据库**：异步队列存储在内存中，但需要持久化到数据库
+2. **服务器重启恢复**：启动时从数据库恢复队列状态
+3. **数据一致性**：确保数据库状态和内存队列状态一致
+4. **队列模型**：Queue模型使用JSON字段存储任务ID列表
+
+---
+
 ## 2026-04-02 下载系统重构 - 阶段1 (Phase 1) 续
 
 ### 🎨 前端UI组件实现
