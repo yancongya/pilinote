@@ -58,7 +58,8 @@ class DownloadEngine:
         pause_event: Optional[asyncio.Event] = None,
         cid: Optional[int] = None,
         audio_bitrate: Optional[int] = 192,
-        codec: Optional[str] = 'avc'
+        codec: Optional[str] = 'avc',
+        download_id: Optional[str] = None
     ):
         """
         下载视频
@@ -74,6 +75,7 @@ class DownloadEngine:
             cid: 视频分P ID
             audio_bitrate: 音频码率 (64/128/132/192/30232/30251/30250)
             codec: 视频编码 (avc/hevc/av1/vp9)
+            download_id: 下载任务ID（用于进度回调）
         """
         # 创建输出目录
         output_dir = Path(output_path)
@@ -168,11 +170,12 @@ class DownloadEngine:
                     # 添加日志
                     logger.info(f"Progress: {progress:.1f}%, {downloaded_bytes}/{total_bytes} bytes, {download_speed:.1f} KB/s, ETA: {eta}s")
                     
-                    progress_callback(d.get('info_dict', {}).get('display_id', ''), progress, downloaded_bytes, total_bytes, download_speed, eta)
+                    # 使用download_id或bvid
+                    progress_callback(download_id or bvid, progress, downloaded_bytes, total_bytes, download_speed, eta)
                 elif status == 'finished':
                     total_bytes = d.get('total_bytes', 0) or 0
                     logger.info(f"Download finished: {total_bytes} bytes")
-                    progress_callback(d.get('info_dict', {}).get('display_id', ''), 100.0, total_bytes, total_bytes, 0.0, 0.0)
+                    progress_callback(download_id or bvid, 100.0, total_bytes, total_bytes, 0.0, 0.0)
                 elif status == 'error':
                     logger.error(f"Download error: {d.get('error', 'Unknown error')}")
             

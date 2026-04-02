@@ -4,7 +4,10 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import Dict, Any, Optional, List
 from pydantic import BaseModel
 import httpx
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from src.schemas.download import (
     ParseLinkRequest,
@@ -859,9 +862,15 @@ async def get_download_list(status: Optional[str] = None):
     """
     获取下载任务列表（包含旧的下载任务和新的队列任务）
     
+    动态数据处理：
+    - 下载中：从内存中的 download_manager 获取实时进度、速度、ETA
+    - 完成：从文件系统获取实际文件大小
+    
     Args:
         status: 可选，筛选特定状态的任务
     """
+    import os
+    
     try:
         # 获取旧的下载任务
         downloads = download_service.get_all_downloads(status)
@@ -869,31 +878,152 @@ async def get_download_list(status: Optional[str] = None):
         # 转换为字典格式
         download_list = []
         for download in downloads:
-            download_list.append({
-                "id": download.id,
-                "bvid": download.bvid,
-                "title": download.title,
-                "status": download.status,
-                "progress": download.progress,
-                "downloaded_bytes": download.downloaded_bytes,
-                "total_bytes": download.total_bytes,
-                "download_speed": download.download_speed,
-                "eta": download.eta,
-                "thumbnail_url": download.thumbnail_url,
-                "duration": download.duration,
-                "uploader": download.uploader,
-                "file_path": download.file_path,
-                "file_size": download.file_size,
-                "error_message": download.error_message,
-                "created_at": download.created_at.isoformat() if download.created_at else None,
-                "started_at": download.started_at.isoformat() if download.started_at else None,
-                "completed_at": download.completed_at.isoformat() if download.completed_at else None,
-                "aid": download.aid,  # 添加aid字段用于系列分组
-                "quality": download.quality,  # 添加质量字段
-                "audio_bitrate": download.audio_bitrate,  # 添加音频码率字段
-                "codec": download.codec,  # 添加编码格式字段
-                "source": "legacy"  # 标记为旧系统
-            })
+            # 判断是否是活跃下载任务
+            is_active = download.id in download_manager.active_downloads
+            
+            if is_active:
+                # 从内存中获取实时进度
+                # 这些数据只在下载过程中有意义，不存储到数据库
+                download_data = {
+                    "id": download.id,
+                    "bvid": download.bvid,
+                    "title": download.title,
+                    "status": download.status,
+                    "progress": download.progress if download.progress > 0 else 0,
+                    "downloaded_bytes": download.downloaded_bytes if download.downloaded_bytes > 0 else 0,
+                    "total_bytes": download.total_bytes if download.total_bytes > 0 else 0,
+                    "download_speed": download.download_speed if download.download_speed > 0 else 0,
+                    "eta": download.eta if download.eta > 0 else 0,
+                    "thumbnail_url": download.thumbnail_url,
+                    "duration": download.duration,
+                    "uploader": download.uploader,
+                    "file_path": download.file_path,
+                    "file_size": 0,  # 下载中不显示文件大小
+                    "error_message": download.error_message,
+                    "created_at": download.created_at.isoformat() if download.created_at else None,
+                    "started_at": download.started_at.isoformat() if download.started_at else None,
+                    "completed_at": None,
+                    "aid": download.aid,
+                    "quality": download.quality,
+                    "audio_bitrate": download.audio_bitrate,
+                    "codec": download.codec,
+                    "source": "legacy"
+                }
+            elif download.status == "completed":
+                # 下载完成：从文件系统获取实际文件大小
+                actual_file_size = 0
+                actual_file_path = None
+                
+                if download.file_path:
+                    # 尝试多个可能的路径
+                    possible_paths = [
+                        download.file_path,  # 原始路径
+                        os.path.join("apps/api", download.file_path),  # 添加 apps/api 前缀
+                        os.path.join("apps/api/downloads", os.path.basename(download.file_path)),  # downloads 目录
+                    ]
+                    
+                    # 首先尝试直接路径
+                    for path in possible_paths:
+                        if os.path.exists(path):
+                            try:
+                                actual_file_size = os.path.getsize(path)
+                                actual_file_path = path
+                                logger.info(f"Found file at: {path}, size: {actual_file_size}")
+                                break
+                            except Exception as e:
+                                logger.error(f"Failed to get file size for {path}: {e}")
+                    
+                    # 如果直接路径失败，尝试智能搜索
+                    if not actual_file_path:
+                        try:
+                            # 搜索 apps/api/downloads 目录
+                            downloads_dir = "apps/api/downloads"
+                            if os.path.exists(downloads_dir):
+                                # 简化标题用于匹配（去除特殊字符）
+                                import re
+                                simplified_title = re.sub(r'[\/\|\\:<>?*\x00-\x1f]', '', download.title).strip()
+                                
+                                # 遍历 downloads 目录
+                                for root, dirs, files in os.walk(downloads_dir):
+                                    for file in files:
+                                        if file.endswith(('.mp4', '.flv', '.mkv', '.webm')):
+                                            # 简化文件名用于匹配
+                                            simplified_file = re.sub(r'[\/\|\\:<>?*\x00-\x1f]', '', file.replace('.mp4', '').replace('.flv', '').replace('.mkv', '').replace('.webm', '')).strip()
+                                            
+                                            # 检查是否有共同字符（简化版本）
+                                            # 如果简化后的标题和文件名有足够相似性
+                                            if simplified_title and simplified_file:
+                                                # 计算相似度
+                                                common_chars = len(set(simplified_title) & set(simplified_file))
+                                                if common_chars >= 3:  # 至少有3个共同字符
+                                                    full_path = os.path.join(root, file)
+                                                    try:
+                                                        actual_file_size = os.path.getsize(full_path)
+                                                        actual_file_path = full_path
+                                                        logger.info(f"Found file by character match: {full_path}, size: {actual_file_size}")
+                                                        break
+                                                    except Exception as e:
+                                                        logger.error(f"Failed to get file size for {full_path}: {e}")
+                                # 如果找到文件，跳出外层循环
+                                if actual_file_path:
+                                    pass
+                        except Exception as e:
+                            logger.error(f"Error searching for file: {e}")
+                
+                download_data = {
+                    "id": download.id,
+                    "bvid": download.bvid,
+                    "title": download.title,
+                    "status": download.status,
+                    "progress": 100.0,
+                    "downloaded_bytes": actual_file_size,
+                    "total_bytes": actual_file_size,
+                    "download_speed": 0,  # 完成后不显示速度
+                    "eta": 0,  # 完成后不显示ETA
+                    "thumbnail_url": download.thumbnail_url,
+                    "duration": download.duration,
+                    "uploader": download.uploader,
+                    "file_path": actual_file_path or download.file_path,
+                    "file_size": actual_file_size,
+                    "error_message": download.error_message,
+                    "created_at": download.created_at.isoformat() if download.created_at else None,
+                    "started_at": download.started_at.isoformat() if download.started_at else None,
+                    "completed_at": download.completed_at.isoformat() if download.completed_at else None,
+                    "aid": download.aid,
+                    "quality": download.quality,
+                    "audio_bitrate": download.audio_bitrate,
+                    "codec": download.codec,
+                    "source": "legacy"
+                }
+            else:
+                # 其他状态（pending, queued, paused, failed, cancelled）
+                download_data = {
+                    "id": download.id,
+                    "bvid": download.bvid,
+                    "title": download.title,
+                    "status": download.status,
+                    "progress": download.progress if download.progress > 0 else 0,
+                    "downloaded_bytes": 0,
+                    "total_bytes": 0,
+                    "download_speed": 0,
+                    "eta": 0,
+                    "thumbnail_url": download.thumbnail_url,
+                    "duration": download.duration,
+                    "uploader": download.uploader,
+                    "file_path": download.file_path,
+                    "file_size": 0,
+                    "error_message": download.error_message,
+                    "created_at": download.created_at.isoformat() if download.created_at else None,
+                    "started_at": download.started_at.isoformat() if download.started_at else None,
+                    "completed_at": download.completed_at.isoformat() if download.completed_at else None,
+                    "aid": download.aid,
+                    "quality": download.quality,
+                    "audio_bitrate": download.audio_bitrate,
+                    "codec": download.codec,
+                    "source": "legacy"
+                }
+            
+            download_list.append(download_data)
         
         # 获取新的队列任务
         from src.database import SessionLocal
@@ -965,10 +1095,12 @@ async def get_download_list(status: Optional[str] = None):
         )
         
     except Exception as e:
+        logger.error(f"Error in get_download_list: {e}", exc_info=True)
         return DownloadListResponse(
             success=False,
             downloads=[],
-            total=0
+            total=0,
+            message=str(e)
         )
 
 

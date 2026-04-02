@@ -336,7 +336,7 @@ class DownloadManager:
                 download.eta = eta
                 download.updated_at = datetime.utcnow()
                 db.commit()
-        
+
         # 调用进度回调
         for callback in self.progress_callbacks:
             try:
@@ -422,7 +422,8 @@ class DownloadManager:
                     download_id, p, db, tb, ds, eta
                 ),
                 pause_event=self.paused_downloads.get(download_id),
-                cid=download.cid
+                cid=download.cid,
+                download_id=download_id
             )
             logger.info(f"Download video completed for {download.bvid}")
             

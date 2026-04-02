@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListCard from './VideoListCard'
 import { useDownloadStore } from '../../stores/download'
@@ -75,18 +75,6 @@ export default function DownloadsContent() {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-  }
-
-  // 格式化时间
-  const formatTime = (timestamp: string): string => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    
-    if (days === 0) return '今天'
-    if (days === 1) return '昨天'
-    return `${date.getMonth() + 1}月${date.getDate()}日`
   }
 
   // 获取状态文字
@@ -298,27 +286,29 @@ export default function DownloadsContent() {
     fetchDownloads(true, true) // 初始加载时更新存储信息并显示 loading
   }, []) // 只在组件挂载时执行一次
 
-  // 实时刷新：当有下载中的任务时，自动刷新进度
+  // 定期刷新downloads数据，以更新任务状态变化
   useEffect(() => {
     // 检查是否有下载中的任务
-    const hasDownloading = downloads.some(d => 
+    const hasDownloading = downloads.some(d =>
       d.status === 'downloading' || d.status === 'queued' || d.status === 'pending' || d.status === 'processing' || d.status === 'paused'
     )
-    
+
     if (hasDownloading) {
-      // 使用定时器轮询，但不依赖 downloads
+      // 每1秒刷新一次，提供更实时的进度更新
       const timer = setInterval(() => {
-        fetchDownloads(false, false) // 轮询时不更新存储信息和显示 loading
-      }, 3000) // 轮询间隔3秒
+        fetchDownloads(false, false)
+      }, 1000)
       return () => clearInterval(timer)
     }
-    // 不依赖 downloads，避免循环
-  }, [])
+  }, [downloads])
+
+  // 使用轮询数据，暂时不合并WebSocket进度
+  const mergedDownloads = downloads
 
   // 根据视图模式筛选并分组
   useEffect(() => {
     // 筛选下载列表
-    const filteredDownloads = downloads.filter(d => {
+    const filteredDownloads = mergedDownloads.filter(d => {
       if (viewMode === 'completed') {
         return d.status === 'completed'
       } else if (viewMode === 'downloading') {
@@ -326,27 +316,27 @@ export default function DownloadsContent() {
       }
       return false
     })
-    
+
     // 直接设置空列表，避免不必要的计算
     if (filteredDownloads.length === 0) {
       setSeriesList([])
       return
     }
-    
+
     // 使用 debounce 避免频繁重新分组
     const timeoutId = setTimeout(() => {
       groupDownloadsBySeries(filteredDownloads).then(setSeriesList)
     }, 100)
-    
+
     return () => clearTimeout(timeoutId)
-  }, [downloads, viewMode, groupDownloadsBySeries])
+  }, [mergedDownloads, viewMode, groupDownloadsBySeries])
 
   // 获取状态统计
   const stats = {
-    downloading: downloads.filter(d => 
+    downloading: mergedDownloads.filter(d =>
       d.status === 'downloading' || d.status === 'queued' || d.status === 'pending' || d.status === 'processing' || d.status === 'paused'
     ).length,
-    completed: downloads.filter(d => d.status === 'completed').length,
+    completed: mergedDownloads.filter(d => d.status === 'completed').length,
   }
 
   return (
@@ -435,6 +425,10 @@ export default function DownloadsContent() {
                   time={firstTask.status === 'downloading' && firstTask.download_speed > 0 ? `${formatFileSize(firstTask.download_speed)}/s` : ''}
                   progress={isSeries ? seriesProgress : firstTask.progress}
                   fileSize={isSeries ? series.totalSize : (firstTask.total_bytes || firstTask.file_size)}
+                  downloaded_bytes={firstTask.downloaded_bytes}
+                  total_bytes={firstTask.total_bytes}
+                  download_speed={firstTask.download_speed}
+                  eta={firstTask.eta}
                   seriesCount={isSeries ? series.totalCount : undefined}
                   downloadStatus={downloadStatus}
                   showDownloadButton={false}

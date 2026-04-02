@@ -16,7 +16,7 @@ function App() {
 
   // 调试：打印认证状态
   useEffect(() => {
-    const user = useAuthStore.getState().user
+    useAuthStore.getState().user
   }, [isAuthenticated])
 
   // 如果用户已登录但仍在登录页面，自动跳转到首页
@@ -31,15 +31,6 @@ function App() {
     // 注意：用户信息已经在LoginPage中通过setUser设置，isAuthenticated会自动更新为true
     navigate('/home')
   }
-
-  // 定义需要登录的路由
-  const protectedRoutes = ['/settings']
-  
-  // 定义可以无登录访问的路由
-  const publicRoutes = ['/home', '/video/:videoId', '/download/series/:seriesId']
-  
-  // 定义需要登录才能显示数据的路由（但在未登录时可以访问页面）
-  const dataRoutes = ['/favorites', '/favorites/:folderId', '/watch-later', '/downloads', '/downloads/:bvid']
 
   return (
     <ToastProvider>

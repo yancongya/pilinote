@@ -159,21 +159,6 @@ class DownloadService:
                 download.eta = eta
                 download.updated_at = datetime.utcnow()
                 db.commit()
-        
-        # 通过WebSocket推送进度更新
-        progress_data = {
-            'progress': progress,
-            'downloaded_bytes': downloaded_bytes,
-            'total_bytes': total_bytes,
-            'download_speed': download_speed,
-            'eta': eta
-        }
-        
-        # 异步推送，不阻塞下载流程
-        from src.services.websocket_manager import websocket_manager
-        asyncio.create_task(
-            websocket_manager.send_progress_update(download_id, progress_data)
-        )
     
     def update_download_status(
         self,
@@ -199,12 +184,6 @@ class DownloadService:
                     download.retry_count += 1
                 
                 db.commit()
-        
-        # 通过WebSocket推送状态更新
-        from src.services.websocket_manager import websocket_manager
-        asyncio.create_task(
-            websocket_manager.send_status_update(download_id, status, error_message)
-        )
     
     def get_all_downloads(self, status: Optional[str] = None) -> list[Download]:
         """获取所有下载任务"""
@@ -261,9 +240,9 @@ class DownloadService:
         with SessionLocal() as db:
             db.add(download)
             db.commit()
-        
-        # 重新启动下载
-        asyncio.create_task(self._process_download(download.id))
+
+        # 重新启动下载需要异步调用
+        # 注意：这需要调用者在异步上下文中处理
         return True
     
     async def _process_download(self, download_id: str):

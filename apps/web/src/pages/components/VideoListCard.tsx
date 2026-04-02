@@ -23,6 +23,11 @@ interface VideoCardProps {
   watched?: string
   fileSize?: number  // 新增：文件大小（字节）
   seriesCount?: number // 新增：系列集数
+  // 下载进度字段
+  downloaded_bytes?: number
+  total_bytes?: number
+  download_speed?: number
+  eta?: number
   // 视频详细信息字段（用于下载）
   cid?: number
   aid?: number
@@ -57,6 +62,20 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
+// 格式化下载速度
+const formatDownloadSpeed = (bytesPerSecond: number): string => {
+  if (!bytesPerSecond || bytesPerSecond === 0) return '0 B/s'
+  return formatFileSize(bytesPerSecond) + '/s'
+}
+
+// 格式化ETA（预计剩余时间）
+const formatETA = (seconds: number): string => {
+  if (!seconds || seconds === 0 || seconds === Infinity) return '--'
+  if (seconds < 60) return `${Math.floor(seconds)}秒`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`
+  return `${Math.floor(seconds / 3600)}小时${Math.floor((seconds % 3600) / 60)}分`
+}
+
 export default function VideoListCard({
   id,
   bvid,
@@ -76,6 +95,10 @@ export default function VideoListCard({
   watched,
   fileSize,
   seriesCount,
+  downloaded_bytes,
+  total_bytes,
+  download_speed,
+  eta,
   cid,
   aid,
   originalDuration,
@@ -232,6 +255,17 @@ export default function VideoListCard({
           {showActionButtons && (
             <span className="video-card-file-size">
               {fileSize !== undefined ? formatFileSize(fileSize) : views}
+            </span>
+          )}
+          {/* 显示下载速度和ETA */}
+          {showActionButtons && download_speed !== undefined && download_speed > 0 && (
+            <span className="video-card-download-speed" style={{ color: '#42a5f5', fontWeight: 'bold' }}>
+              {formatDownloadSpeed(download_speed)}
+            </span>
+          )}
+          {showActionButtons && eta !== undefined && eta > 0 && eta !== Infinity && (
+            <span className="video-card-eta" style={{ color: '#666', fontSize: '12px' }}>
+              剩余{formatETA(eta)}
             </span>
           )}
           {/* 操作按钮 - 在元数据行中显示 */}
