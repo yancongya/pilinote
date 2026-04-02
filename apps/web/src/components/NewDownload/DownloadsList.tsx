@@ -6,7 +6,7 @@ import TaskCard from './TaskCard'
 import SchedulerCard from './SchedulerCard'
 
 export default function DownloadsList() {
-  const { filterStatus, setFilterStatus, getFilteredTasks, fetchTasks, fetchSchedulers } = useNewQueueStore()
+  const { filterStatus, setFilterStatus, getFilteredTasks, fetchTasks, fetchSchedulers, schedulers } = useNewQueueStore()
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const filteredTasks = getFilteredTasks()
@@ -68,9 +68,13 @@ export default function DownloadsList() {
       </div>
 
       {/* 调度器任务 */}
-      {Object.entries(groupedByScheduler).map(([sid, taskList]) => (
-        <SchedulerCard key={sid} schedulerId={sid} tasks={taskList} />
-      ))}
+      {Object.entries(groupedByScheduler).map(([sid]) => {
+        const scheduler = schedulers[sid]
+        if (!scheduler) return null
+        return (
+          <SchedulerCard key={sid} scheduler={scheduler} />
+        )
+      })}
 
       {/* 独立任务 */}
       {independentTasks.map(task => (

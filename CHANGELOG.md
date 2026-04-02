@@ -196,6 +196,133 @@ await apiService.startScheduler(schedulerResponse.data.id)
 
 ---
 
+## 2026-04-02 下载系统重构 - 阶段1 (Phase 1) 续
+
+### 🎨 前端UI组件实现
+
+#### ✅ SchedulerCard组件
+- **新增文件**: `apps/web/src/components/NewDownload/SchedulerCard.tsx`
+- **功能**:
+  - 显示调度器信息和状态
+  - 支持折叠/展开任务列表
+  - 提供控制按钮（暂停/恢复/取消）
+  - 实时显示任务进度和统计
+  - 使用UI/UX Pro Max设计系统
+
+#### ✅ VideoLibrary组件
+- **新增文件**: `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+- **功能**:
+  - 管理调度器列表
+  - 按状态分组显示
+  - 提供状态筛选功能
+  - 显示调度器统计信息
+  - 空状态处理
+
+#### ✅ 样式系统
+- **修改文件**: `apps/web/src/components/NewDownload/index.css`
+- **实现**:
+  - SchedulerCard卡片样式
+  - VideoLibrary布局样式
+  - 响应式设计（移动端适配）
+  - 符合UI/UX Pro Max规范（Dark Mode OLED风格）
+  - 最小触摸目标44×44pt
+  - 平滑动画（150-300ms）
+  - 高对比度（WCAG AA/AAA标准）
+
+### 🎨 设计系统实现
+
+基于UI/UX Pro Max技能生成的设计系统：
+- **风格**: Dark Mode (OLED)
+- **色彩方案**:
+  - Primary: #2563EB
+  - Secondary: #3B82F6
+  - CTA: #F97316
+  - Background: #F8FAFC
+  - Text: #1E293B
+- **字体**: Inter (300, 400, 500, 600, 700)
+- **特效**: 最小发光效果，暗到亮过渡
+- **无障碍性**: 
+  - 最小对比度4.5:1
+  - 键盘导航支持
+  - ARIA标签完整
+  - 减少动画支持
+
+### 🔧 技术实现
+
+#### SchedulerCard组件
+```typescript
+interface Props {
+  scheduler: Scheduler
+}
+
+// 状态配置
+const statusConfig = {
+  'idle': { label: '待处理', color: '#f59e0b', icon: Clock },
+  'running': { label: '执行中', color: '#10b981', icon: Loader2 },
+  'paused': { label: '已暂停', color: '#f97316', icon: Pause },
+  'completed': { label: '已完成', color: '#22c55e', icon: CheckCircle },
+  'failed': { label: '失败', color: '#ef4444', icon: XCircle },
+  'cancelled': { label: '已取消', color: '#6b7280', icon: XCircle },
+}
+```
+
+#### VideoLibrary组件
+```typescript
+// 按状态分组
+const groupedSchedulers = {
+  active: schedulerList.filter(s => s.state === 'running'),
+  paused: schedulerList.filter(s => s.state === 'paused'),
+  completed: schedulerList.filter(s => s.state === 'completed'),
+  other: schedulerList.filter(s => !['running', 'paused', 'completed'].includes(s.state))
+}
+```
+
+### 📊 代码统计
+
+**新增文件**: 2个
+- SchedulerCard.tsx (196行)
+- VideoLibrary.tsx (128行)
+
+**修改文件**: 2个
+- index.css (新增400+行样式)
+- DownloadsList.tsx (集成SchedulerCard)
+
+**总代码量**: ~500行
+
+### ✨ 功能特性
+
+1. **调度器卡片**
+   - 实时进度显示
+   - 任务状态可视化
+   - 控制按钮（暂停/恢复/取消）
+   - 折叠/展开任务列表
+   - 任务进度条
+
+2. **视频库**
+   - 状态分组显示
+   - 筛选功能
+   - 统计信息
+   - 空状态处理
+   - 连接状态提示
+
+3. **UI/UX优化**
+   - 响应式设计
+   - 无障碍支持
+   - 平滑动画
+   - 高对比度
+   - 最小触摸目标
+
+### 🎯 完成度
+
+- ✅ SchedulerCard组件
+- ✅ VideoLibrary组件
+- ✅ 样式系统
+- ✅ 响应式设计
+- ✅ 无障碍支持
+- ⏳ 调度器功能测试（待后端完善）
+
+---
+
 ## 2026-04-02 下载系统重构 - 阶段1（Phase 1）
 
 ### 🎯 重构目标
