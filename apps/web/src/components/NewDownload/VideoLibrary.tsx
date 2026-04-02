@@ -7,7 +7,6 @@ export default function VideoLibrary() {
   const { schedulers, fetchSchedulers, connected } = useNewQueueStore()
   
   const schedulerList = Object.values(schedulers)
-  const hasSchedulers = schedulerList.length > 0
   
   // 视频库只显示已完成的调度器
   const completedSchedulers = schedulerList.filter(s => s.state === 'completed')

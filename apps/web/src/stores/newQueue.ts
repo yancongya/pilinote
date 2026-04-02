@@ -264,10 +264,26 @@ export const useNewQueueStore = create<NewQueueState>()(
           if (response.ok) {
             const result = await response.json()
             const schedulers: Record<string, Scheduler> = {}
+            
+            // 调度器状态映射
+            const schedulerStateMap: Record<number, SchedulerState> = {
+              0: 'idle',      // PENDING -> idle
+              1: 'running',   // ACTIVE -> running
+              2: 'completed', // COMPLETED -> completed
+              3: 'paused',    // PAUSED -> paused
+              4: 'failed',    // FAILED -> failed
+              5: 'cancelled'  // CANCELLED -> cancelled
+            }
+            
             // 从新的API响应格式中获取数据
             const schedulerList = result.data || []
-            schedulerList.forEach((scheduler: Scheduler) => {
-              schedulers[scheduler.id] = scheduler
+            schedulerList.forEach((scheduler: any) => {
+              // 转换状态数字为字符串
+              const schedulerWithState = {
+                ...scheduler,
+                state: schedulerStateMap[scheduler.state as number] || 'idle'
+              }
+              schedulers[scheduler.id] = schedulerWithState
             })
             set({ schedulers })
           }
