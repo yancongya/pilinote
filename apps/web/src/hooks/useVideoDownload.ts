@@ -95,7 +95,8 @@ export function useVideoDownload(useNewSystem: boolean = false) {
           if (existingTask && existingTask.id) {
             try {
               await newQueueStore.controlTask(existingTask.id, 'cancelled')
-              alert('已从下载列表移除')
+              // 立即刷新任务列表，确保状态更新
+              await newQueueStore.fetchTasks()
             } catch (error) {
               console.error('从下载列表移除失败:', error)
               alert('从下载列表移除失败')
@@ -141,6 +142,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
                 // 显示结果提示
                 alert(`已添加 ${addedCount} 个分集到下载队列`)
+                
+                // 立即刷新任务列表，确保状态更新
+                await newQueueStore.fetchTasks()
               } else {
                 // 单P视频，使用视频详情API返回的数据（更准确）
                 const taskData = {
@@ -154,6 +158,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                 try {
                   await newQueueStore.submitTask(taskData)
                   alert('已添加到下载队列')
+                  
+                  // 立即刷新任务列表，确保状态更新
+                  await newQueueStore.fetchTasks()
                 } catch (error) {
                   console.error('添加任务失败:', error)
                   alert('添加到下载队列失败')
@@ -174,6 +181,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
               try {
                 await newQueueStore.submitTask(taskData)
                 alert('已添加到下载队列')
+                
+                // 立即刷新任务列表，确保状态更新
+                await newQueueStore.fetchTasks()
               } catch (error) {
                 console.error('添加任务失败:', error)
                 alert('添加到下载队列失败')
@@ -194,6 +204,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
             try {
               await newQueueStore.submitTask(taskData)
               alert('已添加到下载队列')
+              
+              // 立即刷新任务列表，确保状态更新
+              await newQueueStore.fetchTasks()
             } catch (error) {
               console.error('添加任务失败:', error)
               alert('添加到下载队列失败')

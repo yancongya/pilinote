@@ -27,7 +27,8 @@ export default function WatchLaterContent() {
   // 统一的下载状态检查函数（同时检查新旧系统）
   const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
     // 检查新系统
-    const newSystemTasks = Object.values(newQueueStore.tasks)
+    const tasks = useNewQueueStore.getState().tasks
+    const newSystemTasks = Object.values(tasks)
     const hasInNewQueue = newSystemTasks.some(task => 
       task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
     )
@@ -38,7 +39,7 @@ export default function WatchLaterContent() {
 
     // 检查旧系统（向后兼容）
     return getOldDownloadStatus(bvid)
-  }, [newQueueStore.tasks, getOldDownloadStatus])
+  }, [getOldDownloadStatus])
 
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number) => {
@@ -100,12 +101,11 @@ export default function WatchLaterContent() {
   // 使用 useVideoDownload Hook 处理单个视频下载（使用新的下载系统）
   const { toggleDownload: baseToggleDownload } = useVideoDownload(true)
 
-  // 包装toggleDownload，在成功后刷新任务列表
+  // 包装toggleDownload，确保状态更新
   const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
     await baseToggleDownload(video, e)
-    // 刷新新系统的任务列表
-    await newQueueStore.fetchTasks()
-  }, [baseToggleDownload, newQueueStore])
+    // baseToggleDownload 中已经调用了 fetchTasks()，这里不需要再次调用
+  }, [baseToggleDownload])
 
   // 更新总数（从响应中获取）
   useEffect(() => {
