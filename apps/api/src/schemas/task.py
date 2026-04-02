@@ -84,6 +84,7 @@ class TaskResponse(BaseModel):
     prepare: Dict[str, Any]
     status: Dict[str, Any]
     state: TaskState
+    scheduler_id: Optional[str] = None
     subtasks: List[SubTask] = []
     created_at: int
     updated_at: int

@@ -200,6 +200,7 @@ class QueueManager:
             prepare=task.prepare,
             status=task.status,
             state=TaskState(task.state),
+            scheduler_id=task.scheduler_id,
             subtasks=[],
             created_at=task.created_at,
             updated_at=task.updated_at

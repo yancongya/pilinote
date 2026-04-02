@@ -44,6 +44,7 @@ async def get_all_tasks():
                 prepare=task.prepare,
                 status=task.status,
                 state=task.state,
+                scheduler_id=task.scheduler_id,
                 subtasks=[],
                 created_at=task.created_at,
                 updated_at=task.updated_at
@@ -91,6 +92,7 @@ async def get_task(task_id: str):
             prepare=task.prepare,
             status=task.status,
             state=task.state,
+            scheduler_id=task.scheduler_id,
             subtasks=[],
             created_at=task.created_at,
             updated_at=task.updated_at
