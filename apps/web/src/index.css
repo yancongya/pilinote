@@ -5261,12 +5261,49 @@ body {
   font-size: 12px !important;
 }
 
+#downloads-panel .video-download-progress {
+  padding: 8px;
+  margin-top: 6px;
+}
+
+#downloads-panel .progress-text {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+#downloads-panel .progress-bar-container {
+  height: 3px;
+  margin-bottom: 6px;
+}
+
+#downloads-panel .progress-stats {
+  gap: 10px;
+}
+
+#downloads-panel .progress-speed,
+#downloads-panel .progress-eta {
+  font-size: 11px;
+}
+
+#downloads-panel .video-card-progress-text {
+  font-size: 12px;
+  color: #FF6B9D;
+  font-weight: 600;
+}
+
 /* 下载列表操作按钮样式 */
 .video-card-actions-inline {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-left: auto;
+}
+
+/* 视频卡片进度文本 */
+.video-card-progress-text {
+  font-size: 12px;
+  color: #FF6B9D;
+  font-weight: 600;
 }
 
 .action-icon-btn {
@@ -9079,6 +9116,76 @@ body {
 /* 平滑滚动 */
 html {
   scroll-behavior: smooth;
+}
+
+/* 下载进度显示样式 */
+.video-download-progress {
+  margin-top: 8px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.progress-text {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.progress-bar-container {
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #FF6B9D;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.progress-stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.progress-speed {
+  font-size: 12px;
+  color: #42a5f5;
+  font-weight: 600;
+}
+
+.progress-eta {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* 响应式优化 */
+@media (max-width: 480px) {
+  .video-download-progress {
+    padding: 10px;
+  }
+
+  .progress-text {
+    font-size: 12px;
+  }
+
+  .progress-stats {
+    gap: 8px;
+  }
+
+  .progress-speed,
+  .progress-eta {
+    font-size: 11px;
+  }
 }
 
 /* 隐藏滚动条但保持滚动功能 */

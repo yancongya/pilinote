@@ -149,11 +149,19 @@ export default function DownloadsContent() {
       setLoading(true)
     }
     setError('')
-    
+
     try {
-      const response = await fetch('http://localhost:8000/api/download/list')
+      // 根据当前视图模式获取不同的任务列表
+      let url = 'http://localhost:8000/api/download/list'
+      if (viewMode === 'downloading') {
+        url += '?status=downloading,queued,pending,paused,failed'
+      } else if (viewMode === 'completed') {
+        url += '?status=completed'
+      }
+
+      const response = await fetch(url)
       const data = await response.json()
-      
+
       if (data.success) {
         setDownloads(data.downloads)
         // 只在需要时更新存储信息
@@ -170,7 +178,7 @@ export default function DownloadsContent() {
         setLoading(false)
       }
     }
-  }, [fetchStorageInfo])
+  }, [fetchStorageInfo, viewMode])
 
   // 按系列分组
   const groupDownloadsBySeries = useCallback(async (tasks: DownloadTask[]): Promise<DownloadSeries[]> => {
@@ -281,10 +289,10 @@ export default function DownloadsContent() {
     )
   }, [])
 
-  // 初始加载
+  // 初始加载和viewMode变化时重新获取数据
   useEffect(() => {
     fetchDownloads(true, true) // 初始加载时更新存储信息并显示 loading
-  }, []) // 只在组件挂载时执行一次
+  }, [viewMode]) // 当viewMode变化时重新获取数据
 
   // 定期刷新downloads数据，以更新任务状态变化
   useEffect(() => {
@@ -435,6 +443,7 @@ export default function DownloadsContent() {
                   isSeries={isSeries}
                   clickable={canClickDetail}
                   showActionButtons={true}
+                  showDownloadProgress={firstTask.status === 'downloading' || firstTask.status === 'queued' || firstTask.status === 'pending' || firstTask.status === 'processing'}
                   canStart={firstTask.status === 'pending' || firstTask.status === 'failed' || firstTask.status === 'paused'}
                   canPause={firstTask.status === 'downloading' || firstTask.status === 'queued' || firstTask.status === 'pending' || firstTask.status === 'processing'}
                   onActionStart={() => handleStartDownload(series)}

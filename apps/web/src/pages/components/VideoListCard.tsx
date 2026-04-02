@@ -49,6 +49,8 @@ interface VideoCardProps {
   canPause?: boolean
   // 批量选择相关
   batchMode?: boolean
+  // 是否显示下载进度（仅下载列表使用）
+  showDownloadProgress?: boolean
   selected?: boolean
   onToggleSelect?: () => void
 }
@@ -118,6 +120,7 @@ export default function VideoListCard({
   canStart = false,
   canPause = false,
   batchMode = false,
+  showDownloadProgress = false,
   selected = false,
   onToggleSelect,
 }: VideoCardProps) {
@@ -235,10 +238,10 @@ export default function VideoListCard({
               <span>{seriesCount}集</span>
             </div>
           )}
-          {progress !== undefined && progress > 0 && (
+          {showDownloadProgress && progress !== undefined && progress > 0 && (
             <div className="video-progress-overlay">
-              <div 
-                className="video-progress-bar" 
+              <div
+                className="video-progress-bar"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
@@ -247,26 +250,65 @@ export default function VideoListCard({
       </div>
       <div className="video-card-info">
         <h3>{title}</h3>
+        {/* 下载进度显示 - 仅在下载列表显示 */}
+        {showDownloadProgress && progress !== undefined && progress > 0 && (
+          <div className="video-download-progress">
+            <div className="progress-text">
+              下载中: {formatFileSize(downloaded_bytes || 0)} / {formatFileSize(total_bytes || 0)}
+            </div>
+            <div className="progress-bar-container">
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <div className="progress-stats">
+              {download_speed !== undefined && download_speed > 0 && (
+                <span className="progress-speed">{formatDownloadSpeed(download_speed)}</span>
+              )}
+              {eta !== undefined && eta > 0 && eta !== Infinity && (
+                <span className="progress-eta">剩余{formatETA(eta)}</span>
+              )}
+            </div>
+          </div>
+        )}
         <div className="video-card-meta">
-          <span className="video-card-uploader">{uploader}</span>
-          <span className="video-card-time">{time}</span>
-          {watched && <span className="video-card-watched">{watched}</span>}
-          {/* Bilibili风格：显示文件大小 */}
-          {showActionButtons && (
-            <span className="video-card-file-size">
-              {fileSize !== undefined ? formatFileSize(fileSize) : views}
-            </span>
-          )}
-          {/* 显示下载速度和ETA */}
-          {showActionButtons && download_speed !== undefined && download_speed > 0 && (
-            <span className="video-card-download-speed" style={{ color: '#42a5f5', fontWeight: 'bold' }}>
-              {formatDownloadSpeed(download_speed)}
-            </span>
-          )}
-          {showActionButtons && eta !== undefined && eta > 0 && eta !== Infinity && (
-            <span className="video-card-eta" style={{ color: '#666', fontSize: '12px' }}>
-              剩余{formatETA(eta)}
-            </span>
+          {/* 下载列表：显示下载速度和进度 */}
+          {showActionButtons ? (
+            <>
+              {download_speed !== undefined && download_speed > 0 && (
+                <span className="video-card-download-speed" style={{ color: '#42a5f5', fontWeight: 'bold' }}>
+                  {formatDownloadSpeed(download_speed)}
+                </span>
+              )}
+              {showDownloadProgress && progress !== undefined && progress > 0 && (
+                <span className="video-card-progress-text">
+                  {Math.round(progress)}%
+                </span>
+              )}
+              {fileSize !== undefined && !showDownloadProgress && (
+                <span className="video-card-file-size">
+                  {formatFileSize(fileSize)}
+                </span>
+              )}
+              {eta !== undefined && eta > 0 && eta !== Infinity && (
+                <span className="video-card-eta" style={{ color: '#666', fontSize: '12px' }}>
+                  剩余{formatETA(eta)}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              {/* 视频列表：显示上传者、时间等 */}
+              <span className="video-card-uploader">{uploader}</span>
+              <span className="video-card-time">{time}</span>
+              {watched && <span className="video-card-watched">{watched}</span>}
+              {fileSize !== undefined && (
+                <span className="video-card-file-size">
+                  {formatFileSize(fileSize)}
+                </span>
+              )}
+            </>
           )}
           {/* 操作按钮 - 在元数据行中显示 */}
           {showActionButtons && (

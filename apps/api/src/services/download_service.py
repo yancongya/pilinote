@@ -190,7 +190,9 @@ class DownloadService:
         with SessionLocal() as db:
             query = db.query(Download)
             if status:
-                query = query.filter(Download.status == status)
+                # 支持多个状态的过滤，用逗号分隔
+                status_list = [s.strip() for s in status.split(',')]
+                query = query.filter(Download.status.in_(status_list))
             return query.order_by(Download.created_at.desc()).all()
 
     def get_downloads_by_bvid(self, bvid: str, status: Optional[str] = None) -> list[Download]:
