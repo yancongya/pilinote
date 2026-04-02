@@ -147,7 +147,8 @@ class DownloadService:
         download_speed: float = 0.0,
         eta: float = 0.0
     ):
-        """更新下载进度"""
+        """更新下载进度并推送到WebSocket"""
+        # 更新数据库
         with SessionLocal() as db:
             download = db.query(Download).filter(Download.id == download_id).first()
             if download:
@@ -158,6 +159,21 @@ class DownloadService:
                 download.eta = eta
                 download.updated_at = datetime.utcnow()
                 db.commit()
+        
+        # 通过WebSocket推送进度更新
+        progress_data = {
+            'progress': progress,
+            'downloaded_bytes': downloaded_bytes,
+            'total_bytes': total_bytes,
+            'download_speed': download_speed,
+            'eta': eta
+        }
+        
+        # 异步推送，不阻塞下载流程
+        from src.services.websocket_manager import websocket_manager
+        asyncio.create_task(
+            websocket_manager.send_progress_update(download_id, progress_data)
+        )
     
     def update_download_status(
         self,
@@ -165,7 +181,8 @@ class DownloadService:
         status: str,
         error_message: Optional[str] = None
     ):
-        """更新下载状态"""
+        """更新下载状态并推送到WebSocket"""
+        # 更新数据库
         with SessionLocal() as db:
             download = db.query(Download).filter(Download.id == download_id).first()
             if download:
@@ -182,6 +199,12 @@ class DownloadService:
                     download.retry_count += 1
                 
                 db.commit()
+        
+        # 通过WebSocket推送状态更新
+        from src.services.websocket_manager import websocket_manager
+        asyncio.create_task(
+            websocket_manager.send_status_update(download_id, status, error_message)
+        )
     
     def get_all_downloads(self, status: Optional[str] = None) -> list[Download]:
         """获取所有下载任务"""
