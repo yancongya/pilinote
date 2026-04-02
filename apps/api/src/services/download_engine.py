@@ -107,6 +107,29 @@ class DownloadEngine:
             ydl_opts['ffmpeg_location'] = self.ffmpeg_path
             logger.info(f"Using custom FFmpeg path: {self.ffmpeg_path}")
         
+        # 添加 Aria2c 配置（如果可用）
+        if self._check_aria2c_available():
+            ydl_opts['external_downloader'] = self.aria2c_path
+            ydl_opts['external_downloader_args'] = [
+                '-x', '8',                    # 8个连接（适中配置）
+                '-k', '1M',                    # 每个连接分块1MB
+                '--max-tries=5',             # 最多重试5次
+                '--retry-wait=10',           # 重试等待10秒
+                '--timeout=60',              # 60秒超时
+                '--max-connection-per-server=8',  # 每服务器最大连接数
+                '--split=8',                 # 分成8块下载
+                '--min-split-size=1M',       # 最小分片1MB
+                '--continue=true',           # 启用断点续传
+                '--check-certificate=false', # 跳过证书验证
+                '--allow-overwrite=true',    # 允许覆盖
+                '--auto-file-renaming=false', # 不自动重命名
+                '--summary-interval=0',      # 减少输出
+            ]
+            logger.info(f"Using Aria2c downloader: {self.aria2c_path}")
+            logger.info(f"Aria2c configuration: 8 connections, 1MB chunks")
+        else:
+            logger.info("Using yt-dlp built-in downloader")
+        
         logger.info(f"Download parameters: quality={quality}, codec={codec}, audio_bitrate={audio_bitrate}, format={output_format}")
         
         # 如果指定了cid，只下载特定的分P
@@ -332,3 +355,35 @@ class DownloadEngine:
             {'qn': 112, 'desc': '1080P+ 高码率', 'height': 1080},
             {'qn': 116, 'desc': '4K 超清', 'height': 2160},
         ]
+
+    def _check_aria2c_available(self) -> bool:
+        """
+        检查 Aria2c 是否可用
+        
+        Returns:
+            bool: Aria2c 是否可用
+        """
+        import shutil
+        
+        # 如果使用默认路径，不检查
+        if self.aria2c_path == 'aria2c':
+            return False
+        
+        # 检查自定义路径是否存在
+        return shutil.which(self.aria2c_path) is not None
+
+    def get_download_stats(self) -> dict:
+        """
+        获取下载引擎统计信息
+        
+        Returns:
+            Dict: 统计信息
+        """
+        return {
+            'yt_dlp_path': self.yt_dlp_path,
+            'ffmpeg_path': self.ffmpeg_path,
+            'aria2c_path': self.aria2c_path,
+            'aria2c_available': self._check_aria2c_available(),
+            'supported_formats': self.get_supported_formats(),
+            'supported_qualities': self.get_supported_qualities(),
+        }

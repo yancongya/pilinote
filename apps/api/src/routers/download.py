@@ -1530,3 +1530,32 @@ async def get_all_download_tasks(status: Optional[str] = None):
             "data": [],
             "total": 0
         }
+
+
+@router.get("/engine/stats")
+async def get_download_engine_stats():
+    """
+    获取下载引擎统计信息
+    
+    Returns:
+        下载引擎配置和状态
+    """
+    try:
+        from src.services.download_engine import DownloadEngine
+        
+        # 创建下载引擎实例
+        engine = DownloadEngine()
+        
+        # 获取统计信息
+        stats = engine.get_download_stats()
+        
+        return {
+            "success": True,
+            "data": stats
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"获取下载引擎状态失败: {str(e)}"
+        }
