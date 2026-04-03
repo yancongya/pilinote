@@ -50,14 +50,19 @@ export default function FavoritesContent() {
   useEffect(() => {
     const syncData = async () => {
       try {
+        // 先从服务器获取最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
+        // 然后清理缓存中不存在的任务
+        const tasks = newQueueStore.tasks
+        const taskIds = Object.keys(tasks)
+        console.log(`[Favorites] 已同步 ${taskIds.length} 个任务`)
       } catch (error) {
         console.error('Failed to sync data:', error)
       }
     }
     syncData()
-  }, [newQueueStore])
+  }, [])
 
   // 处理收藏夹选择，更新路由
   const handleSelectFolder = (folder: any) => {

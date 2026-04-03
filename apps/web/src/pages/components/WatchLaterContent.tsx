@@ -45,14 +45,19 @@ export default function WatchLaterContent() {
   useEffect(() => {
     const syncData = async () => {
       try {
+        // 先从服务器获取最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
+        // 然后清理缓存中不存在的任务
+        const tasks = newQueueStore.tasks
+        const taskIds = Object.keys(tasks)
+        console.log(`[WatchLater] 已同步 ${taskIds.length} 个任务`)
       } catch (error) {
         console.error('Failed to sync data:', error)
       }
     }
     syncData()
-  }, [newQueueStore])
+  }, [])
 
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number) => {
