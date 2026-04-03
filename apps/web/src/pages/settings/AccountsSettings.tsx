@@ -414,7 +414,7 @@ export default function AccountsSettings() {
       <div className="ac-add-group">
         <button
           className="ac-add-btn"
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/login?mode=add')}
         >
           <Plus size={20} />
           <span>添加新账号</span>

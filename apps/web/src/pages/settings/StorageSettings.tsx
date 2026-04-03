@@ -12,10 +12,13 @@ import {
   Zap,
   Check,
   ChevronRight,
-  RotateCcw
+  RotateCcw,
+  Download,
+  Upload
 } from 'lucide-react'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
+import { apiService } from '../../services/api'
 
 interface CacheInfo {
   exists: boolean
@@ -55,6 +58,9 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     type: '',
     message: ''
   })
+  
+  const [exportingDatabase, setExportingDatabase] = useState(false)
+  const [importingDatabase, setImportingDatabase] = useState(false)
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
@@ -248,6 +254,92 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       setClearingCache(null)
       setShowClearConfirm({ show: false, type: '', message: '' })
     }
+  }
+
+  const handleExportDatabase = async () => {
+    setExportingDatabase(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/settings/database/export', {
+        method: 'GET'
+      })
+      
+      if (response.ok) {
+        // 获取文件名
+        const contentDisposition = response.headers.get('content-disposition')
+        let filename = `pilinote_backup_${new Date().toISOString().slice(0,10)}.db`
+        
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+          if (filenameMatch) {
+            filename = filenameMatch[1]
+          }
+        }
+        
+        // 下载文件
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        
+        showToast(`数据库导出成功: ${filename}`, 'success')
+        await loadCacheData()
+        await loadStorageInfo()
+      } else {
+        showToast('数据库导出失败', 'error')
+      }
+    } catch (error) {
+      showToast('数据库导出失败', 'error')
+      console.error('导出数据库失败:', error)
+    } finally {
+      setExportingDatabase(false)
+    }
+  }
+
+  const handleImportDatabase = async () => {
+    // 创建文件输入元素
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.db'
+    
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement
+      const file = target.files?.[0]
+      if (!file) return
+      
+      setImportingDatabase(true)
+      try {
+        // 使用FormData上传文件
+        const formData = new FormData()
+        formData.append('file', file)
+        
+        // 导入数据库
+        const response = await fetch('http://localhost:8000/api/settings/database/import', {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          showToast('数据库导入成功', 'success')
+          // 刷新页面以重新加载数据
+          window.location.reload()
+        } else {
+          showToast('数据库导入失败', 'error')
+        }
+      } catch (error) {
+        showToast('数据库导入失败', 'error')
+        console.error('导入数据库失败:', error)
+      } finally {
+        setImportingDatabase(false)
+      }
+    }
+    
+    input.click()
   }
 
   if (!settings) {
@@ -475,6 +567,42 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               <div className="storage-list-label">清理WebView缓存</div>
               <div className="storage-list-meta">
                 {cacheData.webview?.size_formatted || '0 B'}
+              </div>
+            </div>
+            <ChevronRight size={16} className="storage-list-chevron" />
+          </button>
+
+          <button
+            className="storage-list-item storage-list-button"
+            onClick={handleExportDatabase}
+            disabled={exportingDatabase}
+            aria-label="导出数据库"
+          >
+            <div className="storage-list-icon-wrapper">
+              <Download size={18} className="storage-list-icon" />
+            </div>
+            <div className="storage-list-content">
+              <div className="storage-list-label">导出数据库</div>
+              <div className="storage-list-meta">
+                {exportingDatabase ? '导出中...' : '备份整个数据库'}
+              </div>
+            </div>
+            <ChevronRight size={16} className="storage-list-chevron" />
+          </button>
+
+          <button
+            className="storage-list-item storage-list-button"
+            onClick={handleImportDatabase}
+            disabled={importingDatabase}
+            aria-label="导入数据库"
+          >
+            <div className="storage-list-icon-wrapper">
+              <Upload size={18} className="storage-list-icon" />
+            </div>
+            <div className="storage-list-content">
+              <div className="storage-list-label">导入数据库</div>
+              <div className="storage-list-meta">
+                {importingDatabase ? '导入中...' : '从备份恢复数据库'}
               </div>
             </div>
             <ChevronRight size={16} className="storage-list-chevron" />

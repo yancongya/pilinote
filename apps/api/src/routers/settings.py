@@ -1,10 +1,11 @@
 """
 Settings router for managing system settings
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
+import shutil
 
 from src.database import get_db
 from src.schemas.settings import (
@@ -593,12 +594,12 @@ async def export_database():
     Export database to a file
     
     Returns:
-        Success message with download information
+        File response for download
     """
     try:
         import os
-        import shutil
         from datetime import datetime
+        from fastapi.responses import FileResponse
         
         # 获取数据库文件路径
         db_path = "pilinote.db"
@@ -606,37 +607,38 @@ async def export_database():
         if not os.path.exists(db_path):
             raise HTTPException(status_code=404, detail="数据库文件不存在")
         
-        # 创建导出目录
-        export_dir = "exports"
-        os.makedirs(export_dir, exist_ok=True)
-        
         # 生成导出文件名
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_filename = f"Storage_{timestamp}.db"
-        export_path = os.path.join(export_dir, export_filename)
+        export_filename = f"pilinote_backup_{timestamp}.db"
         
-        # 复制数据库文件
-        shutil.copy2(db_path, export_path)
+        # 创建备份目录
+        backup_dir = "backups"
+        os.makedirs(backup_dir, exist_ok=True)
         
-        return {
-            "success": True,
-            "message": "数据库导出成功",
-            "filename": export_filename,
-            "path": export_path,
-            "size": os.path.getsize(export_path),
-            "size_formatted": format_size(os.path.getsize(export_path))
-        }
+        # 复制数据库文件到备份目录
+        backup_path = os.path.join(backup_dir, export_filename)
+        shutil.copy2(db_path, backup_path)
+        
+        # 返回文件下载
+        return FileResponse(
+            path=backup_path,
+            filename=export_filename,
+            media_type="application/x-sqlite3",
+            headers={
+                "Content-Disposition": f"attachment; filename={export_filename}"
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"导出数据库失败: {str(e)}")
 
 
 @router.post("/database/import")
-async def import_database(file_path: str = Query(..., description="Path to the database file to import")):
+async def import_database(file: UploadFile = File(..., description="Database file to import")):
     """
     Import database from a file
     
     Args:
-        file_path: Path to the database file to import
+        file: Uploaded database file
     
     Returns:
         Success message
@@ -645,17 +647,16 @@ async def import_database(file_path: str = Query(..., description="Path to the d
         import os
         import shutil
         from datetime import datetime
+        import tempfile
         
-        # 验证文件存在
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="数据库文件不存在")
-        
-        # 验证文件是SQLite数据库
-        if not file_path.endswith('.db'):
+        # 验证文件类型
+        if not file.filename.endswith('.db'):
             raise HTTPException(status_code=400, detail="数据库文件必须是.db格式")
         
         # 备份当前数据库
         current_db_path = "pilinote.db"
+        backup_path = None
+        
         if os.path.exists(current_db_path):
             backup_dir = "backups"
             os.makedirs(backup_dir, exist_ok=True)
@@ -663,14 +664,39 @@ async def import_database(file_path: str = Query(..., description="Path to the d
             backup_path = os.path.join(backup_dir, f"pilinote_backup_{timestamp}.db")
             shutil.copy2(current_db_path, backup_path)
         
-        # 导入数据库
-        shutil.copy2(file_path, current_db_path)
+        # 保存上传的文件到临时位置
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+        temp_file.write(await file.read())
+        temp_file.close()
         
-        return {
-            "success": True,
-            "message": "数据库导入成功",
-            "backup_path": backup_path if os.path.exists(current_db_path) else None
-        }
+        try:
+            # 验证SQLite数据库文件
+            import sqlite3
+            try:
+                conn = sqlite3.connect(temp_file.name)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = cursor.fetchall()
+                conn.close()
+                
+                if not tables:
+                    raise HTTPException(status_code=400, detail="无效的SQLite数据库文件")
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"无效的SQLite数据库文件: {str(e)}")
+            
+            # 导入数据库
+            shutil.copy2(temp_file.name, current_db_path)
+            
+            return {
+                "success": True,
+                "message": "数据库导入成功",
+                "backup_path": backup_path
+            }
+        finally:
+            # 清理临时文件
+            if os.path.exists(temp_file.name):
+                os.unlink(temp_file.name)
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"导入数据库失败: {str(e)}")
 

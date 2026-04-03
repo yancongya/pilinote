@@ -365,6 +365,12 @@ class ApiService {
     });
   }
 
+  async getLoginStatus(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/auth/status', {
+      method: 'GET',
+    });
+  }
+
   async getAccounts(): Promise<ApiResponse<any>> {
     return this.request<any>('/api/auth/accounts', {
       method: 'GET',

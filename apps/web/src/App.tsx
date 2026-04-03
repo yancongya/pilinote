@@ -6,15 +6,47 @@ import DownloadSeriesDetailPage from './pages/DownloadSeriesDetailPage'
 import SettingsPage from './pages/SettingsPage'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
+import { useSettingsStore } from './stores/settings'
 import { useNewQueueStore } from './stores/newQueue'
 import { useEffect } from 'react'
 import { ToastProvider } from './components/Toast'
+import { apiService } from './services/api'
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const user = useAuthStore((state) => state.user)
+  const setUser = useAuthStore((state) => state.setUser)
+  const fetchUser = useAuthStore((state) => state.fetchUser)
   const location = useLocation()
   const navigate = useNavigate()
   const connectWebSocket = useNewQueueStore((state) => state.connectWebSocket)
+  const fetchSettings = useSettingsStore((state) => state.fetchSettings)
+
+  // 数据恢复逻辑：从后端获取用户信息和设置信息
+  useEffect(() => {
+    const restoreUserData = async () => {
+      try {
+        // 如果前端用户信息存在，不需要恢复
+        if (user && user.mid) {
+          console.log('[App] 用户信息已存在，无需恢复')
+          return
+        }
+
+        console.log('[App] 检查后端登录状态...')
+        await fetchUser()
+        
+        // 恢复设置信息
+        console.log('[App] 恢复设置信息...')
+        await fetchSettings()
+        
+        console.log('[App] 数据恢复完成')
+      } catch (err) {
+        console.error('[App] 数据恢复失败:', err)
+      }
+    }
+
+    restoreUserData()
+  }, [user, fetchUser, fetchSettings])
 
   // 调试：打印认证状态
   useEffect(() => {
@@ -30,9 +62,15 @@ function App() {
   // 如果用户已登录但仍在登录页面，自动跳转到首页
   useEffect(() => {
     if (isAuthenticated && location.pathname === '/login') {
-      navigate('/home', { replace: true })
+      // 如果是添加账号模式，不自动跳转
+      const searchParams = new URLSearchParams(location.search)
+      const mode = searchParams.get('mode')
+      
+      if (mode !== 'add') {
+        navigate('/home', { replace: true })
+      }
     }
-  }, [isAuthenticated, location.pathname, navigate])
+  }, [isAuthenticated, location.pathname, location.search, navigate])
 
   const handleLogin = () => {
     // 登录成功后，跳转到首页
