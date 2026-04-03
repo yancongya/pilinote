@@ -585,6 +585,48 @@ async def open_cache_directory(cache_type: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"打开缓存目录失败: {str(e)}")
 
 
+@router.get("/database/info")
+async def get_database_info():
+    """
+    Get database file information
+    
+    Returns:
+        Database file information
+    """
+    try:
+        import os
+        from src.config import settings
+        
+        db_path = settings.database_url.replace("sqlite:///", "")
+        if db_path.startswith("./"):
+            db_path = os.path.abspath(db_path)
+        
+        if not os.path.exists(db_path):
+            return {
+                "success": True,
+                "data": {
+                    "exists": False,
+                    "path": db_path,
+                    "size": 0,
+                    "size_formatted": "0 B"
+                }
+            }
+        
+        size = os.path.getsize(db_path)
+        
+        return {
+            "success": True,
+            "data": {
+                "exists": True,
+                "path": db_path,
+                "size": size,
+                "size_formatted": format_size(size)
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取数据库信息失败: {str(e)}")
+
+
 @router.get("/database/export")
 async def export_database():
     """

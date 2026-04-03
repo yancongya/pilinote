@@ -151,6 +151,21 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       if (response.ok) {
         const data = await response.json()
         setCacheData(data.data || {})
+        
+        // 获取数据库文件大小
+        const dbResponse = await fetch('http://localhost:8000/api/settings/database/info')
+        if (dbResponse.ok) {
+          const dbData = await dbResponse.json()
+          setCacheData(prev => ({
+            ...prev,
+            database: {
+              size: dbData.size || 0,
+              size_formatted: dbData.size_formatted || '0 B',
+              path: dbData.path || '',
+              exists: dbData.exists || false
+            }
+          }))
+        }
       }
     } catch (error) {
       console.error('加载缓存数据失败:', error)
@@ -565,7 +580,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
             <div className="storage-list-content">
               <div className="storage-list-label">导出数据库</div>
               <div className="storage-list-meta">
-                {exportingDatabase ? '导出中...' : '备份整个数据库'}
+                {exportingDatabase ? '导出中...' : cacheData.database?.size_formatted || '0 B'}
               </div>
             </div>
             <ChevronRight size={16} className="storage-list-chevron" />
