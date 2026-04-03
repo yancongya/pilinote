@@ -483,8 +483,7 @@ class ApiService {
   // 调度器管理
   async createScheduler(schedulerData: {
     title: string;
-    list: string[];
-    queue_type: number;
+    task_ids?: string[];
     folder: string;
   }): Promise<ApiResponse<any>> {
     return this.request<any>('/api/queue/schedulers', {

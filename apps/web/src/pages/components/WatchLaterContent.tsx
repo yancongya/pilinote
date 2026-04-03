@@ -144,24 +144,8 @@ export default function WatchLaterContent() {
         return
       }
 
-      // 2. 创建调度器
-      const folderName = `稍后再看-${new Date().toISOString().slice(0, 10)}`
-      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
-
-      const schedulerResponse = await apiService.createScheduler({
-        title: `稍后再看批量下载`,
-        list: [],
-        queue_type: 1, // PENDING
-        folder: folderPath
-      })
-
-      if (!schedulerResponse.success || !schedulerResponse.data) {
-        throw new Error(schedulerResponse.message || '创建调度器失败')
-      }
-
-      const schedulerId = schedulerResponse.data.id
-
-      // 3. 批量提交任务
+      // 2. 先批量提交任务到backlog，收集任务ID
+      const taskIds: string[] = []
       let successCount = 0
 
       for (const video of videoList) {
@@ -182,12 +166,33 @@ export default function WatchLaterContent() {
           })
 
           if (taskResponse.success && taskResponse.data) {
+            taskIds.push(taskResponse.data.id)
             successCount++
           }
         } catch (err) {
           console.error(`提交任务失败: ${video.title}`, err)
         }
       }
+
+      if (taskIds.length === 0) {
+        throw new Error('所有任务提交失败')
+      }
+
+      // 3. 创建调度器，使用收集到的任务ID
+      const folderName = `稍后再看-${new Date().toISOString().slice(0, 10)}`
+      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+
+      const schedulerResponse = await apiService.createScheduler({
+        title: `稍后再看批量下载`,
+        task_ids: taskIds,
+        folder: folderPath
+      })
+
+      if (!schedulerResponse.success || !schedulerResponse.data) {
+        throw new Error(schedulerResponse.message || '创建调度器失败')
+      }
+
+      const schedulerId = schedulerResponse.data.id
 
       // 4. 启动调度器
       const startResponse = await apiService.startScheduler(schedulerId)

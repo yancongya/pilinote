@@ -265,11 +265,14 @@ class QueueManager:
         finally:
             db.close()
 
-        # 4. Update in-memory tasks
+        # 4. Update in-memory tasks and broadcast events
+        from src.routers.websocket import broadcast_task_updated
         for task_id in task_ids:
             if task_id in self.tasks:
                 self.tasks[task_id].scheduler_id = scheduler_id
                 self.tasks[task_id].state = TaskState.PENDING
+                # Broadcast task update event
+                broadcast_task_updated(task_id, str(TaskState.PENDING), cancelled=False)
 
         # 5. Add to in-memory management - create a new object to avoid Session binding issue
         self.schedulers[scheduler_id] = Scheduler(

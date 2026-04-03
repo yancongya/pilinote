@@ -142,14 +142,13 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                   throw new Error('所有分集添加失败')
                 }
 
-                // 步骤2：创建调度器（list留空，会自动从backlog获取任务）
+                // 步骤2：创建调度器，使用收集到的任务ID
                 const folderName = `系列-${video.title.replace(/[\/\\:*?"<>|]/g, '_')}`
                 const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
 
                 const schedulerResponse = await apiService.createScheduler({
                   title: video.title,
-                  list: [],  // 留空，自动从backlog获取任务
-                  queue_type: 1,  // PENDING
+                  task_ids: taskIds,
                   folder: folderPath
                 })
 

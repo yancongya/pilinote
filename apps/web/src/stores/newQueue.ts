@@ -214,7 +214,20 @@ export const useNewQueueStore = create<NewQueueState>()(
             set((state) => {
               const schedulers = { ...state.schedulers }
               if (data.scheduler) {
-                schedulers[data.scheduler.id] = { ...schedulers[data.scheduler.id], ...data.scheduler }
+                // 调度器状态映射
+                const schedulerStateMap: Record<number, SchedulerState> = {
+                  0: 'idle',      // PENDING -> idle
+                  1: 'running',   // ACTIVE -> running
+                  2: 'completed', // COMPLETED -> completed
+                  3: 'paused',    // PAUSED -> paused
+                  4: 'failed',    // FAILED -> failed
+                  5: 'cancelled'  // CANCELLED -> cancelled
+                }
+                const schedulerWithState = {
+                  ...data.scheduler,
+                  state: schedulerStateMap[data.scheduler.state as number] || 'idle'
+                }
+                schedulers[data.scheduler.id] = { ...schedulers[data.scheduler.id], ...schedulerWithState }
               }
               return { schedulers }
             })

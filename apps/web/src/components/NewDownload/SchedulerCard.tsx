@@ -75,7 +75,17 @@ export default function SchedulerCard({ scheduler }: Props) {
     'failed': { label: '失败', color: '#ef4444', icon: XCircle },
     'cancelled': { label: '已取消', color: '#6b7280', icon: XCircle },
   }
-  
+
+  const taskStatusConfig: Record<string, { label: string; color: string }> = {
+    'backlog': { label: '待办', color: '#94a3b8' },
+    'pending': { label: '待处理', color: '#f59e0b' },
+    'active': { label: '下载中', color: '#10b981' },
+    'completed': { label: '已完成', color: '#22c55e' },
+    'paused': { label: '已暂停', color: '#f97316' },
+    'failed': { label: '失败', color: '#ef4444' },
+    'cancelled': { label: '已取消', color: '#6b7280' },
+  }
+
   const status = statusConfig[scheduler.state] || { label: '未知', color: '#6b7280', icon: Clock }
   const StatusIcon = status.icon
   
@@ -163,6 +173,16 @@ export default function SchedulerCard({ scheduler }: Props) {
         </div>
 
         <div className="scheduler-controls">
+          {scheduler.state === 'idle' && (
+            <button
+              onClick={() => handleControl('start')}
+              title="开始下载"
+              aria-label="开始下载调度器"
+              className="control-btn primary"
+            >
+              <Play size={18} />
+            </button>
+          )}
           {scheduler.state === 'running' && (
             <button
               onClick={() => handleControl('pause')}
@@ -255,8 +275,8 @@ export default function SchedulerCard({ scheduler }: Props) {
 
                   <div className="task-info">
                     <span className="task-title">{task.title}</span>
-                    <span className="task-state" style={{ color: status.color }}>
-                      {statusConfig[task.state]?.label || task.state}
+                    <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || '#6b7280' }}>
+                      {taskStatusConfig[task.state]?.label || task.state}
                     </span>
                   </div>
                   {task.state === 'active' && task.status?.progress !== undefined && (

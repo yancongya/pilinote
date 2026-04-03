@@ -150,24 +150,7 @@ export default function FavoritesContent() {
         return
       }
 
-      // 2. 创建调度器
-      const folderName = `收藏夹-${selectedFolder.title.replace(/[\/\\:*?"<>|]/g, '_')}`
-      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
-
-      const schedulerResponse = await apiService.createScheduler({
-        title: `收藏夹下载: ${selectedFolder.title}`,
-        list: [],
-        queue_type: 1, // PENDING
-        folder: folderPath
-      })
-
-      if (!schedulerResponse.success || !schedulerResponse.data) {
-        throw new Error(schedulerResponse.message || '创建调度器失败')
-      }
-
-      const schedulerId = schedulerResponse.data.id
-
-      // 3. 批量提交任务
+      // 2. 先批量提交任务到backlog，收集任务ID
       const taskIds: string[] = []
       let successCount = 0
 
@@ -197,12 +180,27 @@ export default function FavoritesContent() {
         }
       }
 
-      // 4. 更新调度器的任务列表
-      // 注意：这里需要调用updateScheduler或者直接通过scheduler的list字段更新
-      // 由于新系统API可能不直接支持更新list，我们可能需要先获取scheduler，然后更新
-      // 暂时跳过这一步，直接启动调度器
+      if (taskIds.length === 0) {
+        throw new Error('所有任务提交失败')
+      }
 
-      // 5. 启动调度器
+      // 3. 创建调度器，使用收集到的任务ID
+      const folderName = `收藏夹-${selectedFolder.title.replace(/[\/\\:*?"<>|]/g, '_')}`
+      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+
+      const schedulerResponse = await apiService.createScheduler({
+        title: `收藏夹下载: ${selectedFolder.title}`,
+        task_ids: taskIds,
+        folder: folderPath
+      })
+
+      if (!schedulerResponse.success || !schedulerResponse.data) {
+        throw new Error(schedulerResponse.message || '创建调度器失败')
+      }
+
+      const schedulerId = schedulerResponse.data.id
+
+      // 4. 启动调度器
       const startResponse = await apiService.startScheduler(schedulerId)
 
       if (startResponse.success) {
