@@ -28,15 +28,11 @@ function App() {
       try {
         // 如果前端用户信息存在，不需要恢复
         if (user && user.mid) {
-          console.log('[App] 用户信息已存在，无需恢复')
           return
         }
 
-        console.log('[App] 检查后端登录状态...')
+        console.log('[App] 正在从后端恢复数据...')
         await fetchUser()
-        
-        // 恢复设置信息
-        console.log('[App] 恢复设置信息...')
         await fetchSettings()
         
         console.log('[App] 数据恢复完成')
@@ -55,7 +51,6 @@ function App() {
 
   // 连接 WebSocket
   useEffect(() => {
-    console.log('[App] Connecting to WebSocket...')
     connectWebSocket()
   }, [connectWebSocket])
 

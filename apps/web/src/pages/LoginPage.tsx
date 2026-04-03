@@ -143,12 +143,11 @@ function LoginPage({ onLogin }: LoginPageProps) {
     pollIntervalRef.current = window.setInterval(async () => {
       try {
         const response = await apiService.queryQrcodeStatus(key)
-        console.log('二维码状态:', response)
-        console.log('响应完整数据:', JSON.stringify(response, null, 2))
 
         if (response.success && response.data) {
           // 登录成功
           if (response.data.code === 0) {
+            console.log('登录成功:', response.data.username)
             setQrcodeStatus('success')
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current)
@@ -164,17 +163,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
               sessdata: response.data.sessdata
             }
             
-            console.log('登录成功，保存用户信息:', userInfo)
-            console.log('sessdata值:', userInfo.sessdata)
             setUser(userInfo)
-            
-            // 验证setUser后的状态
-            setTimeout(() => {
-              const store = useAuthStore.getState()
-              console.log('setUser后的store状态:', store.user)
-              console.log('setUser后的sessdata:', store.user?.sessdata)
-            }, 100)
-            
             onLogin()
           } 
           // 二维码已扫码
