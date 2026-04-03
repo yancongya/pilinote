@@ -233,6 +233,17 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   const getCurrentValue = useCallback((field: string) => {
     if (!settings?.storage) return undefined
+    
+    // 处理嵌套字段（如 sidecar.ffmpeg）
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.')
+      if (parent in localSettings) {
+        return (localSettings as any)[parent]?.[child]
+      }
+      return (settings.storage as any)[parent]?.[child]
+    }
+    
+    // 处理普通字段
     if (field in localSettings) {
       return (localSettings as any)[field]
     }
@@ -562,7 +573,7 @@ const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
               <input
                 type="text"
                 className="storage-list-input"
-                value={getCurrentValue('sidecar')?.ffmpeg || 'ffmpeg'}
+                value={getCurrentValue('sidecar.ffmpeg') || 'ffmpeg'}
                 onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
                 disabled={loading}
                 placeholder="ffmpeg"
@@ -589,7 +600,7 @@ const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
               <input
                 type="text"
                 className="storage-list-input"
-                value={getCurrentValue('sidecar')?.aria2c || 'aria2c'}
+                value={getCurrentValue('sidecar.aria2c') || 'aria2c'}
                 onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
                 disabled={loading}
                 placeholder="aria2c"
