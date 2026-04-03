@@ -13,7 +13,6 @@ import {
   Check,
   ChevronRight,
   RotateCcw,
-  FolderOpen,
   Download,
   Upload,
   Edit2
@@ -363,46 +362,10 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     input.click()
   }
 
-  const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
-    showToast('请选择一个目录', 'info')
-    
-    try {
-      // 创建目录选择输入元素
-      const input = document.createElement('input')
-      input.type = 'file'
-      
-      // 检测浏览器是否支持 webkitdirectory 属性
-      if ('webkitdirectory' in document.createElement('input')) {
-        input.webkitdirectory = true
-        input.multiple = false
-        
-        input.onchange = (e: Event) => {
-          const target = e.target as HTMLInputElement
-          const files = target.files
-          if (!files || files.length === 0) return
-          
-          // 获取选中的目录路径
-          const firstFile = files[0]
-          const directoryPath = firstFile.webkitRelativePath?.split('/')[0] || '.'
-          
-          handleLocalUpdate(field, directoryPath)
-          showToast(`已选择目录: ${directoryPath}`, 'success')
-        }
-        
-        input.click()
-      } else {
-        // 不支持 webkitdirectory，提示用户使用手动输入
-        console.warn('浏览器不支持 webkitdirectory 属性')
-        showToast('您的浏览器不支持目录选择，请使用手动输入', 'error')
-        // 自动打开手动输入弹窗
-        handleEditPath(field)
-      }
-    } catch (error) {
-      console.error('目录选择失败:', error)
-      showToast('目录选择功能不可用，请使用手动输入', 'error')
-      // 自动打开手动输入弹窗
-      handleEditPath(field)
-    }
+const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
+    // 由于浏览器的安全限制，直接选择目录会触发文件上传器体验
+    // 这里直接打开手动输入弹窗，提供更好的用户体验
+    handleEditPath(field)
   }
 
   const handleDrop = (e: React.DragEvent, field: 'download_path' | 'temp_path') => {
@@ -418,8 +381,10 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         // 尝试使用 webkitGetAsEntry API（Chrome/Edge支持）
         const entry = item.webkitGetAsEntry?.()
         if (entry?.isDirectory) {
+          // 由于浏览器安全限制，我们只能获取目录名
+          // 建议用户使用手动输入来指定完整路径
           handleLocalUpdate(field, entry.name)
-          showToast(`已设置目录: ${entry.name}`, 'success')
+          showToast(`已设置目录: ${entry.name}（如需完整路径，请使用编辑按钮）`, 'success')
           return
         }
         
@@ -432,7 +397,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           
           if (directoryName && directoryName !== path) {
             handleLocalUpdate(field, directoryName)
-            showToast(`已设置目录: ${directoryName}`, 'success')
+            showToast(`已设置目录: ${directoryName}（如需完整路径，请使用编辑按钮）`, 'success')
             return
           }
         }
@@ -441,7 +406,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       }
     } catch (error) {
       console.error('拖拽处理失败:', error)
-      showToast('拖拽功能不可用，请使用目录选择或手动输入', 'error')
+      showToast('拖拽功能不可用，请使用手动输入', 'error')
     }
   }
 
@@ -460,6 +425,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       handleLocalUpdate(showEditModal.field, editingPath)
       setShowEditModal({ show: false, field: null })
       setEditingPath('')
+      showToast('路径已保存', 'success')
     }
   }
 
@@ -478,32 +444,26 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       <div className="storage-group">
         <div className="storage-group-header">
           <span className="storage-group-title">路径设置</span>
-          <span className="storage-group-subtitle">点击选择或拖拽目录到下方</span>
+          <span className="storage-group-subtitle">手动输入或拖拽目录设置</span>
         </div>
         
         <div className="storage-list">
           {/* 下载路径 */}
           <div 
             className="storage-list-item storage-list-item-input"
-            onClick={() => handleSelectDirectory('download_path')}
             onDrop={(e) => handleDrop(e, 'download_path')}
             onDragOver={handleDragOver}
-            style={{ cursor: 'pointer' }}
           >
             <div className="storage-list-label-row">
               <Folder size={18} className="storage-list-icon" />
               <span className="storage-list-label">下载路径</span>
               <button
                 className="storage-list-edit-button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleEditPath('download_path')
-                }}
-                title="手动编辑路径"
+                onClick={() => handleEditPath('download_path')}
+                title="编辑路径"
               >
                 <Edit2 size={14} />
               </button>
-              <FolderOpen size={16} className="storage-list-icon" style={{ opacity: 0.5 }} />
             </div>
             <input
               type="text"
@@ -511,35 +471,31 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               value={String(getCurrentValue('download_path') || './downloads')}
               onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
               disabled={loading}
-              placeholder="./downloads"
-              aria-label="输入下载路径（点击选择或拖拽目录）"
-              onClick={(e) => e.stopPropagation()}
+              placeholder="./downloads 或 /path/to/downloads"
+              aria-label="输入下载路径"
               readOnly
             />
+            <div className="storage-list-hint">
+              点击编辑按钮手动输入，或拖拽目录到此处
+            </div>
           </div>
 
           {/* 临时路径 */}
           <div 
             className="storage-list-item storage-list-item-input"
-            onClick={() => handleSelectDirectory('temp_path')}
             onDrop={(e) => handleDrop(e, 'temp_path')}
             onDragOver={handleDragOver}
-            style={{ cursor: 'pointer' }}
           >
             <div className="storage-list-label-row">
               <Database size={18} className="storage-list-icon" />
               <span className="storage-list-label">临时路径</span>
               <button
                 className="storage-list-edit-button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleEditPath('temp_path')
-                }}
-                title="手动编辑路径"
+                onClick={() => handleEditPath('temp_path')}
+                title="编辑路径"
               >
                 <Edit2 size={14} />
               </button>
-              <FolderOpen size={16} className="storage-list-icon" style={{ opacity: 0.5 }} />
             </div>
             <input
               type="text"
@@ -547,11 +503,13 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               value={String(getCurrentValue('temp_path') || './temp')}
               onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
               disabled={loading}
-              placeholder="./temp"
-              aria-label="输入临时文件路径（点击选择或拖拽目录）"
-              onClick={(e) => e.stopPropagation()}
+              placeholder="./temp 或 /path/to/temp"
+              aria-label="输入临时文件路径"
               readOnly
             />
+            <div className="storage-list-hint">
+              点击编辑按钮手动输入，或拖拽目录到此处
+            </div>
           </div>
         </div>
 
@@ -871,6 +829,13 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         .storage-list-edit-button:hover {
           background: #F1F5F9;
           color: #2563EB;
+        }
+
+        .storage-list-hint {
+          font-size: 12px;
+          color: #94A3B8;
+          margin-top: 4px;
+          padding-left: 26px;
         }
 
         .storage-list-item:last-child {
@@ -1217,25 +1182,65 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
                 .storage-modal-hint {
 
-                  font-size: 12px;
+        
 
-                  color: #94A3B8;
-
-                  margin: 8px 0 20px 0;
-
-                }
+                          font-size: 12px;
 
         
 
-                .storage-modal-actions {
+                          color: #64748B;
 
-                  display: flex;
+        
 
-                  gap: 12px;
+                          margin: 8px 0 20px 0;
 
-                  justify-content: flex-end;
+        
 
-                }
+                          line-height: 1.6;
+
+        
+
+                        }
+
+        
+
+                
+
+        
+
+                        .storage-modal-hint strong {
+
+        
+
+                          color: #1E293B;
+
+        
+
+                        }
+
+        
+
+                
+
+        
+
+                        .storage-modal-actions {
+
+        
+
+                          display: flex;
+
+        
+
+                          gap: 12px;
+
+        
+
+                          justify-content: flex-end;
+
+        
+
+                        }
 
         
 
@@ -1301,43 +1306,45 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         
               {/* 手动输入路径弹窗 */}
               {showEditModal.show && (
-                <div className="storage-modal-overlay">
-                  <div className="storage-modal-content">
-                    <h3 className="storage-modal-title">
-                      {showEditModal.field === 'download_path' ? '编辑下载路径' : '编辑临时路径'}
-                    </h3>
-                    <p className="storage-modal-description">
-                      适用于Docker环境或浏览器不支持目录选择功能时手动输入路径
-                    </p>
-                    <input
-                      type="text"
-                      className="storage-modal-input"
-                      value={editingPath}
-                      onChange={(e) => setEditingPath(e.target.value)}
-                      placeholder={showEditModal.field === 'download_path' ? './downloads' : './temp'}
-                      autoFocus
-                    />
-                    <p className="storage-modal-hint">
-                      提示：使用相对路径（如 ./downloads）或绝对路径
-                    </p>
-                    <div className="storage-modal-actions">
-                      <button
-                        className="storage-modal-button storage-modal-button-secondary"
-                        onClick={() => setShowEditModal({ show: false, field: null })}
-                      >
-                        取消
-                      </button>
-                      <button
-                        className="storage-modal-button storage-modal-button-primary"
-                        onClick={saveEditedPath}
-                      >
-                        保存
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-        
+                      <div className="storage-modal-overlay">
+                        <div className="storage-modal-content">
+                          <h3 className="storage-modal-title">
+                            {showEditModal.field === 'download_path' ? '编辑下载路径' : '编辑临时路径'}
+                          </h3>
+                          <p className="storage-modal-description">
+                            输入目录路径，支持相对路径或绝对路径
+                          </p>
+                          <input
+                            type="text"
+                            className="storage-modal-input"
+                            value={editingPath}
+                            onChange={(e) => setEditingPath(e.target.value)}
+                            placeholder={showEditModal.field === 'download_path' ? './downloads 或 /path/to/downloads' : './temp 或 /path/to/temp'}
+                            autoFocus
+                          />
+                          <p className="storage-modal-hint">
+                            <strong>示例：</strong><br/>
+                            相对路径：./downloads, ./temp<br/>
+                            绝对路径：/home/user/downloads, C:\\Users\\User\\Downloads<br/>
+                            Docker路径：/data/downloads, /app/temp
+                          </p>
+                          <div className="storage-modal-actions">
+                            <button
+                              className="storage-modal-button storage-modal-button-secondary"
+                              onClick={() => setShowEditModal({ show: false, field: null })}
+                            >
+                              取消
+                            </button>
+                            <button
+                              className="storage-modal-button storage-modal-button-primary"
+                              onClick={saveEditedPath}
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}        
               {/* 清理缓存确认弹窗 */}
               <ConfirmModal
                 isOpen={showClearConfirm.show}
