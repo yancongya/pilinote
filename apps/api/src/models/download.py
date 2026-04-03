@@ -88,8 +88,6 @@ class Download(Base):
 
     enable_avatar = Column(Integer, default=1)  # 下载UP主头像 (0=false, 1=true)
 
-    block_pcdn = Column(Integer, default=1)  # 阻止PCDN (0=false, 1=true)
-
     
 
     # 文件管理

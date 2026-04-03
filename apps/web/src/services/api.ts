@@ -222,7 +222,6 @@ class ApiService {
     enable_nfo?: boolean;
     enable_cover?: boolean;
     enable_avatar?: boolean;
-    block_pcdn?: boolean;
   }): Promise<ApiResponse<any>> {
     return this.request<any>('/api/download/start', {
       method: 'POST',
@@ -281,7 +280,6 @@ class ApiService {
     enable_nfo?: boolean;
     enable_cover?: boolean;
     enable_avatar?: boolean;
-    block_pcdn?: boolean;
   }): Promise<ApiResponse<any>> {
     return this.request<any>('/api/download/add', {
       method: 'POST',

@@ -93,8 +93,7 @@ class DownloadService:
         enable_subtitle: Optional[bool] = True,
         enable_nfo: Optional[bool] = True,
         enable_cover: Optional[bool] = True,
-        enable_avatar: Optional[bool] = True,
-        block_pcdn: Optional[bool] = True
+        enable_avatar: Optional[bool] = True
     ) -> str:
         """创建下载任务"""
         download_id = str(uuid.uuid4())
@@ -120,7 +119,6 @@ class DownloadService:
                 enable_nfo=int(enable_nfo) if enable_nfo is not None else 1,
                 enable_cover=int(enable_cover) if enable_cover is not None else 1,
                 enable_avatar=int(enable_avatar) if enable_avatar is not None else 1,
-                block_pcdn=int(block_pcdn) if block_pcdn is not None else 1,
                 total_bytes=0,  # 初始为0，下载时更新
                 status="pending"
             )

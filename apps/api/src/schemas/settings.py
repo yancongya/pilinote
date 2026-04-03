@@ -48,7 +48,6 @@ class MetadataSettings(BaseModel):
     enable_subtitle: bool = Field(default=True, description="Download subtitles")
     enable_cover: bool = Field(default=True, description="Download cover image")
     enable_avatar: bool = Field(default=False, description="Download uploader avatar")
-    block_pcdn: bool = Field(default=True, description="Block PCDN nodes")
 
 
 class DownloadSettings(BaseModel):

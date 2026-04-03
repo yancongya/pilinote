@@ -287,8 +287,7 @@ export default function VideoDetailPage() {
           enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
           enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
           enable_cover: settings?.download?.metadata?.enable_cover ?? true,
-          enable_avatar: settings?.download?.metadata?.enable_avatar ?? false,
-          block_pcdn: settings?.download?.metadata?.block_pcdn ?? true
+          enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
         }
         
         return apiService.addToDownloadQueue(downloadData)

@@ -90,8 +90,7 @@ class SettingsService:
             'enable_nfo': self._get_setting_value(all_settings, 'download.metadata.enable_nfo', True),
             'enable_subtitle': self._get_setting_value(all_settings, 'download.metadata.enable_subtitle', True),
             'enable_cover': self._get_setting_value(all_settings, 'download.metadata.enable_cover', True),
-            'enable_avatar': self._get_setting_value(all_settings, 'download.metadata.enable_avatar', False),
-            'block_pcdn': self._get_setting_value(all_settings, 'download.metadata.block_pcdn', True)
+            'enable_avatar': self._get_setting_value(all_settings, 'download.metadata.enable_avatar', False)
         }
 
         # 构建download设置
@@ -310,7 +309,6 @@ class SettingsService:
                 'download.metadata.enable_subtitle': 'true',
                 'download.metadata.enable_cover': 'true',
                 'download.metadata.enable_avatar': 'false',
-                'download.metadata.block_pcdn': 'true',
             }
             
             # 存储设置默认值

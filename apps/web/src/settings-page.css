@@ -276,7 +276,7 @@
 
 /* 6. 内容区域样式 */
 .settings-content-new {
-  flex: 1;
+  flex: 0 1 auto;
   padding: 24px 20px;
   padding-bottom: 120px;
   max-width: 768px;

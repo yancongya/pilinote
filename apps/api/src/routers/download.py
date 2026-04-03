@@ -76,7 +76,6 @@ class StartDownloadRequest(BaseModel):
     enable_nfo: Optional[bool] = True  # 启用NFO文件生成
     enable_cover: Optional[bool] = True  # 启用封面下载
     enable_avatar: Optional[bool] = True  # 启用UP主头像下载
-    block_pcdn: Optional[bool] = True  # 阻止PCDN
 
 
 class StartDownloadResponse(BaseModel):
@@ -785,8 +784,7 @@ async def start_download(request: StartDownloadRequest, background_tasks: Backgr
             enable_subtitle=request.enable_subtitle,
             enable_nfo=request.enable_nfo,
             enable_cover=request.enable_cover,
-            enable_avatar=request.enable_avatar,
-            block_pcdn=request.block_pcdn
+            enable_avatar=request.enable_avatar
         )
 
         # 在后台启动下载任务
@@ -834,8 +832,7 @@ async def add_to_download_queue(request: StartDownloadRequest):
             enable_subtitle=request.enable_subtitle,
             enable_nfo=request.enable_nfo,
             enable_cover=request.enable_cover,
-            enable_avatar=request.enable_avatar,
-            block_pcdn=request.block_pcdn
+            enable_avatar=request.enable_avatar
         )
 
         return StartDownloadResponse(

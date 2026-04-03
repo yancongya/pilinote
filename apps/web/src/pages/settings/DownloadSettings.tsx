@@ -62,8 +62,7 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
             enable_nfo: true,
             enable_subtitle: true,
             enable_cover: true,
-            enable_avatar: false,
-            block_pcdn: true
+            enable_avatar: false
           }
         }
 
@@ -358,20 +357,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
               onChange={(e) => handleLocalUpdate('metadata.enable_avatar', e.target.checked)}
               disabled={loading}
               aria-label="启用头像下载"
-            />
-          </label>
-
-          <label className="dl-toggle">
-            <div className="dl-toggle-content">
-              <span className="dl-toggle-label">屏蔽 PCDN 地址</span>
-            </div>
-            <input
-              type="checkbox"
-              className="dl-toggle-input"
-              checked={getCurrentValue('metadata.block_pcdn') as boolean ?? true}
-              onChange={(e) => handleLocalUpdate('metadata.block_pcdn', e.target.checked)}
-              disabled={loading}
-              aria-label="屏蔽 PCDN 地址"
             />
           </label>
         </div>

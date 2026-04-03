@@ -12,7 +12,6 @@ export interface MetadataSettings {
   enable_subtitle: boolean
   enable_cover: boolean
   enable_avatar: boolean
-  block_pcdn: boolean
 }
 
 export interface DownloadSettings {

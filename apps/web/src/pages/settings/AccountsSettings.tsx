@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/auth'
 import { apiService } from '../../services/api'
 import { User, Trash2, RefreshCw, Info, Key, Cookie as CookieIcon, Shield, Plus } from 'lucide-react'
 import Modal from '../../components/Modal'
+import ConfirmModal from '../../components/ConfirmModal'
 
 interface Account {
   id: number
@@ -259,12 +260,13 @@ export default function AccountsSettings() {
 
   return (
     <div className="ac-panel">
-      {/* 错误消息 */}
-      {error && (
-        <div className="ac-error" role="alert" aria-live="polite">
-          {error}
-        </div>
-      )}
+      <div className="ac-content">
+        {/* 错误消息 */}
+        {error && (
+          <div className="ac-error" role="alert" aria-live="polite">
+            {error}
+          </div>
+        )}
 
       {/* 成功消息 */}
       {successMessage && (
@@ -420,6 +422,31 @@ export default function AccountsSettings() {
           <span>添加新账号</span>
         </button>
       </div>
+      </div>
+
+      {/* 底部操作区域 */}
+      <footer className="settings-footer">
+        {/* 应用信息卡片 */}
+        <div className="settings-info-card">
+          <div className="settings-info-item">
+            <Info className="settings-info-icon" />
+            <div className="settings-info-content">
+              <span className="settings-info-label">应用版本</span>
+              <span className="settings-info-value">1.0.0</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 退出登录按钮 */}
+        <button
+          className="settings-logout-button"
+          onClick={logout}
+          aria-label="退出登录"
+        >
+          <Trash2 className="settings-logout-icon" />
+          <span className="settings-logout-text">退出登录</span>
+        </button>
+      </footer>
 
       {/* 验证数据模态窗口 */}
       <Modal
@@ -599,6 +626,17 @@ export default function AccountsSettings() {
           padding: 12px;
           background: #F8FAFC;
           min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .ac-content {
+          flex: 0 1 auto;
+        }
+
+        .settings-footer {
+          margin-top: auto;
+          flex-shrink: 0;
         }
 
         /* 错误/成功消息 */

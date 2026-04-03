@@ -6,10 +6,8 @@ import { apiService } from '../services/api'
 import { 
   ArrowLeft, 
   User, 
-  LogOut, 
   Download,
   Database,
-  Info,
   Save,
   RefreshCw
 } from 'lucide-react'
@@ -57,7 +55,6 @@ function SettingsPage() {
   const tabBarRef = useRef<HTMLDivElement>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
   
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // 更新指示器位置
@@ -94,17 +91,6 @@ function SettingsPage() {
       navigate(`#${activeTab}`, { replace: true })
     }
   }, [activeTab, navigate])
-
-  const handleLogout = async () => {
-    try {
-      await apiService.logout()
-      logout()
-      setShowLogoutConfirm(false)
-      navigate('/')
-    } catch (err) {
-      showToast('退出登录失败', 'error')
-    }
-  }
 
   const handleTabChange = (tabId: TabType) => {
     setActiveTab(tabId)
@@ -210,32 +196,6 @@ function SettingsPage() {
         {activeTab === 'storage' && <StorageSettings ref={storageSettingsRef} />}
       </div>
 
-      {/* 底部操作区域 */}
-      {activeTab === 'accounts' && (
-        <footer className="settings-footer">
-          {/* 应用信息卡片 */}
-          <div className="settings-info-card">
-            <div className="settings-info-item">
-              <Info className="settings-info-icon" />
-              <div className="settings-info-content">
-                <span className="settings-info-label">应用版本</span>
-                <span className="settings-info-value">1.0.0</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 退出登录按钮 */}
-          <button
-            className="settings-logout-button"
-            onClick={() => setShowLogoutConfirm(true)}
-            aria-label="退出登录"
-          >
-            <LogOut className="settings-logout-icon" />
-            <span className="settings-logout-text">退出登录</span>
-          </button>
-        </footer>
-      )}
-
       {/* 悬浮保存按钮 */}
       {(activeTab === 'storage' || activeTab === 'download') && (
         <button
@@ -252,19 +212,6 @@ function SettingsPage() {
           )}
         </button>
       )}
-
-      {/* 退出登录确认对话框 */}
-      <ConfirmModal
-        isOpen={showLogoutConfirm}
-        onClose={() => setShowLogoutConfirm(false)}
-        onConfirm={handleLogout}
-        title="确认退出登录"
-        message="确定要退出登录吗？退出后需要重新登录才能使用。"
-        confirmText="确定退出"
-        cancelText="取消"
-        confirmVariant="primary"
-        loading={saving}
-      />
 
       <style>{`
         /* 顶部导航栏 */
