@@ -15,7 +15,8 @@ import {
   RotateCcw,
   FolderOpen,
   Download,
-  Upload
+  Upload,
+  Edit2
 } from 'lucide-react'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
@@ -59,6 +60,11 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     type: '',
     message: ''
   })
+  const [showEditModal, setShowEditModal] = useState<{ show: boolean; field: 'download_path' | 'temp_path' | null }>({
+    show: false,
+    field: null
+  })
+  const [editingPath, setEditingPath] = useState('')
   
   const [exportingDatabase, setExportingDatabase] = useState(false)
   const [importingDatabase, setImportingDatabase] = useState(false)
@@ -360,50 +366,101 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
   const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
     showToast('请选择一个目录', 'info')
     
-    // 创建目录选择输入元素
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.webkitdirectory = true
-    input.multiple = false
-    
-    input.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement
-      const files = target.files
-      if (!files || files.length === 0) return
+    try {
+      // 创建目录选择输入元素
+      const input = document.createElement('input')
+      input.type = 'file'
       
-      // 获取选中的目录路径
-      const firstFile = files[0]
-      const directoryPath = firstFile.webkitRelativePath?.split('/')[0] || '.'
-      
-      handleLocalUpdate(field, directoryPath)
-      showToast(`已选择目录: ${directoryPath}`, 'success')
+      // 检测浏览器是否支持 webkitdirectory 属性
+      if ('webkitdirectory' in document.createElement('input')) {
+        input.webkitdirectory = true
+        input.multiple = false
+        
+        input.onchange = (e: Event) => {
+          const target = e.target as HTMLInputElement
+          const files = target.files
+          if (!files || files.length === 0) return
+          
+          // 获取选中的目录路径
+          const firstFile = files[0]
+          const directoryPath = firstFile.webkitRelativePath?.split('/')[0] || '.'
+          
+          handleLocalUpdate(field, directoryPath)
+          showToast(`已选择目录: ${directoryPath}`, 'success')
+        }
+        
+        input.click()
+      } else {
+        // 不支持 webkitdirectory，提示用户使用手动输入
+        console.warn('浏览器不支持 webkitdirectory 属性')
+        showToast('您的浏览器不支持目录选择，请使用手动输入', 'error')
+        // 自动打开手动输入弹窗
+        handleEditPath(field)
+      }
+    } catch (error) {
+      console.error('目录选择失败:', error)
+      showToast('目录选择功能不可用，请使用手动输入', 'error')
+      // 自动打开手动输入弹窗
+      handleEditPath(field)
     }
-    
-    input.click()
   }
 
   const handleDrop = (e: React.DragEvent, field: 'download_path' | 'temp_path') => {
     e.preventDefault()
     e.stopPropagation()
     
-    const items = e.dataTransfer.items
-    if (!items || items.length === 0) return
-    
-    const item = items[0]
-    if (item.kind === 'file') {
-      const entry = item.webkitGetAsEntry?.()
-      if (entry?.isDirectory) {
-        handleLocalUpdate(field, entry.name)
-        showToast(`已设置目录: ${entry.name}`, 'success')
-      } else {
+    try {
+      const items = e.dataTransfer.items
+      if (!items || items.length === 0) return
+      
+      const item = items[0]
+      if (item.kind === 'file') {
+        // 尝试使用 webkitGetAsEntry API（Chrome/Edge支持）
+        const entry = item.webkitGetAsEntry?.()
+        if (entry?.isDirectory) {
+          handleLocalUpdate(field, entry.name)
+          showToast(`已设置目录: ${entry.name}`, 'success')
+          return
+        }
+        
+        // 备用方案：尝试从文件路径中提取目录名
+        const files = e.dataTransfer.files
+        if (files && files.length > 0) {
+          const firstFile = files[0]
+          const path = firstFile.webkitRelativePath || firstFile.name
+          const directoryName = path.split('/')[0]
+          
+          if (directoryName && directoryName !== path) {
+            handleLocalUpdate(field, directoryName)
+            showToast(`已设置目录: ${directoryName}`, 'success')
+            return
+          }
+        }
+        
         showToast('请拖拽目录，而不是文件', 'error')
       }
+    } catch (error) {
+      console.error('拖拽处理失败:', error)
+      showToast('拖拽功能不可用，请使用目录选择或手动输入', 'error')
     }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+  }
+
+  const handleEditPath = (field: 'download_path' | 'temp_path') => {
+    setEditingPath(getCurrentValue(field) || '')
+    setShowEditModal({ show: true, field })
+  }
+
+  const saveEditedPath = () => {
+    if (showEditModal.field) {
+      handleLocalUpdate(showEditModal.field, editingPath)
+      setShowEditModal({ show: false, field: null })
+      setEditingPath('')
+    }
   }
 
   if (!settings) {
@@ -436,6 +493,16 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
             <div className="storage-list-label-row">
               <Folder size={18} className="storage-list-icon" />
               <span className="storage-list-label">下载路径</span>
+              <button
+                className="storage-list-edit-button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleEditPath('download_path')
+                }}
+                title="手动编辑路径"
+              >
+                <Edit2 size={14} />
+              </button>
               <FolderOpen size={16} className="storage-list-icon" style={{ opacity: 0.5 }} />
             </div>
             <input
@@ -462,6 +529,16 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
             <div className="storage-list-label-row">
               <Database size={18} className="storage-list-icon" />
               <span className="storage-list-label">临时路径</span>
+              <button
+                className="storage-list-edit-button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleEditPath('temp_path')
+                }}
+                title="手动编辑路径"
+              >
+                <Edit2 size={14} />
+              </button>
               <FolderOpen size={16} className="storage-list-icon" style={{ opacity: 0.5 }} />
             </div>
             <input
@@ -776,8 +853,24 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           gap: 8px;
         }
 
-        .storage-list-item-input:active {
+        .storage-list-input:active {
           opacity: 0.8;
+        }
+
+        .storage-list-edit-button {
+          padding: 4px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          color: #64748B;
+          border-radius: 4px;
+          transition: all 0.2s;
+          margin-left: auto;
+        }
+
+        .storage-list-edit-button:hover {
+          background: #F1F5F9;
+          color: #2563EB;
         }
 
         .storage-list-item:last-child {
@@ -1009,15 +1102,246 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         }
 
         .storage-loading p {
-          font-size: 14px;
-          color: #64748B;
-        }
-      `}</style>
 
-      {/* 清理缓存确认弹窗 */}
-      <ConfirmModal
-        isOpen={showClearConfirm.show}
-        onClose={() => setShowClearConfirm({ show: false, type: '', message: '' })}
+                  font-size: 14px;
+
+                  color: #64748B;
+
+                }
+
+        
+
+                .storage-modal-overlay {
+
+                  position: fixed;
+
+                  top: 0;
+
+                  left: 0;
+
+                  right: 0;
+
+                  bottom: 0;
+
+                  background: rgba(0, 0, 0, 0.5);
+
+                  display: flex;
+
+                  align-items: center;
+
+                  justify-content: center;
+
+                  z-index: 1000;
+
+                }
+
+        
+
+                .storage-modal-content {
+
+                  background: white;
+
+                  border-radius: 12px;
+
+                  padding: 24px;
+
+                  width: 90%;
+
+                  max-width: 400px;
+
+                  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+
+                }
+
+        
+
+                .storage-modal-title {
+
+                  font-size: 18px;
+
+                  font-weight: 600;
+
+                  color: #1E293B;
+
+                  margin: 0 0 8px 0;
+
+                }
+
+        
+
+                .storage-modal-description {
+
+                  font-size: 14px;
+
+                  color: #64748B;
+
+                  margin: 0 0 16px 0;
+
+                  line-height: 1.5;
+
+                }
+
+        
+
+                .storage-modal-input {
+
+                  width: 100%;
+
+                  padding: 10px 12px;
+
+                  border: 1px solid #CBD5E1;
+
+                  border-radius: 8px;
+
+                  font-size: 14px;
+
+                  color: #1E293B;
+
+                  outline: none;
+
+                  transition: border-color 0.2s;
+
+                  box-sizing: border-box;
+
+                }
+
+        
+
+                .storage-modal-input:focus {
+
+                  border-color: #2563EB;
+
+                }
+
+        
+
+                .storage-modal-hint {
+
+                  font-size: 12px;
+
+                  color: #94A3B8;
+
+                  margin: 8px 0 20px 0;
+
+                }
+
+        
+
+                .storage-modal-actions {
+
+                  display: flex;
+
+                  gap: 12px;
+
+                  justify-content: flex-end;
+
+                }
+
+        
+
+                .storage-modal-button {
+
+                  padding: 8px 16px;
+
+                  border-radius: 8px;
+
+                  font-size: 14px;
+
+                  font-weight: 500;
+
+                  cursor: pointer;
+
+                  transition: all 0.2s;
+
+                }
+
+        
+
+                .storage-modal-button-secondary {
+
+                  background: white;
+
+                  border: 1px solid #CBD5E1;
+
+                  color: #64748B;
+
+                }
+
+        
+
+                .storage-modal-button-secondary:hover {
+
+                  background: #F8FAFC;
+
+                  border-color: #94A3B8;
+
+                }
+
+        
+
+                .storage-modal-button-primary {
+
+                  background: #2563EB;
+
+                  border: none;
+
+                  color: white;
+
+                }
+
+        
+
+                .storage-modal-button-primary:hover {
+
+                  background: #1D4ED8;
+
+                }
+
+              `}</style>
+        
+              {/* 手动输入路径弹窗 */}
+              {showEditModal.show && (
+                <div className="storage-modal-overlay">
+                  <div className="storage-modal-content">
+                    <h3 className="storage-modal-title">
+                      {showEditModal.field === 'download_path' ? '编辑下载路径' : '编辑临时路径'}
+                    </h3>
+                    <p className="storage-modal-description">
+                      适用于Docker环境或浏览器不支持目录选择功能时手动输入路径
+                    </p>
+                    <input
+                      type="text"
+                      className="storage-modal-input"
+                      value={editingPath}
+                      onChange={(e) => setEditingPath(e.target.value)}
+                      placeholder={showEditModal.field === 'download_path' ? './downloads' : './temp'}
+                      autoFocus
+                    />
+                    <p className="storage-modal-hint">
+                      提示：使用相对路径（如 ./downloads）或绝对路径
+                    </p>
+                    <div className="storage-modal-actions">
+                      <button
+                        className="storage-modal-button storage-modal-button-secondary"
+                        onClick={() => setShowEditModal({ show: false, field: null })}
+                      >
+                        取消
+                      </button>
+                      <button
+                        className="storage-modal-button storage-modal-button-primary"
+                        onClick={saveEditedPath}
+                      >
+                        保存
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+        
+              {/* 清理缓存确认弹窗 */}
+              <ConfirmModal
+                isOpen={showClearConfirm.show}
+                onClose={() => setShowClearConfirm({ show: false, type: '', message: '' })}
         onConfirm={confirmClearCache}
         title="确认清理缓存"
         message={showClearConfirm.message}
