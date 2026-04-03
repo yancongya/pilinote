@@ -89,6 +89,32 @@ export function useBatchDownload({
   // Selected videos state (Set of video IDs)
   const [selectedVideos, setSelectedVideos] = useState<Set<string>>(new Set())
 
+  // Custom setBatchMode with auto-selection
+  const setBatchModeWithAutoSelect = (mode: boolean) => {
+    setBatchMode(mode)
+
+    // When entering batch mode, auto-select videos already in queue
+    if (mode) {
+      const tasks = Object.values(newQueueStore.tasks)
+      const videoIdsInQueue = new Set<string>()
+
+      for (const video of videos) {
+        const exists = tasks.some(task =>
+          task.media_id === video.bvid &&
+          !['completed', 'cancelled'].includes(task.state)
+        )
+        if (exists) {
+          videoIdsInQueue.add(video.id)
+        }
+      }
+
+      if (videoIdsInQueue.size > 0) {
+        setSelectedVideos(videoIdsInQueue)
+        console.log(`Auto-selected ${videoIdsInQueue.size} videos that are already in queue`)
+      }
+    }
+  }
+
   /**
    * Toggle selection of a single video
    * @param videoId - ID of the video to toggle
@@ -316,7 +342,7 @@ export function useBatchDownload({
 
   return {
     batchMode,
-    setBatchMode,
+    setBatchMode: setBatchModeWithAutoSelect,
     selectedVideos,
     toggleVideoSelection,
     toggleSelectAll,
