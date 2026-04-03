@@ -136,3 +136,12 @@ def broadcast_queue_updated():
     asyncio.create_task(manager.broadcast({
         "type": "queueUpdated"
     }))
+
+
+def broadcast_scheduler_deleted(scheduler_id: str):
+    """广播调度器删除事件"""
+    import asyncio
+    asyncio.create_task(manager.broadcast({
+        "type": "schedulerDeleted",
+        "id": scheduler_id
+    }))

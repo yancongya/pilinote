@@ -73,6 +73,7 @@ interface NewQueueState {
   submitTask: (task: Partial<Task>) => Promise<void>
   controlTask: (taskId: string, action: string) => Promise<void>
   controlScheduler: (sid: string, action: string) => Promise<void>
+  deleteScheduler: (sid: string) => Promise<void>
   setActiveTab: (tab: 'downloads' | 'library') => void
   setFilterStatus: (status: TaskState | 'all') => void
 
@@ -141,7 +142,7 @@ export const useNewQueueStore = create<NewQueueState>()(
             set((state) => {
               const tasks = { ...state.tasks }
               if (data.task) {
-                // 转换状态数字为字符串
+                // 转换状态数字为字符串，并映射字段名
                 const stateMap: Record<number, string> = {
                   0: 'backlog',
                   1: 'pending',
@@ -153,7 +154,8 @@ export const useNewQueueStore = create<NewQueueState>()(
                 }
                 const taskWithState = {
                   ...data.task,
-                  state: stateMap[data.task.state as number] || data.task.state
+                  state: stateMap[data.task.state as number] || data.task.state,
+                  schedulerId: data.task.scheduler_id  // 映射 scheduler_id -> schedulerId
                 }
                 tasks[data.task.id] = taskWithState
               }
@@ -244,10 +246,11 @@ export const useNewQueueStore = create<NewQueueState>()(
             // 从新的API响应格式中获取数据
             const taskList = result.data || []
             taskList.forEach((task: any) => {
-              // 转换状态数字为字符串
+              // 转换状态数字为字符串，并映射字段名
               const taskWithState = {
                 ...task,
-                state: stateMap[task.state as number] || task.state
+                state: stateMap[task.state as number] || task.state,
+                schedulerId: task.scheduler_id  // 映射 scheduler_id -> schedulerId
               }
               tasks[task.id] = taskWithState
             })
@@ -360,6 +363,20 @@ export const useNewQueueStore = create<NewQueueState>()(
           await get().fetchSchedulers()
         } catch (error) {
           console.error('[NewQueue] Failed to control scheduler:', error)
+          throw error
+        }
+      },
+
+      deleteScheduler: async (sid) => {
+        try {
+          const response = await fetch(`http://localhost:8000/api/queue/schedulers/${sid}`, {
+            method: 'DELETE',
+          })
+          if (!response.ok) throw new Error('Delete failed')
+          await get().fetchTasks()
+          await get().fetchSchedulers()
+        } catch (error) {
+          console.error('[NewQueue] Failed to delete scheduler:', error)
           throw error
         }
       },

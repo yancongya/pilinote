@@ -327,6 +327,26 @@ async def cancel_scheduler(scheduler_id: str):
     )
 
 
+@router.delete("/schedulers/{scheduler_id}", response_model=ApiResponse)
+async def delete_scheduler(scheduler_id: str):
+    """Delete scheduler and all its tasks"""
+    scheduler = await queue_manager.get_scheduler(scheduler_id)
+    if not scheduler:
+        raise HTTPException(status_code=404, detail="Scheduler not found")
+
+    # Delete scheduler and all associated tasks
+    await queue_manager.delete_scheduler(scheduler_id)
+
+    # Broadcast WebSocket event
+    from src.routers.websocket import broadcast_scheduler_deleted
+    broadcast_scheduler_deleted(scheduler_id)
+
+    return ApiResponse(
+        success=True,
+        message="调度器删除成功"
+    )
+
+
 # ========== Queue APIs ==========
 
 @router.get("/", response_model=List[QueueResponse])

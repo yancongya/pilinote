@@ -237,10 +237,22 @@ class QueueManager:
 
         # 3. Persist to database
         db = SessionLocal()
+        scheduler_id = None
+        title = None
+        folder = None
+        created_at = None
+        updated_at = None
         try:
             db.add(scheduler)
             db.commit()
             db.refresh(scheduler)
+            
+            # Save all values before closing the session
+            scheduler_id = scheduler.id
+            title = scheduler.title
+            folder = scheduler.folder
+            created_at = scheduler.created_at
+            updated_at = scheduler.updated_at
 
             # Update tasks with scheduler_id
             for task_id in task_ids:
@@ -248,7 +260,7 @@ class QueueManager:
                 if task:
                     task.scheduler_id = scheduler.id
                     task.state = TaskState.PENDING  # Update state to PENDING
-            
+
             db.commit()
         finally:
             db.close()
@@ -256,31 +268,41 @@ class QueueManager:
         # 4. Update in-memory tasks
         for task_id in task_ids:
             if task_id in self.tasks:
-                self.tasks[task_id].scheduler_id = scheduler.id
+                self.tasks[task_id].scheduler_id = scheduler_id
                 self.tasks[task_id].state = TaskState.PENDING
 
-        # 5. Add to in-memory management
-        self.schedulers[scheduler.id] = scheduler
+        # 5. Add to in-memory management - create a new object to avoid Session binding issue
+        self.schedulers[scheduler_id] = Scheduler(
+            id=scheduler_id,
+            title=title,
+            list=task_ids,
+            count=len(task_ids),
+            queue_type=QueueType.PENDING,
+            state=SchedulerState.PENDING,
+            folder=folder,
+            created_at=created_at,
+            updated_at=updated_at
+        )
 
         # 6. Add to pending queue
-        await self.queues[QueueType.PENDING].put(scheduler.id)
+        await self.queues[QueueType.PENDING].put(scheduler_id)
 
         # 6. Persist queue to database
         await self._save_queue_to_db(QueueType.PENDING)
         await self._save_queue_to_db(QueueType.BACKLOG)
 
-        logger.info(f"Scheduler {scheduler.id} created with {len(task_ids)} tasks")
+        logger.info(f"Scheduler {scheduler_id} created with {len(task_ids)} tasks")
 
         return SchedulerResponse(
-            id=scheduler.id,
-            title=scheduler.title,
-            list=scheduler.list,
-            count=scheduler.count,
-            queue_type=QueueType(scheduler.queue_type),
-            state=SchedulerState(scheduler.state),
-            folder=scheduler.folder,
-            created_at=scheduler.created_at,
-            updated_at=scheduler.updated_at
+            id=scheduler_id,
+            title=title,
+            list=task_ids,
+            count=len(task_ids),
+            queue_type=QueueType.PENDING,
+            state=SchedulerState.PENDING,
+            folder=folder,
+            created_at=created_at,
+            updated_at=updated_at
         )
 
     async def get_queue(self, queue_type: QueueType) -> List[str]:
@@ -339,6 +361,75 @@ class QueueManager:
 
             db.commit()
             logger.info(f"Task {task_id} removed from database and queues")
+        finally:
+            db.close()
+
+    async def delete_scheduler(self, scheduler_id: str):
+        """Delete scheduler and all its tasks"""
+        logger.info(f"Deleting scheduler: {scheduler_id}")
+
+        # Get scheduler
+        scheduler = self.schedulers.get(scheduler_id)
+        if not scheduler:
+            logger.warning(f"Scheduler {scheduler_id} not found")
+            return
+
+        # 1. Remove from in-memory schedulers
+        del self.schedulers[scheduler_id]
+
+        # 2. Remove scheduler from all queues
+        for queue_type in QueueType:
+            queue = self.queues[queue_type]
+            new_items = []
+            while not queue.empty():
+                item = await queue.get()
+                if item != scheduler_id:
+                    new_items.append(item)
+            for item in new_items:
+                await queue.put(item)
+
+        # 3. Remove all associated tasks from memory and queues
+        for task_id in scheduler.list:
+            # Remove from in-memory tasks
+            if task_id in self.tasks:
+                del self.tasks[task_id]
+
+            # Remove from all queues
+            for queue_type in QueueType:
+                queue = self.queues[queue_type]
+                new_items = []
+                while not queue.empty():
+                    item = await queue.get()
+                    if item != task_id:
+                        new_items.append(item)
+                for item in new_items:
+                    await queue.put(item)
+
+        # 4. Remove from database
+        db = SessionLocal()
+        try:
+            # Delete scheduler
+            scheduler_obj = db.query(Scheduler).filter_by(id=scheduler_id).first()
+            if scheduler_obj:
+                db.delete(scheduler_obj)
+
+            # Delete all associated tasks
+            for task_id in scheduler.list:
+                task = db.query(Task).filter_by(id=task_id).first()
+                if task:
+                    db.delete(task)
+
+            # Save all queues to database
+            for queue_type in QueueType:
+                queue = self.queues[queue_type]
+                items = list(queue._queue)
+                queue_obj = db.query(Queue).filter_by(queue_type=queue_type).first()
+                if queue_obj:
+                    queue_obj.value = items
+                    queue_obj.updated_at = int(datetime.now().timestamp())
+
+            db.commit()
+            logger.info(f"Scheduler {scheduler_id} and all its tasks deleted")
         finally:
             db.close()
 

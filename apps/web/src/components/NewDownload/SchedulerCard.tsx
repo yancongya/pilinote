@@ -1,10 +1,16 @@
 // components/NewDownload/SchedulerCard.tsx
 import { useState, useMemo } from 'react'
 import { useNewQueueStore, Scheduler, Task } from '../../stores/newQueue'
-import { Play, Pause, Trash2, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react'
+import { Play, Pause, Trash2, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Loader2, X, Film } from 'lucide-react'
 
 interface Props {
   scheduler: Scheduler
+}
+
+// 代理图片URL，避免403错误
+const getProxyImageUrl = (url: string | null | undefined): string => {
+  if (!url) return ''
+  return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
 }
 
 // 格式化时间戳
@@ -45,15 +51,21 @@ const calculateSchedulerProgress = (scheduler: Scheduler, tasks: Record<string, 
 }
 
 export default function SchedulerCard({ scheduler }: Props) {
-  const { tasks, controlScheduler } = useNewQueueStore()
+  const { tasks, controlScheduler, deleteScheduler } = useNewQueueStore()
   const [isExpanded, setIsExpanded] = useState(false)
-  
+
   const progress = useMemo(() => calculateSchedulerProgress(scheduler, tasks), [scheduler, tasks])
   const schedulerTasks = useMemo(() => {
     return scheduler.list
       .map(taskId => tasks[taskId])
       .filter(Boolean) as Task[]
   }, [scheduler.list, tasks])
+
+  // 获取调度器封面（使用第一个有封面的任务）
+  const schedulerCover = useMemo(() => {
+    const taskWithCover = schedulerTasks.find(t => t.cover && t.cover.trim())
+    return taskWithCover ? getProxyImageUrl(taskWithCover.cover) : ''
+  }, [schedulerTasks])
   
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     'idle': { label: '待处理', color: '#f59e0b', icon: Clock },
@@ -79,6 +91,19 @@ export default function SchedulerCard({ scheduler }: Props) {
       alert(errorMessage)
     }
   }
+
+  const handleDelete = async () => {
+    if (!confirm('确定要删除这个调度器及其所有任务吗？此操作不可恢复。')) {
+      return
+    }
+    try {
+      await deleteScheduler(scheduler.id)
+    } catch (error) {
+      console.error('Delete failed:', error)
+      const errorMessage = error instanceof Error ? error.message : '删除失败，请重试'
+      alert(errorMessage)
+    }
+  }
   
   return (
     <article 
@@ -90,8 +115,31 @@ export default function SchedulerCard({ scheduler }: Props) {
     >
       {/* 调度器头部 */}
       <div className="scheduler-header">
+        {/* 封面区域 */}
+        {schedulerCover && (
+          <div className="scheduler-cover">
+            <div className="scheduler-cover-thumbnail">
+              <img
+                src={schedulerCover}
+                alt={scheduler.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                  const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
+                  if (placeholder) {
+                    (placeholder as HTMLElement).style.display = 'flex'
+                  }
+                }}
+              />
+              <div className="cover-placeholder" style={{ display: 'none' }}>
+                <Film size={32} color="#42a5f5" />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="scheduler-info">
-          <button 
+          <button
             className="expand-toggle"
             onClick={() => setIsExpanded(!isExpanded)}
             aria-label={isExpanded ? '折叠' : '展开'}
@@ -99,7 +147,7 @@ export default function SchedulerCard({ scheduler }: Props) {
           >
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </button>
-          
+
           <div className="scheduler-title">
             <h3>{scheduler.title}</h3>
             <div className="scheduler-meta">
@@ -113,10 +161,10 @@ export default function SchedulerCard({ scheduler }: Props) {
             </div>
           </div>
         </div>
-        
+
         <div className="scheduler-controls">
           {scheduler.state === 'running' && (
-            <button 
+            <button
               onClick={() => handleControl('pause')}
               title="暂停"
               aria-label="暂停调度器"
@@ -126,7 +174,7 @@ export default function SchedulerCard({ scheduler }: Props) {
             </button>
           )}
           {scheduler.state === 'paused' && (
-            <button 
+            <button
               onClick={() => handleControl('resume')}
               title="恢复"
               aria-label="恢复调度器"
@@ -135,11 +183,21 @@ export default function SchedulerCard({ scheduler }: Props) {
               <Play size={18} />
             </button>
           )}
-          {scheduler.state !== 'completed' && scheduler.state !== 'cancelled' && (
-            <button 
+          {(scheduler.state === 'running' || scheduler.state === 'paused') && (
+            <button
               onClick={() => handleControl('cancel')}
               title="取消"
               aria-label="取消调度器"
+              className="control-btn"
+            >
+              <X size={18} />
+            </button>
+          )}
+          {scheduler.state !== 'cancelled' && (
+            <button
+              onClick={handleDelete}
+              title="删除"
+              aria-label="删除调度器"
               className="control-btn danger"
             >
               <Trash2 size={18} />
@@ -167,27 +225,54 @@ export default function SchedulerCard({ scheduler }: Props) {
           {schedulerTasks.length === 0 ? (
             <div className="empty-tasks">暂无任务</div>
           ) : (
-            schedulerTasks.map(task => (
-              <div key={task.id} className="scheduler-task-item">
-                <div className="task-info">
-                  <span className="task-title">{task.title}</span>
-                  <span className="task-state" style={{ color: status.color }}>
-                    {statusConfig[task.state]?.label || task.state}
-                  </span>
-                </div>
-                {task.state === 'active' && task.status?.progress !== undefined && (
-                  <div className="task-progress">
-                    <div 
-                      className="task-progress-bar"
-                      style={{ width: `${task.status.progress}%` }}
-                    >
-                      <div />
+            schedulerTasks.map(task => {
+              const coverUrl = getProxyImageUrl(task.cover)
+              const hasCover = task.cover && task.cover.trim()
+              return (
+                <div key={task.id} className="scheduler-task-item">
+                  {/* 任务封面 */}
+                  {hasCover && (
+                    <div className="task-cover">
+                      <div className="task-cover-thumbnail">
+                        <img
+                          src={coverUrl}
+                          alt={task.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                            const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
+                            if (placeholder) {
+                              (placeholder as HTMLElement).style.display = 'flex'
+                            }
+                          }}
+                        />
+                        <div className="cover-placeholder" style={{ display: 'none' }}>
+                          <Film size={24} color="#42a5f5" />
+                        </div>
+                      </div>
                     </div>
-                    <span className="task-progress-text">{task.status.progress}%</span>
+                  )}
+
+                  <div className="task-info">
+                    <span className="task-title">{task.title}</span>
+                    <span className="task-state" style={{ color: status.color }}>
+                      {statusConfig[task.state]?.label || task.state}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))
+                  {task.state === 'active' && task.status?.progress !== undefined && (
+                    <div className="task-progress">
+                      <div
+                        className="task-progress-bar"
+                        style={{ width: `${task.status.progress}%` }}
+                      >
+                        <div />
+                      </div>
+                      <span className="task-progress-text">{task.status.progress}%</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })
           )}
         </div>
       )}
