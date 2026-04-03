@@ -13,6 +13,7 @@ import {
   Check,
   ChevronRight,
   RotateCcw,
+  FolderOpen,
   Download,
   Upload
 } from 'lucide-react'
@@ -356,6 +357,55 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     input.click()
   }
 
+  const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
+    showToast('请选择一个目录', 'info')
+    
+    // 创建目录选择输入元素
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.webkitdirectory = true
+    input.multiple = false
+    
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement
+      const files = target.files
+      if (!files || files.length === 0) return
+      
+      // 获取选中的目录路径
+      const firstFile = files[0]
+      const directoryPath = firstFile.webkitRelativePath?.split('/')[0] || '.'
+      
+      handleLocalUpdate(field, directoryPath)
+      showToast(`已选择目录: ${directoryPath}`, 'success')
+    }
+    
+    input.click()
+  }
+
+  const handleDrop = (e: React.DragEvent, field: 'download_path' | 'temp_path') => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const items = e.dataTransfer.items
+    if (!items || items.length === 0) return
+    
+    const item = items[0]
+    if (item.kind === 'file') {
+      const entry = item.webkitGetAsEntry?.()
+      if (entry?.isDirectory) {
+        handleLocalUpdate(field, entry.name)
+        showToast(`已设置目录: ${entry.name}`, 'success')
+      } else {
+        showToast('请拖拽目录，而不是文件', 'error')
+      }
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
   if (!settings) {
     return (
       <div className="storage-loading">
@@ -371,15 +421,22 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       <div className="storage-group">
         <div className="storage-group-header">
           <span className="storage-group-title">路径设置</span>
-          <span className="storage-group-subtitle">下载和临时文件位置</span>
+          <span className="storage-group-subtitle">点击选择或拖拽目录到下方</span>
         </div>
         
         <div className="storage-list">
           {/* 下载路径 */}
-          <div className="storage-list-item storage-list-item-input">
+          <div 
+            className="storage-list-item storage-list-item-input"
+            onClick={() => handleSelectDirectory('download_path')}
+            onDrop={(e) => handleDrop(e, 'download_path')}
+            onDragOver={handleDragOver}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="storage-list-label-row">
               <Folder size={18} className="storage-list-icon" />
               <span className="storage-list-label">下载路径</span>
+              <FolderOpen size={16} className="storage-list-icon" style={{ opacity: 0.5 }} />
             </div>
             <input
               type="text"
@@ -388,15 +445,24 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
               disabled={loading}
               placeholder="./downloads"
-              aria-label="输入下载路径"
+              aria-label="输入下载路径（点击选择或拖拽目录）"
+              onClick={(e) => e.stopPropagation()}
+              readOnly
             />
           </div>
 
           {/* 临时路径 */}
-          <div className="storage-list-item storage-list-item-input">
+          <div 
+            className="storage-list-item storage-list-item-input"
+            onClick={() => handleSelectDirectory('temp_path')}
+            onDrop={(e) => handleDrop(e, 'temp_path')}
+            onDragOver={handleDragOver}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="storage-list-label-row">
               <Database size={18} className="storage-list-icon" />
               <span className="storage-list-label">临时路径</span>
+              <FolderOpen size={16} className="storage-list-icon" style={{ opacity: 0.5 }} />
             </div>
             <input
               type="text"
@@ -405,7 +471,9 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
               disabled={loading}
               placeholder="./temp"
-              aria-label="输入临时文件路径"
+              aria-label="输入临时文件路径（点击选择或拖拽目录）"
+              onClick={(e) => e.stopPropagation()}
+              readOnly
             />
           </div>
         </div>
@@ -706,6 +774,10 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           flex-direction: column;
           align-items: flex-start;
           gap: 8px;
+        }
+
+        .storage-list-item-input:active {
+          opacity: 0.8;
         }
 
         .storage-list-item:last-child {
