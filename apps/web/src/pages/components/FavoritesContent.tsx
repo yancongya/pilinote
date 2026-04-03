@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
@@ -30,6 +30,10 @@ export default function FavoritesContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Refs to track if data has been loaded
+  const foldersLoadedRef = useRef(false)
+  const tasksSyncedRef = useRef(false)
+
   // 下载状态检查函数（只检查新系统）
     const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
       const tasks = newQueueStore.tasks
@@ -53,9 +57,12 @@ export default function FavoritesContent() {
       )
   
       return unsubscribe
-    }, [])  // 组件挂载时同步数据
+    }, [])  // 组件挂载时同步数据（只执行一次）
   useEffect(() => {
     const syncData = async () => {
+      if (tasksSyncedRef.current) return
+      tasksSyncedRef.current = true
+
       try {
         // 同步最新数据
         await newQueueStore.fetchTasks()
@@ -250,7 +257,9 @@ export default function FavoritesContent() {
   // 获取收藏夹列表（带缓存）
   useEffect(() => {
     const fetchFolders = async () => {
-      if (!user?.sessdata || !user?.mid) return
+      if (!user?.sessdata || !user?.mid || foldersLoadedRef.current) return
+
+      foldersLoadedRef.current = true
 
       // 先检查缓存
       const cachedFolders = getFoldersCache()

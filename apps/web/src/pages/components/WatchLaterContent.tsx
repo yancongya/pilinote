@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
@@ -18,6 +18,9 @@ export default function WatchLaterContent() {
   const { user } = useAuthStore()
   const newQueueStore = useNewQueueStore()
   const navigate = useNavigate()
+
+  // Refs to track if data has been loaded
+  const tasksSyncedRef = useRef(false)
 
   // 下载状态检查函数（只检查新系统）
   const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
@@ -45,9 +48,12 @@ export default function WatchLaterContent() {
     return unsubscribe
   }, [])
 
-  // 组件挂载时同步数据
+  // 组件挂载时同步数据（只执行一次）
   useEffect(() => {
     const syncData = async () => {
+      if (tasksSyncedRef.current) return
+      tasksSyncedRef.current = true
+
       try {
         // 同步最新数据
         await newQueueStore.fetchTasks()

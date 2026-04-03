@@ -218,9 +218,11 @@ function HomePage() {
           </nav>
 
         <main ref={animationParent} className="home-content">
-          {activeTab === 'home' && <HomeContent />}
-          {activeTab === 'favorites' && (
-            user?.sessdata ? (
+          <div style={{ display: activeTab === 'home' ? 'block' : 'none' }}>
+            <HomeContent />
+          </div>
+          <div style={{ display: activeTab === 'favorites' ? 'block' : 'none' }}>
+            {user?.sessdata ? (
               <FavoritesContent />
             ) : (
               <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
@@ -246,10 +248,10 @@ function HomePage() {
                   去登录
                 </button>
               </section>
-            )
-          )}
-          {activeTab === 'watch-later' && (
-            user?.sessdata ? (
+            )}
+          </div>
+          <div style={{ display: activeTab === 'watch-later' ? 'block' : 'none' }}>
+            {user?.sessdata ? (
               <WatchLaterContent />
             ) : (
               <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
@@ -275,18 +277,14 @@ function HomePage() {
                   去登录
                 </button>
               </section>
-            )
-          )}
-          {activeTab === 'downloads' && (
-            <div id="downloads-panel">
-              <DownloadsContent />
-            </div>
-          )}
-          {activeTab === 'new-downloads' && (
-            <div id="new-downloads-panel">
-              <NewDownloadContent />
-            </div>
-          )}
+            )}
+          </div>
+          <div style={{ display: activeTab === 'downloads' ? 'block' : 'none' }}>
+            <DownloadsContent />
+          </div>
+          <div style={{ display: activeTab === 'new-downloads' ? 'block' : 'none' }}>
+            <NewDownloadContent />
+          </div>
         </main>
       </div>
 
