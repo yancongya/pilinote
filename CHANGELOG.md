@@ -1,5 +1,77 @@
 # PiliNote 开发日志
 
+## 2026-04-03 调度器删除功能和封面显示优化
+
+### 🎯 功能增强
+
+#### ✅ 后端功能
+- **修改文件**: `apps/api/src/routers/queue.py`
+- **新增**: `DELETE /api/queue/schedulers/{scheduler_id}` 端点
+  - 删除指定调度器及其所有关联任务
+  - 从内存队列和数据库中清理相关数据
+  - 通过 WebSocket 广播删除事件
+
+- **修改文件**: `apps/api/src/routers/websocket.py`
+- **新增**: `broadcast_scheduler_deleted()` 函数
+  - 广播调度器删除事件到所有连接的客户端
+
+- **修改文件**: `apps/api/src/services/queue/manager.py`
+- **新增**: `delete_scheduler()` 方法
+  - 删除调度器对象
+  - 删除所有关联任务
+  - 清理队列数据
+  - 更新数据库和内存状态
+- **修复**: Scheduler Session 绑定问题
+  - 在 Session 关闭前保存所有需要的值
+  - 创建新的内存对象避免 Session 绑定错误
+
+#### ✅ 前端功能
+- **修改文件**: `apps/web/src/stores/newQueue.ts`
+- **新增**: `deleteScheduler()` 方法
+  - 调用 DELETE API 删除调度器
+  - 删除后自动刷新任务和调度器列表
+- **修复**: `scheduler_id` 字段映射问题
+  - 从 `task.scheduler_id` 映射到 `task.schedulerId`
+  - 确保 SchedulerCard 能正确识别调度器关联
+
+- **修改文件**: `apps/web/src/components/NewDownload/SchedulerCard.tsx`
+- **新增**: 封面显示功能
+  - 调度器卡片显示封面（使用第一个有封面的任务）
+  - 展开的子任务列表显示各自的封面
+  - 添加 `getProxyImageUrl()` 函数避免403错误
+  - 封面加载失败时显示 Film 图标占位符
+- **改进**: 按钮区分
+  - 取消按钮（×图标）：只显示在运行/暂停状态
+  - 删除按钮（垃圾桶图标）：始终显示（取消状态除外）
+  - 添加删除确认对话框
+
+- **修改文件**: `apps/web/src/components/NewDownload/index.css`
+- **新增**: 封面样式
+  - `.scheduler-cover` - 调度器封面容器（80x45px）
+  - `.scheduler-cover-thumbnail` - 调度器封面缩略图
+  - `.task-cover` - 子任务封面容器（60x34px）
+  - `.task-cover-thumbnail` - 子任务封面缩略图
+  - `.cover-placeholder` - 封面占位符样式
+- **修复**: 删除重复的样式定义
+  - 移除两处重复的 `.scheduler-card` 样式块
+  - 保留最新、最完整的样式定义
+- **修复**: 任务列表布局
+  - 调整 `scheduler-task-item` 布局
+  - 优化 `task-info` 为垂直布局
+  - 修复任务信息与进度条重叠问题
+
+### 📝 技术改进
+
+#### ✅ 后端改进
+- 修复 SQLAlchemy Session 绑定错误
+- 优化数据库事务处理
+- 改进内存对象管理
+
+#### ✅ 前端改进
+- 优化样式管理，减少重复定义
+- 改进布局结构，提升可维护性
+- 优化错误处理和用户反馈
+
 ## 2026-04-03 下载系统API响应格式统一
 
 ### 🎯 问题修复
