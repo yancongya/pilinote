@@ -26,15 +26,10 @@ function App() {
   useEffect(() => {
     const restoreUserData = async () => {
       try {
-        // 如果前端用户信息存在，不需要恢复
-        if (user && user.mid) {
-          return
-        }
-
-        console.log('[App] 正在从后端恢复数据...')
+        console.log('[App] 正在从后端验证会话状态...')
         await fetchUser()
         await fetchSettings()
-        
+
         console.log('[App] 数据恢复完成')
       } catch (err) {
         console.error('[App] 数据恢复失败:', err)
@@ -42,7 +37,8 @@ function App() {
     }
 
     restoreUserData()
-  }, [user, fetchUser, fetchSettings])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 调试：打印认证状态
   useEffect(() => {
