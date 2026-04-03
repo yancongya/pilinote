@@ -200,16 +200,9 @@ export default function FavoritesContent() {
 
       const schedulerId = schedulerResponse.data.id
 
-      // 4. 启动调度器
-      const startResponse = await apiService.startScheduler(schedulerId)
-
-      if (startResponse.success) {
-        alert(`批量下载已启动！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}`)
-        // 切换到下载页面
-        navigate('/downloads')
-      } else {
-        throw new Error(startResponse.message || '启动调度器失败')
-      }
+      alert(`批量下载已添加到队列！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`)
+      // 切换到下载页面
+      navigate('/downloads')
 
     } catch (err) {
       console.error('批量下载失败:', err)

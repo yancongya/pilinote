@@ -158,14 +158,8 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
                 const schedulerId = schedulerResponse.data.id
 
-                // 步骤3：启动调度器
-                const startResponse = await apiService.startScheduler(schedulerId)
-                if (!startResponse.success) {
-                  throw new Error(startResponse.message || '启动调度器失败')
-                }
-
-                // 显示结果提示
-                alert(`已添加系列视频到下载队列！\n共 ${addedCount} 个分集\n保存路径: ${folderPath}`)
+                // 显示结果提示（不自动启动，让用户手动点击开始下载）
+                alert(`已添加系列视频到下载队列！\n共 ${addedCount} 个分集\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`)
                 
                 // 立即刷新任务列表，确保状态更新
                 await newQueueStore.fetchTasks()

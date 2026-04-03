@@ -36,6 +36,15 @@ export default function DownloadsList() {
     }
   }
 
+  // 清除缓存
+  const handleClearCache = () => {
+    if (!confirm('确定要清除本地缓存吗？这将重新从服务器加载所有数据。')) {
+      return
+    }
+    localStorage.removeItem('new-queue-storage')
+    window.location.reload()
+  }
+
   return (
     <div className="downloads-list">
       {/* 过滤器 */}
@@ -64,6 +73,17 @@ export default function DownloadsList() {
         >
           <RefreshCw size={16} className={isRefreshing ? 'rotating' : ''} />
           <span>刷新</span>
+        </button>
+
+        {/* 清除缓存按钮 */}
+        <button
+          className="refresh-button"
+          onClick={handleClearCache}
+          aria-label="清除本地缓存"
+          title="清除本地缓存数据"
+          style={{ marginLeft: '8px' }}
+        >
+          <span>清除缓存</span>
         </button>
       </div>
 
