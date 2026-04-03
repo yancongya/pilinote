@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
-import { useDownloadStore } from '../../stores/download'
 import { useNewQueueStore } from '../../stores/newQueue'
 import { ArrowLeft, Folder } from 'lucide-react'
 import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
@@ -21,30 +20,22 @@ export default function FavoritesContent() {
 
   const { user } = useAuthStore()
   const navigate = useNavigate()
-  const downloadStore = useDownloadStore()
   const newQueueStore = useNewQueueStore()
   const { 
     getFoldersCache, 
     setFoldersCache
   } = useCacheStore()
-  const { getDownloadStatus: getOldDownloadStatus } = downloadStore
 
-  // 统一的下载状态检查函数（同时检查新旧系统）
+  // 下载状态检查函数（只检查新系统）
   const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
-    // 检查新系统 - 直接从 store 获取最新状态
     const tasks = newQueueStore.tasks
     const newSystemTasks = Object.values(tasks)
     const hasInNewQueue = newSystemTasks.some(task => 
       task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
     )
     
-    if (hasInNewQueue) {
-      return 'in_list'
-    }
-
-    // 检查旧系统（向后兼容）
-    return getOldDownloadStatus(bvid)
-  }, [newQueueStore.tasks, getOldDownloadStatus])
+    return hasInNewQueue ? 'in_list' : 'none'
+  }, [newQueueStore.tasks])
 
   // 监听 newQueueStore.tasks 的变化，触发重新渲染
   const [, setForceUpdate] = useState(0)
@@ -52,8 +43,7 @@ export default function FavoritesContent() {
   useEffect(() => {
     // 订阅 store 的变化
     const unsubscribe = useNewQueueStore.subscribe(
-      (state) => state.tasks,
-      () => {
+      (state) => {
         // 当 tasks 变化时，强制组件重新渲染
         setForceUpdate(prev => prev + 1)
       }
@@ -80,23 +70,6 @@ export default function FavoritesContent() {
             }
           } catch (e) {
             localStorage.removeItem('new-queue-storage')
-          }
-        }
-        
-        // 检查并清除旧系统缓存
-        const oldCache = localStorage.getItem('pilinote-download')
-        if (oldCache) {
-          try {
-            const parsed = JSON.parse(oldCache)
-            const oldDownloadCount = parsed.state?.downloadIds?.length || 0
-            
-            if (oldDownloadCount > 0) {
-              localStorage.removeItem('pilinote-download')
-              window.location.reload()
-              return
-            }
-          } catch (e) {
-            localStorage.removeItem('pilinote-download')
           }
         }
         

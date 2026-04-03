@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { apiService } from '../services/api'
-import { useDownloadStore } from '../stores/download'
+import { useNewQueueStore } from '../stores/newQueue'
 
 /**
  * Video type definition for batch download
@@ -49,6 +49,7 @@ export interface UseBatchDownloadReturn {
  * Custom hook for batch download functionality
  *
  * Provides state management and functions for batch selecting and downloading videos.
+ * Uses the new queue system (Task and Scheduler) instead of the old download system.
  * Used in FavoritesContent and WatchLaterContent components.
  *
  * @param params - Hook parameters
@@ -80,7 +81,7 @@ export function useBatchDownload({
   setLoading,
   setError
 }: UseBatchDownloadParams): UseBatchDownloadReturn {
-  const downloadStore = useDownloadStore()
+  const newQueueStore = useNewQueueStore()
 
   // Batch selection mode state
   const [batchMode, setBatchMode] = useState(false)
@@ -126,8 +127,10 @@ export function useBatchDownload({
   /**
    * Batch download selected videos
    *
-   * Iterates through selected videos and adds them to the download queue.
-   * Handles duplicates, syncs with server, and starts batch downloads.
+   * Iterates through selected videos and adds them to the new queue system.
+   * - For single-part videos: creates individual tasks
+   * - For multi-part videos: creates scheduler with all parts
+   * Tasks are added to backlog state (not auto-activated)
    */
   const batchDownloadSelected = async () => {
     console.log('batchDownloadSelected called', { selectedVideos, videos })
@@ -145,71 +148,162 @@ export function useBatchDownload({
     setError('')
 
     try {
-      let successCount = 0
-      let failCount = 0
-      let duplicateCount = 0
+      let videoSuccessCount = 0
+      let videoFailCount = 0
+      let videoDuplicateCount = 0
+      let partSuccessCount = 0
+      let schedulerCount = 0
 
-      // Batch add to download queue
+      // Import auth store to get user sessdata
+      const { useAuthStore } = await import('../stores/auth')
+      const user = useAuthStore.getState().user
+
+      // Process each selected video
       for (const video of videos) {
         if (!selectedVideos.has(video.id)) continue
 
-        // Check if video is already in download list
-        if (downloadStore.isBvidInDownloadList(video.bvid)) {
-          duplicateCount++
-          console.log(`Video already in download list: ${video.title}`)
+        // Check if video (any part) is already in queue
+        const tasks = Object.values(newQueueStore.tasks)
+        const exists = tasks.some(task => 
+          task.media_id === video.bvid && 
+          !['completed', 'cancelled'].includes(task.state)
+        )
+        
+        if (exists) {
+          videoDuplicateCount++
+          console.log(`Video already in queue: ${video.title}`)
           continue
         }
 
         try {
-          // Debug: print video object structure
-          console.log('Batch adding video:', video.title, video)
+          // Get video details to check if it's multi-part
+          const videoDetailResponse = await apiService.getVideoDetail(video.bvid, user?.sessdata)
 
-          const response = await apiService.addToDownloadQueue({
-            bvid: video.bvid || '',
-            title: video.title || '',
-            cid: video.cid,
-            aid: video.aid,
-            thumbnail_url: video.cover || video.pic || '',
-            duration: video.originalDuration || video.duration,
-            uploader: video.uploader || video.owner?.name || '未知',
-            uploader_mid: video.uploader_mid || video.owner?.mid || 0
-          })
+          if (videoDetailResponse.success && videoDetailResponse.data?.pages) {
+            const pages = videoDetailResponse.data.pages
+            const videoDetailData = videoDetailResponse.data
 
-          if (response.success) {
-            successCount++
+            if (pages.length > 1) {
+              // Multi-part video: create scheduler
+              console.log(`Multi-part video detected: ${video.title} with ${pages.length} parts`)
+
+              const taskIds: string[] = []
+              let addedParts = 0
+
+              // Create task for each part
+              for (const page of pages) {
+                try {
+                  const taskData = {
+                    title: page.part || `${video.title} - P${page.page}`,
+                    media_type: 'video',
+                    media_id: video.bvid,
+                    cover: video.pic || video.cover || '',
+                    desc: `CID: ${page.cid}`
+                  }
+
+                  const response = await apiService.submitTask(taskData)
+                  if (response.success && response.data) {
+                    taskIds.push(response.data.id)
+                    addedParts++
+                    partSuccessCount++
+                  }
+                } catch (error) {
+                  console.error(`Failed to add part ${page.page}:`, error)
+                }
+              }
+
+              if (addedParts === 0) {
+                throw new Error(`视频 "${video.title}" 的所有分集添加失败`)
+              }
+
+              // Create scheduler for multi-part video
+              const folderName = `系列-${video.title.replace(/[\/\\:*?"<>|]/g, '_')}`
+              const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+
+              const schedulerResponse = await apiService.createScheduler({
+                title: video.title,
+                task_ids: taskIds,
+                folder: folderPath
+              })
+
+              if (!schedulerResponse.success) {
+                throw new Error(schedulerResponse.message || '创建调度器失败')
+              }
+
+              schedulerCount++
+              videoSuccessCount++
+              console.log(`Created scheduler for multi-part video: ${video.title}`)
+            } else {
+              // Single-part video
+              const taskData = {
+                title: video.title,
+                media_type: 'video',
+                media_id: video.bvid,
+                cover: video.pic || video.cover || '',
+                desc: `CID: ${videoDetailData.cid || pages[0]?.cid}`
+              }
+
+              const response = await apiService.submitTask(taskData)
+              if (response.success) {
+                videoSuccessCount++
+              } else {
+                throw new Error(response.message || '添加任务失败')
+              }
+            }
           } else {
-            failCount++
-            console.error(`Failed to add to download list: ${video.title}`, response.message)
+            // Failed to get video details, fallback to basic task
+            console.warn(`Failed to get video details for ${video.bvid}, using basic task`)
+
+            const taskData = {
+              media_type: 'video',
+              media_id: video.bvid || '',
+              title: video.title || '',
+              cover: video.cover || video.pic || '',
+              meta: {
+                bvid: video.bvid,
+                aid: video.aid,
+                cid: video.cid,
+                duration: video.originalDuration || video.duration,
+                owner: video.owner,
+                uploader: video.uploader,
+                uploader_mid: video.uploader_mid
+              }
+            }
+
+            const response = await apiService.submitTask(taskData)
+            if (response.success) {
+              videoSuccessCount++
+            } else {
+              throw new Error(response.message || '添加任务失败')
+            }
           }
         } catch (err) {
-          failCount++
-          console.error(`Failed to add to download list: ${video.title}`, err)
+          videoFailCount++
+          console.error(`Failed to add video: ${video.title}`, err)
         }
       }
 
-      if (successCount > 0 || duplicateCount > 0) {
-        // Sync download list
-        await downloadStore.syncFromServer()
+      // Sync tasks and schedulers from server
+      await newQueueStore.fetchTasks()
+      await newQueueStore.fetchSchedulers()
 
-        // Start batch downloads
-        if (successCount > 0) {
-          await downloadStore.startBatchDownloads()
-        }
-
-        let message = `成功添加 ${successCount} 个视频到下载列表`
-        if (duplicateCount > 0) {
-          message += `，跳过 ${duplicateCount} 个已在列表中的视频`
-        }
-        if (failCount > 0) {
-          message += `，失败 ${failCount} 个`
-        }
-
-        alert(message)
-        // Exit batch mode
-        clearSelection()
-      } else {
-        throw new Error('所有视频添加失败')
+      // Build result message
+      let message = `成功添加 ${videoSuccessCount} 个视频`
+      if (partSuccessCount > 0) {
+        message += ` (${partSuccessCount} 个分集)`
       }
+      if (schedulerCount > 0) {
+        message += `，创建了 ${schedulerCount} 个系列调度器`
+      }
+      if (videoDuplicateCount > 0) {
+        message += `，跳过 ${videoDuplicateCount} 个已在列表中的视频`
+      }
+      if (videoFailCount > 0) {
+        message += `，失败 ${videoFailCount} 个`
+      }
+
+      alert(message)
+      clearSelection()
 
     } catch (err) {
       console.error('Batch add failed:', err)
