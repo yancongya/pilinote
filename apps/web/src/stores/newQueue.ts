@@ -226,6 +226,29 @@ export const useNewQueueStore = create<NewQueueState>()(
             })
             break
 
+          case 'taskProgress':
+            set((state) => {
+              const task = state.tasks[data.id]
+              if (task) {
+                return {
+                  tasks: {
+                    ...state.tasks,
+                    [data.id]: { 
+                      ...task, 
+                      status: {
+                        ...task.status,
+                        progress: data.progress,
+                        speed: data.speed,
+                        eta: data.eta
+                      }
+                    }
+                  }
+                }
+              }
+              return state
+            })
+            break
+
           case 'schedulerCreated':
           case 'schedulerUpdated':
             set((state) => {

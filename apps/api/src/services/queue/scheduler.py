@@ -154,6 +154,7 @@ class SchedulerService:
 
     async def dispatch(self):
         """分发任务执行"""
+        logger.info(f"[调度器] 开始执行调度器 {self.scheduler.id}, 包含 {len(self.scheduler.list)} 个任务")
         if not self._initialized:
             await self.initialize()
 
@@ -218,48 +219,59 @@ class SchedulerService:
                 task.state = TaskState.CANCELLED
                 return
 
-            # 更新任务状态
-            task.state = TaskState.ACTIVE
-            task.updated_at = int(datetime.now().timestamp())
+            # 创建临时目录
+            temp_dir = Path("temp") / task.id
+            temp_dir.mkdir(parents=True, exist_ok=True)
 
-            db = SessionLocal()
-            try:
-                db.merge(task)  # 合并对象到session
-                db.commit()
-            finally:
-                db.close()
+            # 创建输出目录
+            output_dir = Path(self.scheduler.folder)
+            output_dir.mkdir(parents=True, exist_ok=True)
 
             try:
-                # 创建临时目录
-                temp_dir = Path("temp") / task.id
-                temp_dir.mkdir(parents=True, exist_ok=True)
+                # 使用 TaskService 执行任务
+                from src.services.queue.task import TaskService
+                task_service = TaskService(task)
+                
+                # 在后台任务中执行，以便可以检查取消状态
+                task_future = asyncio.create_task(task_service.execute(temp_dir, output_dir))
+                
+                # 等待任务完成或取消
+                done, pending = await asyncio.wait(
+                    [task_future, asyncio.create_task(self.cancel_event.wait())],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                
+                # 检查是否被取消
+                if self.cancel_event.is_set():
+                    # 取消任务
+                    if not task_future.done():
+                        task_future.cancel()
+                        try:
+                            await task_future
+                        except asyncio.CancelledError:
+                            pass
+                    task.state = TaskState.CANCELLED
+                    logger.info(f"任务 {task.id} 已取消")
+                else:
+                    # 任务正常完成
+                    if task_future.exception() is not None:
+                        raise task_future.exception()
+                    logger.info(f"✓ 任务 {task.id} 已完成")
 
-                # 创建输出目录
-                output_dir = Path(self.scheduler.folder)
-                output_dir.mkdir(parents=True, exist_ok=True)
-
-                # 执行所有子任务
-                for subtask_data in task.prepare.get('subtasks', []):
-                    if self.cancel_event.is_set():
-                        break
-
-                    await self._execute_subtask(task, subtask_data, temp_dir, output_dir)
+            except asyncio.CancelledError:
+                logger.info(f"任务 {task.id} 被取消")
+                task.state = TaskState.CANCELLED
+            except Exception as e:
+                logger.error(f"✗ 任务 {task.id} 执行失败: {e}")
+                task.state = TaskState.FAILED
+                task.status['error'] = str(e)
 
                 # 清理临时目录
                 if temp_dir.exists():
                     import shutil
                     shutil.rmtree(temp_dir)
 
-                # 任务完成
-                task.state = TaskState.COMPLETED
-                logger.info(f"✓ 任务 {task.id} 已完成")
-
-            except Exception as e:
-                logger.error(f"✗ 任务 {task.id} 执行失败: {e}")
-                task.state = TaskState.FAILED
-                task.status['error'] = str(e)
-
-            # 更新任务状态
+            # 更新任务状态到数据库
             task.updated_at = int(datetime.now().timestamp())
             db = SessionLocal()
             try:

@@ -216,14 +216,45 @@ export default function TaskCard({ task }: Props) {
             )}
             
             {task.state === 'failed' && (
-              <button 
-                className="action-icon-btn start-icon-btn"
-                onClick={() => handleControl('backlog')}
-                title="重试"
-                aria-label="重试下载"
-              >
-                <RefreshCw size={14} />
-              </button>
+              <>
+                <button 
+                  className="action-icon-btn start-icon-btn"
+                  onClick={() => handleControl('backlog')}
+                  title="重试"
+                  aria-label="重试下载"
+                >
+                  <RefreshCw size={14} />
+                </button>
+                <button 
+                  className="action-icon-btn delete-icon-btn"
+                  onClick={() => handleControl('cancelled')}
+                  title="删除"
+                  aria-label="删除"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+            
+            {task.state === 'completed' && (
+              <>
+                <button 
+                  className="action-icon-btn start-icon-btn"
+                  onClick={() => handleControl('backlog')}
+                  title="重新下载"
+                  aria-label="重新下载"
+                >
+                  <RefreshCw size={14} />
+                </button>
+                <button 
+                  className="action-icon-btn delete-icon-btn"
+                  onClick={() => handleControl('cancelled')}
+                  title="删除"
+                  aria-label="删除"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
             )}
           </div>
         </div>

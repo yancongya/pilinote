@@ -17,6 +17,91 @@ class TaskService:
 
     def __init__(self, task: Task):
         self.task = task
+        self.task_id = task.id  # 保存 task_id，避免后续访问分离的对象
+        self._cancelled = False
+        self._progress_cancelled = False  # 用于停止进度广播
+
+    async def _progress_broadcaster(self):
+        """定期广播进度到前端"""
+        from src.routers.websocket import broadcast_task_progress
+        from src.services.queue.manager import queue_manager
+
+        print(f"=== _progress_broadcaster() called: task_id={self.task_id} ===")
+        logger.info(f"📡 进度广播器启动: task_id={self.task_id}")
+        print(f"=== 进度广播器启动: task_id={self.task_id} ===")
+
+        while not self._progress_cancelled:
+            try:
+                # 从 queue_manager 获取最新的任务状态
+                task = queue_manager.tasks.get(self.task_id)
+                if not task:
+                    logger.warning(f"任务 {self.task_id} 不存在于 queue_manager 中")
+                    break
+
+                # 检查任务状态
+                if task.state != TaskState.ACTIVE:
+                    logger.info(f"任务状态不是 ACTIVE，停止广播: state={task.state}")
+                    break
+
+                progress = task.status.get('progress', 0)
+                speed = task.status.get('speed', 0)
+                eta = task.status.get('eta', 0)
+
+                print(f"=== 进度广播器循环: progress={progress}%, speed={speed}KB/s, eta={eta}s ===")
+
+                if progress > 0:
+                    logger.info(f"📤 推送进度: {progress}%, 速度: {speed/1024/1024:.2f}MB/s, ETA: {eta}秒")
+                    print(f"=== 推送进度: {progress}%, 速度: {speed/1024/1024:.2f}MB/s, ETA: {eta}秒 ===")
+                    broadcast_task_progress(
+                        self.task_id,
+                        progress=progress,
+                        speed=speed,
+                        eta=eta
+                    )
+                    logger.info(f"✓ 进度推送完成")
+                    print(f"=== 进度推送完成 ===")
+                else:
+                    logger.debug(f"进度为 0，跳过推送")
+                    print(f"=== 进度为 0，跳过推送 ===")
+
+                await asyncio.sleep(1)  # 每秒推送一次
+            except Exception as e:
+                logger.error(f"❌ 推送进度失败: {e}", exc_info=True)
+                print(f"=== 推送进度失败: {e} ===")
+                await asyncio.sleep(1)
+
+        logger.info(f"📡 进度广播器停止: task_id={self.task_id}, cancelled={self._progress_cancelled}")
+        print(f"=== 进度广播器停止: task_id={self.task_id}, cancelled={self._progress_cancelled} ===")
+
+    async def _check_task_status(self):
+        """检查任务状态（是否被暂停或取消）"""
+        db = SessionLocal()
+        try:
+            # 从数据库重新加载任务状态
+            fresh_task = db.query(Task).filter(Task.id == self.task.id).first()
+            if fresh_task:
+                self.task.state = fresh_task.state
+                
+                # 检查是否被取消
+                if fresh_task.state == TaskState.CANCELLED:
+                    self._cancelled = True
+                    raise asyncio.CancelledError("任务已取消")
+                
+                # 检查是否被暂停
+                if fresh_task.state == TaskState.PAUSED:
+                    logger.info(f"任务 {self.task.id} 被暂停")
+                    # 等待恢复
+                    while True:
+                        await asyncio.sleep(1)
+                        fresh_task = db.query(Task).filter(Task.id == self.task.id).first()
+                        if fresh_task and fresh_task.state != TaskState.PAUSED:
+                            break
+                        if fresh_task and fresh_task.state == TaskState.CANCELLED:
+                            self._cancelled = True
+                            raise asyncio.CancelledError("任务已取消")
+                    logger.info(f"任务 {self.task.id} 恢复执行")
+        finally:
+            db.close()
 
     async def prepare(self):
         """准备任务"""
@@ -54,8 +139,7 @@ class TaskService:
             'subtasks': self._create_subtasks(video_info)
         }
 
-        # 更新状态
-        self.task.state = TaskState.PENDING
+        # 更新时间（不改变状态）
         self.task.updated_at = int(datetime.now().timestamp())
 
         # 持久化
@@ -119,17 +203,234 @@ class TaskService:
 
     async def execute(self, temp_dir: Path, output_dir: Path):
         """执行任务"""
-        logger.info(f"执行任务 {self.task.id}...")
+        print(f"=== TaskService.execute() called: task_id={self.task.id} ===")
+        logger.info(f"🚀 开始执行任务 {self.task.id}...")
+        print(f"=== 开始执行任务 {self.task.id}... ===")
 
-        # 遍历所有子任务
-        for subtask_data in self.task.prepare.get('subtasks', []):
-            await self._execute_subtask(subtask_data, temp_dir, output_dir)
+        # 更新状态为 active
+        self.task.state = TaskState.ACTIVE
+        self.task.started_at = int(datetime.now().timestamp())
+        self.task.updated_at = int(datetime.now().timestamp())
 
-        logger.info(f"✓ 任务 {self.task.id} 执行完成")
+        # 持久化状态更新
+        db = SessionLocal()
+        try:
+            db.merge(self.task)  # 使用 merge 而不是 add，避免 DetachedInstanceError
+            db.commit()
+        finally:
+            db.close()
+
+        logger.info(f"✓ 任务状态已更新为 ACTIVE")
+        print(f"=== 任务状态已更新为 ACTIVE ===")
+
+        # 创建进度推送任务
+        from src.routers.websocket import broadcast_task_progress
+        logger.info(f"📡 创建进度广播任务...")
+        print(f"=== 创建进度广播任务... ===")
+        progress_task = asyncio.create_task(self._progress_broadcaster())
+        logger.info(f"✓ 进度广播任务已创建")
+        print(f"=== 进度广播任务已创建 ===")
+
+        try:
+            # 创建最终输出目录（按视频标题创建子文件夹）
+            video_title = self.task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
+            final_output_dir = output_dir / video_title
+            final_output_dir.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"最终输出目录: {final_output_dir}")
+
+            # 检查任务状态
+            await self._check_task_status()
+
+            # 1. 下载视频/音频到临时目录
+            await self._download_media(temp_dir, final_output_dir)
+
+            # 检查任务状态
+            await self._check_task_status()
+
+            # 2. 依次执行其他子任务
+            subtasks = self.task.prepare.get('subtasks', [])
+            total_subtasks = len(subtasks)
+            
+            for idx, subtask_data in enumerate(subtasks):
+                # 检查任务状态
+                await self._check_task_status()
+                
+                subtask_type = subtask_data['type']
+                
+                # 跳过视频和音频，因为已经下载了
+                if subtask_type in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]:
+                    continue
+                
+                logger.info(f"执行子任务 {idx + 1}/{total_subtasks}: {subtask_type}")
+                
+                try:
+                    await self._execute_subtask(subtask_data, temp_dir, final_output_dir)
+                    
+                    # 更新进度
+                    progress = int(((idx + 1) / total_subtasks) * 100)
+                    self.update_progress(progress)
+                    
+                except Exception as e:
+                    logger.error(f"子任务 {subtask_type} 执行失败: {e}")
+                    # 子任务失败不影响整体任务继续执行
+
+            # 检查任务状态
+            await self._check_task_status()
+
+            # 3. 清理临时目录
+            await self._cleanup_temp_dir(temp_dir)
+
+            # 4. 标记任务为完成
+            self.task.state = TaskState.COMPLETED
+            self.task.completed_at = int(datetime.now().timestamp())
+            self.task.updated_at = int(datetime.now().timestamp())
+            
+            # 持久化完成状态
+            db = SessionLocal()
+            try:
+                db.commit()
+            finally:
+                db.close()
+
+            logger.info(f"✓ 任务 {self.task.id} 执行完成")
+
+        except asyncio.CancelledError as e:
+            logger.info(f"任务 {self.task.id} 被取消: {e}")
+            self.task.state = TaskState.CANCELLED
+            self.task.updated_at = int(datetime.now().timestamp())
+            
+            # 持久化取消状态
+            db = SessionLocal()
+            try:
+                db.commit()
+            finally:
+                db.close()
+            
+            if not self._cancelled:
+                raise  # 只有非主动取消才重新抛出
+                
+        except Exception as e:
+            logger.error(f"✗ 任务 {self.task.id} 执行失败: {e}")
+            
+            # 标记任务为失败
+            self.task.state = TaskState.FAILED
+            self.task.status['error'] = str(e)
+            self.task.updated_at = int(datetime.now().timestamp())
+            
+            # 持久化失败状态
+            db = SessionLocal()
+            try:
+                db.commit()
+            finally:
+                db.close()
+            
+            raise
+        finally:
+            # 停止进度广播
+            self._progress_cancelled = True
+
+    async def _download_media(self, temp_dir: Path, final_output_dir: Path):
+        """下载媒体文件（视频/音频）"""
+        logger.info(f"下载媒体文件: {self.task.media_id}")
+        logger.info(f"临时目录: {temp_dir}")
+        logger.info(f"最终目录: {final_output_dir}")
+        
+        # 查找视频或音频子任务
+        subtasks = self.task.prepare.get('subtasks', [])
+        media_subtask = None
+        
+        for subtask in subtasks:
+            if subtask['type'] in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]:
+                media_subtask = subtask
+                break
+        
+        if not media_subtask:
+            raise Exception("未找到媒体下载子任务")
+        
+        # 下载到临时目录
+        try:
+            from src.services.download_engine import DownloadEngine
+            from src.services.settings_service import SettingsService
+            from src.models.cookie import Cookie
+            import shutil
+            
+            # 获取数据库连接
+            db = SessionLocal()
+            try:
+                # 创建 SettingsService 并获取设置
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                
+                # 获取 SESSDATA cookie
+                sessdata_cookie = db.query(Cookie).filter(Cookie.name == 'SESSDATA').first()
+                sessdata = sessdata_cookie.value if sessdata_cookie else None
+                
+                if not sessdata:
+                    logger.warning("未找到 SESSDATA cookie，可能无法下载高画质视频")
+                
+                engine = DownloadEngine(settings)
+                
+                # 确保临时目录存在
+                if not temp_dir.exists():
+                    temp_dir.mkdir(parents=True, exist_ok=True)
+                    logger.info(f"创建临时目录: {temp_dir}")
+                
+                # 进度回调（只更新本地状态）
+                def progress_callback(download_id: str, progress: float, downloaded_bytes: int, total_bytes: int, download_speed: float, eta: float):
+                    logger.info(f"📥 下载进度回调: {progress}%, 速度: {download_speed/1024/1024:.2f}MB/s, 已下载: {downloaded_bytes/1024/1024:.2f}MB, 总大小: {total_bytes/1024/1024:.2f}MB, ETA: {eta}秒")
+                    # 只更新本地状态，不触发WebSocket广播
+                    self.task.status['progress'] = int(progress // 2)
+                    self.task.status['speed'] = download_speed
+                    self.task.status['eta'] = eta
+                    self.task.updated_at = int(datetime.now().timestamp())
+                    logger.info(f"✓ 状态已更新: progress={self.task.status['progress']}%")
+                
+                # 下载到临时目录
+                await engine.download_video(
+                    bvid=self.task.media_id,
+                    quality=80,  # 默认1080P
+                    output_format='mp4',
+                    output_path=str(temp_dir),  # 先下载到临时目录
+                    sessdata=sessdata,
+                    progress_callback=progress_callback
+                )
+                
+                logger.info("✓ 媒体文件下载到临时目录完成")
+                
+                # 查找下载的文件
+                downloaded_files = list(temp_dir.glob("*.mp4"))
+                if not downloaded_files:
+                    raise Exception("未找到下载的视频文件")
+                
+                # 移动文件到最终目录
+                for file_path in downloaded_files:
+                    final_path = final_output_dir / file_path.name
+                    logger.info(f"移动文件: {file_path} -> {final_path}")
+                    shutil.move(str(file_path), str(final_path))
+                
+                logger.info("✓ 媒体文件已移动到最终目录")
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"媒体文件下载失败: {e}")
+            raise
+
+    async def _cleanup_temp_dir(self, temp_dir: Path):
+        """清理临时目录"""
+        if temp_dir.exists():
+            import shutil
+            try:
+                shutil.rmtree(temp_dir)
+                logger.info(f"✓ 已清理临时目录: {temp_dir}")
+            except Exception as e:
+                logger.warning(f"清理临时目录失败: {e}")
 
     async def _execute_subtask(self, subtask_data: dict, temp_dir: Path, output_dir: Path):
         """执行子任务"""
-        from services.queue.handlers import SubTaskHandler
+        from src.services.queue.handlers import SubTaskHandler
 
         subtask_type = subtask_data['type']
 
@@ -153,3 +454,7 @@ class TaskService:
             db.commit()
         finally:
             db.close()
+        
+        # 广播任务状态更新（包含进度信息）
+        from src.routers.websocket import broadcast_task_updated
+        broadcast_task_updated(self.task.id, str(self.task.state))

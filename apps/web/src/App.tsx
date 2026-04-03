@@ -6,6 +6,7 @@ import DownloadSeriesDetailPage from './pages/DownloadSeriesDetailPage'
 import SettingsPage from './pages/SettingsPage'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
+import { useNewQueueStore } from './stores/newQueue'
 import { useEffect } from 'react'
 import { ToastProvider } from './components/Toast'
 
@@ -13,11 +14,18 @@ function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const location = useLocation()
   const navigate = useNavigate()
+  const connectWebSocket = useNewQueueStore((state) => state.connectWebSocket)
 
   // 调试：打印认证状态
   useEffect(() => {
     useAuthStore.getState().user
   }, [isAuthenticated])
+
+  // 连接 WebSocket
+  useEffect(() => {
+    console.log('[App] Connecting to WebSocket...')
+    connectWebSocket()
+  }, [connectWebSocket])
 
   // 如果用户已登录但仍在登录页面，自动跳转到首页
   useEffect(() => {

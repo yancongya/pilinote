@@ -23,6 +23,31 @@ class DownloadEngine:
     - 暂停支持
     """
     
+    def _auto_detect_aria2c(self):
+        """自动检测系统中的 aria2c"""
+        print("=== _auto_detect_aria2c called ===")
+        import shutil
+        
+        # 检查常见的安装路径
+        common_paths = [
+            '/opt/homebrew/bin/aria2c',  # macOS Homebrew (Apple Silicon)
+            '/usr/local/bin/aria2c',  # macOS Homebrew (Intel)
+            '/usr/bin/aria2c',  # Linux
+            'aria2c',  # 直接命令
+        ]
+        
+        print(f"Checking aria2c paths: {common_paths}")
+        
+        for path in common_paths:
+            if shutil.which(path):
+                logger.info(f"Found aria2c at: {path}")
+                print(f"✓ Found aria2c at: {path}")
+                self.aria2c_path = path
+                return
+        
+        logger.info("aria2c not found, will use yt-dlp built-in downloader")
+        print("✗ aria2c not found")
+    
     def __init__(self, settings=None):
         """
         初始化下载引擎
@@ -46,6 +71,9 @@ class DownloadEngine:
                 self.danmakufactory_path = sidecar.get('danmakufactory', self.danmakufactory_path)
                 
                 logger.info(f"Using custom tool paths: yt-dlp={self.yt_dlp_path}, ffmpeg={self.ffmpeg_path}")
+        
+        # 自动检测 aria2c
+        self._auto_detect_aria2c()
     
     async def download_video(
         self,
@@ -185,6 +213,9 @@ class DownloadEngine:
         if sessdata:
             cookie_file = output_dir / 'cookies.txt'
             with open(cookie_file, 'w') as f:
+                # Netscape cookie 格式
+                f.write("# Netscape HTTP Cookie File\n")
+                f.write("# This is a generated file! Do not edit.\n\n")
                 f.write(f".bilibili.com\tTRUE\t/\tFALSE\t0\tSESSDATA\t{sessdata}\n")
             ydl_opts['cookiefile'] = str(cookie_file)
         
@@ -368,7 +399,7 @@ class DownloadEngine:
         """
         import shutil
         
-        # 如果使用默认路径，不检查
+        # 如果使用默认路径，不使用
         if self.aria2c_path == 'aria2c':
             return False
         
