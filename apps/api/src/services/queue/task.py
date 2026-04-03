@@ -430,18 +430,146 @@ class TaskService:
 
     async def _execute_subtask(self, subtask_data: dict, temp_dir: Path, output_dir: Path):
         """执行子任务"""
-        from src.services.queue.handlers import SubTaskHandler
+        from src.services.download_service import DownloadService
 
         subtask_type = subtask_data['type']
 
-        # 获取处理器
-        handler = SubTaskHandler.get_handler(subtask_type)
-        if not handler:
-            logger.warning(f"未找到 {subtask_type} 的处理器，跳过")
-            return
+        # 处理封面下载
+        if subtask_type == SubTaskType.THUMB:
+            url = subtask_data.get('url')
+            filename = subtask_data.get('filename', 'cover.jpg')
+            
+            if not url:
+                logger.warning("封面 URL 为空，跳过下载")
+                return
+            
+            output_file = output_dir / filename
+            
+            # 检查文件是否已存在且大小合理
+            if output_file.exists() and output_file.stat().st_size > 1000:
+                logger.info(f"封面文件已存在: {filename}")
+                return
+            
+            logger.info(f"开始下载封面: {url}")
+            
+            try:
+                # 使用 DownloadService 的 _download_image 方法
+                download_service = DownloadService()
+                success = await download_service._download_image(url, output_file)
+                
+                if success:
+                    logger.info(f"封面下载成功: {filename}, 大小: {output_file.stat().st_size} 字节")
+                else:
+                    logger.error(f"封面下载失败: {url}")
+            except Exception as e:
+                logger.error(f"封面下载异常: {e}")
 
-        # 执行处理器
-        await handler.handle(subtask_data, temp_dir, output_dir, self.task.meta)
+        # 处理字幕下载（占位实现）
+        elif subtask_type == SubTaskType.SUBTITLES:
+            filename = subtask_data.get('filename', 'subtitles.srt')
+            output_file = output_dir / filename
+            
+            # 检查文件是否已存在且有内容
+            if output_file.exists() and output_file.stat().st_size > 50:
+                logger.info(f"字幕文件已存在: {filename}")
+                return
+            
+            logger.warning(f"字幕下载功能暂未实现，创建占位文件: {filename}")
+            
+            # 创建占位文件
+            content = f"""1
+00:00:00,000 --> 00:00:05,000
+字幕占位文件: {self.task.media_id}
+
+2
+00:00:05,000 --> 00:00:10,000
+语言: zh
+"""
+            output_file.write_text(content, encoding='utf-8')
+
+        # 处理弹幕下载（占位实现）
+        elif subtask_type == SubTaskType.DANMAKU:
+            filename = subtask_data.get('filename', 'danmaku.xml')
+            output_file = output_dir / filename
+            
+            # 检查文件是否已存在且有内容
+            if output_file.exists() and output_file.stat().st_size > 50:
+                logger.info(f"弹幕文件已存在: {filename}")
+                return
+            
+            logger.warning(f"弹幕下载功能暂未实现，创建占位文件: {filename}")
+            
+            # 创建占位文件
+            content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<i>
+  <d p="0.000,1,25,16777215,1586984241,0,0,0">弹幕占位文件: {self.task.media_id}</d>
+  <d p="5.000,1,25,16777215,1586984241,0,0,0">B站视频弹幕</d>
+</i>
+"""
+            output_file.write_text(content, encoding='utf-8')
+
+        # 处理 NFO 文件生成
+        elif subtask_type == SubTaskType.SINGLE_NFO:
+            filename = subtask_data.get('filename', 'video.nfo')
+            meta_data = subtask_data.get('meta', self.task.meta)
+            
+            output_file = output_dir / filename
+            
+            # 检查文件是否已存在
+            if output_file.exists():
+                logger.info(f"NFO 文件已存在: {filename}")
+                return
+            
+            logger.info(f"生成 NFO 文件: {filename}")
+            
+            # 构建 NFO 内容
+            title = meta_data.get('title', 'Unknown')
+            desc = meta_data.get('desc', '')
+            owner = meta_data.get('owner', {})
+            uploader = owner.get('name', 'Unknown')
+            pic = meta_data.get('pic', '')
+            stat = meta_data.get('stat', {})
+            
+            # 转换发布时间
+            pubdate = meta_data.get('pubdate', 0)
+            from datetime import datetime
+            if pubdate:
+                try:
+                    pub_date_str = datetime.fromtimestamp(pubdate).strftime('%Y-%m-%d')
+                except:
+                    pub_date_str = 'Unknown'
+            else:
+                pub_date_str = 'Unknown'
+            
+            content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<movie>
+  <title>{title}</title>
+  <plot>{desc}</plot>
+  <studio>{uploader}</studio>
+  <premiered>{pub_date_str}</premiered>
+  <thumb>{pic}</thumb>
+  <statistics>
+    <play>{stat.get('view', 0)}</play>
+    <like>{stat.get('like', 0)}</like>
+    <coin>{stat.get('coin', 0)}</coin>
+    <favorite>{stat.get('favorite', 0)}</favorite>
+    <share>{stat.get('share', 0)}</share>
+    <danmaku>{stat.get('danmaku', 0)}</danmaku>
+    <reply>{stat.get('reply', 0)}</reply>
+  </statistics>
+</movie>
+"""
+            
+            output_file.write_text(content, encoding='utf-8')
+            logger.info(f"NFO 文件生成成功: {filename}")
+
+        # 视频和音频已经在主下载流程中处理
+        elif subtask_type in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]:
+            logger.info(f"{subtask_type} 文件已在主下载流程中处理")
+            pass
+
+        else:
+            logger.warning(f"未知的子任务类型: {subtask_type}，跳过")
 
     def update_progress(self, progress: int):
         """更新进度"""
