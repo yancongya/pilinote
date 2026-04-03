@@ -76,6 +76,7 @@ interface NewQueueState {
   deleteScheduler: (sid: string) => Promise<void>
   setActiveTab: (tab: 'downloads' | 'library') => void
   setFilterStatus: (status: TaskState | 'all') => void
+  forceClearCache: () => void
 
   // 计算属性
   getTaskProgress: (taskId: string) => number
@@ -124,6 +125,15 @@ export const useNewQueueStore = create<NewQueueState>()(
         }
 
         set({ ws: newWs })
+      },
+
+      // 强制清理所有本地缓存数据（用于解决持久化缓存不一致问题）
+      forceClearCache: () => {
+        console.log('[NewQueue] Force clearing all local cache')
+        // 清除 persist 存储
+        localStorage.removeItem('new-queue-storage')
+        // 重置状态
+        set({ tasks: {}, schedulers: {} })
       },
 
       disconnectWebSocket: () => {
@@ -253,7 +263,6 @@ export const useNewQueueStore = create<NewQueueState>()(
           const response = await fetch('http://localhost:8000/api/queue/tasks')
           if (response.ok) {
             const result = await response.json()
-            const tasks: Record<string, Task> = {}
             const stateMap: Record<number, string> = {
               0: 'backlog',
               1: 'pending',
@@ -265,6 +274,7 @@ export const useNewQueueStore = create<NewQueueState>()(
             }
             // 从新的API响应格式中获取数据
             const taskList = result.data || []
+            const tasks: Record<string, Task> = {}
             taskList.forEach((task: any) => {
               // 转换状态数字为字符串，并映射字段名
               const taskWithState = {
@@ -274,15 +284,19 @@ export const useNewQueueStore = create<NewQueueState>()(
               }
               tasks[task.id] = taskWithState
             })
-            set({ tasks })
             
             // 检查并清理缓存中不存在的任务（防止缓存不一致）
-            const storedTasks = Object.keys(get().tasks)
+            // 注意：必须在 set 之前获取旧的任务 ID
+            const storedTaskIds = Object.keys(get().tasks)
             const apiTaskIds = new Set(taskList.map((t: any) => t.id))
-            const invalidTaskIds = storedTasks.filter(id => !apiTaskIds.has(id))
+            
+            // 设置新的任务（这会覆盖旧的任务）
+            set({ tasks })
+            
+            // 删除缓存中不存在但在数据库中也不存在的任务
+            const invalidTaskIds = storedTaskIds.filter(id => !apiTaskIds.has(id))
             
             if (invalidTaskIds.length > 0) {
-              console.log('[NewQueue] 清理缓存中不存在的任务:', invalidTaskIds)
               const currentTasks = { ...get().tasks }
               invalidTaskIds.forEach(id => {
                 delete currentTasks[id]
@@ -291,7 +305,7 @@ export const useNewQueueStore = create<NewQueueState>()(
             }
           }
         } catch (error) {
-          console.error('[NewQueue] Failed to fetch tasks:', error)
+          console.error('[NewQueue] 获取任务列表失败:', error)
         }
       },
 

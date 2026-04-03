@@ -31,8 +31,8 @@ export default function FavoritesContent() {
 
   // 统一的下载状态检查函数（同时检查新旧系统）
   const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
-    // 检查新系统
-    const tasks = useNewQueueStore.getState().tasks
+    // 检查新系统 - 直接从 store 获取最新状态
+    const tasks = newQueueStore.tasks
     const newSystemTasks = Object.values(tasks)
     const hasInNewQueue = newSystemTasks.some(task => 
       task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
@@ -44,21 +44,67 @@ export default function FavoritesContent() {
 
     // 检查旧系统（向后兼容）
     return getOldDownloadStatus(bvid)
-  }, [getOldDownloadStatus])
+  }, [newQueueStore.tasks, getOldDownloadStatus])
+
+  // 监听 newQueueStore.tasks 的变化，触发重新渲染
+  const [, setForceUpdate] = useState(0)
+  
+  useEffect(() => {
+    // 订阅 store 的变化
+    const unsubscribe = useNewQueueStore.subscribe(
+      (state) => state.tasks,
+      () => {
+        // 当 tasks 变化时，强制组件重新渲染
+        setForceUpdate(prev => prev + 1)
+      }
+    )
+    
+    return unsubscribe
+  }, [])
 
   // 组件挂载时同步数据（确保缓存一致性）
   useEffect(() => {
     const syncData = async () => {
       try {
-        // 先从服务器获取最新数据
+        // 检查并清除新系统缓存
+        const cachedData = localStorage.getItem('new-queue-storage')
+        if (cachedData) {
+          try {
+            const parsed = JSON.parse(cachedData)
+            const taskCount = Object.keys(parsed.state?.tasks || {}).length
+            
+            if (taskCount > 0) {
+              localStorage.removeItem('new-queue-storage')
+              window.location.reload()
+              return
+            }
+          } catch (e) {
+            localStorage.removeItem('new-queue-storage')
+          }
+        }
+        
+        // 检查并清除旧系统缓存
+        const oldCache = localStorage.getItem('pilinote-download')
+        if (oldCache) {
+          try {
+            const parsed = JSON.parse(oldCache)
+            const oldDownloadCount = parsed.state?.downloadIds?.length || 0
+            
+            if (oldDownloadCount > 0) {
+              localStorage.removeItem('pilinote-download')
+              window.location.reload()
+              return
+            }
+          } catch (e) {
+            localStorage.removeItem('pilinote-download')
+          }
+        }
+        
+        // 同步最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
-        // 然后清理缓存中不存在的任务
-        const tasks = newQueueStore.tasks
-        const taskIds = Object.keys(tasks)
-        console.log(`[Favorites] 已同步 ${taskIds.length} 个任务`)
       } catch (error) {
-        console.error('Failed to sync data:', error)
+        console.error('[Favorites] 同步数据失败:', error)
       }
     }
     syncData()
