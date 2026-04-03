@@ -202,24 +202,24 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     try {
       const resetPath = () => {
         handleLocalUpdateSidecar(tool, tool)
-        showToast(`已重置 ${tool} 路径为默认值`, 'info')
+        showToast('已重置', 'info')
       }
-      
+
       // 尝试获取工具状态API，获取真实路径
       try {
         const response = await fetch('http://localhost:8000/api/settings/tool-status')
         if (response.ok) {
           const data = await response.json()
           const toolStatus = data.data[tool]
-          
+
           if (toolStatus && toolStatus.installed && toolStatus.path) {
             handleLocalUpdateSidecar(tool, toolStatus.path)
-            showToast(`已重置 ${tool} 路径: ${toolStatus.path}`, 'success')
-            
+            showToast('已重置', 'success')
+
             // 自动保存
             const currentSidecar = (settings?.storage as any)?.sidecar || {}
             const sidecar = { ...currentSidecar, [tool]: toolStatus.path }
-            
+
             await updateSettings({
               storage: {
                 ...(settings?.storage || {}),
@@ -234,7 +234,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       } catch (e) {
         console.warn('获取工具状态失败，使用默认值:', e)
       }
-      
+
       // 如果无法获取真实路径，使用默认值
       resetPath()
       const currentSidecar = (settings?.storage as any)?.sidecar || {}
