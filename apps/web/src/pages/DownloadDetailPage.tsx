@@ -328,8 +328,6 @@ const handleStartBatch = async () => {
             uploader_mid: videoResponse.data.owner.mid,
             sessdata: sessdata || undefined,
             enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
-            enable_danmaku: settings?.download?.metadata?.enable_danmaku ?? false,
-            danmaku_format: settings?.download?.metadata?.danmaku_format ?? 'xml',
             enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
             enable_cover: settings?.download?.metadata?.enable_cover ?? true,
             enable_avatar: settings?.download?.metadata?.enable_avatar ?? false,

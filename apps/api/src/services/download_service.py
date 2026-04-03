@@ -91,8 +91,6 @@ class DownloadService:
         audio_bitrate: Optional[int] = 192,
         codec: Optional[str] = 'avc',
         enable_subtitle: Optional[bool] = True,
-        enable_danmaku: Optional[bool] = False,
-        danmaku_format: Optional[str] = "xml",
         enable_nfo: Optional[bool] = True,
         enable_cover: Optional[bool] = True,
         enable_avatar: Optional[bool] = True,
@@ -119,8 +117,6 @@ class DownloadService:
                 uploader_mid=uploader_mid,
                 sessdata=sessdata,
                 enable_subtitle=int(enable_subtitle) if enable_subtitle is not None else 1,
-                enable_danmaku=int(enable_danmaku) if enable_danmaku is not None else 0,
-                danmaku_format=danmaku_format or "xml",
                 enable_nfo=int(enable_nfo) if enable_nfo is not None else 1,
                 enable_cover=int(enable_cover) if enable_cover is not None else 1,
                 enable_avatar=int(enable_avatar) if enable_avatar is not None else 1,
@@ -751,7 +747,7 @@ class DownloadService:
                     with SessionLocal() as db:
                         download = db.query(Download).filter(Download.id == download_id).first()
                         if download:
-                            logger.info(f"enable_subtitle={download.enable_subtitle}, danmaku_format={download.danmaku_format}")
+                            logger.info(f"enable_subtitle={download.enable_subtitle}")
                             logger.info(f"video_dir={video_dir}")
 
                             if download.enable_subtitle:

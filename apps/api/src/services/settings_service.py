@@ -89,8 +89,6 @@ class SettingsService:
         metadata_settings = {
             'enable_nfo': self._get_setting_value(all_settings, 'download.metadata.enable_nfo', True),
             'enable_subtitle': self._get_setting_value(all_settings, 'download.metadata.enable_subtitle', True),
-            'enable_danmaku': self._get_setting_value(all_settings, 'download.metadata.enable_danmaku', False),
-            'danmaku_format': self._get_setting_value(all_settings, 'download.metadata.danmaku_format', 'xml'),
             'enable_cover': self._get_setting_value(all_settings, 'download.metadata.enable_cover', True),
             'enable_avatar': self._get_setting_value(all_settings, 'download.metadata.enable_avatar', False),
             'block_pcdn': self._get_setting_value(all_settings, 'download.metadata.block_pcdn', True)
@@ -287,8 +285,6 @@ class SettingsService:
                 'download.speed_limit': '0',
                 'download.metadata.enable_nfo': 'true',
                 'download.metadata.enable_subtitle': 'true',
-                'download.metadata.enable_danmaku': 'false',
-                'download.metadata.danmaku_format': 'xml',
                 'download.metadata.enable_cover': 'true',
                 'download.metadata.enable_avatar': 'false',
                 'download.metadata.block_pcdn': 'true',

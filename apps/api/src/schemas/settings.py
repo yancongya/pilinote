@@ -46,8 +46,6 @@ class MetadataSettings(BaseModel):
     """Metadata settings"""
     enable_nfo: bool = Field(default=True, description="Enable NFO metadata file")
     enable_subtitle: bool = Field(default=True, description="Download subtitles")
-    enable_danmaku: bool = Field(default=False, description="Download danmaku")
-    danmaku_format: str = Field(default="xml", description="Danmaku format (xml/ass/srt)")
     enable_cover: bool = Field(default=True, description="Download cover image")
     enable_avatar: bool = Field(default=False, description="Download uploader avatar")
     block_pcdn: bool = Field(default=True, description="Block PCDN nodes")

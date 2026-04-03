@@ -10,8 +10,6 @@ export interface VideoSettings {
 export interface MetadataSettings {
   enable_nfo: boolean
   enable_subtitle: boolean
-  enable_danmaku: boolean
-  danmaku_format: string
   enable_cover: boolean
   enable_avatar: boolean
   block_pcdn: boolean

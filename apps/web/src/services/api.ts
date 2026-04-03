@@ -217,10 +217,8 @@ class ApiService {
     sessdata?: string;
     audio_bitrate?: number;
     codec?: string;
-    // 字幕和弹幕相关参数
+    // 字幕相关参数
     enable_subtitle?: boolean;
-    enable_danmaku?: boolean;
-    danmaku_format?: string;
     enable_nfo?: boolean;
     enable_cover?: boolean;
     enable_avatar?: boolean;
@@ -278,10 +276,8 @@ class ApiService {
     sessdata?: string;
     audio_bitrate?: number;
     codec?: string;
-    // 字幕和弹幕相关参数
+    // 字幕相关参数
     enable_subtitle?: boolean;
-    enable_danmaku?: boolean;
-    danmaku_format?: string;
     enable_nfo?: boolean;
     enable_cover?: boolean;
     enable_avatar?: boolean;

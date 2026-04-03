@@ -84,10 +84,6 @@ class Download(Base):
 
     enable_subtitle = Column(Integer, default=1)  # 下载字幕 (0=false, 1=true)
 
-    enable_danmaku = Column(Integer, default=0)  # 下载弹幕 (0=false, 1=true)
-
-    danmaku_format = Column(String(10), default="xml")  # 弹幕格式 (xml/ass/srt)
-
     enable_cover = Column(Integer, default=1)  # 下载封面图片 (0=false, 1=true)
 
     enable_avatar = Column(Integer, default=1)  # 下载UP主头像 (0=false, 1=true)

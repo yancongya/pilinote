@@ -71,10 +71,8 @@ class StartDownloadRequest(BaseModel):
     sessdata: Optional[str] = None
     audio_bitrate: Optional[int] = 192
     codec: Optional[str] = 'avc'
-    # 字幕和弹幕相关参数
+    # 字幕相关参数
     enable_subtitle: Optional[bool] = True  # 启用字幕下载
-    enable_danmaku: Optional[bool] = False  # 启用弹幕下载
-    danmaku_format: Optional[str] = "xml"  # 弹幕格式（xml/ass/srt）
     enable_nfo: Optional[bool] = True  # 启用NFO文件生成
     enable_cover: Optional[bool] = True  # 启用封面下载
     enable_avatar: Optional[bool] = True  # 启用UP主头像下载
@@ -785,8 +783,6 @@ async def start_download(request: StartDownloadRequest, background_tasks: Backgr
             audio_bitrate=request.audio_bitrate,
             codec=request.codec,
             enable_subtitle=request.enable_subtitle,
-            enable_danmaku=request.enable_danmaku,
-            danmaku_format=request.danmaku_format,
             enable_nfo=request.enable_nfo,
             enable_cover=request.enable_cover,
             enable_avatar=request.enable_avatar,
@@ -836,8 +832,6 @@ async def add_to_download_queue(request: StartDownloadRequest):
             audio_bitrate=request.audio_bitrate,
             codec=request.codec,
             enable_subtitle=request.enable_subtitle,
-            enable_danmaku=request.enable_danmaku,
-            danmaku_format=request.danmaku_format,
             enable_nfo=request.enable_nfo,
             enable_cover=request.enable_cover,
             enable_avatar=request.enable_avatar,

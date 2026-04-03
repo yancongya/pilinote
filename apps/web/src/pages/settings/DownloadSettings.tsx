@@ -61,8 +61,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           metadata: {
             enable_nfo: true,
             enable_subtitle: true,
-            enable_danmaku: false,
-            danmaku_format: 'xml',
             enable_cover: true,
             enable_avatar: false,
             block_pcdn: true
@@ -318,20 +316,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
               onChange={(e) => handleLocalUpdate('metadata.enable_subtitle', e.target.checked)}
               disabled={loading}
               aria-label="启用字幕下载"
-            />
-          </label>
-
-          <label className="dl-toggle">
-            <div className="dl-toggle-content">
-              <span className="dl-toggle-label">启用弹幕下载</span>
-            </div>
-            <input
-              type="checkbox"
-              className="dl-toggle-input"
-              checked={getCurrentValue('metadata.enable_danmaku') as boolean ?? false}
-              onChange={(e) => handleLocalUpdate('metadata.enable_danmaku', e.target.checked)}
-              disabled={loading}
-              aria-label="启用弹幕下载"
             />
           </label>
 
