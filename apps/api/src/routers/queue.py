@@ -334,12 +334,19 @@ async def delete_scheduler(scheduler_id: str):
     if not scheduler:
         raise HTTPException(status_code=404, detail="Scheduler not found")
 
+    # Get task IDs before deletion
+    task_ids = scheduler.list if scheduler else []
+
     # Delete scheduler and all associated tasks
     await queue_manager.delete_scheduler(scheduler_id)
 
-    # Broadcast WebSocket event
-    from src.routers.websocket import broadcast_scheduler_deleted
+    # Broadcast WebSocket event for scheduler deletion
+    from src.routers.websocket import broadcast_scheduler_deleted, broadcast_task_updated
     broadcast_scheduler_deleted(scheduler_id)
+
+    # Broadcast WebSocket event for each deleted task
+    for task_id in task_ids:
+        broadcast_task_updated(task_id, 'cancelled', cancelled=True)
 
     return ApiResponse(
         success=True,

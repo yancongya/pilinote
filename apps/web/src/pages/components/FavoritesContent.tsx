@@ -46,6 +46,19 @@ export default function FavoritesContent() {
     return getOldDownloadStatus(bvid)
   }, [getOldDownloadStatus])
 
+  // 组件挂载时同步数据（确保缓存一致性）
+  useEffect(() => {
+    const syncData = async () => {
+      try {
+        await newQueueStore.fetchTasks()
+        await newQueueStore.fetchSchedulers()
+      } catch (error) {
+        console.error('Failed to sync data:', error)
+      }
+    }
+    syncData()
+  }, [newQueueStore])
+
   // 处理收藏夹选择，更新路由
   const handleSelectFolder = (folder: any) => {
     setSelectedFolder(folder)

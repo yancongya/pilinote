@@ -169,7 +169,7 @@ export const useNewQueueStore = create<NewQueueState>()(
               if (data.cancelled && data.id) {
                 // 任务被取消，从列表中移除
                 delete tasks[data.id]
-              } else if (data.id && data.state !== undefined) {
+              } else if (data.id) {
                 // 更新任务状态
                 const stateMap: Record<number, string> = {
                   0: 'backlog',
@@ -180,7 +180,14 @@ export const useNewQueueStore = create<NewQueueState>()(
                   5: 'failed',
                   6: 'cancelled'
                 }
-                const stateStr = stateMap[data.state as number] || data.state
+                // 如果 state 是字符串，直接使用；如果是数字，映射为字符串
+                let stateStr: string
+                if (typeof data.state === 'string') {
+                  stateStr = data.state
+                } else {
+                  stateStr = stateMap[data.state as number] || data.state
+                }
+                
                 if (tasks[data.id]) {
                   tasks[data.id] = { ...tasks[data.id], state: stateStr }
                 }
@@ -268,6 +275,20 @@ export const useNewQueueStore = create<NewQueueState>()(
               tasks[task.id] = taskWithState
             })
             set({ tasks })
+            
+            // 检查并清理缓存中不存在的任务（防止缓存不一致）
+            const storedTasks = Object.keys(get().tasks)
+            const apiTaskIds = new Set(taskList.map((t: any) => t.id))
+            const invalidTaskIds = storedTasks.filter(id => !apiTaskIds.has(id))
+            
+            if (invalidTaskIds.length > 0) {
+              console.log('[NewQueue] 清理缓存中不存在的任务:', invalidTaskIds)
+              const currentTasks = { ...get().tasks }
+              invalidTaskIds.forEach(id => {
+                delete currentTasks[id]
+              })
+              set({ tasks: currentTasks })
+            }
           }
         } catch (error) {
           console.error('[NewQueue] Failed to fetch tasks:', error)
@@ -335,6 +356,7 @@ export const useNewQueueStore = create<NewQueueState>()(
               method: 'DELETE',
             })
             if (!response.ok) throw new Error('Delete failed')
+            // 删除后强制刷新，确保状态同步
             await get().fetchTasks()
           } else {
             // 其他操作使用PUT方法

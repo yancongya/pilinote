@@ -41,6 +41,19 @@ export default function WatchLaterContent() {
     return getOldDownloadStatus(bvid)
   }, [getOldDownloadStatus])
 
+  // 组件挂载时同步数据（确保缓存一致性）
+  useEffect(() => {
+    const syncData = async () => {
+      try {
+        await newQueueStore.fetchTasks()
+        await newQueueStore.fetchSchedulers()
+      } catch (error) {
+        console.error('Failed to sync data:', error)
+      }
+    }
+    syncData()
+  }, [newQueueStore])
+
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number) => {
     if (!user?.sessdata) {
