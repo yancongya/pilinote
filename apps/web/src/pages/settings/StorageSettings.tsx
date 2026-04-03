@@ -200,55 +200,88 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   const handleResetToolPath = async (tool: string) => {
     try {
-      // 获取工具状态API，获取默认路径
-      const response = await fetch('http://localhost:8000/api/settings/tool-status')
-      if (response.ok) {
-        const data = await response.json()
-        const toolStatus = data.data[tool]
-        
-        if (toolStatus && toolStatus.installed) {
-          // 更新本地设置
-          handleLocalUpdateSidecar(tool, toolStatus.path)
-          showToast(`已重置 ${tool} 路径`, 'success')
-          
-          // 自动保存
-          const sidecar = { ...((localSettings as any).sidecar || {}), [tool]: toolStatus.path }
-          await updateSettings({
-            storage: {
-              ...(settings?.storage || {}),
-              sidecar
-            }
-          })
-          // 清空本地设置
-          setLocalSettings({})
-        } else {
-          showToast(`${tool} 未安装，无法重置`, 'error')
-        }
+      const resetPath = () => {
+        handleLocalUpdateSidecar(tool, tool)
+        showToast(`已重置 ${tool} 路径为默认值`, 'info')
       }
+      
+      // 尝试获取工具状态API，获取真实路径
+      try {
+        const response = await fetch('http://localhost:8000/api/settings/tool-status')
+        if (response.ok) {
+          const data = await response.json()
+          const toolStatus = data.data[tool]
+          
+          if (toolStatus && toolStatus.installed && toolStatus.path) {
+            handleLocalUpdateSidecar(tool, toolStatus.path)
+            showToast(`已重置 ${tool} 路径: ${toolStatus.path}`, 'success')
+            
+            // 自动保存
+            const currentSidecar = (settings?.storage as any)?.sidecar || {}
+            const sidecar = { ...currentSidecar, [tool]: toolStatus.path }
+            
+            await updateSettings({
+              storage: {
+                ...(settings?.storage || {}),
+                sidecar
+              }
+            })
+            // 清空本地设置
+            setLocalSettings({})
+            return
+          }
+        }
+      } catch (e) {
+        console.warn('获取工具状态失败，使用默认值:', e)
+      }
+      
+      // 如果无法获取真实路径，使用默认值
+      resetPath()
+      const currentSidecar = (settings?.storage as any)?.sidecar || {}
+      const sidecar = { ...currentSidecar, [tool]: tool }
+      await updateSettings({
+        storage: {
+          ...(settings?.storage || {}),
+          sidecar
+        }
+      })
+      setLocalSettings({})
     } catch (error) {
       console.error('重置工具路径失败:', error)
       showToast('重置失败', 'error')
     }
   }
 
-  const getCurrentValue = useCallback((field: string) => {
-    if (!settings?.storage) return undefined
+const getCurrentValue = useCallback((field: string) => {
+  if (!settings?.storage) return undefined
+  
+  // Handle nested fields (e.g., sidecar.ffmpeg)
+  if (field.includes('.')) {
+    const [parent, child] = field.split('.')
     
-    // 处理嵌套字段（如 sidecar.ffmpeg）
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.')
-      if (parent in localSettings) {
-        return (localSettings as any)[parent]?.[child]
+    // Check local temporary settings first
+    if (parent in localSettings) {
+      const localValue = (localSettings as any)[parent]
+      if (localValue && child in localValue) {
+        return localValue[child]
       }
-      return (settings.storage as any)[parent]?.[child]
     }
     
-    // 处理普通字段
-    if (field in localSettings) {
-      return (localSettings as any)[field]
+    // Check backend settings
+    const storageValue = (settings.storage as any)[parent]
+    if (storageValue && child in storageValue) {
+      return storageValue[child]
     }
-    return (settings.storage as any)[field]
-  }, [localSettings, settings])
+    
+    return undefined
+  }
+  
+  // Handle regular fields
+  if (field in localSettings) {
+    return (localSettings as any)[field]
+  }
+  return (settings.storage as any)[field]
+}, [localSettings, settings])
 
   const handleClearCache = async (cacheType: string) => {
     const confirmMessages = {
@@ -573,7 +606,7 @@ const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
               <input
                 type="text"
                 className="storage-list-input"
-                value={getCurrentValue('sidecar.ffmpeg') || 'ffmpeg'}
+                value={getCurrentValue('sidecar.ffmpeg') ?? 'ffmpeg'}
                 onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
                 disabled={loading}
                 placeholder="ffmpeg"
@@ -600,7 +633,7 @@ const handleSelectDirectory = (field: 'download_path' | 'temp_path') => {
               <input
                 type="text"
                 className="storage-list-input"
-                value={getCurrentValue('sidecar.aria2c') || 'aria2c'}
+                value={getCurrentValue('sidecar.aria2c') ?? 'aria2c'}
                 onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
                 disabled={loading}
                 placeholder="aria2c"

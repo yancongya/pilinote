@@ -111,21 +111,34 @@ class SettingsService:
         }
 
         # 读取sidecar设置
+        # 优先尝试从 storage.sidecar 读取 JSON 对象
         sidecar_setting = all_settings.get('storage.sidecar')
         if sidecar_setting:
             try:
                 sidecar_dict = json.loads(sidecar_setting.value)
                 storage_settings_dict['sidecar'] = sidecar_dict
             except json.JSONDecodeError:
+                # 如果 JSON 解析失败，尝试从单独的字段读取
                 storage_settings_dict['sidecar'] = {
-                    'ffmpeg': 'ffmpeg',
-                    'aria2c': 'aria2c'
+                    'ffmpeg': self._get_setting_value(all_settings, 'storage.sidecar.ffmpeg', self.get_tool_path('ffmpeg')),
+                    'aria2c': self._get_setting_value(all_settings, 'storage.sidecar.aria2c', self.get_tool_path('aria2c'))
                 }
         else:
-            storage_settings_dict['sidecar'] = {
-                'ffmpeg': 'ffmpeg',
-                'aria2c': 'aria2c'
-            }
+            # 如果没有 storage.sidecar，尝试从单独的字段读取
+            ffmpeg_path = self._get_setting_value(all_settings, 'storage.sidecar.ffmpeg', None)
+            aria2c_path = self._get_setting_value(all_settings, 'storage.sidecar.aria2c', None)
+
+            if ffmpeg_path or aria2c_path:
+                storage_settings_dict['sidecar'] = {
+                    'ffmpeg': ffmpeg_path or self.get_tool_path('ffmpeg'),
+                    'aria2c': aria2c_path or self.get_tool_path('aria2c')
+                }
+            else:
+                # 如果都没有，使用默认值
+                storage_settings_dict['sidecar'] = {
+                    'ffmpeg': self.get_tool_path('ffmpeg'),
+                    'aria2c': self.get_tool_path('aria2c')
+                }
 
         storage_settings = StorageSettings(**storage_settings_dict)
 
@@ -178,7 +191,7 @@ class SettingsService:
                 if isinstance(category_dict, dict):
                     for sub_key, value in category_dict.items():
                         if isinstance(value, dict):
-                            # 处理二级嵌套（如download.video和download.metadata）
+                            # 处理二级嵌套（如download.video和download.metadata，以及storage.sidecar）
                             for nested_key, nested_value in value.items():
                                 self._update_single_setting(
                                     f'{category}.{sub_key}.{nested_key}',
@@ -193,6 +206,16 @@ class SettingsService:
                 else:
                     # 处理非嵌套字段
                     self._update_single_setting(category, category_dict)
+
+            # 特殊处理：如果有更新 sidecar，同时更新 storage.sidecar JSON 对象
+            if 'storage' in settings_dict and 'sidecar' in settings_dict['storage']:
+                sidecar_dict = settings_dict['storage']['sidecar']
+                if isinstance(sidecar_dict, dict):
+                    # 确保 storage.sidecar.ffmpeg 和 storage.sidecar.aria2c 存在
+                    if 'ffmpeg' in sidecar_dict:
+                        self._update_single_setting('storage.sidecar.ffmpeg', sidecar_dict['ffmpeg'])
+                    if 'aria2c' in sidecar_dict:
+                        self._update_single_setting('storage.sidecar.aria2c', sidecar_dict['aria2c'])
 
             self.db.commit()
             return True
