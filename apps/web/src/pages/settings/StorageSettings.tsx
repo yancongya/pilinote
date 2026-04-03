@@ -157,7 +157,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       if (response.ok) {
         const data = await response.json()
         setCacheData(data.data || {})
-        
+
         // 获取数据库文件大小
         const dbResponse = await fetch('http://localhost:8000/api/settings/database/info')
         if (dbResponse.ok) {
@@ -165,10 +165,10 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           setCacheData(prev => ({
             ...prev,
             database: {
-              size: dbData.size || 0,
-              size_formatted: dbData.size_formatted || '0 B',
-              path: dbData.path || '',
-              exists: dbData.exists || false
+              size: dbData.data?.size || 0,
+              size_formatted: dbData.data?.size_formatted || '0 B',
+              path: dbData.data?.path || '',
+              exists: dbData.data?.exists || false
             }
           }))
         }
