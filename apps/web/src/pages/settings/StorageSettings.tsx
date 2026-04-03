@@ -222,7 +222,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     const confirmMessages = {
       log: '确定要清理所有日志文件吗？此操作不可恢复！',
       temp: '确定要清理所有临时文件吗？此操作不可恢复！',
-      database: '确定要清理缓存数据吗？此操作不可恢复！',
       webview: '确定要清理WebView缓存吗？此操作不可恢复！'
     }
     
@@ -531,24 +530,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               <div className="storage-list-label">清理临时文件</div>
               <div className="storage-list-meta">
                 {cacheData.temp?.size_formatted || '0 B'}
-              </div>
-            </div>
-            <ChevronRight size={16} className="storage-list-chevron" />
-          </button>
-
-          <button
-            className="storage-list-item storage-list-button"
-            onClick={() => handleClearCache('database')}
-            disabled={clearingCache === 'database'}
-            aria-label="清理缓存数据"
-          >
-            <div className="storage-list-icon-wrapper">
-              <Trash2 size={18} className="storage-list-icon" />
-            </div>
-            <div className="storage-list-content">
-              <div className="storage-list-label">清理缓存数据</div>
-              <div className="storage-list-meta">
-                {cacheData.database?.size_formatted || '0 B'}
               </div>
             </div>
             <ChevronRight size={16} className="storage-list-chevron" />

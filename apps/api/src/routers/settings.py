@@ -375,21 +375,20 @@ def format_size(size_bytes: int) -> str:
 @router.get("/cache-info")
 async def get_cache_info(db: Session = Depends(get_db)):
     """
-    Get cache information for different cache types
+    Get cache information
     
     Returns:
-        Cache information for log, temp, webview, database
+        Cache information for log, temp, webview
     """
     try:
         import os
         import platform
         
-        # 定义缓存目录（不包含downloads，因为那是用户下载的文件，不是缓存）
+        # 定义缓存目录（不包含downloads和data，因为那些不是缓存）
         cache_dirs = {
             "log": "logs",
             "temp": "temp",
-            "webview": "webview_cache",
-            "database": "data"
+            "webview": "webview_cache"
         }
         
         cache_info = {}
@@ -448,7 +447,7 @@ async def clear_cache_by_type(
         
         logger = logging.getLogger(__name__)
         
-        valid_cache_types = ["log", "temp", "webview", "database", "all"]
+        valid_cache_types = ["log", "temp", "webview", "all"]
         
         if cache_type not in valid_cache_types:
             raise HTTPException(
@@ -460,7 +459,7 @@ async def clear_cache_by_type(
             # 清理所有缓存（不包含downloads，因为那是用户下载的文件）
             deleted_files = 0
             deleted_size = 0
-            cache_dirs = ["logs", "temp", "webview_cache", "data"]
+            cache_dirs = ["logs", "temp", "webview_cache"]
             
             for cache_dir in cache_dirs:
                 if os.path.exists(cache_dir):
@@ -499,8 +498,7 @@ async def clear_cache_by_type(
         cache_dirs_map = {
             "log": "logs",
             "temp": "temp",
-            "webview": "webview_cache",
-            "database": "data"
+            "webview": "webview_cache"
         }
         
         cache_dir = cache_dirs_map[cache_type]
@@ -554,7 +552,6 @@ async def open_cache_directory(cache_type: str, db: Session = Depends(get_db)):
             "log": "logs",
             "temp": "temp",
             "webview": "webview_cache",
-            "database": "data",
             "downloads": downloads_dir
         }
         
