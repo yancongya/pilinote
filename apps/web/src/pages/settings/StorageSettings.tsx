@@ -15,6 +15,7 @@ import {
   RotateCcw
 } from 'lucide-react'
 import ConfirmModal from '../../components/ConfirmModal'
+import { useToast } from '../../components/Toast'
 
 interface CacheInfo {
   exists: boolean
@@ -37,6 +38,7 @@ interface StorageSettingsRef {
 
 const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
   const { settings, loading, updateSettings, resetSettings } = useSettingsStore()
+  const { showToast } = useToast()
   const [cacheData, setCacheData] = useState<CacheData>({})
   const [storageInfo, setStorageInfo] = useState({
     totalSizeFormatted: '0 B',
@@ -44,11 +46,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     directoryCount: 0
   })
   const [clearingCache, setClearingCache] = useState<string | null>(null)
-  const [saveMessage, setSaveMessage] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({
-    show: false,
-    message: '',
-    type: 'success'
-  })
   
   // 本地状态暂存修改
   const [localSettings, setLocalSettings] = useState<Record<string, any>>({})
@@ -154,11 +151,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     }
   }
 
-  const showSaveMessage = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setSaveMessage({ show: true, message, type })
-    setTimeout(() => setSaveMessage({ show: false, message: '', type: 'success' }), 2000)
-  }, [])
-
   const handleLocalUpdate = useCallback((field: string, value: any) => {
     setLocalSettings(prev => ({
       ...prev,
@@ -190,7 +182,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         if (toolStatus && toolStatus.installed) {
           // 更新本地设置
           handleLocalUpdateSidecar(tool, toolStatus.path)
-          showSaveMessage(`已重置 ${tool} 路径`, 'success')
+          showToast(`已重置 ${tool} 路径`, 'success')
           
           // 自动保存
           const sidecar = { ...((localSettings as any).sidecar || {}), [tool]: toolStatus.path }
@@ -203,12 +195,12 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           // 清空本地设置
           setLocalSettings({})
         } else {
-          showSaveMessage(`${tool} 未安装，无法重置`, 'error')
+          showToast(`${tool} 未安装，无法重置`, 'error')
         }
       }
     } catch (error) {
       console.error('重置工具路径失败:', error)
-      showSaveMessage('重置失败', 'error')
+      showToast('重置失败', 'error')
     }
   }
 
@@ -243,14 +235,14 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         method: 'POST'
       })
       if (response.ok) {
-        showSaveMessage('清理成功', 'success')
+        showToast('清理成功', 'success')
         await loadCacheData()
         await loadStorageInfo()
       } else {
-        showSaveMessage('清理失败', 'error')
+        showToast('清理失败', 'error')
       }
     } catch (error) {
-      showSaveMessage('清理失败', 'error')
+      showToast('清理失败', 'error')
       console.error('清理缓存失败:', error)
     } finally {
       setClearingCache(null)
@@ -269,18 +261,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   return (
     <div className="storage-settings-mobile">
-      {/* 保存提示消息 */}
-      {saveMessage.show && (
-        <div className={`storage-toast storage-toast-${saveMessage.type}`}>
-          {saveMessage.type === 'success' ? (
-            <Check className="storage-toast-icon" />
-          ) : (
-            <AlertCircle className="storage-toast-icon" />
-          )}
-          <span>{saveMessage.message}</span>
-        </div>
-      )}
-
       {/* 路径设置组 */}
       <div className="storage-group">
         <div className="storage-group-header">
@@ -507,44 +487,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           padding: 12px;
           background: #F8FAFC;
           min-height: 100vh;
-        }
-
-        /* Toast */
-        .storage-toast {
-          position: fixed;
-          top: 12px;
-          left: 50%;
-          transform: translateX(-50%);
-          padding: 10px 16px;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          z-index: 1000;
-          animation: toast-slide-down 0.2s ease-out;
-        }
-
-        .storage-toast-success {
-          background: #10B981;
-          color: white;
-        }
-
-        .storage-toast-error {
-          background: #EF4444;
-          color: white;
-        }
-
-        @keyframes toast-slide-down {
-          from {
-            transform: translateX(-50%) translateY(-20px);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-          }
         }
 
         /* 存储概览卡片 */

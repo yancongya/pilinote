@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/auth'
 import { apiService } from '../../services/api'
-import { User, Trash2, RefreshCw, Info, X, Key, Cookie as CookieIcon, Shield } from 'lucide-react'
+import { User, Trash2, RefreshCw, Info, Key, Cookie as CookieIcon, Shield, Plus } from 'lucide-react'
 import Modal from '../../components/Modal'
 
 interface Account {
@@ -30,6 +31,7 @@ interface CredentialsData {
 }
 
 export default function AccountsSettings() {
+  const navigate = useNavigate()
   const { user, setUser, logout } = useAuthStore()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,7 +58,7 @@ export default function AccountsSettings() {
       accounts.forEach(account => {
         if (account.last_refresh_time) {
           const lastRefresh = new Date(account.last_refresh_time).getTime()
-          const refreshInterval = 60 * 60 * 1000 // 1小时
+          const refreshInterval = 60 * 60 * 1000
           const nextRefresh = lastRefresh + refreshInterval
           const remainingMs = nextRefresh - now
           
@@ -103,7 +105,7 @@ export default function AccountsSettings() {
   }
 
   const handleSwitchAccount = async (accountId: number) => {
-    setShowSwitchConfirm(accountId)
+    setShowSwitchAccount(accountId)
   }
 
   const confirmSwitchAccount = async (accountId: number) => {
@@ -124,10 +126,8 @@ export default function AccountsSettings() {
         setSuccessMessage(`已切换到账号: ${targetAccount?.username || '未知用户'}`)
         setTimeout(() => setSuccessMessage(''), 3000)
       } else {
-        // 显示详细的错误信息
         const errorMsg = response.message || response.detail || '切换账号失败'
         setError(errorMsg)
-        console.error('切换账号失败:', response)
       }
     } catch (err) {
       setError('网络请求失败')
@@ -146,7 +146,6 @@ export default function AccountsSettings() {
     try {
       const response = await apiService.refreshAccount(accountId)
       if (response.success && response.data) {
-        // 如果刷新的是当前登录的账号，更新用户信息但保持sessdata
         if (user && user.mid === response.data.mid) {
           setUser({
             mid: response.data.mid,
@@ -259,151 +258,137 @@ export default function AccountsSettings() {
   }
 
   return (
-    <div className="accounts-settings-new">
-      <div className="accounts-header">
-        <User className="accounts-header-icon" />
-        <h2 className="accounts-header-title">多账号管理</h2>
-      </div>
-
+    <div className="ac-panel">
       {/* 错误消息 */}
       {error && (
-        <div className="accounts-error-message" role="alert" aria-live="polite">
+        <div className="ac-error" role="alert" aria-live="polite">
           {error}
         </div>
       )}
 
       {/* 成功消息 */}
       {successMessage && (
-        <div className="accounts-success-message" role="status" aria-live="polite">
+        <div className="ac-success" role="status" aria-live="polite">
           {successMessage}
         </div>
       )}
 
-      {loading ? (
-        <div className="accounts-loading-state" role="status" aria-live="polite">
-          <RefreshCw className="accounts-loading-spinner" />
-          <p className="accounts-loading-text">加载中...</p>
+      {/* 已登录账号列表 */}
+      <div className="ac-group">
+        <div className="ac-group-header">
+          <span className="ac-group-title">已登录账号</span>
+          <span className="ac-group-subtitle">{accounts.length} 个账号</span>
         </div>
-      ) : (
-        <div className="accounts-list-new">
-          {accounts.map((account) => (
-            <div
-              key={account.id}
-              className={`accounts-card ${user && account.is_active ? 'active' : ''} ${switchingAccountId === account.id ? 'switching' : ''}`}
-              onClick={() => (!user || (!account.is_active && switchingAccountId === null)) && handleSwitchAccount(account.id)}
-              role="button"
-              tabIndex={user && account.is_active ? -1 : 0}
-              aria-label={`账号 ${account.username}${user && account.is_active ? '（当前使用）' : ''}`}
-              aria-pressed={user && account.is_active}
-              onKeyDown={(e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && (!user || (!account.is_active && switchingAccountId === null))) {
-                  e.preventDefault()
-                  handleSwitchAccount(account.id)
-                }
-              }}
-            >
-              <button
-                className="accounts-card-info-icon"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleShowCredentials(account.id)
-                }}
-                title="查看验证数据"
+        
+        {loading ? (
+          <div className="ac-loading">
+            <RefreshCw className="ac-spinner" />
+            <p>加载中...</p>
+          </div>
+        ) : accounts.length === 0 ? (
+          <div className="ac-empty">
+            <User size={32} className="ac-empty-icon" />
+            <p className="ac-empty-text">暂无已登录账号</p>
+            <p className="ac-empty-hint">点击下方按钮添加新账号</p>
+          </div>
+        ) : (
+          <div className="ac-list">
+            {accounts.map((account) => (
+              <div
+                key={account.id}
+                className={`ac-item ${account.is_active ? 'ac-item-active' : ''}`}
               >
-                <Info className="accounts-card-info-icon-svg" />
-              </button>
-
-              <span className="accounts-card-refresh-time">
-                上次刷新: {formatRefreshTime(account.last_refresh_time)} · 下次刷新: {nextRefreshTime[account.id] || '计算中...'}
-              </span>
-
-              <div className="accounts-card-main">
-                <img
-                  src={getAvatarUrl(account.avatar)}
-                  alt={account.username}
-                  className={`accounts-card-avatar ${account.is_active ? 'accounts-card-avatar-active' : ''}`}
-                  onError={(e) => handleAvatarError(e, account.username)}
-                />
-                <div className="accounts-card-info">
-                  <div className="accounts-card-name-row">
-                    <span className="accounts-card-name">{account.username}</span>
+                {/* 主内容 */}
+                <div className="ac-item-main">
+                  <img
+                    src={getAvatarUrl(account.avatar)}
+                    alt={account.username}
+                    className={`ac-item-avatar ${account.is_active ? 'ac-avatar-active' : ''}`}
+                    onError={(e) => handleAvatarError(e, account.username)}
+                  />
+                  <div className="ac-item-info">
+                    <div className="ac-item-name-row">
+                      <span className="ac-item-name">{account.username}</span>
+                      {account.is_active && <span className="ac-badge">当前</span>}
+                    </div>
+                    <span className="ac-item-mid">MID: {account.mid}</span>
+                    <span className="ac-item-refresh">上次刷新: {formatRefreshTime(account.last_refresh_time)}</span>
                   </div>
-                  <span className="accounts-card-id">MID: {account.mid}</span>
                 </div>
-              </div>
 
-              <div className="accounts-card-actions-wrapper">
-                <div className="accounts-card-actions">
+                {/* 操作按钮 */}
+                <div className="ac-item-actions">
+                  {!account.is_active && (
+                    <button
+                      className="ac-action-btn ac-switch-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSwitchAccount(account.id)
+                      }}
+                      disabled={switchingAccountId !== null}
+                    >
+                      切换
+                    </button>
+                  )}
                   <button
-                    className="accounts-card-action-btn accounts-card-refresh-btn"
+                    className="ac-action-btn ac-refresh-btn"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleRefreshAccount(account.id)
                     }}
                     disabled={refreshingId === account.id}
                     title="刷新账号"
-                    aria-label={`刷新账号 ${account.username}`}
-                    tabIndex={-1}
                   >
                     {refreshingId === account.id ? (
-                      <RefreshCw className="accounts-card-action-icon accounts-card-action-icon-spinning" />
+                      <RefreshCw size={16} className="ac-spin" />
                     ) : (
-                      <RefreshCw className="accounts-card-action-icon" />
+                      <RefreshCw size={16} />
                     )}
                   </button>
                   <button
-                    className="accounts-card-action-btn accounts-card-delete-btn"
+                    className="ac-action-btn ac-info-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleShowCredentials(account.id)
+                    }}
+                    title="查看验证数据"
+                  >
+                    <Info size={16} />
+                  </button>
+                  <button
+                    className="ac-action-btn ac-delete-btn"
                     onClick={(e) => {
                       e.stopPropagation()
                       setShowDeleteConfirm(account.id)
                     }}
                     disabled={deletingId === account.id}
                     title="删除账号"
-                    aria-label={`删除账号 ${account.username}`}
-                    tabIndex={-1}
                   >
                     {deletingId === account.id ? (
-                      <RefreshCw className="accounts-card-action-icon accounts-card-action-icon-spinning" />
+                      <RefreshCw size={16} className="ac-spin" />
                     ) : (
-                      <Trash2 className="accounts-card-action-icon" />
+                      <Trash2 size={16} />
                     )}
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        )}
+      </div>
 
-          {/* 游客模式卡片 */}
-          {!user && (
+      {/* 游客模式 */}
+      {user && (
+        <div className="ac-group">
+          <div className="ac-group-header">
+            <span className="ac-group-title">其他</span>
+          </div>
+          <div className="ac-list">
             <div
-              className="accounts-card accounts-card-guest active"
-              onClick={() => {}}
-              role="button"
-              tabIndex={0}
-              aria-label="游客模式"
-              aria-pressed={true}
-            >
-              <div className="accounts-card-main">
-                <div className="accounts-card-avatar accounts-card-avatar-guest">
-                  <User className="accounts-card-guest-icon" />
-                </div>
-                <div className="accounts-card-info">
-                  <div className="accounts-card-name-row">
-                    <span className="accounts-card-name">游客模式</span>
-                  </div>
-                  <span className="accounts-card-id">未登录状态</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {user && (
-            <div
-              className="accounts-card accounts-card-guest"
+              className="ac-item ac-item-guest"
               onClick={logout}
               role="button"
               tabIndex={0}
-              aria-label="切换到游客模式"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
@@ -411,21 +396,30 @@ export default function AccountsSettings() {
                 }
               }}
             >
-              <div className="accounts-card-main">
-                <div className="accounts-card-avatar accounts-card-avatar-guest">
-                  <User className="accounts-card-guest-icon" />
+              <div className="ac-item-main">
+                <div className="ac-item-avatar ac-avatar-guest">
+                  <User size={20} />
                 </div>
-                <div className="accounts-card-info">
-                  <div className="accounts-card-name-row">
-                    <span className="accounts-card-name">游客模式</span>
-                  </div>
-                  <span className="accounts-card-id">点击切换到未登录状态</span>
+                <div className="ac-item-info">
+                  <span className="ac-item-name">游客模式</span>
+                  <span className="ac-item-mid">点击切换到未登录状态</span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
+
+      {/* 添加账号按钮 */}
+      <div className="ac-add-group">
+        <button
+          className="ac-add-btn"
+          onClick={() => navigate('/login')}
+        >
+          <Plus size={20} />
+          <span>添加新账号</span>
+        </button>
+      </div>
 
       {/* 验证数据模态窗口 */}
       <Modal
@@ -436,7 +430,6 @@ export default function AccountsSettings() {
       >
         {credentialsModal && (
           <>
-            {/* Tab 切换 */}
             <div className="credentials-tabs">
               <button
                 className={`credentials-tab ${activeTab === 'basic' ? 'active' : ''}`}
@@ -462,7 +455,6 @@ export default function AccountsSettings() {
               </button>
             </div>
 
-            {/* Tab 内容 */}
             <div className="credentials-tab-content">
               {activeTab === 'basic' && (
                 <div className="credentials-content-basic">
@@ -545,7 +537,7 @@ export default function AccountsSettings() {
         )}
       </Modal>
 
-      {/* 删除确认对话框 */}
+      {/* 删除确认 */}
       <Modal
         isOpen={!!showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(null)}
@@ -570,7 +562,7 @@ export default function AccountsSettings() {
         </div>
       </Modal>
 
-      {/* 切换账号确认对话框 */}
+      {/* 切换账号确认 */}
       <Modal
         isOpen={!!showSwitchConfirm}
         onClose={cancelSwitchAccount}
@@ -601,6 +593,334 @@ export default function AccountsSettings() {
           </button>
         </div>
       </Modal>
+
+      <style>{`
+        .ac-panel {
+          padding: 12px;
+          background: #F8FAFC;
+          min-height: 100vh;
+        }
+
+        /* 错误/成功消息 */
+        .ac-error {
+          padding: 10px 14px;
+          background: #FEF2F2;
+          border: 1px solid #FECACA;
+          border-radius: 8px;
+          color: #DC2626;
+          font-size: 13px;
+          font-weight: 500;
+          margin-bottom: 12px;
+        }
+
+        .ac-success {
+          padding: 10px 14px;
+          background: #F0FDF4;
+          border: 1px solid #BBF7D0;
+          border-radius: 8px;
+          color: #16A34A;
+          font-size: 13px;
+          font-weight: 500;
+          margin-bottom: 12px;
+        }
+
+        /* 分组 */
+        .ac-group {
+          background: white;
+          border-radius: 12px;
+          border: 1px solid #E2E8F0;
+          margin-bottom: 12px;
+          overflow: hidden;
+        }
+
+        .ac-group-header {
+          padding: 12px 16px;
+          background: #F8FAFC;
+          border-bottom: 1px solid #E2E8F0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .ac-group-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1E293B;
+        }
+
+        .ac-group-subtitle {
+          font-size: 12px;
+          color: #94A3B8;
+        }
+
+        /* 列表 */
+        .ac-list {
+          display: flex;
+          flex-direction: column;
+        }
+
+        /* 列表项 */
+        .ac-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 16px;
+          border-bottom: 1px solid #F1F5F9;
+          min-height: 64px;
+        }
+
+        .ac-item:last-child {
+          border-bottom: none;
+        }
+
+        .ac-item-active {
+          background: #F8FAFC;
+        }
+
+        /* 主内容 */
+        .ac-item-main {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .ac-item-avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          object-fit: cover;
+          flex-shrink: 0;
+          border: 2px solid #E2E8F0;
+        }
+
+        .ac-avatar-active {
+          border-color: #2563EB;
+        }
+
+        .ac-avatar-guest {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: #F1F5F9;
+          color: #94A3B8;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border: 2px solid #E2E8F0;
+        }
+
+        .ac-item-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .ac-item-name-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .ac-item-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1E293B;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ac-item-mid {
+          font-size: 12px;
+          color: #94A3B8;
+        }
+
+        .ac-item-refresh {
+          font-size: 11px;
+          color: #CBD5E1;
+          margin-top: 1px;
+        }
+
+        /* 徽章 */
+        .ac-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 1px 6px;
+          background: #2563EB;
+          color: white;
+          font-size: 10px;
+          font-weight: 600;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+
+        /* 操作按钮 */
+        .ac-item-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+
+        .ac-action-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          border: 1px solid #E2E8F0;
+          background: white;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          color: #64748B;
+        }
+
+        .ac-action-btn:hover:not(:disabled) {
+          background: #F8FAFC;
+          border-color: #CBD5E1;
+        }
+
+        .ac-action-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .ac-refresh-btn:hover:not(:disabled) {
+          color: #2563EB;
+          border-color: #BFDBFE;
+        }
+
+        .ac-delete-btn:hover:not(:disabled) {
+          color: #DC2626;
+          border-color: #FECACA;
+        }
+
+        .ac-info-btn:hover:not(:disabled) {
+          color: #2563EB;
+          border-color: #BFDBFE;
+        }
+
+        .ac-switch-btn {
+          width: auto;
+          padding: 0 10px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #2563EB;
+          border-color: #BFDBFE;
+        }
+
+        .ac-switch-btn:hover:not(:disabled) {
+          background: #EFF6FF;
+        }
+
+        /* 加载 */
+        .ac-loading {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 16px;
+          color: #94A3B8;
+        }
+
+        .ac-spinner {
+          width: 24px;
+          height: 24px;
+          animation: acSpin 1s linear infinite;
+          color: #2563EB;
+          margin-bottom: 8px;
+        }
+
+        .ac-loading p {
+          font-size: 13px;
+        }
+
+        @keyframes acSpin {
+          to { transform: rotate(360deg); }
+        }
+
+        .ac-spin {
+          animation: acSpin 1s linear infinite;
+        }
+
+        /* 空状态 */
+        .ac-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 40px 16px;
+        }
+
+        .ac-empty-icon {
+          color: #CBD5E1;
+          margin-bottom: 12px;
+        }
+
+        .ac-empty-text {
+          font-size: 14px;
+          font-weight: 500;
+          color: #64748B;
+          margin: 0 0 4px;
+        }
+
+        .ac-empty-hint {
+          font-size: 12px;
+          color: #94A3B8;
+          margin: 0;
+        }
+
+        /* 游客模式 */
+        .ac-item-guest {
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+
+        .ac-item-guest:hover {
+          background: #F8FAFC;
+        }
+
+        .ac-item-guest .ac-item-name {
+          color: #64748B;
+        }
+
+        /* 添加账号按钮 */
+        .ac-add-group {
+          margin-top: 4px;
+        }
+
+        .ac-add-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 14px 16px;
+          border: 2px dashed #E2E8F0;
+          border-radius: 12px;
+          background: transparent;
+          color: #64748B;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .ac-add-btn:hover {
+          border-color: #2563EB;
+          color: #2563EB;
+          background: #EFF6FF;
+        }
+
+        .ac-add-btn:active {
+          background: #DBEAFE;
+          transform: scale(0.98);
+        }
+      `}</style>
     </div>
   )
 }
