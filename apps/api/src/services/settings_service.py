@@ -22,6 +22,48 @@ class SettingsService:
     def __init__(self, db: Session):
         self.db = db
     
+    def _get_project_tool_path(self, tool_name: str) -> Optional[str]:
+        """获取项目内工具路径"""
+        from src.services.tool_initializer import ToolInitializer
+        
+        initializer = ToolInitializer()
+        return initializer.get_tool_path(tool_name)
+    
+    def get_tool_status(self) -> Dict[str, Dict[str, Any]]:
+        """获取工具状态（用于显示）"""
+        import shutil
+        
+        status = {}
+        
+        # 检测 ffmpeg（优先使用项目内工具）
+        ffmpeg_path = self._get_project_tool_path('ffmpeg') or shutil.which('ffmpeg')
+        status['ffmpeg'] = {
+            'installed': ffmpeg_path is not None,
+            'path': ffmpeg_path or '未安装',
+            'bundled': self._get_project_tool_path('ffmpeg') is not None
+        }
+        
+        # 检测 aria2c（优先使用项目内工具）
+        aria2c_path = self._get_project_tool_path('aria2c') or shutil.which('aria2c')
+        status['aria2c'] = {
+            'installed': aria2c_path is not None,
+            'path': aria2c_path or '未安装',
+            'bundled': self._get_project_tool_path('aria2c') is not None
+        }
+        
+        return status
+    
+    def get_tool_path(self, tool_name: str) -> str:
+        """获取工具路径（优先使用项目内工具）"""
+        project_path = self._get_project_tool_path(tool_name)
+        if project_path:
+            return project_path
+        
+        # 回退到系统工具
+        import shutil
+        system_path = shutil.which(tool_name)
+        return system_path or tool_name
+    
     def get_setting(self, key: str) -> Optional[Setting]:
         """Get setting by key"""
         return self.db.query(Setting).filter(Setting.key == key).first()
@@ -79,14 +121,12 @@ class SettingsService:
             except json.JSONDecodeError:
                 storage_settings_dict['sidecar'] = {
                     'ffmpeg': 'ffmpeg',
-                    'aria2c': 'aria2c',
-                    'danmakufactory': 'danmakufactory'
+                    'aria2c': 'aria2c'
                 }
         else:
             storage_settings_dict['sidecar'] = {
                 'ffmpeg': 'ffmpeg',
-                'aria2c': 'aria2c',
-                'danmakufactory': 'danmakufactory'
+                'aria2c': 'aria2c'
             }
 
         storage_settings = StorageSettings(**storage_settings_dict)
@@ -255,15 +295,21 @@ class SettingsService:
             }
             
             # 存储设置默认值
+            # 根据平台获取工具路径
+            from src.services.tool_initializer import ToolInitializer
+            tool_initializer = ToolInitializer()
+            
+            ffmpeg_path = tool_initializer.get_tool_path('ffmpeg') or 'ffmpeg'
+            aria2c_path = tool_initializer.get_tool_path('aria2c') or 'aria2c'
+            
             storage_defaults = {
                 'storage.download_path': './downloads',
                 'storage.temp_path': './temp',
                 'storage.auto_cleanup': 'true',
                 'storage.keep_failed': 'false',
                 'storage.sidecar': json.dumps({
-                    'ffmpeg': 'ffmpeg',
-                    'aria2c': 'aria2c',
-                    'danmakufactory': 'danmakufactory'
+                    'ffmpeg': ffmpeg_path,
+                    'aria2c': aria2c_path
                 })
             }
             

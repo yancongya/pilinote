@@ -113,3 +113,10 @@ pilinote.db.backup.*
 
 # 临时脚本
 apps/api/update_part_titles.py
+
+# 工具二进制文件（保留 README 和脚本）
+apps/api/tools/macos/
+apps/api/tools/linux/
+apps/api/tools/windows/
+!apps/api/tools/README.md
+!apps/api/tools/setup_tools.py

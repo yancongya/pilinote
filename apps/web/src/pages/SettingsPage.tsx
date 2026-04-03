@@ -7,13 +7,11 @@ import {
   ArrowLeft, 
   User, 
   LogOut, 
-  Settings,
   Download,
   Database,
   Info,
   Save,
-  RefreshCw,
-  Check
+  RefreshCw
 } from 'lucide-react'
 import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
@@ -39,9 +37,9 @@ function SettingsPage() {
   const { showToast } = useToast()
   
   const tabs = [
-    { id: 'accounts' as TabType, label: '账号管理', icon: User },
-    { id: 'download' as TabType, label: '下载设置', icon: Download },
-    { id: 'storage' as TabType, label: '数据管理', icon: Database }
+    { id: 'accounts' as TabType, label: '账号', icon: User },
+    { id: 'download' as TabType, label: '下载', icon: Download },
+    { id: 'storage' as TabType, label: '数据', icon: Database }
   ]
 
   // 从hash初始化activeTab
@@ -56,9 +54,30 @@ function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
   const storageSettingsRef = useRef<SettingsComponentRef>(null)
   const downloadSettingsRef = useRef<SettingsComponentRef>(null)
+  const tabBarRef = useRef<HTMLDivElement>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
   
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // 更新指示器位置
+  useEffect(() => {
+    const updateIndicator = () => {
+      if (tabBarRef.current) {
+        const activeBtn = tabBarRef.current.querySelector(`[data-tab="${activeTab}"]`) as HTMLElement
+        if (activeBtn) {
+          setIndicatorStyle({
+            left: activeBtn.offsetLeft,
+            width: activeBtn.offsetWidth
+          })
+        }
+      }
+    }
+    
+    updateIndicator()
+    window.addEventListener('resize', updateIndicator)
+    return () => window.removeEventListener('resize', updateIndicator)
+  }, [activeTab])
 
   // 监听hash变化（通过浏览器前进/后退按钮）
   useEffect(() => {
@@ -66,7 +85,7 @@ function SettingsPage() {
     if (hash && tabs.some(tab => tab.id === hash) && hash !== activeTab) {
       setActiveTab(hash as TabType)
     }
-  }, [location.hash])
+  }, [location.hash, activeTab, tabs])
 
   // 更新hash（当activeTab变化时）
   useEffect(() => {
@@ -129,44 +148,52 @@ function SettingsPage() {
 
   return (
     <main className="settings-page-new">
-      {/* 带返回按钮的标签导航 */}
-      <div className="settings-tabs-with-back">
-        {/* 返回按钮 */}
-        <button
-          className="settings-back-button"
-          onClick={() => navigate('/home')}
-          aria-label="返回首页"
-          tabIndex={0}
-        >
-          <ArrowLeft className="settings-back-icon" />
-        </button>
+      {/* 顶部导航栏 */}
+      <header className="s-header">
+        <div className="s-header-inner">
+          {/* 返回按钮 */}
+          <button
+            className="s-back-btn"
+            onClick={() => navigate('/home')}
+            aria-label="返回首页"
+          >
+            <ArrowLeft size={22} />
+          </button>
 
-        {/* 分段控制器 Tab 导航 */}
-        <div className="settings-segmented-control">
-          <div className="settings-segmented-track">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={`settings-segment-button ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => handleTabChange(tab.id)}
-                aria-label={tab.label}
-                aria-pressed={activeTab === tab.id}
-                aria-controls="settings-content"
-                role="tab"
-                tabIndex={activeTab === tab.id ? 0 : -1}
-              >
-                <tab.icon className="settings-segment-icon" />
-                <span className="settings-segment-label">
-                  {tab.label}
-                  {hasUnsavedChanges(tab.id) && (
-                    <span className="settings-tab-unsaved-indicator">*</span>
-                  )}
-                </span>
-              </button>
-            ))}
-          </div>
+          {/* 标题 */}
+          <h1 className="s-title">设置</h1>
+
+          {/* 占位保持标题居中 */}
+          <div className="s-spacer" />
         </div>
-      </div>
+
+        {/* Tab 栏 */}
+        <div className="s-tab-bar" ref={tabBarRef}>
+          <div 
+            className="s-tab-indicator" 
+            style={{ 
+              transform: `translateX(${indicatorStyle.left}px)`,
+              width: `${indicatorStyle.width}px`
+            }} 
+          />
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              data-tab={tab.id}
+              className={`s-tab ${activeTab === tab.id ? 's-tab-active' : ''}`}
+              onClick={() => handleTabChange(tab.id)}
+              aria-label={tab.label}
+              aria-pressed={activeTab === tab.id}
+            >
+              <tab.icon size={18} className="s-tab-icon" />
+              <span className="s-tab-label">{tab.label}</span>
+              {hasUnsavedChanges(tab.id) && (
+                <span className="s-tab-dot" />
+              )}
+            </button>
+          ))}
+        </div>
+      </header>
 
       {/* Tab 内容区域 */}
       <div 
@@ -238,6 +265,143 @@ function SettingsPage() {
         confirmVariant="primary"
         loading={saving}
       />
+
+      <style>{`
+        /* 顶部导航栏 */
+        .s-header {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          background: #fff;
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .s-header-inner {
+          display: flex;
+          align-items: center;
+          height: 52px;
+          padding: 0 16px;
+          padding-top: env(safe-area-inset-top, 0px);
+        }
+
+        /* 返回按钮 */
+        .s-back-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          border: none;
+          background: transparent;
+          color: #1E293B;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: background 0.15s ease;
+          flex-shrink: 0;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .s-back-btn:active {
+          background: #f5f5f5;
+        }
+
+        /* 标题 */
+        .s-title {
+          flex: 1;
+          margin: 0;
+          font-size: 17px;
+          font-weight: 600;
+          color: #1E293B;
+          text-align: center;
+          letter-spacing: -0.01em;
+        }
+
+        .s-spacer {
+          width: 36px;
+          flex-shrink: 0;
+        }
+
+        /* Tab 栏 */
+        .s-tab-bar {
+          display: flex;
+          position: relative;
+          padding: 0 16px;
+          gap: 0;
+        }
+
+        .s-tab {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 12px 8px 10px;
+          border: none;
+          background: transparent;
+          color: #94A3B8;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: color 0.2s ease;
+          position: relative;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .s-tab-active {
+          color: #2563EB;
+          font-weight: 600;
+        }
+
+        .s-tab-icon {
+          flex-shrink: 0;
+        }
+
+        .s-tab-label {
+          white-space: nowrap;
+        }
+
+        /* 滑动指示器 */
+        .s-tab-indicator {
+          position: absolute;
+          bottom: 0;
+          height: 2.5px;
+          background: #2563EB;
+          border-radius: 2.5px 2.5px 0 0;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                      width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 未保存指示点 */
+        .s-tab-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #F59E0B;
+          flex-shrink: 0;
+        }
+
+        /* 桌面端适配 */
+        @media (min-width: 768px) {
+          .s-header-inner {
+            padding: 0 24px;
+            height: 56px;
+          }
+
+          .s-title {
+            font-size: 18px;
+          }
+
+          .s-tab-bar {
+            padding: 0 24px;
+          }
+
+          .s-tab {
+            padding: 14px 12px 12px;
+            font-size: 14px;
+          }
+        }
+      `}</style>
     </main>
   )
 }

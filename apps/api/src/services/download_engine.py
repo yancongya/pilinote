@@ -24,29 +24,84 @@ class DownloadEngine:
     """
     
     def _auto_detect_aria2c(self):
-        """自动检测系统中的 aria2c"""
+        """自动检测 aria2c（优先使用项目内工具）"""
         print("=== _auto_detect_aria2c called ===")
-        import shutil
         
-        # 检查常见的安装路径
-        common_paths = [
-            '/opt/homebrew/bin/aria2c',  # macOS Homebrew (Apple Silicon)
-            '/usr/local/bin/aria2c',  # macOS Homebrew (Intel)
-            '/usr/bin/aria2c',  # Linux
-            'aria2c',  # 直接命令
-        ]
+        # 优先检查项目内工具
+        from pathlib import Path
+        import platform
         
-        print(f"Checking aria2c paths: {common_paths}")
+        script_dir = Path(__file__).parent.parent.parent
+        system = platform.system().lower()
         
-        for path in common_paths:
-            if shutil.which(path):
-                logger.info(f"Found aria2c at: {path}")
-                print(f"✓ Found aria2c at: {path}")
-                self.aria2c_path = path
+        if system == 'darwin':
+            platform_dir = 'macos'
+        elif system == 'linux':
+            platform_dir = 'linux'
+        elif system == 'windows':
+            platform_dir = 'windows'
+        else:
+            platform_dir = None
+        
+        if platform_dir:
+            project_aria2c = script_dir / 'tools' / platform_dir / 'aria2c'
+            if project_aria2c.exists() and project_aria2c.is_file():
+                logger.info(f"Found aria2c in project: {project_aria2c}")
+                print(f"✓ Found aria2c in project: {project_aria2c}")
+                self.aria2c_path = str(project_aria2c)
                 return
+        
+        # 回退到系统工具
+        import shutil
+        if shutil.which('aria2c'):
+            system_path = shutil.which('aria2c')
+            logger.info(f"Found aria2c in system: {system_path}")
+            print(f"✓ Found aria2c in system: {system_path}")
+            self.aria2c_path = system_path
+            return
         
         logger.info("aria2c not found, will use yt-dlp built-in downloader")
         print("✗ aria2c not found")
+    
+    def _auto_detect_ffmpeg(self):
+        """自动检测 ffmpeg（优先使用项目内工具）"""
+        print("=== _auto_detect_ffmpeg called ===")
+        
+        # 优先检查项目内工具
+        from pathlib import Path
+        import platform
+        
+        script_dir = Path(__file__).parent.parent.parent
+        system = platform.system().lower()
+        
+        if system == 'darwin':
+            platform_dir = 'macos'
+        elif system == 'linux':
+            platform_dir = 'linux'
+        elif system == 'windows':
+            platform_dir = 'windows'
+        else:
+            platform_dir = None
+        
+        if platform_dir:
+            project_ffmpeg = script_dir / 'tools' / platform_dir / 'ffmpeg'
+            if project_ffmpeg.exists() and project_ffmpeg.is_file():
+                logger.info(f"Found ffmpeg in project: {project_ffmpeg}")
+                print(f"✓ Found ffmpeg in project: {project_ffmpeg}")
+                self.ffmpeg_path = str(project_ffmpeg)
+                return
+        
+        # 回退到系统工具
+        import shutil
+        if shutil.which('ffmpeg'):
+            system_path = shutil.which('ffmpeg')
+            logger.info(f"Found ffmpeg in system: {system_path}")
+            print(f"✓ Found ffmpeg in system: {system_path}")
+            self.ffmpeg_path = system_path
+            return
+        
+        logger.info("ffmpeg not found, will use default 'ffmpeg'")
+        print("✗ ffmpeg not found")
     
     def __init__(self, settings=None):
         """
@@ -59,7 +114,6 @@ class DownloadEngine:
         self.yt_dlp_path = "yt-dlp"
         self.ffmpeg_path = "ffmpeg"
         self.aria2c_path = "aria2c"
-        self.danmakufactory_path = "danmakufactory"
         
         # 从设置中读取自定义路径
         if settings and hasattr(settings, 'storage') and settings.storage.sidecar:
@@ -68,12 +122,14 @@ class DownloadEngine:
                 self.yt_dlp_path = sidecar.get('yt_dlp', self.yt_dlp_path)
                 self.ffmpeg_path = sidecar.get('ffmpeg', self.ffmpeg_path)
                 self.aria2c_path = sidecar.get('aria2c', self.aria2c_path)
-                self.danmakufactory_path = sidecar.get('danmakufactory', self.danmakufactory_path)
                 
-                logger.info(f"Using custom tool paths: yt-dlp={self.yt_dlp_path}, ffmpeg={self.ffmpeg_path}")
+                logger.info(f"Using custom tool paths: yt-dlp={self.yt_dlp_path}, ffmpeg={self.ffmpeg_path}, aria2c={self.aria2c_path}")
         
-        # 自动检测 aria2c
-        self._auto_detect_aria2c()
+        # 自动检测工具路径（如果用户没有自定义）
+        if self.ffmpeg_path == "ffmpeg":
+            self._auto_detect_ffmpeg()
+        if self.aria2c_path == "aria2c":
+            self._auto_detect_aria2c()
     
     async def download_video(
         self,

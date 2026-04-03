@@ -160,16 +160,14 @@ def init_default_settings():
                 'key': 'storage.sidecar',
                 'value': json.dumps({
                     'ffmpeg': 'ffmpeg',
-                    'aria2c': 'aria2c',
-                    'danmakufactory': 'danmakufactory'
+                    'aria2c': 'aria2c'
                 }),
                 'type': 'object',
                 'category': 'storage',
-                'description': 'Sidecar工具路径',
+                'description': 'Sidecar工具路径（命令名称或绝对路径）',
                 'default_value': json.dumps({
                     'ffmpeg': 'ffmpeg',
-                    'aria2c': 'aria2c',
-                    'danmakufactory': 'danmakufactory'
+                    'aria2c': 'aria2c'
                 })
             },
             # 通用设置

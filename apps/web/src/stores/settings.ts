@@ -32,7 +32,6 @@ export interface IStorageSettings {
   sidecar: {
     ffmpeg: string
     aria2c: string
-    danmakufactory: string
   }
 }
 

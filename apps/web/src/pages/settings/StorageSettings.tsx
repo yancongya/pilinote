@@ -11,7 +11,8 @@ import {
   Settings as SettingsIcon,
   Zap,
   Check,
-  ChevronRight
+  ChevronRight,
+  RotateCcw
 } from 'lucide-react'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -101,7 +102,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         })
         
         setSavedStatus('saved')
-        showSaveMessage('设置已保存', 'success')
         
         const newLocalSettings = { ...localSettings }
         pathFields.forEach(field => delete newLocalSettings[field])
@@ -113,7 +113,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         }, 2000)
       } catch (error) {
         setSavedStatus('error')
-        showSaveMessage('保存失败', 'error')
         console.error('保存设置失败:', error)
         throw error
       }
@@ -148,7 +147,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       const response = await fetch('http://localhost:8000/api/settings/cache-info')
       if (response.ok) {
         const data = await response.json()
-        setCacheData(data.cache || {})
+        setCacheData(data.data || {})
       }
     } catch (error) {
       console.error('加载缓存数据失败:', error)
@@ -180,6 +179,39 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
     })
   }, [])
 
+  const handleResetToolPath = async (tool: string) => {
+    try {
+      // 获取工具状态API，获取默认路径
+      const response = await fetch('http://localhost:8000/api/settings/tool-status')
+      if (response.ok) {
+        const data = await response.json()
+        const toolStatus = data.data[tool]
+        
+        if (toolStatus && toolStatus.installed) {
+          // 更新本地设置
+          handleLocalUpdateSidecar(tool, toolStatus.path)
+          showSaveMessage(`已重置 ${tool} 路径`, 'success')
+          
+          // 自动保存
+          const sidecar = { ...((localSettings as any).sidecar || {}), [tool]: toolStatus.path }
+          await updateSettings({
+            storage: {
+              ...(settings?.storage || {}),
+              sidecar
+            }
+          })
+          // 清空本地设置
+          setLocalSettings({})
+        } else {
+          showSaveMessage(`${tool} 未安装，无法重置`, 'error')
+        }
+      }
+    } catch (error) {
+      console.error('重置工具路径失败:', error)
+      showSaveMessage('重置失败', 'error')
+    }
+  }
+
   const getCurrentValue = useCallback((field: string) => {
     if (!settings?.storage) return undefined
     if (field in localSettings) {
@@ -190,9 +222,10 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   const handleClearCache = async (cacheType: string) => {
     const confirmMessages = {
-      downloads: '确定要清理所有下载文件吗？此操作不可恢复！',
+      log: '确定要清理所有日志文件吗？此操作不可恢复！',
       temp: '确定要清理所有临时文件吗？此操作不可恢复！',
-      database: '确定要清理缓存数据吗？此操作不可恢复！'
+      database: '确定要清理缓存数据吗？此操作不可恢复！',
+      webview: '确定要清理WebView缓存吗？此操作不可恢复！'
     }
     
     setShowClearConfirm({
@@ -247,31 +280,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           <span>{saveMessage.message}</span>
         </div>
       )}
-
-      {/* 存储概览 - 紧凑卡片 */}
-      <div className="storage-summary">
-        <div className="storage-summary-item">
-          <div className="storage-summary-item-header">
-            <HardDrive size={18} className="storage-summary-item-icon" />
-            <span className="storage-summary-item-label">占用空间</span>
-          </div>
-          <div className="storage-summary-item-value">{storageInfo.totalSizeFormatted}</div>
-        </div>
-        <div className="storage-summary-item">
-          <div className="storage-summary-item-header">
-            <Folder size={18} className="storage-summary-item-icon" />
-            <span className="storage-summary-item-label">文件数量</span>
-          </div>
-          <div className="storage-summary-item-value">{storageInfo.fileCount}</div>
-        </div>
-        <div className="storage-summary-item">
-          <div className="storage-summary-item-header">
-            <CheckSquare2 size={18} className="storage-summary-item-icon" />
-            <span className="storage-summary-item-label">视频数量</span>
-          </div>
-          <div className="storage-summary-item-value">{storageInfo.directoryCount}</div>
-        </div>
-      </div>
 
       {/* 路径设置组 */}
       <div className="storage-group">
@@ -361,15 +369,26 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               <FileVideo size={18} className="storage-list-icon" />
               <span className="storage-list-label">FFmpeg</span>
             </div>
-            <input
-              type="text"
-              className="storage-list-input"
-              value={getCurrentValue('sidecar')?.ffmpeg || 'ffmpeg'}
-              onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
-              disabled={loading}
-              placeholder="ffmpeg"
-              aria-label="输入FFmpeg路径"
-            />
+            <div className="storage-list-input-wrapper">
+              <input
+                type="text"
+                className="storage-list-input"
+                value={getCurrentValue('sidecar')?.ffmpeg || 'ffmpeg'}
+                onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
+                disabled={loading}
+                placeholder="ffmpeg"
+                aria-label="输入FFmpeg路径"
+              />
+              <button
+                className="storage-list-reset-button"
+                onClick={() => handleResetToolPath('ffmpeg')}
+                disabled={loading}
+                aria-label="重置FFmpeg路径"
+                title="重置为默认路径"
+              >
+                <RotateCcw size={16} />
+              </button>
+            </div>
           </div>
 
           <div className="storage-list-item storage-list-item-input">
@@ -377,31 +396,26 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               <Zap size={18} className="storage-list-icon" />
               <span className="storage-list-label">Aria2c</span>
             </div>
-            <input
-              type="text"
-              className="storage-list-input"
-              value={getCurrentValue('sidecar')?.aria2c || 'aria2c'}
-              onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
-              disabled={loading}
-              placeholder="aria2c"
-              aria-label="输入Aria2c路径"
-            />
-          </div>
-
-          <div className="storage-list-item storage-list-item-input">
-            <div className="storage-list-label-row">
-              <SettingsIcon size={18} className="storage-list-icon" />
-              <span className="storage-list-label">Danmakufactory</span>
+            <div className="storage-list-input-wrapper">
+              <input
+                type="text"
+                className="storage-list-input"
+                value={getCurrentValue('sidecar')?.aria2c || 'aria2c'}
+                onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
+                disabled={loading}
+                placeholder="aria2c"
+                aria-label="输入Aria2c路径"
+              />
+              <button
+                className="storage-list-reset-button"
+                onClick={() => handleResetToolPath('aria2c')}
+                disabled={loading}
+                aria-label="重置Aria2c路径"
+                title="重置为默认路径"
+              >
+                <RotateCcw size={16} />
+              </button>
             </div>
-            <input
-              type="text"
-              className="storage-list-input"
-              value={getCurrentValue('sidecar')?.danmakufactory || 'danmakufactory'}
-              onChange={(e) => handleLocalUpdateSidecar('danmakufactory', e.target.value)}
-              disabled={loading}
-              placeholder="danmakufactory"
-              aria-label="输入Danmakufactory路径"
-            />
           </div>
         </div>
       </div>
@@ -416,17 +430,17 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         <div className="storage-list">
           <button
             className="storage-list-item storage-list-button"
-            onClick={() => handleClearCache('downloads')}
-            disabled={clearingCache === 'downloads'}
-            aria-label="清理下载文件"
+            onClick={() => handleClearCache('log')}
+            disabled={clearingCache === 'log'}
+            aria-label="清理日志文件"
           >
             <div className="storage-list-icon-wrapper">
               <Trash2 size={18} className="storage-list-icon" />
             </div>
             <div className="storage-list-content">
-              <div className="storage-list-label">清理下载文件</div>
+              <div className="storage-list-label">清理日志文件</div>
               <div className="storage-list-meta">
-                {cacheData.downloads?.size_formatted || '0 B'}
+                {cacheData.log?.size_formatted || '0 B'}
               </div>
             </div>
             <ChevronRight size={16} className="storage-list-chevron" />
@@ -463,6 +477,24 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
               <div className="storage-list-label">清理缓存数据</div>
               <div className="storage-list-meta">
                 {cacheData.database?.size_formatted || '0 B'}
+              </div>
+            </div>
+            <ChevronRight size={16} className="storage-list-chevron" />
+          </button>
+
+          <button
+            className="storage-list-item storage-list-button"
+            onClick={() => handleClearCache('webview')}
+            disabled={clearingCache === 'webview'}
+            aria-label="清理WebView缓存"
+          >
+            <div className="storage-list-icon-wrapper">
+              <Trash2 size={18} className="storage-list-icon" />
+            </div>
+            <div className="storage-list-content">
+              <div className="storage-list-label">清理WebView缓存</div>
+              <div className="storage-list-meta">
+                {cacheData.webview?.size_formatted || '0 B'}
               </div>
             </div>
             <ChevronRight size={16} className="storage-list-chevron" />
@@ -655,6 +687,42 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .storage-list-input-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .storage-list-input-wrapper .storage-list-input {
+          flex: 1;
+        }
+
+        .storage-list-reset-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px;
+          border: 1px solid #E2E8F0;
+          border-radius: 6px;
+          background: #F8FAFC;
+          color: #64748B;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
+        }
+
+        .storage-list-reset-button:hover:not(:disabled) {
+          background: white;
+          border-color: #2563EB;
+          color: #2563EB;
+        }
+
+        .storage-list-reset-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .storage-list-input:focus {

@@ -4,17 +4,19 @@ Settings router for managing system settings
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+import logging
 
 from src.database import get_db
 from src.schemas.settings import (
     Settings,
     SettingResponse,
-    SettingUpdate,
+SettingUpdate,
     SettingsUpdate,
     SettingsExport
 )
 from src.services.settings_service import SettingsService
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -32,6 +34,24 @@ async def get_settings(db: Session = Depends(get_db)):
         return service.get_settings()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get settings: {str(e)}")
+
+
+@router.get("/tool-status")
+async def get_tool_status(db: Session = Depends(get_db)):
+    """
+    Get tool installation status
+    
+    Returns:
+        Tool status information for ffmpeg and aria2c
+    """
+    try:
+        service = SettingsService(db)
+        return {
+            "success": True,
+            "data": service.get_tool_status()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get tool status: {str(e)}")
 
 
 @router.get("/list", response_model=list[SettingResponse])
@@ -352,7 +372,7 @@ def format_size(size_bytes: int) -> str:
 
 
 @router.get("/cache-info")
-async def get_cache_info():
+async def get_cache_info(db: Session = Depends(get_db)):
     """
     Get cache information for different cache types
     
@@ -363,7 +383,7 @@ async def get_cache_info():
         import os
         import platform
         
-        # 定义缓存目录
+        # 定义缓存目录（不包含downloads，因为那是用户下载的文件，不是缓存）
         cache_dirs = {
             "log": "logs",
             "temp": "temp",
@@ -427,12 +447,7 @@ async def clear_cache_by_type(
         
         logger = logging.getLogger(__name__)
         
-        # 从设置中获取下载路径
-        settings_service = SettingsService(db)
-        settings = settings_service.get_settings()
-        downloads_dir = settings.storage.download_path if settings.storage else "./downloads"
-        
-        valid_cache_types = ["log", "temp", "webview", "database", "downloads", "all"]
+        valid_cache_types = ["log", "temp", "webview", "database", "all"]
         
         if cache_type not in valid_cache_types:
             raise HTTPException(
@@ -441,10 +456,10 @@ async def clear_cache_by_type(
             )
         
         if cache_type == "all":
-            # 清理所有缓存
+            # 清理所有缓存（不包含downloads，因为那是用户下载的文件）
             deleted_files = 0
             deleted_size = 0
-            cache_dirs = ["logs", "temp", "webview_cache", "data", downloads_dir]
+            cache_dirs = ["logs", "temp", "webview_cache", "data"]
             
             for cache_dir in cache_dirs:
                 if os.path.exists(cache_dir):
@@ -484,8 +499,7 @@ async def clear_cache_by_type(
             "log": "logs",
             "temp": "temp",
             "webview": "webview_cache",
-            "database": "data",
-            "downloads": downloads_dir
+            "database": "data"
         }
         
         cache_dir = cache_dirs_map[cache_type]
@@ -500,18 +514,6 @@ async def clear_cache_by_type(
                 for filename in filenames
             )
             shutil.rmtree(cache_dir)
-            
-            # 如果清理的是downloads，需要更新数据库
-            if cache_type == "downloads":
-                from src.models.download import Download
-                downloads = db.query(Download).all()
-                for download in downloads:
-                    if download.file_path and not os.path.exists(download.file_path):
-                        download.file_path = None
-                        download.file_size = 0
-                        download.total_bytes = 0
-                        download.downloaded_bytes = 0
-                db.commit()
             
             return {
                 "success": True,

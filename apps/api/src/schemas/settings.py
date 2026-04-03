@@ -70,10 +70,9 @@ class StorageSettings(BaseModel):
     sidecar: Dict[str, str] = Field(
         default={
             "ffmpeg": "ffmpeg",
-            "aria2c": "aria2c",
-            "danmakufactory": "danmakufactory"
+            "aria2c": "aria2c"
         },
-        description="Sidecar tool paths (ffmpeg, aria2c, danmakufactory)"
+        description="Sidecar工具路径（命令名称或绝对路径）"
     )
 
 

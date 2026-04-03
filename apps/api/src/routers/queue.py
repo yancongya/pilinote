@@ -198,22 +198,23 @@ async def _execute_single_task(task_id: str):
         await task_service.prepare()
         print(f"=== task_service.prepare() 完成 ===")
 
-        # 创建临时目录（使用绝对路径）
-        temp_dir = Path("/Users/tanyancong/工作/开发/pilinote/apps/api/temp") / task_id
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        logger.info(f"临时目录: {temp_dir}")
-        print(f"=== 临时目录已创建: {temp_dir} ===")
-
-        # 从设置中获取下载路径
+        # 从设置中获取临时路径和下载路径
         from src.services.settings_service import SettingsService
         db = SessionLocal()
         try:
             settings_service = SettingsService(db)
             settings = settings_service.get_settings()
+            temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
             download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
         finally:
             db.close()
+        
+        # 创建临时目录
+        temp_dir = Path(temp_path) / task_id
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"临时目录: {temp_dir}")
+        print(f"=== 临时目录已创建: {temp_dir} ===")
         
         # 创建输出目录
         output_dir = Path(download_path)
@@ -321,11 +322,12 @@ async def delete_task(task_id: str):
         import shutil
         from src.services.settings_service import SettingsService
         
-        # 从设置中获取下载路径
+        # 从设置中获取临时路径和下载路径
         db = SessionLocal()
         try:
             settings_service = SettingsService(db)
             settings = settings_service.get_settings()
+            temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
             download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
         finally:
             db.close()
@@ -339,7 +341,7 @@ async def delete_task(task_id: str):
             shutil.rmtree(video_folder)
         
         # 删除临时文件夹
-        temp_folder = Path("/Users/tanyancong/工作/开发/pilinote/apps/api/temp") / task_id
+        temp_folder = Path(temp_path) / task_id
         if temp_folder.exists():
             logger.info(f"删除临时文件夹: {temp_folder}")
             shutil.rmtree(temp_folder)
