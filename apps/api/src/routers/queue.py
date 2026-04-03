@@ -205,8 +205,18 @@ async def _execute_single_task(task_id: str):
         logger.info(f"临时目录: {temp_dir}")
         print(f"=== 临时目录已创建: {temp_dir} ===")
 
+        # 从设置中获取下载路径
+        from src.services.settings_service import SettingsService
+        db = SessionLocal()
+        try:
+            settings_service = SettingsService(db)
+            settings = settings_service.get_settings()
+            download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
+        finally:
+            db.close()
+        
         # 创建输出目录
-        output_dir = Path("/Users/tanyancong/工作/开发/pilinote/apps/api/downloads")
+        output_dir = Path(download_path)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"=== 输出目录已创建: {output_dir} ===")
@@ -309,10 +319,20 @@ async def delete_task(task_id: str):
     try:
         from pathlib import Path
         import shutil
+        from src.services.settings_service import SettingsService
+        
+        # 从设置中获取下载路径
+        db = SessionLocal()
+        try:
+            settings_service = SettingsService(db)
+            settings = settings_service.get_settings()
+            download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
+        finally:
+            db.close()
         
         # 删除视频文件夹
         video_title = task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
-        video_folder = Path("/Users/tanyancong/工作/开发/pilinote/apps/api/downloads") / video_title
+        video_folder = Path(download_path) / video_title
         
         if video_folder.exists():
             logger.info(f"删除视频文件夹: {video_folder}")
