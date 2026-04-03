@@ -13,11 +13,6 @@ import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
 
 export default function FavoritesContent() {
-  const [selectedFolder, setSelectedFolder] = useState<any>(null)
-  const [folders, setFolders] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const newQueueStore = useNewQueueStore()
@@ -26,53 +21,42 @@ export default function FavoritesContent() {
     setFoldersCache
   } = useCacheStore()
 
+  // 初始化时从缓存恢复 folders 状态，避免切换 tab 时闪烁
+  const [selectedFolder, setSelectedFolder] = useState<any>(null)
+  const [folders, setFolders] = useState<any[]>(() => {
+    const cached = getFoldersCache()
+    return cached || []
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
   // 下载状态检查函数（只检查新系统）
-  const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
-    const tasks = newQueueStore.tasks
-    const newSystemTasks = Object.values(tasks)
-    const hasInNewQueue = newSystemTasks.some(task => 
-      task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
-    )
-    
-    return hasInNewQueue ? 'in_list' : 'none'
-  }, [newQueueStore.tasks])
-
-  // 监听 newQueueStore.tasks 的变化，触发重新渲染
-  const [, setForceUpdate] = useState(0)
+    const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
+      const tasks = newQueueStore.tasks
+      const newSystemTasks = Object.values(tasks)
+      const hasInNewQueue = newSystemTasks.some(task =>
+        task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
+      )
   
-  useEffect(() => {
-    // 订阅 store 的变化
-    const unsubscribe = useNewQueueStore.subscribe(
-      (state) => {
-        // 当 tasks 变化时，强制组件重新渲染
-        setForceUpdate(prev => prev + 1)
-      }
-    )
-    
-    return unsubscribe
-  }, [])
-
-  // 组件挂载时同步数据（确保缓存一致性）
+      return hasInNewQueue ? 'in_list' : 'none'
+    }, [newQueueStore.tasks])
+  
+    // 监听 newQueueStore.tasks 的变化，触发重新渲染
+    const [, setForceUpdate] = useState(0)
+  
+    useEffect(() => {
+      // 订阅 store 的变化，只在 tasks 变化时重新渲染
+      const unsubscribe = useNewQueueStore.subscribe(
+        (state) => {
+          setForceUpdate(prev => prev + 1)
+        }
+      )
+  
+      return unsubscribe
+    }, [])  // 组件挂载时同步数据
   useEffect(() => {
     const syncData = async () => {
       try {
-        // 检查并清除新系统缓存
-        const cachedData = localStorage.getItem('new-queue-storage')
-        if (cachedData) {
-          try {
-            const parsed = JSON.parse(cachedData)
-            const taskCount = Object.keys(parsed.state?.tasks || {}).length
-            
-            if (taskCount > 0) {
-              localStorage.removeItem('new-queue-storage')
-              window.location.reload()
-              return
-            }
-          } catch (e) {
-            localStorage.removeItem('new-queue-storage')
-          }
-        }
-        
         // 同步最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
@@ -272,6 +256,16 @@ export default function FavoritesContent() {
       const cachedFolders = getFoldersCache()
       if (cachedFolders) {
         setFolders(cachedFolders)
+        // 后台静默刷新
+        try {
+          const response = await apiService.getFolders(user.sessdata, user.mid)
+          if (response.success && response.data) {
+            setFolders(response.data)
+            setFoldersCache(response.data)
+          }
+        } catch (err) {
+          console.error('[Favorites] 后台刷新收藏夹失败:', err)
+        }
         return
       }
 
@@ -282,7 +276,7 @@ export default function FavoritesContent() {
         const response = await apiService.getFolders(user.sessdata, user.mid)
         if (response.success && response.data) {
           setFolders(response.data)
-          setFoldersCache(response.data) // 保存到缓存
+          setFoldersCache(response.data)
         } else {
           setError(response.message || '获取收藏夹列表失败')
         }

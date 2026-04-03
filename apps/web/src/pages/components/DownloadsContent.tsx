@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListCard from './VideoListCard'
 import { useDownloadStore } from '../../stores/download'
@@ -54,6 +54,7 @@ export default function DownloadsContent() {
     directoryCount: 0
   })
   const navigate = useNavigate()
+  const isInitialMount = useRef(true)
 
   // 格式化时长
   const formatDuration = (seconds: number | undefined | null): string => {
@@ -291,8 +292,13 @@ export default function DownloadsContent() {
 
   // 初始加载和viewMode变化时重新获取数据
   useEffect(() => {
-    fetchDownloads(true, true) // 初始加载时更新存储信息并显示 loading
-  }, [viewMode]) // 当viewMode变化时重新获取数据
+    // 首次挂载时不显示 loading（避免切换 tab 闪烁），切换 viewMode 时显示
+    const showLoading = !isInitialMount.current
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+    }
+    fetchDownloads(true, showLoading)
+  }, [viewMode])
 
   // 定期刷新downloads数据，以更新任务状态变化
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useNewQueueStore } from '../../stores/newQueue'
@@ -16,6 +17,7 @@ export default function WatchLaterContent() {
 
   const { user } = useAuthStore()
   const newQueueStore = useNewQueueStore()
+  const navigate = useNavigate()
 
   // 下载状态检查函数（只检查新系统）
   const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
@@ -43,27 +45,10 @@ export default function WatchLaterContent() {
     return unsubscribe
   }, [])
 
-  // 组件挂载时同步数据（确保缓存一致性）
+  // 组件挂载时同步数据
   useEffect(() => {
     const syncData = async () => {
       try {
-        // 检查并清除新系统缓存
-        const cachedData = localStorage.getItem('new-queue-storage')
-        if (cachedData) {
-          try {
-            const parsed = JSON.parse(cachedData)
-            const taskCount = Object.keys(parsed.state?.tasks || {}).length
-            
-            if (taskCount > 0) {
-              localStorage.removeItem('new-queue-storage')
-              window.location.reload()
-              return
-            }
-          } catch (e) {
-            localStorage.removeItem('new-queue-storage')
-          }
-        }
-        
         // 同步最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
@@ -229,7 +214,7 @@ export default function WatchLaterContent() {
 
       alert(`批量下载已添加到队列！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`)
       // 切换到下载页面
-      window.location.href = '/downloads'
+      navigate('/downloads')
 
     } catch (err) {
       console.error('批量下载失败:', err)
