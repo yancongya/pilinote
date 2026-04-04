@@ -102,7 +102,6 @@ export const useNewQueueStore = create<NewQueueState>()(
         const newWs = new WebSocket(wsUrl)
 
         newWs.onopen = () => {
-          console.log('[NewQueue] WebSocket connected')
           set({ connected: true })
         }
 
@@ -186,13 +185,28 @@ forceClearCache: () => {
                   5: 'failed',
                   6: 'cancelled'
                 }
-                // 如果 state 是字符串，直接使用；如果是数字，映射为字符串
+                
+                // 处理不同类型的状态值
                 let stateStr: string
                 if (typeof data.state === 'string') {
-                  stateStr = data.state
+                  // 如果是字符串，检查是否是枚举值（如 'TaskState.ACTIVE'）还是数字字符串（如 '2'）
+                  if (data.state.startsWith('TaskState.')) {
+                    // 枚举值，提取实际状态名
+                    const enumValue = data.state.split('.')[1]?.toLowerCase()
+                    stateStr = enumValue || data.state
+                  } else if (/^\d+$/.test(data.state)) {
+                    // 数字字符串，转换为数字后映射
+                    const stateNum = parseInt(data.state, 10)
+                    stateStr = stateMap[stateNum] || data.state
+                  } else {
+                    // 其他字符串，直接使用
+                    stateStr = data.state
+                  }
                 } else {
-                  stateStr = stateMap[data.state as number] || data.state
+                  // 数字，映射为字符串
+                  stateStr = stateMap[data.state as number] || String(data.state)
                 }
+
                 
                 if (tasks[data.id]) {
                   tasks[data.id] = { ...tasks[data.id], state: stateStr }
@@ -226,18 +240,20 @@ forceClearCache: () => {
             set((state) => {
               const task = state.tasks[data.id]
               if (task) {
+                const updatedTask = { 
+                  ...task, 
+                  status: {
+                    ...task.status,
+                    progress: data.progress,
+                    speed: data.speed,
+                    eta: data.eta
+                  }
+                }
+                console.log('[WebSocket] taskProgress - updated task:', updatedTask)
                 return {
                   tasks: {
                     ...state.tasks,
-                    [data.id]: { 
-                      ...task, 
-                      status: {
-                        ...task.status,
-                        progress: data.progress,
-                        speed: data.speed,
-                        eta: data.eta
-                      }
-                    }
+                    [data.id]: updatedTask
                   }
                 }
               }
@@ -508,6 +524,12 @@ forceClearCache: () => {
         const task = get().tasks[taskId]
         if (!task) return 0
 
+        // 优先使用 status.progress（来自 taskProgress 事件）
+        if (task.status?.progress !== undefined && task.status.progress > 0) {
+          return task.status.progress
+        }
+
+        // 其次使用 subtaskStatus 计算
         let total = 0
         let completed = 0
         for (const status of Object.values(task.subtaskStatus || {})) {
