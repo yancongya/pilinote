@@ -54,8 +54,8 @@ class Task(Base):
     scheduler_id = Column(String(50), nullable=True, index=True)  # 所属调度器ID
 
     # 时间戳
-    created_at = Column(Integer, nullable=False, default=lambda: int(datetime.utcnow().timestamp()))
-    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.utcnow().timestamp()))
+    created_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
+    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
 
     def to_dict(self):
         """转换为字典"""

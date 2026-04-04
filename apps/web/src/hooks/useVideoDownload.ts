@@ -125,7 +125,12 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                       media_type: 'video',
                       media_id: video.bvid,
                       cover: video.pic || video.cover || '',
-                      desc: `CID: ${page.cid}`
+                      desc: `CID: ${page.cid}`,
+                      meta: {
+                        cid: page.cid,
+                        page: page.page,
+                        part_title: page.part
+                      }
                     }
 
                     const response = await apiService.submitTask(taskData)

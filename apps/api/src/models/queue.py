@@ -18,7 +18,7 @@ class Queue(Base):
 
     queue_type = Column(Integer, primary_key=True)  # QueueType (0=BACKLOG, 1=PENDING, 2=DOING, 3=COMPLETE)
     value = Column(JSON, nullable=False, default=lambda: [])  # 任务ID列表（JSON数组）
-    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.utcnow().timestamp()))
+    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
 
     def to_dict(self):
         """转换为字典"""
