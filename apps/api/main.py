@@ -22,6 +22,20 @@ from src.services.cache.video_cache import video_cache
 from src.services.account_refresh_service import get_account_refresh_service
 from src.services.tool_initializer import initialize_tools_on_startup, ToolInitializer
 
+# 配置日志级别
+import os
+# 确保logs目录存在
+os.makedirs('logs', exist_ok=True)
+
+logging.basicConfig(
+    level=logging.DEBUG,  # 设置为 DEBUG 级别
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/app.log', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
 logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)

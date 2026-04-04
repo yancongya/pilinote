@@ -141,6 +141,7 @@ class DownloadEngine:
         progress_callback: Optional[Callable] = None,
         pause_event: Optional[asyncio.Event] = None,
         cid: Optional[int] = None,
+        page_num: Optional[int] = None,
         audio_bitrate: Optional[int] = 192,
         codec: Optional[str] = 'avc',
         download_id: Optional[str] = None
@@ -180,7 +181,7 @@ class DownloadEngine:
         # 构建yt-dlp配置
         ydl_opts = {
             'format': format_str,
-            'outtmpl': str(output_dir / '%(title)s.%(ext)s'),
+            'outtmpl': str(output_dir / '%(title)s-P%(playlist_index)s.%(ext)s'),
             'quiet': False,
             'no_warnings': True,
             'merge_output_format': output_format,
@@ -218,10 +219,10 @@ class DownloadEngine:
         
         logger.info(f"Download parameters: quality={quality}, codec={codec}, audio_bitrate={audio_bitrate}, format={output_format}")
         
-        # 如果指定了cid，只下载特定的分P
-        if cid:
-            ydl_opts['playlist_items'] = str(cid)
-            logger.info(f"Downloading specific part: cid={cid}")
+        # 如果指定了page_num，只下载特定的分P
+        if page_num:
+            ydl_opts['playlist_items'] = str(page_num)
+            logger.info(f"Downloading specific part: page={page_num}, cid={cid}")
         else:
             logger.info(f"Downloading all parts for bvid={bvid}")
         

@@ -85,8 +85,30 @@ class SchedulerService:
                 'subtasks': self._create_subtasks(task, video_info)
             }
 
-            # 保存元数据
-            task.meta = video_info
+            # 保存元数据 - 保留原有的分P信息
+            logger.info(f"[DEBUG] 准备任务 {task.id}，原始meta keys: {list(task.meta.keys()) if task.meta else 'None'}")
+            if task.meta and isinstance(task.meta, dict):
+                # 保存原有的分P信息
+                cid = task.meta.get('cid')
+                page = task.meta.get('page')
+                part_title = task.meta.get('part_title')
+                logger.info(f"[DEBUG] 检测到分P信息: cid={cid}, page={page}, part_title={part_title}")
+
+                # 用 video_info 更新 meta，但保留分P信息
+                task.meta = {**video_info}
+
+                # 恢复分P信息
+                if cid:
+                    task.meta['cid'] = cid
+                if page:
+                    task.meta['page'] = page
+                if part_title:
+                    task.meta['part_title'] = part_title
+
+                logger.info(f"[DEBUG] 合并后meta keys: {list(task.meta.keys())}")
+            else:
+                task.meta = video_info
+                logger.info(f"[DEBUG] meta为空或不是dict，直接使用video_info")
 
         elif task.media_type == "bangumi":
             # 番剧处理
@@ -106,6 +128,7 @@ class SchedulerService:
         # 持久化
         db = SessionLocal()
         try:
+            db.merge(task)  # 合并对象到 session
             db.commit()
         finally:
             db.close()
@@ -219,13 +242,34 @@ class SchedulerService:
                 task.state = TaskState.CANCELLED
                 return
 
-            # 创建临时目录
-            temp_dir = Path("temp") / task.id
-            temp_dir.mkdir(parents=True, exist_ok=True)
+            # 从设置中获取临时路径
+            from src.services.settings_service import SettingsService
+            db = SessionLocal()
+            try:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                temp_base_path = settings.storage.temp_path
+            finally:
+                db.close()
 
-            # 创建输出目录
-            output_dir = Path(self.scheduler.folder)
+            # 创建临时目录
+            temp_dir = Path(temp_base_path) / task.id
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"使用临时路径: {temp_dir}")
+
+            # 创建输出目录（为每个分P创建子目录）
+            base_output_dir = Path(self.scheduler.folder)
+            base_output_dir.mkdir(parents=True, exist_ok=True)
+
+            # 如果任务有分P标题，创建子目录
+            part_title = task.meta.get('part_title') if task.meta else None
+            if part_title:
+                output_dir = base_output_dir / part_title
+            else:
+                output_dir = base_output_dir
+
             output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"输出目录: {output_dir}")
 
             try:
                 # 使用 TaskService 执行任务

@@ -62,6 +62,9 @@ async def get_all_tasks():
 @router.post("/tasks", response_model=ApiResponse)
 async def submit_task(task_create: TaskCreate):
     """Submit task to backlog queue"""
+    print(f"[DEBUG] submit_task called with: {task_create}")
+    print(f"[DEBUG] task_create.meta: {task_create.meta}")
+    logger.info(f"submit_task called with meta: {task_create.meta}")
     try:
         task = await queue_manager.submit_backlog(task_create)
         return ApiResponse(
@@ -332,19 +335,33 @@ async def delete_task(task_id: str):
         finally:
             db.close()
         
-        # 删除视频文件夹
-        video_title = task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
-        video_folder = Path(download_path) / video_title
-        
-        if video_folder.exists():
-            logger.info(f"删除视频文件夹: {video_folder}")
-            shutil.rmtree(video_folder)
-        
         # 删除临时文件夹
         temp_folder = Path(temp_path) / task_id
         if temp_folder.exists():
             logger.info(f"删除临时文件夹: {temp_folder}")
             shutil.rmtree(temp_folder)
+        
+        # 如果任务不属于调度器，删除视频文件夹
+        if not task.scheduler_id:
+            video_title = task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
+            video_folder = Path(download_path) / video_title
+            
+            if video_folder.exists():
+                logger.info(f"删除视频文件夹: {video_folder}")
+                shutil.rmtree(video_folder)
+        else:
+            # 如果任务属于调度器，删除该任务的分P子文件夹
+            # 查找调度器
+            scheduler = await queue_manager.get_scheduler(task.scheduler_id)
+            if scheduler and scheduler.folder:
+                # 获取任务的分P标题
+                part_title = task.meta.get('part_title') if task.meta else None
+                if part_title:
+                    # 删除分P子文件夹
+                    part_folder = Path(scheduler.folder) / part_title
+                    if part_folder.exists():
+                        logger.info(f"删除分P子文件夹: {part_folder}")
+                        shutil.rmtree(part_folder)
             
     except Exception as e:
         logger.error(f"删除本地文件失败: {e}")

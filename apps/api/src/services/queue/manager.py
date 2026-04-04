@@ -143,6 +143,8 @@ class QueueManager:
     async def submit_backlog(self, task_create: TaskCreate) -> TaskResponse:
         """Submit task to backlog queue"""
         logger.info(f"Submitting task to backlog: {task_create.media_id}")
+        print(f"[DEBUG] submit_backlog called with meta: {task_create.meta}")
+        logger.info(f"Task meta: {task_create.meta}")
 
         # 1. Create task
         task = Task(
@@ -151,11 +153,12 @@ class QueueManager:
             title=task_create.title or "",
             cover=task_create.cover or "",
             desc=task_create.desc or "",
-            meta={},
+            meta=task_create.meta or {},  # Use meta from request
             prepare={},
             status={},
             state=TaskState.BACKLOG
         )
+        print(f"[DEBUG] Task created with meta: {task.meta}")
 
         # 2. Persist to database
         db = SessionLocal()
@@ -376,6 +379,39 @@ class QueueManager:
         if not scheduler:
             logger.warning(f"Scheduler {scheduler_id} not found")
             return
+
+        # 0. Delete local files (before removing from database)
+        try:
+            from pathlib import Path
+            import shutil
+            from src.services.settings_service import SettingsService
+            
+            # 从设置中获取临时路径和下载路径
+            db = SessionLocal()
+            try:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
+                download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
+            finally:
+                db.close()
+            
+            # 删除调度器文件夹（整个系列的文件夹）
+            scheduler_folder = Path(scheduler.folder)
+            if scheduler_folder.exists():
+                logger.info(f"删除调度器文件夹: {scheduler_folder}")
+                shutil.rmtree(scheduler_folder)
+            
+            # 删除所有任务的临时文件夹
+            for task_id in scheduler.list:
+                temp_folder = Path(temp_path) / task_id
+                if temp_folder.exists():
+                    logger.info(f"删除临时文件夹: {temp_folder}")
+                    shutil.rmtree(temp_folder)
+                    
+        except Exception as e:
+            logger.error(f"删除本地文件失败: {e}")
+            # 继续删除调度器，即使删除文件失败
 
         # 1. Remove from in-memory schedulers
         del self.schedulers[scheduler_id]

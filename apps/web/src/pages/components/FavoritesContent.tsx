@@ -214,7 +214,19 @@ export default function FavoritesContent() {
 
       // 3. 创建调度器，使用收集到的任务ID
       const folderName = `收藏夹-${selectedFolder.title.replace(/[\/\\:*?"<>|]/g, '_')}`
-      const folderPath = `/Users/tanyancong/工作/开发/pilinote/apps/api/downloads/${folderName}`
+      
+      // Get user settings to use configured download path
+      const { useSettingsStore } = await import('../../stores/settings')
+      const settingsStore = useSettingsStore.getState()
+      
+      // Fetch settings if not already loaded
+      if (!settingsStore.settings) {
+        await settingsStore.fetchSettings()
+      }
+      
+      // Use download path from settings or fallback to default
+      const downloadPath = settingsStore.settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads'
+      const folderPath = `${downloadPath}/${folderName}`
 
       const schedulerResponse = await apiService.createScheduler({
         title: `收藏夹下载: ${selectedFolder.title}`,

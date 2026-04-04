@@ -62,6 +62,7 @@ class TaskCreate(BaseModel):
     title: Optional[str] = None
     cover: Optional[str] = None
     desc: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
 
 
 class TaskUpdate(BaseModel):

@@ -131,8 +131,25 @@ class TaskService:
 
         video_info = result['data']
 
-        # 保存元数据
-        self.task.meta = video_info
+        # 保存元数据 - 合并原有的 meta 信息（包含 cid、page、part_title 等）
+        if self.task.meta and isinstance(self.task.meta, dict):
+            # 保存原有的分P信息
+            cid = self.task.meta.get('cid')
+            page = self.task.meta.get('page')
+            part_title = self.task.meta.get('part_title')
+            
+            # 用 video_info 更新 meta，但保留分P信息
+            self.task.meta = {**video_info}
+            
+            # 恢复分P信息
+            if cid:
+                self.task.meta['cid'] = cid
+            if page:
+                self.task.meta['page'] = page
+            if part_title:
+                self.task.meta['part_title'] = part_title
+        else:
+            self.task.meta = video_info
 
         # 构建准备数据
         self.task.prepare = {
@@ -145,6 +162,7 @@ class TaskService:
         # 持久化
         db = SessionLocal()
         try:
+            db.merge(self.task)  # 合并对象到 session
             db.commit()
         finally:
             db.close()
@@ -235,12 +253,23 @@ class TaskService:
         print(f"=== 进度广播任务已创建 ===")
 
         try:
-            # 创建最终输出目录（按视频标题创建子文件夹）
-            video_title = self.task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
-            final_output_dir = output_dir / video_title
-            final_output_dir.mkdir(parents=True, exist_ok=True)
-            
-            logger.info(f"最终输出目录: {final_output_dir}")
+            # 判断是否通过 scheduler 执行（检查是否有分P信息）
+            is_scheduler_task = (
+                self.task.meta and
+                isinstance(self.task.meta, dict) and
+                ('page' in self.task.meta or 'part_title' in self.task.meta)
+            )
+
+            if is_scheduler_task:
+                # 通过 scheduler 执行的任务，直接使用传入的 output_dir（已经包含了分P子目录）
+                final_output_dir = output_dir
+                logger.info(f"Scheduler任务，直接使用输出目录: {final_output_dir}")
+            else:
+                # 单个任务，创建基于标题的子文件夹
+                video_title = self.task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
+                final_output_dir = output_dir / video_title
+                final_output_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"单个任务，创建标题子目录: {final_output_dir}")
 
             # 检查任务状态
             await self._check_task_status()
@@ -388,15 +417,36 @@ class TaskService:
                     self.task.status['eta'] = eta
                     self.task.updated_at = int(datetime.now().timestamp())
                     logger.info(f"✓ 状态已更新: progress={self.task.status['progress']}%")
+
+                # 调试日志：显示当前任务的meta信息
+                logger.info(f"[DEBUG] 开始下载任务 {self.task.id}")
+                if self.task.meta and isinstance(self.task.meta, dict):
+                    logger.info(f"[DEBUG] 当前meta keys: {list(self.task.meta.keys())}")
+                    logger.info(f"[DEBUG] meta中有cid: {'cid' in self.task.meta}, page: {'page' in self.task.meta}")
+                else:
+                    logger.info(f"[DEBUG] meta为空或不是dict")
+
+                # 获取分P信息（如果有的话）
                 
-                # 下载到临时目录
+                # 获取分P信息（如果有的话）
+                cid = None
+                page_num = None
+                if self.task.meta and isinstance(self.task.meta, dict):
+                    cid = self.task.meta.get('cid')
+                    page_num = self.task.meta.get('page')
+                    if cid or page_num:
+                        logger.info(f"📌 检测到分P信息: cid={cid}, page={page_num}, part_title={self.task.meta.get('part_title')}")
+                
+                # 下载到临时目录（如果是分P，只下载特定分P）
                 await engine.download_video(
                     bvid=self.task.media_id,
                     quality=80,  # 默认1080P
                     output_format='mp4',
                     output_path=str(temp_dir),  # 先下载到临时目录
                     sessdata=sessdata,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback,
+                    cid=cid,  # 传递cid（用于识别）
+                    page_num=page_num  # 传递page序号（用于playlist_items）
                 )
                 
                 logger.info("✓ 媒体文件下载到临时目录完成")
