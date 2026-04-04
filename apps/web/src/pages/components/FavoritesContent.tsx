@@ -35,7 +35,8 @@ export default function FavoritesContent() {
   const tasksSyncedRef = useRef(false)
 
   // 下载状态检查函数（只检查新系统）
-    const getDownloadStatus = useCallback((bvid: string): 'none' | 'in_list' => {
+    // 不使用 useCallback，确保每次渲染时都使用最新的任务状态
+    const getDownloadStatus = (bvid: string): 'none' | 'in_list' => {
       const tasks = newQueueStore.tasks
       const newSystemTasks = Object.values(tasks)
       const hasInNewQueue = newSystemTasks.some(task =>
@@ -43,21 +44,7 @@ export default function FavoritesContent() {
       )
   
       return hasInNewQueue ? 'in_list' : 'none'
-    }, [newQueueStore.tasks])
-  
-    // 监听 newQueueStore.tasks 的变化，触发重新渲染
-    const [, setForceUpdate] = useState(0)
-  
-    useEffect(() => {
-      // 订阅 store 的变化，只在 tasks 变化时重新渲染
-      const unsubscribe = useNewQueueStore.subscribe(
-        (state) => {
-          setForceUpdate(prev => prev + 1)
-        }
-      )
-  
-      return unsubscribe
-    }, [])  // 组件挂载时同步数据（只执行一次）
+    }
   useEffect(() => {
     const syncData = async () => {
       if (tasksSyncedRef.current) return
