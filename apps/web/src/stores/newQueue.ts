@@ -116,7 +116,6 @@ export const useNewQueueStore = create<NewQueueState>()(
 
         newWs.onclose = () => {
           set({ connected: false, ws: null })
-          console.log('[NewQueue] WebSocket disconnected, reconnecting in 3s...')
           setTimeout(() => get().connectWebSocket(), 3000)
         }
 
@@ -249,7 +248,7 @@ forceClearCache: () => {
                     eta: data.eta
                   }
                 }
-                console.log('[WebSocket] taskProgress - updated task:', updatedTask)
+
                 return {
                   tasks: {
                     ...state.tasks,
@@ -512,7 +511,6 @@ forceClearCache: () => {
         
         // 删除重复的任务
         if (duplicateTasks.length > 0) {
-          console.log(`[NewQueue] Found ${duplicateTasks.length} duplicate completed tasks, cleaning up...`)
           await Promise.all(duplicateTasks.map(taskId => get().deleteTask(taskId)))
         }
       },
