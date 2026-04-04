@@ -325,6 +325,10 @@ class TaskService:
             finally:
                 db.close()
 
+            # 广播任务完成状态
+            from src.routers.websocket import broadcast_task_updated
+            broadcast_task_updated(self.task.id, str(TaskState.COMPLETED), cancelled=False)
+
             logger.info(f"✓ 任务 {self.task.id} 执行完成")
 
         except asyncio.CancelledError as e:
@@ -338,6 +342,10 @@ class TaskService:
                 db.commit()
             finally:
                 db.close()
+            
+            # 广播任务取消状态
+            from src.routers.websocket import broadcast_task_updated
+            broadcast_task_updated(self.task.id, str(TaskState.CANCELLED), cancelled=True)
             
             if not self._cancelled:
                 raise  # 只有非主动取消才重新抛出
@@ -356,6 +364,10 @@ class TaskService:
                 db.commit()
             finally:
                 db.close()
+            
+            # 广播任务失败状态
+            from src.routers.websocket import broadcast_task_updated
+            broadcast_task_updated(self.task.id, str(TaskState.FAILED), cancelled=False)
             
             raise
         finally:
