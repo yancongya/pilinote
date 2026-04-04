@@ -50,14 +50,29 @@ export default function FavoritesContent() {
 
   // 下载状态检查函数（只检查新系统）
     // 不使用 useCallback，确保每次渲染时都使用最新的任务状态
-    const getDownloadStatus = (bvid: string): 'none' | 'in_list' => {
+    const getDownloadStatus = (bvid: string): 'none' | 'in_list' | 'downloaded' => {
       const tasks = newQueueStore.tasks
       const newSystemTasks = Object.values(tasks)
-      const hasInNewQueue = newSystemTasks.some(task =>
+      
+      // 检查是否在队列中（未完成的任务）
+      const hasActiveTask = newSystemTasks.some(task =>
         task.media_id === bvid && !['completed', 'cancelled'].includes(task.state)
       )
-  
-      return hasInNewQueue ? 'in_list' : 'none'
+      
+      if (hasActiveTask) {
+        return 'in_list'
+      }
+      
+      // 检查是否已下载完成（已完成的任务）
+      const hasCompletedTask = newSystemTasks.some(task =>
+        task.media_id === bvid && task.state === 'completed'
+      )
+      
+      if (hasCompletedTask) {
+        return 'downloaded'
+      }
+      
+      return 'none'
     }
   useEffect(() => {
     const syncData = async () => {
@@ -65,9 +80,15 @@ export default function FavoritesContent() {
       tasksSyncedRef.current = true
 
       try {
+        // 先清理本地缓存，确保数据一致
+        newQueueStore.forceClearCache()
+        
         // 同步最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
+        
+        // 清理重复的已完成任务
+        await newQueueStore.cleanupDuplicateCompletedTasks()
       } catch (error) {
         console.error('[Favorites] 同步数据失败:', error)
       }
@@ -145,25 +166,38 @@ export default function FavoritesContent() {
   const { toggleDownload: baseToggleDownload } = useVideoDownload(true)
 
   // 包装toggleDownload，确保状态更新
-  const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
-    const result = await baseToggleDownload(video, e)
-    // 根据结果显示AlertModal
-    if (result.success) {
-      setAlertModal({
-        show: true,
-        title: '操作成功',
-        message: result.message,
-        type: 'success'
-      })
-    } else {
-      setAlertModal({
-        show: true,
-        title: '操作失败',
-        message: result.message,
-        type: 'error'
-      })
-    }
-  }, [baseToggleDownload])
+const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
+      const result = await baseToggleDownload(video, e)
+      if (result.success) {
+        // 如果需要跳转到视频库
+        if (result.shouldNavigateToLibrary) {
+          navigate('/downloads', { replace: true })
+          // 延迟显示弹窗，让页面先跳转
+          setTimeout(() => {
+            setAlertModal({
+              show: true,
+              title: '操作成功',
+              message: result.message,
+              type: 'success'
+            })
+          }, 100)
+        } else {
+          setAlertModal({
+            show: true,
+            title: '操作成功',
+            message: result.message,
+            type: 'success'
+          })
+        }
+      } else {
+        setAlertModal({
+          show: true,
+          title: '操作失败',
+          message: result.message,
+          type: 'error'
+        })
+      }
+    }, [baseToggleDownload, navigate])
 
   // 批量下载收藏夹（使用新系统API）
   const batchDownloadFavorite = async () => {

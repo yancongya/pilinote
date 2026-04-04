@@ -69,9 +69,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
    *
    * @param video - 视频信息对象
    * @param e - 鼠标事件（用于阻止事件冒泡）
-   * @returns 操作结果 {success: boolean, message: string}
+   * @returns 操作结果 {success: boolean, message: string, shouldNavigateToLibrary?: boolean}
    */
-  const toggleDownload = useCallback(async (video: VideoInfo, e: React.MouseEvent): Promise<{success: boolean, message: string}> => {
+  const toggleDownload = useCallback(async (video: VideoInfo, e: React.MouseEvent): Promise<{success: boolean, message: string, shouldNavigateToLibrary?: boolean}> => {
     // 阻止事件冒泡，避免触发父元素的事件
     e.stopPropagation()
 
@@ -93,6 +93,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
         
         // 检查是否已经在新系统中（检查未完成的任务）
         const isInNewQueue = existingTask && !['completed', 'cancelled'].includes(existingTask.state)
+        
+        // 检查是否已下载完成
+        const isDownloaded = existingTask && existingTask.state === 'completed'
 
         if (isInNewQueue) {
           // 从新下载系统移除（标记为取消）
@@ -124,6 +127,10 @@ export function useVideoDownload(useNewSystem: boolean = false) {
             resetButton()
             return {success: false, message: '从下载列表移除失败'}
           }
+        } else if (isDownloaded) {
+          // 已下载完成，不允许操作
+          resetButton()
+          return {success: false, message: '视频已下载完成，请到视频库查看'}
         } else {
           // 添加到新下载系统
           try {

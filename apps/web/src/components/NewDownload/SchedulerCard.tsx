@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react'
 import { useNewQueueStore, Scheduler, Task } from '../../stores/newQueue'
 import { Play, Pause, Trash2, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Loader2, X, Film } from 'lucide-react'
+import ConfirmModal from '../ConfirmModal'
 
 interface Props {
   scheduler: Scheduler
@@ -53,6 +54,17 @@ const calculateSchedulerProgress = (scheduler: Scheduler, tasks: Record<string, 
 export default function SchedulerCard({ scheduler }: Props) {
   const { tasks, controlScheduler, deleteScheduler } = useNewQueueStore()
   const [isExpanded, setIsExpanded] = useState(false)
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean
+    title: string
+    message: string
+    onConfirm: () => void
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  })
 
   const progress = useMemo(() => calculateSchedulerProgress(scheduler, tasks), [scheduler, tasks])
   const schedulerTasks = useMemo(() => {
@@ -102,17 +114,21 @@ export default function SchedulerCard({ scheduler }: Props) {
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm('确定要删除这个调度器及其所有任务吗？此操作不可恢复。')) {
-      return
-    }
-    try {
-      await deleteScheduler(scheduler.id)
-    } catch (error) {
-      console.error('Delete failed:', error)
-      const errorMessage = error instanceof Error ? error.message : '删除失败，请重试'
-      alert(errorMessage)
-    }
+  const handleDelete = () => {
+    setConfirmModal({
+      show: true,
+      title: '删除合集',
+      message: '确定要删除这个合集及其所有任务吗？此操作不可恢复。',
+      onConfirm: async () => {
+        try {
+          await deleteScheduler(scheduler.id)
+        } catch (error) {
+          console.error('Delete failed:', error)
+          const errorMessage = error instanceof Error ? error.message : '删除失败，请重试'
+          alert(errorMessage)
+        }
+      }
+    })
   }
   
   return (
@@ -296,6 +312,15 @@ export default function SchedulerCard({ scheduler }: Props) {
           )}
         </div>
       )}
+
+      {/* ConfirmModal */}
+      <ConfirmModal
+        isOpen={confirmModal.show}
+        onClose={() => setConfirmModal({ ...confirmModal, show: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+      />
     </article>
   )
 }

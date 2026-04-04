@@ -36,7 +36,7 @@ interface VideoCardProps {
   pubtime?: number
   pic?: string
   onDownloadToggle?: (video: any, e: React.MouseEvent) => void
-  downloadStatus?: 'none' | 'in_list'
+  downloadStatus?: 'none' | 'in_list' | 'downloaded'
   showDownloadButton?: boolean
   isSeries?: boolean
   onVideoClick?: (video: any) => void
@@ -438,16 +438,31 @@ export default function VideoListCard({
             }
             onDownloadToggle(videoData, e)
           }}
-          aria-label={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载列表'}
-          title={downloadStatus === 'in_list' ? '从下载列表移除' : '添加到下载'}
+          aria-label={
+            downloadStatus === 'in_list' ? '从下载列表移除' :
+            downloadStatus === 'downloaded' ? '重新下载' :
+            '添加到下载列表'
+          }
+          title={
+            downloadStatus === 'in_list' ? '从下载列表移除' :
+            downloadStatus === 'downloaded' ? '重新下载' :
+            '添加到下载'
+          }
           style={{
-            backgroundColor: downloadStatus === 'in_list' ? '#fb7299' : 'white',
-            borderColor: downloadStatus === 'in_list' ? '#fb7299' : '#ddd',
-            color: downloadStatus === 'in_list' ? 'white' : '#999',
+            backgroundColor: downloadStatus === 'in_list' ? '#fb7299' :
+                         downloadStatus === 'downloaded' ? '#22c55e' :
+                         'white',
+            borderColor: downloadStatus === 'in_list' ? '#fb7299' :
+                        downloadStatus === 'downloaded' ? '#22c55e' :
+                        '#ddd',
+            color: downloadStatus === 'in_list' ? 'white' :
+                   downloadStatus === 'downloaded' ? 'white' :
+                   '#999',
             cursor: 'pointer'
           }}
         >
           {downloadStatus === 'in_list' && <Download size={16} />}
+          {downloadStatus === 'downloaded' && <Check size={16} />}
           {downloadStatus === 'none' && <Plus size={16} />}
         </button>
       )}

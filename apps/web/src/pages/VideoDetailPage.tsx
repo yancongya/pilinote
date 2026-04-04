@@ -97,6 +97,10 @@ export default function VideoDetailPage() {
   useEffect(() => {
     const syncData = async () => {
       try {
+        // 先清理本地缓存，确保数据一致
+        newQueueStore.forceClearCache()
+        
+        // 同步最新数据
         await newQueueStore.fetchTasks()
         await newQueueStore.fetchSchedulers()
       } catch (error) {
@@ -262,8 +266,7 @@ export default function VideoDetailPage() {
     }
   }
 
-  // 添加到下载队列
-  const handleAddToDownload = async (e: React.MouseEvent) => {
+const handleAddToDownload = async (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!video) return
     
@@ -272,12 +275,26 @@ export default function VideoDetailPage() {
       const result = await toggleDownload(video, e)
       
       if (result.success) {
-        setAlertModal({
-          show: true,
-          title: '操作成功',
-          message: result.message,
-          type: 'success'
-        })
+        // 如果需要跳转到视频库
+        if (result.shouldNavigateToLibrary) {
+          navigate('/downloads', { replace: true })
+          // 延迟显示弹窗，让页面先跳转
+          setTimeout(() => {
+            setAlertModal({
+              show: true,
+              title: '操作成功',
+              message: result.message,
+              type: 'success'
+            })
+          }, 100)
+        } else {
+          setAlertModal({
+            show: true,
+            title: '操作成功',
+            message: result.message,
+            type: 'success'
+          })
+        }
       } else {
         setAlertModal({
           show: true,
@@ -287,11 +304,11 @@ export default function VideoDetailPage() {
         })
       }
     } catch (error) {
-      console.error('[VideoDetail] 操作失败:', error)
+      console.error('操作失败:', error)
       setAlertModal({
         show: true,
         title: '操作失败',
-        message: '操作失败',
+        message: '添加下载失败',
         type: 'error'
       })
     } finally {

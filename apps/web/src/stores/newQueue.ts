@@ -74,6 +74,7 @@ interface NewQueueState {
   controlTask: (taskId: string, action: string) => Promise<void>
   controlScheduler: (sid: string, action: string) => Promise<void>
   deleteScheduler: (sid: string) => Promise<void>
+  deleteTask: (taskId: string) => Promise<void>
   setActiveTab: (tab: 'downloads' | 'library') => void
   setFilterStatus: (status: TaskState | 'all') => void
   forceClearCache: () => void
@@ -101,8 +102,8 @@ export const useNewQueueStore = create<NewQueueState>()(
         const newWs = new WebSocket(wsUrl)
 
         newWs.onopen = () => {
-          set({ connected: true })
           console.log('[NewQueue] WebSocket connected')
+          set({ connected: true })
         }
 
         newWs.onmessage = (event) => {
@@ -127,13 +128,8 @@ export const useNewQueueStore = create<NewQueueState>()(
         set({ ws: newWs })
       },
 
-      // 强制清理所有本地缓存数据（用于解决持久化缓存不一致问题）
-      forceClearCache: () => {
-        console.log('[NewQueue] Force clearing all local cache')
-        // 清除 persist 存储
+forceClearCache: () => {
         localStorage.removeItem('new-queue-storage')
-        // 重置状态
-        set({ tasks: {}, schedulers: {} })
       },
 
       disconnectWebSocket: () => {
@@ -165,7 +161,7 @@ export const useNewQueueStore = create<NewQueueState>()(
                 const taskWithState = {
                   ...data.task,
                   state: stateMap[data.task.state as number] || data.task.state,
-                  schedulerId: data.task.scheduler_id  // 映射 scheduler_id -> schedulerId
+                  schedulerId: data.task.scheduler_id
                 }
                 tasks[data.task.id] = taskWithState
               }
@@ -305,6 +301,7 @@ export const useNewQueueStore = create<NewQueueState>()(
                 state: stateMap[task.state as number] || task.state,
                 schedulerId: task.scheduler_id  // 映射 scheduler_id -> schedulerId
               }
+              
               tasks[task.id] = taskWithState
             })
             
@@ -450,6 +447,57 @@ export const useNewQueueStore = create<NewQueueState>()(
         } catch (error) {
           console.error('[NewQueue] Failed to delete scheduler:', error)
           throw error
+        }
+      },
+
+      deleteTask: async (taskId) => {
+        try {
+          const response = await fetch(`http://localhost:8000/api/queue/tasks/${taskId}`, {
+            method: 'DELETE',
+          })
+          if (!response.ok) throw new Error('Delete failed')
+          await get().fetchTasks()
+          await get().fetchSchedulers()
+        } catch (error) {
+          console.error('[NewQueue] Failed to delete task:', error)
+          throw error
+        }
+      },
+
+      // 清理重复的已完成任务（同一个media_id有多个completed任务）
+      cleanupDuplicateCompletedTasks: async () => {
+        const tasks = get().tasks
+        const taskList = Object.values(tasks)
+        
+        // 找出所有已完成的任务
+        const completedTasks = taskList.filter(t => t.state === 'completed')
+        
+        // 按media_id分组
+        const groupedByMediaId: Record<string, typeof completedTasks> = {}
+        completedTasks.forEach(task => {
+          const mediaId = task.media_id
+          if (!groupedByMediaId[mediaId]) {
+            groupedByMediaId[mediaId] = []
+          }
+          groupedByMediaId[mediaId].push(task)
+        })
+        
+        // 找出重复的任务（同一个media_id有多个completed任务）
+        const duplicateTasks: string[] = []
+        Object.values(groupedByMediaId).forEach(tasks => {
+          if (tasks.length > 1) {
+            // 保留最新的一个，删除其他的
+            const sortedTasks = tasks.sort((a, b) => b.updated_at - a.updated_at)
+            sortedTasks.slice(1).forEach(task => {
+              duplicateTasks.push(task.id)
+            })
+          }
+        })
+        
+        // 删除重复的任务
+        if (duplicateTasks.length > 0) {
+          console.log(`[NewQueue] Found ${duplicateTasks.length} duplicate completed tasks, cleaning up...`)
+          await Promise.all(duplicateTasks.map(taskId => get().deleteTask(taskId)))
         }
       },
 

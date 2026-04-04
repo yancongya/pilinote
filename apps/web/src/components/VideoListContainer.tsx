@@ -41,7 +41,7 @@ export interface VideoListContainerProps {
   /** 下载切换回调 */
   onDownloadToggle?: (video: Video, e: React.MouseEvent) => void
   /** 获取下载状态 */
-  getDownloadStatus?: (bvid: string) => string
+  getDownloadStatus?: (bvid: string) => 'none' | 'in_list' | 'downloaded'
   /** 额外的头部内容 */
   extraHeader?: ReactNode
   /** 额外的操作按钮 */
