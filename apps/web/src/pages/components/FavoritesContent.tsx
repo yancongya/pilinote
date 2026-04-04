@@ -12,6 +12,7 @@ import { useVideoDownload } from '../../hooks/useVideoDownload'
 import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
 import AlertModal from '../../components/AlertModal'
+import ConfirmModal from '../../components/ConfirmModal'
 
 export default function FavoritesContent() {
   const { user } = useAuthStore()
@@ -35,6 +36,12 @@ export default function FavoritesContent() {
     title: '',
     message: '',
     type: 'success'
+  })
+  const [confirmModal, setConfirmModal] = useState<{ show: boolean; title: string; message: string; onConfirm: () => void }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
   })
 
   // Refs to track if data has been loaded
@@ -138,8 +145,23 @@ export default function FavoritesContent() {
 
   // 包装toggleDownload，确保状态更新
   const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
-    await baseToggleDownload(video, e)
-    // baseToggleDownload 中已经调用了 fetchTasks()，这里不需要再次调用
+    const result = await baseToggleDownload(video, e)
+    // 根据结果显示AlertModal
+    if (result.success) {
+      setAlertModal({
+        show: true,
+        title: '操作成功',
+        message: result.message,
+        type: 'success'
+      })
+    } else {
+      setAlertModal({
+        show: true,
+        title: '操作失败',
+        message: result.message,
+        type: 'error'
+      })
+    }
   }, [baseToggleDownload])
 
   // 批量下载收藏夹（使用新系统API）
@@ -154,10 +176,19 @@ export default function FavoritesContent() {
       return
     }
 
-    if (!confirm(`确定要批量下载收藏夹"${selectedFolder.title}"中的所有视频吗？`)) {
-      return
-    }
+    // 显示确认对话框
+    setConfirmModal({
+      show: true,
+      title: '确认批量下载',
+      message: `确定要批量下载收藏夹"${selectedFolder.title}"中的所有视频吗？`,
+      onConfirm: async () => {
+        await executeBatchDownloadFavorite()
+      }
+    })
+  }
 
+  // 执行批量下载收藏夹的实际逻辑
+  const executeBatchDownloadFavorite = async () => {
     setLoading(true)
     setError('')
 
@@ -447,6 +478,16 @@ export default function FavoritesContent() {
         title={alertModal.title}
         message={alertModal.message}
         type={alertModal.type}
+      />
+
+      {/* ConfirmModal */}
+      <ConfirmModal
+        isOpen={confirmModal.show}
+        onClose={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmVariant="primary"
       />
     </section>
   )

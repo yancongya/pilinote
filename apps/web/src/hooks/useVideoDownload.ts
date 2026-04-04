@@ -69,14 +69,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
    *
    * @param video - 视频信息对象
    * @param e - 鼠标事件（用于阻止事件冒泡）
+   * @returns 操作结果 {success: boolean, message: string}
    */
-  const toggleDownload = useCallback(async (video: VideoInfo, e: React.MouseEvent) => {
+  const toggleDownload = useCallback(async (video: VideoInfo, e: React.MouseEvent): Promise<{success: boolean, message: string}> => {
     // 阻止事件冒泡，避免触发父元素的事件
     e.stopPropagation()
 
     // 防止重复点击
     const button = e.currentTarget as HTMLButtonElement
-    if (button.disabled) return
+    if (button.disabled) return {success: false, message: '操作进行中'}
     button.disabled = true
 
     try {
@@ -87,8 +88,7 @@ export function useVideoDownload(useNewSystem: boolean = false) {
         const existingTask = Object.values(currentTasks).find(t => t.media_id === video.bvid)
         
         // 检查是否已经在新系统中（检查未完成的任务）
-        const isInNewQueue = existingTask && 
-!['completed', 'cancelled'].includes(existingTask.state)
+        const isInNewQueue = existingTask && !['completed', 'cancelled'].includes(existingTask.state)
 
         if (isInNewQueue) {
           // 从新下载系统移除（标记为取消）
@@ -97,11 +97,13 @@ export function useVideoDownload(useNewSystem: boolean = false) {
               await newQueueStore.controlTask(existingTask.id, 'cancelled')
               // 立即刷新任务列表，确保状态更新
               await newQueueStore.fetchTasks()
+              return {success: true, message: '已从下载列表移除'}
             } catch (error) {
               console.error('从下载列表移除失败:', error)
-              alert('从下载列表移除失败')
+              return {success: false, message: '从下载列表移除失败'}
             }
           }
+          return {success: false, message: '任务不存在'}
         } else {
           // 添加到新下载系统
           try {
@@ -175,11 +177,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
                 const schedulerId = schedulerResponse.data.id
 
-                // 显示结果提示（不自动启动，让用户手动点击开始下载）
-                alert(`已添加系列视频到下载队列！\n共 ${addedCount} 个分集\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`)
-                
                 // 立即刷新任务列表，确保状态更新
                 await newQueueStore.fetchTasks()
+                return {success: true, message: `已添加系列视频到下载队列！\n共 ${addedCount} 个分集\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`}
               } else {
                 // 单P视频，使用视频详情API返回的数据（更准确）
                 const taskData = {
@@ -193,16 +193,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                 try {
                   const response = await apiService.submitTask(taskData)
                   if (response.success) {
-                    alert('已添加到下载队列')
-                    
                     // 立即刷新任务列表，确保状态更新
                     await newQueueStore.fetchTasks()
+                    return {success: true, message: '已添加到下载队列'}
                   } else {
-                    alert('添加到下载队列失败: ' + (response.message || '未知错误'))
+                    return {success: false, message: '添加到下载队列失败: ' + (response.message || '未知错误')}
                   }
                 } catch (error) {
                   console.error('添加任务失败:', error)
-                  alert('添加到下载队列失败')
+                  return {success: false, message: '添加到下载队列失败'}
                 }
               }
             } else {
@@ -220,16 +219,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
               try {
                 const response = await apiService.submitTask(taskData)
                 if (response.success) {
-                  alert('已添加到下载队列')
-                  
                   // 立即刷新任务列表，确保状态更新
                   await newQueueStore.fetchTasks()
+                  return {success: true, message: '已添加到下载队列'}
                 } else {
-                  alert('添加到下载队列失败: ' + (response.message || '未知错误'))
+                  return {success: false, message: '添加到下载队列失败: ' + (response.message || '未知错误')}
                 }
               } catch (error) {
                 console.error('添加任务失败:', error)
-                alert('添加到下载队列失败')
+                return {success: false, message: '添加到下载队列失败'}
               }
             }
           } catch (error) {
@@ -247,16 +245,15 @@ export function useVideoDownload(useNewSystem: boolean = false) {
             try {
               const response = await apiService.submitTask(taskData)
               if (response.success) {
-                alert('已添加到下载队列')
-                
                 // 立即刷新任务列表，确保状态更新
                 await newQueueStore.fetchTasks()
+                return {success: true, message: '已添加到下载队列'}
               } else {
-                alert('添加到下载队列失败: ' + (response.message || '未知错误'))
+                return {success: false, message: '添加到下载队列失败: ' + (response.message || '未知错误')}
               }
             } catch (error) {
               console.error('添加任务失败:', error)
-              alert('添加到下载队列失败')
+              return {success: false, message: '添加到下载队列失败'}
             }
           }
         }
@@ -268,7 +265,7 @@ export function useVideoDownload(useNewSystem: boolean = false) {
           // 从下载列表移除
           const success = await downloadStore.removeFromDownloadListByBvid(video.bvid)
           if (!success) {
-            alert('从下载列表移除失败')
+            return {success: false, message: '从下载列表移除失败'}
           }
         } else {
           // 添加到下载列表
@@ -320,9 +317,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
                 // 显示结果提示
                 if (skippedCount > 0) {
-                  alert(`已添加 ${addedCount} 个分集到下载队列，跳过 ${skippedCount} 个已存在的分集`)
+                  return {success: true, message: `已添加 ${addedCount} 个分集到下载队列，跳过 ${skippedCount} 个已存在的分集`}
                 } else {
-                  alert(`已添加 ${addedCount} 个分集到下载队列`)
+                  return {success: true, message: `已添加 ${addedCount} 个分集到下载队列`}
                 }
               } else {
                 // 单P视频，使用视频详情API返回的数据（更准确）
@@ -342,8 +339,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
                 const success = await downloadStore.addToDownloadList(downloadData)
                 if (!success) {
-                  alert('添加到下载列表失败')
+                  return {success: false, message: '添加到下载列表失败'}
                 }
+                return {success: true, message: '已添加到下载队列'}
               }
             } else {
               // 获取视频详情失败，降级为直接添加（使用现有数据）
@@ -363,8 +361,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
               const success = await downloadStore.addToDownloadList(downloadData)
               if (!success) {
-                alert('添加到下载列表失败')
+                return {success: false, message: '添加到下载列表失败'}
               }
+              return {success: true, message: '已添加到下载队列'}
             }
           } catch (error) {
             // 获取视频详情失败，降级为直接添加（使用现有数据）
@@ -386,8 +385,9 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
             const success = await downloadStore.addToDownloadList(downloadData)
             if (!success) {
-              alert('添加到下载列表失败')
+              return {success: false, message: '添加到下载列表失败'}
             }
+            return {success: true, message: '已添加到下载队列'}
           }
         }
       }

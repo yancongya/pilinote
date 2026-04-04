@@ -10,6 +10,7 @@ import { useVideoDownload } from '../../hooks/useVideoDownload'
 import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
 import AlertModal from '../../components/AlertModal'
+import ConfirmModal from '../../components/ConfirmModal'
 
 export default function WatchLaterContent() {
   const [loading, setLoading] = useState(false)
@@ -20,6 +21,12 @@ export default function WatchLaterContent() {
     title: '',
     message: '',
     type: 'success'
+  })
+  const [confirmModal, setConfirmModal] = useState<{ show: boolean; title: string; message: string; onConfirm: () => void }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
   })
 
   const { user } = useAuthStore()
@@ -120,8 +127,23 @@ export default function WatchLaterContent() {
 
   // 包装toggleDownload，确保状态更新
   const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
-    await baseToggleDownload(video, e)
-    // baseToggleDownload 中已经调用了 fetchTasks()，这里不需要再次调用
+    const result = await baseToggleDownload(video, e)
+    // 根据结果显示AlertModal
+    if (result.success) {
+      setAlertModal({
+        show: true,
+        title: '操作成功',
+        message: result.message,
+        type: 'success'
+      })
+    } else {
+      setAlertModal({
+        show: true,
+        title: '操作失败',
+        message: result.message,
+        type: 'error'
+      })
+    }
   }, [baseToggleDownload])
 
   // 更新总数（从响应中获取）
@@ -143,10 +165,19 @@ export default function WatchLaterContent() {
       return
     }
 
-    if (!confirm(`确定要批量下载稍后再看中的所有 ${videos.length} 个视频吗？`)) {
-      return
-    }
+    // 显示确认对话框
+    setConfirmModal({
+      show: true,
+      title: '确认批量下载',
+      message: `确定要批量下载稍后再看中的所有 ${videos.length} 个视频吗？`,
+      onConfirm: async () => {
+        await executeBatchDownload()
+      }
+    })
+  }
 
+  // 执行批量下载的实际逻辑
+  const executeBatchDownload = async () => {
     setLoading(true)
     setError('')
 
@@ -312,6 +343,16 @@ export default function WatchLaterContent() {
         title={alertModal.title}
         message={alertModal.message}
         type={alertModal.type}
+      />
+
+      {/* ConfirmModal */}
+      <ConfirmModal
+        isOpen={confirmModal.show}
+        onClose={() => setConfirmModal({ show: false, title: '', message: '', onConfirm: () => {} })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmVariant="primary"
       />
     </section>
   )
