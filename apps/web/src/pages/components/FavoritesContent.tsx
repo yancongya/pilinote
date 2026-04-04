@@ -11,6 +11,7 @@ import { useBatchDownload } from '../../hooks/useBatchDownload'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
 import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
+import AlertModal from '../../components/AlertModal'
 
 export default function FavoritesContent() {
   const { user } = useAuthStore()
@@ -29,6 +30,12 @@ export default function FavoritesContent() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [alertModal, setAlertModal] = useState<{ show: boolean; title: string; message: string; type: 'success' | 'error' }>({
+    show: false,
+    title: '',
+    message: '',
+    type: 'success'
+  })
 
   // Refs to track if data has been loaded
   const foldersLoadedRef = useRef(false)
@@ -138,7 +145,12 @@ export default function FavoritesContent() {
   // 批量下载收藏夹（使用新系统API）
   const batchDownloadFavorite = async () => {
     if (!selectedFolder || !user?.mid) {
-      alert('无法批量下载：缺少必要信息')
+      setAlertModal({
+        show: true,
+        title: '提示',
+        message: '无法批量下载：缺少必要信息',
+        type: 'error'
+      })
       return
     }
 
@@ -160,7 +172,12 @@ export default function FavoritesContent() {
       const videoList = mediaInfo.list || []
 
       if (videoList.length === 0) {
-        alert('收藏夹中没有视频可下载')
+        setAlertModal({
+          show: true,
+          title: '提示',
+          message: '收藏夹中没有视频可下载',
+          type: 'error'
+        })
         setLoading(false)
         return
       }
@@ -227,14 +244,24 @@ export default function FavoritesContent() {
 
       const schedulerId = schedulerResponse.data.id
 
-      alert(`批量下载已添加到队列！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`)
+      setAlertModal({
+        show: true,
+        title: '添加成功',
+        message: `批量下载已添加到队列！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`,
+        type: 'success'
+      })
       // 切换到下载页面
       navigate('/downloads')
 
     } catch (err) {
       console.error('批量下载失败:', err)
       setError(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
-      alert(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      setAlertModal({
+        show: true,
+        title: '批量下载失败',
+        message: err instanceof Error ? err.message : '未知错误',
+        type: 'error'
+      })
     } finally {
       setLoading(false)
     }
@@ -412,6 +439,15 @@ export default function FavoritesContent() {
           cardClickable={true}
         />
       )}
+
+      {/* AlertModal */}
+      <AlertModal
+        isOpen={alertModal.show}
+        onClose={() => setAlertModal({ show: false, title: '', message: '', type: 'success' })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </section>
   )
 }
