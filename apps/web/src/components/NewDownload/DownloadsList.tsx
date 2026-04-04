@@ -60,7 +60,6 @@ export default function DownloadsList() {
           <option value="active">下载中</option>
           <option value="paused">已暂停</option>
           <option value="failed">失败</option>
-          <option value="completed">已完成</option>
         </select>
 
         {/* 刷新按钮 */}

@@ -90,7 +90,8 @@ export default function FavoritesContent() {
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchFavoriteVideos = useCallback(async (page: number, pageSize: number) => {
     if (!selectedFolder || !user?.sessdata) {
-      return { success: false, message: '缺少必要参数' }
+      // 当 selectedFolder 为 null 时（返回收藏夹列表页），返回空的成功结果
+      return { success: true, data: { list: [], total: 0 } }
     }
     return apiService.getFolderDetail(selectedFolder.id, user.sessdata, page, pageSize)
   }, [selectedFolder?.id, user?.sessdata])

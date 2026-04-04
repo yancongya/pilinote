@@ -1,25 +1,43 @@
 // components/NewDownload/VideoLibrary.tsx
 import { useNewQueueStore } from '../../stores/newQueue'
 import SchedulerCard from './SchedulerCard'
+import TaskCard from './TaskCard'
 import { Inbox as EmptyIcon } from 'lucide-react'
+import { useMemo } from 'react'
 
 export default function VideoLibrary() {
-  const { schedulers, fetchSchedulers, connected } = useNewQueueStore()
+  const { schedulers, tasks, connected } = useNewQueueStore()
   
   const schedulerList = Object.values(schedulers)
+  const taskList = Object.values(tasks)
   
-  // 视频库只显示已完成的调度器
-  const completedSchedulers = schedulerList.filter(s => s.state === 'completed')
-  const hasCompleted = completedSchedulers.length > 0
+  // 使用 useMemo 计算所有已完成的内容
+  const completedItems = useMemo(() => {
+    // 获取所有已完成的调度器ID
+    const completedSchedulerIds = new Set(
+      schedulerList
+        .filter(s => s.state === 'completed')
+        .map(s => s.id)
+    )
+    
+    // 获取已完成的单个任务（不属于任何已完成调度器的已完成任务）
+    const completedTasks = taskList.filter(t => 
+      t.state === 'completed' && 
+      !t.schedulerId && 
+      !completedSchedulerIds.has(t.schedulerId || '')
+    )
+    
+    // 获取已完成的调度器
+    const completedSchedulers = schedulerList.filter(s => s.state === 'completed')
+    
+    // 合并所有已完成的项目
+    return [
+      ...completedTasks.map(task => ({ type: 'task' as const, data: task })),
+      ...completedSchedulers.map(scheduler => ({ type: 'scheduler' as const, data: scheduler }))
+    ]
+  }, [schedulerList, taskList])
   
-  const handleRefresh = async () => {
-    try {
-      await fetchSchedulers()
-    } catch (error) {
-      console.error('Failed to refresh schedulers:', error)
-      alert('刷新失败，请重试')
-    }
-  }
+  const hasCompleted = completedItems.length > 0
   
   if (!connected) {
     return (
@@ -39,7 +57,7 @@ export default function VideoLibrary() {
           <EmptyIcon size={48} color="#94a3b8" />
           <p>暂无已下载的视频</p>
           <p style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px' }}>
-            已下载完成的系列视频将在此显示
+            已下载完成的视频将在此显示
           </p>
         </div>
       </div>
@@ -51,23 +69,18 @@ export default function VideoLibrary() {
       {/* 头部信息 */}
       <div className="library-header">
         <h3>已下载的视频</h3>
-        <span>共 {completedSchedulers.length} 个合集</span>
+        <span>共 {completedItems.length} 个视频</span>
       </div>
       
-      {/* 刷新按钮 */}
-      <button 
-        className="refresh-btn"
-        onClick={handleRefresh}
-        disabled={!connected}
-      >
-        刷新列表
-      </button>
-      
-      {/* 已完成的调度器 */}
+      {/* 已完成的项目列表 */}
       <div className="scheduler-list">
-        {completedSchedulers.map(scheduler => (
-          <SchedulerCard key={scheduler.id} scheduler={scheduler} />
-        ))}
+        {completedItems.map((item, index) => {
+          if (item.type === 'task') {
+            return <TaskCard key={`task-${item.data.id}-${index}`} task={item.data} />
+          } else {
+            return <SchedulerCard key={`scheduler-${item.data.id}-${index}`} scheduler={item.data} />
+          }
+        })}
       </div>
     </div>
   )

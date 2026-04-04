@@ -80,6 +80,10 @@ export function useVideoDownload(useNewSystem: boolean = false) {
     if (button.disabled) return {success: false, message: '操作进行中'}
     button.disabled = true
 
+    const resetButton = () => {
+      button.disabled = false
+    }
+
     try {
       if (useNewSystem) {
         // 使用新的下载系统
@@ -92,18 +96,34 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
         if (isInNewQueue) {
           // 从新下载系统移除（标记为取消）
-          if (existingTask && existingTask.id) {
-            try {
-              await newQueueStore.controlTask(existingTask.id, 'cancelled')
-              // 立即刷新任务列表，确保状态更新
-              await newQueueStore.fetchTasks()
-              return {success: true, message: '已从下载列表移除'}
-            } catch (error) {
-              console.error('从下载列表移除失败:', error)
-              return {success: false, message: '从下载列表移除失败'}
-            }
+          // 找出所有相同 bvid 的任务（系列视频可能有多个分P）
+          const allTasks = Object.values(currentTasks).filter(t => 
+            t.media_id === video.bvid && 
+            !['completed', 'cancelled'].includes(t.state)
+          )
+          
+          if (allTasks.length === 0) {
+            resetButton()
+            return {success: false, message: '任务不存在'}
           }
-          return {success: false, message: '任务不存在'}
+          
+          try {
+            // 取消所有相关任务
+            for (const task of allTasks) {
+              await newQueueStore.controlTask(task.id, 'cancelled')
+            }
+            // 立即刷新任务列表，确保状态更新
+            await newQueueStore.fetchTasks()
+            resetButton()
+            const message = allTasks.length > 1 
+              ? `已从下载列表移除 ${allTasks.length} 个视频` 
+              : '已从下载列表移除'
+            return {success: true, message}
+          } catch (error) {
+            console.error('从下载列表移除失败:', error)
+            resetButton()
+            return {success: false, message: '从下载列表移除失败'}
+          }
         } else {
           // 添加到新下载系统
           try {
@@ -179,7 +199,7 @@ export function useVideoDownload(useNewSystem: boolean = false) {
 
                 // 立即刷新任务列表，确保状态更新
                 await newQueueStore.fetchTasks()
-                return {success: true, message: `已添加系列视频到下载队列！\n共 ${addedCount} 个分集\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`}
+                return {success: true, message: `已添加 ${addedCount} 个视频到下载列表`}
               } else {
                 // 单P视频，使用视频详情API返回的数据（更准确）
                 const taskData = {
@@ -187,7 +207,10 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                   media_type: 'video',
                   media_id: video.bvid,
                   cover: video.pic || video.cover || '',
-                  desc: `CID: ${videoDetailData.cid || pages[0]?.cid}`
+                  desc: `CID: ${videoDetailData.cid || pages[0]?.cid}`,
+                  meta: {
+                    cid: videoDetailData.cid || pages[0]?.cid
+                  }
                 }
 
                 try {
@@ -213,7 +236,8 @@ export function useVideoDownload(useNewSystem: boolean = false) {
                 media_type: 'video',
                 media_id: video.bvid,
                 cover: video.pic || video.cover || '',
-                desc: video.cid || video.aid ? `CID: ${video.cid || video.aid}` : ''
+                desc: video.cid || video.aid ? `CID: ${video.cid || video.aid}` : '',
+                meta: video.cid ? { cid: video.cid } : undefined
               }
 
               try {
@@ -239,7 +263,8 @@ export function useVideoDownload(useNewSystem: boolean = false) {
               media_type: 'video',
               media_id: video.bvid,
               cover: video.pic || video.cover || '',
-              desc: video.cid || video.aid ? `CID: ${video.cid || video.aid}` : ''
+              desc: video.cid || video.aid ? `CID: ${video.cid || video.aid}` : '',
+              meta: video.cid ? { cid: video.cid } : undefined
             }
 
             try {

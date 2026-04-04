@@ -46,7 +46,7 @@ export default function AlertModal({
           color: color.text,
         }}
       >
-        <p className="alert-modal-message">{message}</p>
+        <p className="alert-modal-message" dangerouslySetInnerHTML={{ __html: message.replace(/\n/g, '<br/>') }}></p>
       </div>
 
       <style>{`
@@ -58,7 +58,7 @@ export default function AlertModal({
         .alert-modal-message {
           margin: 0;
           font-size: 14px;
-          line-height: 1.6;
+          line-height: 1.8;
         }
 
         .alert-modal-btn {

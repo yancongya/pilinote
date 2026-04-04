@@ -473,8 +473,11 @@ export const useNewQueueStore = create<NewQueueState>()(
         const { tasks, filterStatus } = get()
         const taskList = Object.values(tasks)
 
-        if (filterStatus === 'all') return taskList
-        return taskList.filter(t => t.state === filterStatus)
+        // 默认不显示已完成的任务（已完成的任务在视频库显示）
+        const activeTaskList = taskList.filter(t => t.state !== 'completed')
+
+        if (filterStatus === 'all') return activeTaskList
+        return activeTaskList.filter(t => t.state === filterStatus)
       },
     }),
     {
