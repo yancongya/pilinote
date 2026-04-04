@@ -1,5 +1,5 @@
 // components/NewDownload/TaskCard.tsx
-import { useNewQueueStore, Task } from '../../stores/newQueue'
+import { useNewQueueStore, Task, DownloadStage } from '../../stores/newQueue'
 import { Play, Pause, Trash2, RefreshCw, Film } from 'lucide-react'
 
 interface Props {
@@ -27,6 +27,24 @@ const formatETA = (seconds: number): string => {
   if (seconds < 60) return `${Math.floor(seconds)}秒`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`
   return `${Math.floor(seconds / 3600)}小时${Math.floor((seconds % 3600) / 60)}分`
+}
+
+// 格式化下载速度
+const formatSpeed = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '--'
+  return formatFileSize(bytes) + '/s'
+}
+
+// 获取阶段显示文本
+const getStageText = (stage: DownloadStage): string => {
+  const stageMap: Record<DownloadStage, string> = {
+    'preparing': '准备中',
+    'downloading': '下载视频',
+    'moving': '移动文件',
+    'post_processing': '后处理中',
+    'completed': '已完成'
+  }
+  return stageMap[stage] || stage
 }
 
 export default function TaskCard({ task }: Props) {
@@ -57,8 +75,29 @@ export default function TaskCard({ task }: Props) {
     }
   }
 
+  // 计算文件大小信息（从元数据或状态中获取）
+  const getFileSizeInfo = () => {
+    if (task.state === 'active' && task.status.total > 0) {
+      return {
+        total: formatFileSize(task.status.total),
+        video: formatFileSize(task.status.downloaded),
+        metadata: null
+      }
+    }
+    if (task.meta?.totalSize || task.meta?.videoSize || task.meta?.metadataSize) {
+      return {
+        total: task.meta.totalSize ? formatFileSize(task.meta.totalSize) : null,
+        video: task.meta.videoSize ? formatFileSize(task.meta.videoSize) : null,
+        metadata: task.meta.metadataSize ? formatFileSize(task.meta.metadataSize) : null
+      }
+    }
+    return null
+  }
+
+  const fileSizeInfo = getFileSizeInfo()
+
   return (
-    <article 
+    <article
       className="video-card"
       style={{
         borderLeft: `4px solid ${status.color}`,
@@ -73,9 +112,9 @@ export default function TaskCard({ task }: Props) {
               <Film size={40} color="#42a5f5" />
             </div>
           ) : (
-            <img 
-              src={coverUrl} 
-              alt={task.title} 
+            <img
+              src={coverUrl}
+              alt={task.title}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
@@ -91,7 +130,7 @@ export default function TaskCard({ task }: Props) {
             <div className="video-progress-overlay">
               <div
                 className="video-progress-bar"
-                style={{ 
+                style={{
                   width: `${progress}%`,
                   backgroundColor: status.color
                 }}
@@ -110,17 +149,32 @@ export default function TaskCard({ task }: Props) {
       {/* 信息区域 */}
       <div className="video-card-info">
         <h3>{task.title}</h3>
-        
-        {/* 下载进度显示 */}
-        {task.state === 'active' && progress > 0 && (
+
+        {/* 下载进度显示（仅在下载中时显示） */}
+        {task.state === 'active' && (progress > 0 || task.status.stage) && (
           <div className="video-download-progress">
-            <div className="progress-text">
-              下载中: {progress.toFixed(1)}%
+            <div className="download-details">
+              <span className="detail-item">
+                {task.status.stage ? `${getStageText(task.status.stage)}` : '下载中'}
+              </span>
+              {task.status.downloaded > 0 && task.status.total > 0 && (
+                <span className="detail-item">
+                  {formatFileSize(task.status.downloaded)} / {formatFileSize(task.status.total)}
+                </span>
+              )}
+              <span className="detail-item">
+                {progress.toFixed(1)}%
+              </span>
+              {task.status.speed > 0 && (
+                <span className="detail-item">
+                  {formatSpeed(task.status.speed)}
+                </span>
+              )}
             </div>
             <div className="progress-bar-container">
               <div
                 className="progress-bar-fill"
-                style={{ 
+                style={{
                   width: `${progress}%`,
                   backgroundColor: status.color
                 }}
@@ -129,42 +183,41 @@ export default function TaskCard({ task }: Props) {
           </div>
         )}
 
-        {/* 元数据 */}
+        {/* 元数据区域 */}
         <div className="video-card-meta">
-          {/* 状态标签 */}
-          <span 
-            className="video-card-progress-text"
-            style={{ color: status.color }}
-          >
-            {status.label}
-          </span>
-          
-          {/* 进度百分比 */}
-          {progress > 0 && (
-            <span className="video-card-progress-text">
-              {progress.toFixed(1)}%
+          {/* 状态标签（仅在非完成状态时显示） */}
+          {task.state !== 'completed' && (
+            <span
+              className="video-card-progress-text"
+              style={{ color: status.color }}
+            >
+              {status.label}
             </span>
           )}
 
-          {/* 文件大小 */}
-          {task.meta?.fileSize && (
+          {/* 文件大小（仅在非下载状态或下载完成时显示） */}
+          {fileSizeInfo && task.state !== 'active' && (
             <span className="video-card-file-size">
-              {formatFileSize(task.meta.fileSize)}
+              {fileSizeInfo.total && (
+                <>
+                  {fileSizeInfo.total}
+                  {fileSizeInfo.video && fileSizeInfo.metadata && ' | '}
+                  {fileSizeInfo.video && `视频: ${fileSizeInfo.video}`}
+                  {fileSizeInfo.metadata && ` | 元数据: ${fileSizeInfo.metadata}`}
+                </>
+              )}
+              {!fileSizeInfo.total && fileSizeInfo.video && `视频: ${fileSizeInfo.video}`}
             </span>
           )}
 
-          {/* ETA */}
-          {task.meta?.eta && task.state === 'active' && (
-            <span className="video-card-eta">
-              剩余{formatETA(task.meta.eta)}
-            </span>
-          )}
+          {/* 分隔符 */}
+          <span className="video-card-divider">·</span>
 
           {/* 操作按钮 */}
           <div className="video-card-actions-inline">
             {task.state === 'backlog' && (
               <>
-                <button 
+                <button
                   className="action-icon-btn start-icon-btn"
                   onClick={() => handleControl('active')}
                   title="开始下载"
@@ -172,7 +225,7 @@ export default function TaskCard({ task }: Props) {
                 >
                   <Play size={14} fill="currentColor" />
                 </button>
-                <button 
+                <button
                   className="action-icon-btn delete-icon-btn"
                   onClick={() => handleControl('cancelled')}
                   title="删除"
@@ -182,9 +235,9 @@ export default function TaskCard({ task }: Props) {
                 </button>
               </>
             )}
-            
+
             {task.state === 'active' && (
-              <button 
+              <button
                 className="action-icon-btn pause-icon-btn"
                 onClick={() => handleControl('paused')}
                 title="暂停"
@@ -193,10 +246,10 @@ export default function TaskCard({ task }: Props) {
                 <Pause size={14} />
               </button>
             )}
-            
+
             {task.state === 'paused' && (
               <>
-                <button 
+                <button
                   className="action-icon-btn start-icon-btn"
                   onClick={() => handleControl('active')}
                   title="继续"
@@ -204,7 +257,7 @@ export default function TaskCard({ task }: Props) {
                 >
                   <Play size={14} fill="currentColor" />
                 </button>
-                <button 
+                <button
                   className="action-icon-btn delete-icon-btn"
                   onClick={() => handleControl('cancelled')}
                   title="删除"
@@ -214,10 +267,10 @@ export default function TaskCard({ task }: Props) {
                 </button>
               </>
             )}
-            
+
             {task.state === 'failed' && (
               <>
-                <button 
+                <button
                   className="action-icon-btn start-icon-btn"
                   onClick={() => handleControl('backlog')}
                   title="重试"
@@ -225,7 +278,7 @@ export default function TaskCard({ task }: Props) {
                 >
                   <RefreshCw size={14} />
                 </button>
-                <button 
+                <button
                   className="action-icon-btn delete-icon-btn"
                   onClick={() => handleControl('cancelled')}
                   title="删除"
@@ -235,10 +288,10 @@ export default function TaskCard({ task }: Props) {
                 </button>
               </>
             )}
-            
+
             {task.state === 'completed' && (
               <>
-                <button 
+                <button
                   className="action-icon-btn start-icon-btn"
                   onClick={() => handleControl('backlog')}
                   title="重新下载"
@@ -246,7 +299,7 @@ export default function TaskCard({ task }: Props) {
                 >
                   <RefreshCw size={14} />
                 </button>
-                <button 
+                <button
                   className="action-icon-btn delete-icon-btn"
                   onClick={() => handleControl('cancelled')}
                   title="删除"

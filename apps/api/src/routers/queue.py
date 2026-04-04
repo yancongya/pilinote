@@ -104,6 +104,104 @@ async def get_task(task_id: str):
     )
 
 
+@router.get("/tasks/{task_id}/file-size", response_model=ApiResponse)
+async def get_task_file_size(task_id: str):
+    """获取任务的实时文件大小信息（总大小｜视频大小｜元数据大小）"""
+    from pathlib import Path
+    from src.services.settings_service import SettingsService
+
+    try:
+        logger.info(f"获取任务文件大小: task_id={task_id}")
+
+        # 获取任务
+        task = await queue_manager.get_task(task_id)
+        if not task:
+            logger.warning(f"任务不存在: task_id={task_id}")
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        logger.info(f"任务信息: title={task.title}, scheduler_id={task.scheduler_id}")
+
+        # 获取设置
+        db = SessionLocal()
+        try:
+            settings_service = SettingsService(db)
+            settings = settings_service.get_settings()
+            download_path = Path(settings.storage.download_path)
+            logger.info(f"下载路径: {download_path}")
+        finally:
+            db.close()
+
+        # 构建任务输出目录
+        if task.scheduler_id:
+            # 合集任务：{download_path}/{scheduler_title}/{video_title}
+            try:
+                scheduler = await queue_manager.get_scheduler(task.scheduler_id)
+                if scheduler:
+                    output_dir = download_path / scheduler.title / task.title
+                    logger.info(f"合集任务输出目录: {output_dir}")
+                else:
+                    output_dir = download_path / task.title
+                    logger.info(f"调度器不存在，使用默认路径: {output_dir}")
+            except Exception as e:
+                logger.warning(f"获取调度器失败: {e}，使用默认路径")
+                output_dir = download_path / task.title
+        else:
+            # 单个任务：{download_path}/{video_title}
+            output_dir = download_path / task.title
+            logger.info(f"单个任务输出目录: {output_dir}")
+
+        # 统计文件大小
+        video_size = 0
+        metadata_size = 0
+        total_size = 0
+
+        if output_dir.exists():
+            logger.info(f"目录存在，开始统计文件")
+            for file_path in output_dir.rglob('*'):
+                if file_path.is_file():
+                    file_size = file_path.stat().st_size
+                    # 判断是否为视频文件
+                    if file_path.suffix in ['.mp4', '.mkv', '.flv', '.webm']:
+                        video_size += file_size
+                    else:
+                        # 元数据文件（封面、头像、字幕、NFO 等）
+                        metadata_size += file_size
+            total_size = video_size + metadata_size
+            logger.info(f"文件统计完成: video_size={video_size}, metadata_size={metadata_size}, total_size={total_size}")
+        else:
+            logger.warning(f"目录不存在: {output_dir}")
+
+        # 更新数据库中的 meta 信息（缓存）
+        db = SessionLocal()
+        try:
+            db_task = db.query(Task).filter(Task.id == task_id).first()
+            if db_task:
+                db_task.meta['videoSize'] = video_size
+                db_task.meta['metadataSize'] = metadata_size
+                db_task.meta['totalSize'] = total_size
+                db.commit()
+                logger.info(f"数据库已更新")
+            else:
+                logger.warning(f"数据库中找不到任务: task_id={task_id}")
+        finally:
+            db.close()
+
+        # 返回文件大小信息
+        return ApiResponse(
+            success=True,
+            data={
+                'videoSize': video_size,
+                'metadataSize': metadata_size,
+                'totalSize': total_size
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get task file size: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.put("/tasks/{task_id}", response_model=ApiResponse)
 async def update_task(task_id: str, task_update: TaskUpdate):
     """Update task"""

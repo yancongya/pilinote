@@ -14,6 +14,15 @@ const getProxyImageUrl = (url: string | null | undefined): string => {
   return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
 }
 
+// 格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
+
 // 格式化时间戳
 const formatTimestamp = (timestamp: number): string => {
   const date = new Date(timestamp * 1000)
@@ -29,11 +38,11 @@ const formatTimestamp = (timestamp: number): string => {
 // 计算调度器进度
 const calculateSchedulerProgress = (scheduler: Scheduler, tasks: Record<string, Task>): number => {
   if (!scheduler.list || scheduler.list.length === 0) return 0
-  
+
   const taskIds = scheduler.list
   let totalProgress = 0
   let completedCount = 0
-  
+
   taskIds.forEach(taskId => {
     const task = tasks[taskId]
     if (task) {
@@ -47,8 +56,74 @@ const calculateSchedulerProgress = (scheduler: Scheduler, tasks: Record<string, 
       }
     }
   })
-  
+
   return Math.round(totalProgress / taskIds.length)
+}
+
+// 计算合集总大小
+const calculateSchedulerTotalSize = (scheduler: Scheduler, tasks: Record<string, Task>): number => {
+  if (!scheduler.list || scheduler.list.length === 0) return 0
+
+  const taskIds = scheduler.list
+  let totalSize = 0
+
+  taskIds.forEach(taskId => {
+    const task = tasks[taskId]
+    if (task && task.state === 'completed') {
+      // 从 meta.totalSize 获取已完成任务的总大小
+      if (task.meta?.totalSize) {
+        totalSize += task.meta.totalSize
+      }
+      // 或者从 meta.fileSize 获取（兼容旧数据）
+      else if (task.meta?.fileSize) {
+        totalSize += task.meta.fileSize
+      }
+      // 或者从 status.total 获取
+      else if (task.status?.total) {
+        totalSize += task.status.total
+      }
+    }
+  })
+
+  return totalSize
+}
+
+// 计算合集视频总大小
+const calculateSchedulerVideoSize = (scheduler: Scheduler, tasks: Record<string, Task>): number => {
+  if (!scheduler.list || scheduler.list.length === 0) return 0
+
+  const taskIds = scheduler.list
+  let videoSize = 0
+
+  taskIds.forEach(taskId => {
+    const task = tasks[taskId]
+    if (task && task.state === 'completed') {
+      if (task.meta?.videoSize) {
+        videoSize += task.meta.videoSize
+      }
+    }
+  })
+
+  return videoSize
+}
+
+// 计算合集元数据总大小
+const calculateSchedulerMetadataSize = (scheduler: Scheduler, tasks: Record<string, Task>): number => {
+  if (!scheduler.list || scheduler.list.length === 0) return 0
+
+  const taskIds = scheduler.list
+  let metadataSize = 0
+
+  taskIds.forEach(taskId => {
+    const task = tasks[taskId]
+    if (task && task.state === 'completed') {
+      if (task.meta?.metadataSize) {
+        metadataSize += task.meta.metadataSize
+      }
+    }
+  })
+
+  return metadataSize
 }
 
 export default function SchedulerCard({ scheduler }: Props) {
@@ -67,6 +142,9 @@ export default function SchedulerCard({ scheduler }: Props) {
   })
 
   const progress = useMemo(() => calculateSchedulerProgress(scheduler, tasks), [scheduler, tasks])
+  const totalSize = useMemo(() => calculateSchedulerTotalSize(scheduler, tasks), [scheduler, tasks])
+  const videoSize = useMemo(() => calculateSchedulerVideoSize(scheduler, tasks), [scheduler, tasks])
+  const metadataSize = useMemo(() => calculateSchedulerMetadataSize(scheduler, tasks), [scheduler, tasks])
   const schedulerTasks = useMemo(() => {
     return scheduler.list
       .map(taskId => tasks[taskId])
@@ -78,7 +156,7 @@ export default function SchedulerCard({ scheduler }: Props) {
     const taskWithCover = schedulerTasks.find(t => t.cover && t.cover.trim())
     return taskWithCover ? getProxyImageUrl(taskWithCover.cover) : ''
   }, [schedulerTasks])
-  
+
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     'idle': { label: '待处理', color: '#f59e0b', icon: Clock },
     'running': { label: '执行中', color: '#10b981', icon: Loader2 },
@@ -100,7 +178,7 @@ export default function SchedulerCard({ scheduler }: Props) {
 
   const status = statusConfig[scheduler.state] || { label: '未知', color: '#6b7280', icon: Clock }
   const StatusIcon = status.icon
-  
+
   const completedCount = schedulerTasks.filter(t => t.state === 'completed').length
   const totalCount = schedulerTasks.length
   
@@ -177,13 +255,24 @@ export default function SchedulerCard({ scheduler }: Props) {
           <div className="scheduler-title">
             <h3>{scheduler.title}</h3>
             <div className="scheduler-meta">
-              <span className="status-badge" style={{ backgroundColor: `${status.color}20`, color: status.color }}>
-                <StatusIcon size={12} />
-                {status.label}
-              </span>
+              {/* 状态标签（仅在非完成状态时显示） */}
+              {scheduler.state !== 'completed' && (
+                <span className="status-badge" style={{ backgroundColor: `${status.color}20`, color: status.color }}>
+                  <StatusIcon size={12} />
+                  {status.label}
+                </span>
+              )}
               <span className="task-count">
-                {completedCount}/{totalCount} 任务
+                {completedCount}/{totalCount} 视频
               </span>
+              {(totalSize > 0 || videoSize > 0 || metadataSize > 0) && (
+                <span className="task-count">
+                  {totalSize > 0 && formatFileSize(totalSize)}
+                  {videoSize > 0 && metadataSize > 0 && ' | '}
+                  {videoSize > 0 && `视频: ${formatFileSize(videoSize)}`}
+                  {metadataSize > 0 && ` | 元数据: ${formatFileSize(metadataSize)}`}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -291,9 +380,25 @@ export default function SchedulerCard({ scheduler }: Props) {
 
                   <div className="task-info">
                     <span className="task-title">{task.title}</span>
-                    <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || '#6b7280' }}>
-                      {taskStatusConfig[task.state]?.label || task.state}
-                    </span>
+                    <div className="task-meta">
+                      {/* 状态标签（仅在非完成状态时显示） */}
+                      {task.state !== 'completed' && (
+                        <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || '#6b7280' }}>
+                          {taskStatusConfig[task.state]?.label || task.state}
+                        </span>
+                      )}
+                      {task.state === 'completed' && (task.meta?.totalSize || task.meta?.videoSize || task.meta?.metadataSize) && (
+                        <>
+                          <span className="task-divider">·</span>
+                          <span className="task-size">
+                            {task.meta.totalSize && formatFileSize(task.meta.totalSize)}
+                            {task.meta.videoSize && task.meta.metadataSize && ' | '}
+                            {task.meta.videoSize && `视频: ${formatFileSize(task.meta.videoSize)}`}
+                            {task.meta.metadataSize && ` | 元数据: ${formatFileSize(task.meta.metadataSize)}`}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   {task.state === 'active' && task.status?.progress !== undefined && (
                     <div className="task-progress">

@@ -405,8 +405,9 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
+  justify-content: space-between;
 }
 
 .video-card-info h3 {
@@ -446,6 +447,11 @@
 .video-card-eta {
   font-size: 12px;
   color: #666;
+}
+
+.video-card-divider {
+  color: #e2e8f0;
+  margin: 0 4px;
 }
 
 .video-download-progress {
@@ -1049,10 +1055,25 @@
   white-space: nowrap;
 }
 
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
 .task-state {
   font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
+}
+
+.task-divider {
+  color: #e2e8f0;
+}
+
+.task-size {
+  color: #64748b;
 }
 
 .task-progress {
@@ -1144,9 +1165,16 @@
   margin: 0;
 }
 
-.library-header span {
+.library-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 14px;
   color: #64748b;
+}
+
+.stats-divider {
+  color: #e2e8f0;
 }
 
 .refresh-btn {
@@ -1216,4 +1244,47 @@
   color: #64748b;
   margin: 0 0 12px 0;
   padding: 0 4px;
+}
+
+/* ==========================================
+   Download Progress Details Styles
+   ========================================== */
+
+.video-download-progress {
+  padding: 6px 0;
+}
+
+.download-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.detail-item:first-child {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.progress-bar-container {
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
 }

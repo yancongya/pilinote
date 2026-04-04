@@ -4,6 +4,16 @@ import { persist } from 'zustand/middleware'
 // 类型定义
 export type TaskState = 'backlog' | 'pending' | 'active' | 'completed' | 'paused' | 'failed' | 'cancelled'
 export type SchedulerState = 'idle' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'
+export type DownloadStage = 'preparing' | 'downloading' | 'moving' | 'post_processing' | 'completed'
+
+export interface TaskStatus {
+  progress: number
+  speed: number
+  eta: number
+  stage: DownloadStage
+  downloaded: number
+  total: number
+}
 
 export interface Task {
   id: string
@@ -19,7 +29,7 @@ export interface Task {
   media_id: string
   schedulerId?: string
   state: TaskState
-  status: Record<string, any>
+  status: TaskStatus
   meta: Record<string, any>
   prepare: Record<string, any>
   subtasks: SubTask[]
@@ -184,7 +194,7 @@ forceClearCache: () => {
                   5: 'failed',
                   6: 'cancelled'
                 }
-                
+
                 // 处理不同类型的状态值
                 let stateStr: string
                 if (typeof data.state === 'string') {
@@ -206,7 +216,7 @@ forceClearCache: () => {
                   stateStr = stateMap[data.state as number] || String(data.state)
                 }
 
-                
+
                 if (tasks[data.id]) {
                   tasks[data.id] = { ...tasks[data.id], state: stateStr }
                 }
@@ -239,13 +249,16 @@ forceClearCache: () => {
             set((state) => {
               const task = state.tasks[data.id]
               if (task) {
-                const updatedTask = { 
-                  ...task, 
+                const updatedTask = {
+                  ...task,
                   status: {
                     ...task.status,
                     progress: data.progress,
                     speed: data.speed,
-                    eta: data.eta
+                    eta: data.eta,
+                    stage: data.stage || (task.status as TaskStatus).stage,
+                    downloaded: data.downloaded || (task.status as TaskStatus).downloaded,
+                    total: data.total || (task.status as TaskStatus).total
                   }
                 }
 

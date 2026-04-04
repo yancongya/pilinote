@@ -113,28 +113,31 @@ def broadcast_task_updated(task_id: str, state: str, cancelled: bool = False):
     }))
 
 
-def broadcast_task_progress(task_id: str, progress: float, speed: float = 0.0, eta: float = 0.0):
-    """广播任务进度更新（进度百分比、速度、ETA）"""
+def broadcast_task_progress(task_id: str, progress: float, speed: float = 0.0, eta: float = 0.0, stage: str = "", downloaded: int = 0, total: int = 0):
+    """广播任务进度更新（进度百分比、速度、ETA、阶段、已下载、总大小）"""
     import asyncio
-    
+
     message = {
         "type": "taskProgress",
         "id": task_id,
         "progress": progress,
         "speed": speed,
-        "eta": eta
+        "eta": eta,
+        "stage": stage,
+        "downloaded": downloaded,
+        "total": total
     }
-    
-    logger.info(f"📤 broadcast_task_progress: task_id={task_id}, progress={progress}%, speed={speed/1024/1024:.2f}MB/s, eta={eta}秒")
+
+    logger.info(f"📤 broadcast_task_progress: task_id={task_id}, progress={progress}%, speed={speed/1024/1024:.2f}MB/s, eta={eta}秒, stage={stage}, downloaded={downloaded/1024/1024:.2f}MB, total={total/1024/1024:.2f}MB")
     logger.info(f"📤 消息内容: {message}")
     logger.info(f"📤 当前连接数: {len(manager.active_connections)}")
-    
+
     # 创建异步任务来广播
     async def _broadcast():
         logger.info(f"📤 开始广播消息...")
         await manager.broadcast(message)
         logger.info(f"✓ 消息广播完成")
-    
+
     # 在事件循环中调度任务
     try:
         loop = asyncio.get_event_loop()

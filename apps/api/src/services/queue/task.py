@@ -46,17 +46,23 @@ class TaskService:
                 progress = task.status.get('progress', 0)
                 speed = task.status.get('speed', 0)
                 eta = task.status.get('eta', 0)
+                stage = task.status.get('stage', '')
+                downloaded = task.status.get('downloaded', 0)
+                total = task.status.get('total', 0)
 
-                print(f"=== 进度广播器循环: progress={progress}%, speed={speed}KB/s, eta={eta}s ===")
+                print(f"=== 进度广播器循环: progress={progress}%, speed={speed}KB/s, eta={eta}s, stage={stage} ===")
 
-                if progress > 0:
-                    logger.info(f"📤 推送进度: {progress}%, 速度: {speed/1024/1024:.2f}MB/s, ETA: {eta}秒")
-                    print(f"=== 推送进度: {progress}%, 速度: {speed/1024/1024:.2f}MB/s, ETA: {eta}秒 ===")
+                if progress > 0 or stage:
+                    logger.info(f"📤 推送进度: {progress}%, 速度: {speed/1024/1024:.2f}MB/s, ETA: {eta}秒, 阶段: {stage}")
+                    print(f"=== 推送进度: {progress}%, 速度: {speed/1024/1024:.2f}MB/s, ETA: {eta}秒, 阶段: {stage} ===")
                     broadcast_task_progress(
                         self.task_id,
                         progress=progress,
                         speed=speed,
-                        eta=eta
+                        eta=eta,
+                        stage=stage,
+                        downloaded=downloaded,
+                        total=total
                     )
                     logger.info(f"✓ 进度推送完成")
                     print(f"=== 进度推送完成 ===")
@@ -106,6 +112,19 @@ class TaskService:
     async def prepare(self):
         """准备任务"""
         logger.info(f"准备任务 {self.task.id}...")
+
+        # 设置准备阶段
+        self.task.status['stage'] = 'preparing'
+        self.task.status['progress'] = 0
+        self.task.updated_at = int(datetime.now().timestamp())
+
+        # 持久化
+        db = SessionLocal()
+        try:
+            db.merge(self.task)
+            db.commit()
+        finally:
+            db.close()
 
         # 初始化Bilibili服务
         bilibili_service = BilibiliService()
@@ -282,27 +301,35 @@ class TaskService:
 
             # 2. 依次执行其他子任务
             subtasks = self.task.prepare.get('subtasks', [])
-            total_subtasks = len(subtasks)
-            
-            for idx, subtask_data in enumerate(subtasks):
+
+            # 过滤掉已完成的视频和音频子任务
+            media_subtasks = [s for s in subtasks if s['type'] in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]]
+            post_subtasks = [s for s in subtasks if s['type'] not in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]]
+
+            # 如果有后处理子任务，设置后处理阶段
+            if post_subtasks:
+                self.task.status['stage'] = 'post_processing'
+                self.task.status['progress'] = 100
+                self.task.updated_at = int(datetime.now().timestamp())
+
+                # 持久化
+                db = SessionLocal()
+                try:
+                    db.merge(self.task)
+                    db.commit()
+                finally:
+                    db.close()
+
+            for idx, subtask_data in enumerate(post_subtasks):
                 # 检查任务状态
                 await self._check_task_status()
-                
+
                 subtask_type = subtask_data['type']
-                
-                # 跳过视频和音频，因为已经下载了
-                if subtask_type in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]:
-                    continue
-                
-                logger.info(f"执行子任务 {idx + 1}/{total_subtasks}: {subtask_type}")
-                
+
+                logger.info(f"执行子任务 {idx + 1}/{len(post_subtasks)}: {subtask_type}")
+
                 try:
                     await self._execute_subtask(subtask_data, temp_dir, final_output_dir)
-                    
-                    # 更新进度
-                    progress = int(((idx + 1) / total_subtasks) * 100)
-                    self.update_progress(progress)
-                    
                 except Exception as e:
                     logger.error(f"子任务 {subtask_type} 执行失败: {e}")
                     # 子任务失败不影响整体任务继续执行
@@ -310,24 +337,55 @@ class TaskService:
             # 检查任务状态
             await self._check_task_status()
 
-            # 3. 清理临时目录
+            # 3. 计算最终目录中的所有文件大小
+            video_size = self.task.meta.get('videoSize', 0)
+            metadata_size = 0
+            total_size = 0
+
+            # 遍历最终目录中的所有文件
+            if final_output_dir.exists():
+                for file_path in final_output_dir.rglob('*'):
+                    if file_path.is_file():
+                        file_size = file_path.stat().st_size
+                        # 判断是否为视频文件
+                        if file_path.suffix in ['.mp4', '.mkv', '.flv', '.webm']:
+                            # 视频文件大小已经在前面计算过了
+                            pass
+                        else:
+                            # 元数据文件（封面、头像、字幕、NFO 等）
+                            metadata_size += file_size
+                            logger.info(f"✓ 元数据文件: {file_path.name}, 大小: {file_size} bytes")
+
+            total_size = video_size + metadata_size
+            self.task.meta['videoSize'] = video_size
+            self.task.meta['metadataSize'] = metadata_size
+            self.task.meta['totalSize'] = total_size
+            logger.info(f"✓ 文件大小统计: 视频={video_size/1024/1024:.2f}MB, 元数据={metadata_size/1024/1024:.2f}MB, 总计={total_size/1024/1024:.2f}MB")
+
+            # 4. 清理临时目录
             await self._cleanup_temp_dir(temp_dir)
 
-            # 4. 标记任务为完成
+            # 5. 标记任务为完成
             self.task.state = TaskState.COMPLETED
+            self.task.status['stage'] = 'completed'
+            self.task.status['progress'] = 100
             self.task.completed_at = int(datetime.now().timestamp())
             self.task.updated_at = int(datetime.now().timestamp())
-            
-            # 持久化完成状态
+
+            # 持久化完成状态（包括 meta 信息）
             db = SessionLocal()
             try:
+                db.merge(self.task)
                 db.commit()
+                logger.info(f"✓ 任务 {self.task.id} 完成状态已持久化, videoSize={video_size}, metadataSize={metadata_size}, totalSize={total_size}")
             finally:
                 db.close()
 
             # 广播任务完成状态
-            from src.routers.websocket import broadcast_task_updated
+            from src.routers.websocket import broadcast_task_updated, broadcast_queue_updated
             broadcast_task_updated(self.task.id, str(TaskState.COMPLETED), cancelled=False)
+            # 触发视频库刷新
+            broadcast_queue_updated()
 
             logger.info(f"✓ 任务 {self.task.id} 执行完成")
 
@@ -379,54 +437,71 @@ class TaskService:
         logger.info(f"下载媒体文件: {self.task.media_id}")
         logger.info(f"临时目录: {temp_dir}")
         logger.info(f"最终目录: {final_output_dir}")
-        
+
+        # 设置下载阶段
+        self.task.status['stage'] = 'downloading'
+        self.task.status['progress'] = 0
+        self.task.status['downloaded'] = 0
+        self.task.status['total'] = 0
+        self.task.updated_at = int(datetime.now().timestamp())
+
+        # 持久化
+        db = SessionLocal()
+        try:
+            db.merge(self.task)
+            db.commit()
+        finally:
+            db.close()
+
         # 查找视频或音频子任务
         subtasks = self.task.prepare.get('subtasks', [])
         media_subtask = None
-        
+
         for subtask in subtasks:
             if subtask['type'] in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]:
                 media_subtask = subtask
                 break
-        
+
         if not media_subtask:
             raise Exception("未找到媒体下载子任务")
-        
+
         # 下载到临时目录
         try:
             from src.services.download_engine import DownloadEngine
             from src.services.settings_service import SettingsService
             from src.models.cookie import Cookie
             import shutil
-            
+
             # 获取数据库连接
             db = SessionLocal()
             try:
                 # 创建 SettingsService 并获取设置
                 settings_service = SettingsService(db)
                 settings = settings_service.get_settings()
-                
+
                 # 获取 SESSDATA cookie
                 sessdata_cookie = db.query(Cookie).filter(Cookie.name == 'SESSDATA').first()
                 sessdata = sessdata_cookie.value if sessdata_cookie else None
-                
+
                 if not sessdata:
                     logger.warning("未找到 SESSDATA cookie，可能无法下载高画质视频")
-                
+
                 engine = DownloadEngine(settings)
-                
+
                 # 确保临时目录存在
                 if not temp_dir.exists():
                     temp_dir.mkdir(parents=True, exist_ok=True)
                     logger.info(f"创建临时目录: {temp_dir}")
-                
+
                 # 进度回调（只更新本地状态）
                 def progress_callback(download_id: str, progress: float, downloaded_bytes: int, total_bytes: int, download_speed: float, eta: float):
                     logger.info(f"📥 下载进度回调: {progress}%, 速度: {download_speed/1024/1024:.2f}MB/s, 已下载: {downloaded_bytes/1024/1024:.2f}MB, 总大小: {total_bytes/1024/1024:.2f}MB, ETA: {eta}秒")
                     # 只更新本地状态，不触发WebSocket广播
-                    self.task.status['progress'] = int(progress // 2)
+                    self.task.status['progress'] = int(progress)
                     self.task.status['speed'] = download_speed
                     self.task.status['eta'] = eta
+                    self.task.status['downloaded'] = downloaded_bytes
+                    self.task.status['total'] = total_bytes
                     self.task.updated_at = int(datetime.now().timestamp())
                     logger.info(f"✓ 状态已更新: progress={self.task.status['progress']}%")
 
@@ -439,8 +514,6 @@ class TaskService:
                     logger.info(f"[DEBUG] meta为空或不是dict")
 
                 # 获取分P信息（如果有的话）
-                
-                # 获取分P信息（如果有的话）
                 cid = None
                 page_num = None
                 if self.task.meta and isinstance(self.task.meta, dict):
@@ -448,7 +521,7 @@ class TaskService:
                     page_num = self.task.meta.get('page')
                     if cid or page_num:
                         logger.info(f"📌 检测到分P信息: cid={cid}, page={page_num}, part_title={self.task.meta.get('part_title')}")
-                
+
                 # 下载到临时目录（如果是分P，只下载特定分P）
                 await engine.download_video(
                     bvid=self.task.media_id,
@@ -460,25 +533,48 @@ class TaskService:
                     cid=cid,  # 传递cid（用于识别）
                     page_num=page_num  # 传递page序号（用于playlist_items）
                 )
-                
+
                 logger.info("✓ 媒体文件下载到临时目录完成")
-                
+
                 # 查找下载的文件
                 downloaded_files = list(temp_dir.glob("*.mp4"))
                 if not downloaded_files:
                     raise Exception("未找到下载的视频文件")
-                
+
+                # 设置移动阶段
+                self.task.status['stage'] = 'moving'
+                self.task.status['progress'] = 50
+                self.task.updated_at = int(datetime.now().timestamp())
+
+                # 持久化
+                db = SessionLocal()
+                try:
+                    db.merge(self.task)
+                    db.commit()
+                finally:
+                    db.close()
+
                 # 移动文件到最终目录
+                video_size = 0
                 for file_path in downloaded_files:
                     final_path = final_output_dir / file_path.name
                     logger.info(f"移动文件: {file_path} -> {final_path}")
                     shutil.move(str(file_path), str(final_path))
-                
+
+                    # 保存视频文件大小
+                    if final_path.exists():
+                        file_size = final_path.stat().st_size
+                        video_size += file_size
+                        logger.info(f"✓ 视频文件大小: {file_size} bytes ({file_size/1024/1024:.2f} MB)")
+
+                self.task.meta['videoSize'] = video_size
+                logger.info(f"✓ 总视频大小: {video_size} bytes ({video_size/1024/1024:.2f} MB)")
+
                 logger.info("✓ 媒体文件已移动到最终目录")
-                
+
             finally:
                 db.close()
-                
+
         except Exception as e:
             logger.error(f"媒体文件下载失败: {e}")
             raise

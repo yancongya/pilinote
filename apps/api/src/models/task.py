@@ -17,6 +17,15 @@ class TaskState(int, enum.Enum):
     CANCELLED = 6    # 已取消
 
 
+class DownloadStage(str, enum.Enum):
+    """下载阶段枚举"""
+    PREPARING = "preparing"        # 准备中（获取元数据）
+    DOWNLOADING = "downloading"    # 下载视频/音频
+    MOVING = "moving"              # 移动文件
+    POST_PROCESSING = "post_processing"  # 后处理（封面、头像、字幕、NFO）
+    COMPLETED = "completed"        # 完成
+
+
 class MediaType(str, enum.Enum):
     """媒体类型枚举"""
     VIDEO = "video"
@@ -47,6 +56,15 @@ class Task(Base):
     # 元数据
     meta = Column(JSON, nullable=False, default=lambda: {})  # 完整元数据（视频信息、UP主信息等）
     prepare = Column(JSON, nullable=False, default=lambda: {})  # 准备数据（视频URL、字幕URL等）
+    # status 结构:
+    # {
+    #   "progress": float,      # 总体进度 0-100
+    #   "speed": float,         # 下载速度 bytes/s
+    #   "eta": float,           # 预计剩余时间 seconds
+    #   "stage": str,           # 当前阶段 (DownloadStage)
+    #   "downloaded": int,      # 已下载字节数
+    #   "total": int            # 总字节数
+    # }
     status = Column(JSON, nullable=False, default=lambda: {})  # 进度状态
     state = Column(Integer, nullable=False, default=TaskState.BACKLOG, index=True)  # TaskState
 
