@@ -27,6 +27,12 @@ async def get_folders(
 
     # 从HeadersManager获取sessdata
     headers_manager = get_headers_manager()
+    # 同步活跃用户的Cookies到内存以确保 sessdata 可用
+    sync_result = None
+    try:
+        sync_result = await headers_manager.sync_cookies_from_db(active_user.id)
+    except Exception:
+        pass
     sessdata = headers_manager.get_cookie("SESSDATA")
     if not sessdata:
         raise HTTPException(status_code=401, detail="未找到登录凭证")

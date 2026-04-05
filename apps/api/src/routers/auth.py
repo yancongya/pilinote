@@ -259,9 +259,9 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
 
             # 同步内存中的Cookies到新登录的用户数据：加载DB中的cookies并刷新Headers
             try:
-                headers_manager = __import__('src.services.headers_manager', fromlist=['get_headers_manager']).get_headers_manager()
-                await headers_manager.cookie_manager.load_from_db(user_id)
-                await headers_manager.refresh()
+                from src.services.headers_manager import get_headers_manager
+                headers_manager = get_headers_manager()
+                await headers_manager.sync_cookies_from_db(user_id)
             except Exception:
                 # 若同步失败，仍返回登录成功信息；不会阻塞登录流程
                 pass

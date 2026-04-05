@@ -29,14 +29,9 @@ async def get_watch_later_list(
     
     # 从HeadersManager获取sessdata
     headers_manager = get_headers_manager()
-    # 确保从数据库加载活跃用户的cookies，以便后续请求可以携带有效的SESSDATA等信息
-    try:
-        await headers_manager.cookie_manager.load_from_db(active_user.id)
-        await headers_manager.refresh()
-        sessdata = headers_manager.get_cookie("SESSDATA")
-    except Exception as e:
-        # 回退到先前的状态，以防加载失败
-        sessdata = headers_manager.get_cookie("SESSDATA")
+    # 同步活跃用户的 cookies 到内存
+    sync_result = await headers_manager.sync_cookies_from_db(active_user.id)
+    sessdata = headers_manager.get_cookie("SESSDATA")
     if not sessdata:
         raise HTTPException(status_code=401, detail="未找到登录凭证")
     

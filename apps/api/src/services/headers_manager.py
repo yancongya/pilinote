@@ -319,6 +319,34 @@ class HeadersManager:
                 "message": f"检查cookie状态异常: {str(e)}"
             }
 
+    async def sync_cookies_from_db(self, user_id: Optional[int]) -> Dict:
+        """同步指定用户的 cookies 从数据库到内存，并刷新 Headers
+
+        Returns:
+            Dict: {"success": bool, "loaded_count": int, "message": str}
+        """
+        try:
+            if user_id is None:
+                return {"success": False, "loaded_count": 0, "message": "无效的 user_id"}
+            # 从数据库加载该用户的 cookies 到内存
+            load_result = await self.cookie_manager.load_from_db(user_id)
+            # 无论加载是否成功，尽量刷新 headers，使缓存生效
+            await self.refresh()
+            loaded_count = 0
+            if isinstance(load_result, dict):
+                loaded_count = load_result.get("loaded_count", 0)
+            return {
+                "success": True,
+                "loaded_count": loaded_count if loaded_count is not None else 0,
+                "message": "Cookies 已同步"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "loaded_count": 0,
+                "message": f"同步 Cookies 失败: {str(e)}"
+            }
+
 
 # 全局单例
 _headers_manager: Optional[HeadersManager] = None
