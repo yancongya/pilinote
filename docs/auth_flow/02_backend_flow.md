@@ -1,27 +1,25 @@
-# 后端认证与会话流分析
+# 后端认证与会话流分析（阶段3增强）
 
-1) 登录入口与保存
-- 端点：/api/auth/sessdata, /api/auth/qrcode/status, /api/auth/sms/login 等
-- 成功后，将 sessdata/cookies 写入数据库，对应 User.is_active = True
-- 需注意：仅写入数据库并不足以让当前正在运行的进程立即“知晓”新 Cookies，需显式刷新内存中的 cookies。
+1) 阶段3概要
+- 新增统一的 Cookies 同步入口 sync_cookies_from_db
+- 引入 Canary 灰度开关 cookies_sync_canary_ratio 与 enable_canary
+- 引入 AuthMetrics 指标以及 /api/metrics/auth 监控端点
 
-2) HeadersManager 与 Cookie 管理
-- HeadersManager 初始化时会从活跃用户的 cookie 写入到 CookieManager，并据此生成请求头。
-- cookie_manager.save_to_db(user_id) 将 cookies 保存到数据库，load_from_db(user_id) 将数据库中的 cookies 加载到内存。
-- refresh() 会用内存中的 cookies 构造最新的 HTTP 请求头。
-- 登录成功后，推荐的做法是：
-  - load_from_db(user_id)
-  - refresh()
-  - 以确保后续请求携带最新的 cookies。
+2) Stage3 关键点
+- sync_cookies_from_db(user_id) 将指定用户的 cookies 从数据库加载到内存中的 CookieManager，并刷新 Headers
+- 使用 per-user 锁避免并发冲突
+- Canary 跳过逻辑：基于 user_id 的模 100 的比例决定是否跳过实际同步
+- 同步结果通过 AuthMetrics 记录（成功/失败/加载计数）
 
-3) 自动加载与状态校验
-- /api/auth/status 会读取当前活跃用户，并用 HeadersManager 的 cookies 去验证 sessdata 的有效性。
-- 为避免竞态问题，状态校验前应先确保活跃用户的 cookies 已加载到内存。
+3) 路由与调用点
+- watch_later: 进入前调用 sync_cookies_from_db(active_user.id) 以确保 sessdata 可用
+- favorites: sessdata 获取前调用同一个同步助手
+- auth: 登录成功后调用 sync_cookies_from_db(user_id) 以确保新账号 cookies 生效并刷新 Headers
+- status: 进入后尝试同步活跃用户 Cookies 到内存并刷新
 
-4) 稍后再看/watch-later 收藏页
-- /api/watchlater/list 依赖当前请求中携带的 sessdata；若 Cookies 未就绪，可能导致未登录状态。
-- 为确保正确性，watchlater 路由在获取前会尝试从 DB 加载活跃用户的 cookies，并刷新 Headers。
+4) Metrics 与 API
+- 新增 /api/metrics/auth 暴露阶段统计数据
+- 配置项 cookies_sync_canary_ratio、enable_canary
 
-5) 潜在修复点
-- 登录成功后同步内存中的 Cookies：load_from_db + refresh。
-- status 与 watchlater 等路由在进入前确保 cookies 已就绪。
+5) 启动阶段
+- Phase2 已实现预加载，Phase3 提供监控、灰度与可观测性

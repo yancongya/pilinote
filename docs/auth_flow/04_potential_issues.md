@@ -12,6 +12,9 @@
   - 数据库中的活跃用户 (is_active=True) 是否存在且唯一？若无，后续状态判断将出错。
 
 - 诊断工具建议
-  - 在登录成功分支添加日志打印：当前活跃用户ID、内存 Cookie 快照、DB Cookie 快照。
+   - 在登录成功分支添加日志打印：当前活跃用户ID、内存 Cookies 快照、数据库 Cookies 快照。
   - 在 /api/auth/status 内部打印加载的 Cookies 内容以及 sessdata 值。
-  - 通过 API 调试确认 watch-later 的 sessdata 是否随请求携带并有效。
+   - 通过 API 调试确认 watch-later 的 sessdata 是否随请求携带并有效。
+- 风险点与对策（新增）
+- Canary 风险：阈值设置不当可能导致覆盖范围偏低或偏高，需监控并逐步提升覆盖率。
+- 并发与锁：若锁实现不完善，仍需关注可能的死锁或性能瓶颈，已引入 per-user 锁进行缓解。
