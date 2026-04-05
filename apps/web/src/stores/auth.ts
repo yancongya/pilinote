@@ -33,6 +33,10 @@ export const useAuthStore = create<AuthState>()(
           user,
           isAuthenticated: user !== null,
         }
+        console.log('[Auth] setUser被调用:', {
+          user: user ? { mid: user.mid, username: user.username, hasSessdata: !!user.sessdata } : null,
+          isAuthenticated: newState.isAuthenticated
+        })
         set(newState)
       },
 
@@ -50,6 +54,9 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
+        const currentUser = get().user
+        console.log('[Auth] fetchUser开始执行，当前user:', currentUser ? { mid: currentUser.mid, username: currentUser.username } : null)
+
         set({ isLoading: true })
 
         try {
@@ -59,15 +66,23 @@ export const useAuthStore = create<AuthState>()(
           }
           const data = await response.json()
 
+          console.log('[Auth] fetchUser从服务器获取到数据:', {
+            success: data.success,
+            is_logged_in: data.data?.is_logged_in,
+            user: data.data?.user ? { mid: data.data.user.mid, username: data.data.user.username } : null
+          })
+
           if (data.success && data.data?.is_logged_in && data.data?.user) {
             const userData = data.data.user
+            const newUser = {
+              mid: userData.mid,
+              username: userData.username,
+              avatar: userData.avatar,
+              sessdata: undefined, // 不暴露敏感信息
+            }
+            console.log('[Auth] fetchUser准备更新状态，新user:', newUser)
             set({
-              user: {
-                mid: userData.mid,
-                username: userData.username,
-                avatar: userData.avatar,
-                sessdata: undefined, // 不暴露敏感信息
-              },
+              user: newUser,
               isAuthenticated: true,
               isLoading: false,
             })
@@ -82,7 +97,7 @@ export const useAuthStore = create<AuthState>()(
             })
           }
         } catch (error) {
-          console.error('Failed to fetch user:', error)
+          console.error('[Auth] fetchUser失败:', error)
           // 网络错误清除loading状态，但不清除用户状态
           set({ isLoading: false })
         }
@@ -97,7 +112,12 @@ export const useAuthStore = create<AuthState>()(
       }),
       onRehydrateStorage: () => (state) => {
         // 在从localStorage恢复状态后，等待fetchUser完成
-        console.log('[Auth] 状态已从localStorage恢复')
+        console.log('[Auth] onRehydrateStorage被调用')
+        console.log('[Auth] 从localStorage恢复的state:', state ? {
+          user: state.user ? { mid: state.user.mid, username: state.user.username, hasSessdata: !!state.user.sessdata } : null,
+          isAuthenticated: state.isAuthenticated,
+          isLoading: state.isLoading
+        } : 'state is null')
         // 不在这里调用fetchUser，让App组件来处理
         // 这样可以避免竞态条件
       },
