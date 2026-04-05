@@ -15,6 +15,7 @@ export interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   setUser: (user: User | null) => void;
   logout: () => void;
   fetchUser: () => Promise<void>;
@@ -25,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      isLoading: false,
 
       setUser: (user) => {
         const newState = {
@@ -42,6 +44,14 @@ export const useAuthStore = create<AuthState>()(
       },
 
       fetchUser: async () => {
+        // 如果已经在加载中，直接返回
+        if (get().isLoading) {
+          console.log('[Auth] 正在加载中，跳过重复请求')
+          return
+        }
+
+        set({ isLoading: true })
+
         try {
           const response = await fetch(getApiUrl('/api/auth/status'))
           if (!response.ok) {
@@ -59,30 +69,22 @@ export const useAuthStore = create<AuthState>()(
                 sessdata: undefined, // 不暴露敏感信息
               },
               isAuthenticated: true,
+              isLoading: false,
             })
             console.log('[Auth] 已登录:', userData.username)
           } else {
-            // 服务器返回未登录，检查本地状态
-            const currentUser = get().user
-            if (!currentUser) {
-              // 本地也没有用户信息，清除状态
-              console.log('[Auth] 服务器返回未登录，本地无用户信息，清除本地状态')
-              set({
-                user: null,
-                isAuthenticated: false,
-              })
-            } else {
-              // 本地有用户信息但服务器返回未登录，可能是session过期，清除状态
-              console.log('[Auth] 服务器返回未登录，清除本地状态（session可能已过期）')
-              set({
-                user: null,
-                isAuthenticated: false,
-              })
-            }
+            // 服务器返回未登录，清除状态
+            console.log('[Auth] 服务器返回未登录，清除本地状态')
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+            })
           }
         } catch (error) {
           console.error('Failed to fetch user:', error)
-          // 网络错误不清除本地状态，保持当前状态
+          // 网络错误清除loading状态，但不清除用户状态
+          set({ isLoading: false })
         }
       },
     }),
@@ -91,16 +93,13 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        isLoading: false, // 不持久化isLoading状态
       }),
       onRehydrateStorage: () => (state) => {
-        // 在从localStorage恢复状态后，立即调用fetchUser来更新状态
-        console.log('[Auth] 状态已从localStorage恢复，正在从服务器验证...')
-        if (state) {
-          // 使用异步方式调用fetchUser，避免阻塞
-          state.fetchUser().catch(err => {
-            console.error('[Auth] fetchUser失败:', err)
-          })
-        }
+        // 在从localStorage恢复状态后，等待fetchUser完成
+        console.log('[Auth] 状态已从localStorage恢复')
+        // 不在这里调用fetchUser，让App组件来处理
+        // 这样可以避免竞态条件
       },
     }
   )

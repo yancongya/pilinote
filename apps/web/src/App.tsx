@@ -20,19 +20,23 @@ function App() {
   const connectWebSocket = useNewQueueStore((state) => state.connectWebSocket)
   const fetchSettings = useSettingsStore((state) => state.fetchSettings)
 
-  // 数据恢复逻辑：fetchSettings
+  // 数据恢复逻辑：从后端获取用户信息和设置信息
   useEffect(() => {
-    const restoreSettings = async () => {
+    const restoreUserData = async () => {
       try {
-        console.log('[App] 正在加载设置信息...')
+        console.log('[App] 正在从后端验证会话状态...')
+        await fetchUser()
+        console.log('[App] fetchUser完成，当前登录状态:', isAuthenticated)
+        console.log('[App] 当前用户信息:', user)
         await fetchSettings()
-        console.log('[App] 设置加载完成')
+
+        console.log('[App] 数据恢复完成')
       } catch (err) {
-        console.error('[App] 设置加载失败:', err)
+        console.error('[App] 数据恢复失败:', err)
       }
     }
 
-    restoreSettings()
+    restoreUserData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
