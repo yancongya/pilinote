@@ -1,17 +1,14 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
-from sqlalchemy.orm import Session
 from src.services.bilibili import BilibiliService
-from src.schemas.media import MediaStats
-from src.database import get_db
-from src.models.user import User
-from src.services.headers_manager import get_headers_manager
+from src.schemas.card import CardData, CardListResponse
+from src.dependencies.auth import get_current_user_with_sessdata
 
 router = APIRouter(prefix="/api/watchlater", tags=["稍后再看"])
 
 
-@router.get("/list", response_model=dict)
+@router.get("/list", response_model=CardListResponse)
 async def get_watch_later_list(
-    db: Session = Depends(get_db),
+    user_sessdata: tuple = Depends(get_current_user_with_sessdata),
     pn: int = Query(1, ge=1, description="页码"),
     ps: int = Query(20, ge=1, le=100, description="每页数量")
 ):
@@ -21,74 +18,40 @@ async def get_watch_later_list(
     - 使用B站原生API直接获取数据，避免HTML解析
     - 加载速度提升90%以上
     - 支持分页和无限滚动
+    - 使用统一的数据模型和认证依赖
     """
-    # 获取当前活跃用户
-    active_user = db.query(User).filter(User.is_active == True).first()
-    if not active_user:
-        raise HTTPException(status_code=401, detail="未登录")
-    
-    # 从HeadersManager获取sessdata
-    headers_manager = get_headers_manager()
-    # 同步活跃用户的 cookies 到内存
-    sync_result = await headers_manager.sync_cookies_from_db(active_user.id)
-    sessdata = headers_manager.get_cookie("SESSDATA")
-    if not sessdata:
-        raise HTTPException(status_code=401, detail="未找到登录凭证")
+    user, sessdata = user_sessdata
     
     try:
         service = BilibiliService()
         try:
             result = await service.get_watch_later(sessdata)
             if result["success"]:
+                from src.services.media_data_transformer import transformer
+                
                 data = result["data"]
                 
-                # 视频列表
-                videos = data.get("list", [])
-                video_list = []
-                
-                for video in videos:
-                    # 提取统计数据
-                    stat_data = video.get("stat", {})
-                    cnt_info = video.get("cnt_info", {})
-                    
-                    # 组合统计信息（优先使用stat，其次使用cnt_info）
-                    video_list.append({
-                        "id": video.get("aid"),
-                        "bvid": video.get("bvid"),
-                        "title": video.get("title"),
-                        "cover": video.get("pic"),
-                        "duration": video.get("duration", 0),
-                        "uploader": {
-                            "mid": video.get("owner", {}).get("mid", 0),
-                            "name": video.get("owner", {}).get("name", "未知"),
-                            "face": video.get("owner", {}).get("face", "")
-                        },
-                        "view": stat_data.get("view", 0),
-                        "danmaku": stat_data.get("danmaku", 0),
-                        "comment": stat_data.get("reply", 0) or cnt_info.get("reply", 0),
-                        "like": stat_data.get("like", 0),  # B站API可能提供
-                        "coin": stat_data.get("coin", 0),  # B站API可能提供
-                        "favorite": stat_data.get("favorite", 0),  # B站API可能提供
-                        "share": stat_data.get("share", 0),  # B站API可能提供
-                        "pubtime": video.get("pubtime", 0),
-                        "progress": video.get("progress", -1),
-                        "add_time": video.get("add_at", 0)
-                    })
+                # 使用统一转换器转换数据
+                video_list = transformer.transform_watchlater_list(data)
                 
                 # 分页处理
                 start_idx = (pn - 1) * ps
                 end_idx = start_idx + ps
                 paginated_list = video_list[start_idx:end_idx]
                 
-                return {
-                    "success": True,
-                    "data": {
-                        "list": paginated_list,
+                # 转换为字典格式（保持向后兼容）
+                list_data = [card.model_dump() for card in paginated_list]
+                
+                return CardListResponse(
+                    success=True,
+                    data={
+                        "list": list_data,
                         "total": len(video_list),
                         "page": pn,
                         "page_size": ps
-                    }
-                }
+                    },
+                    total=len(video_list)
+                )
             else:
                 raise HTTPException(status_code=400, detail=result.get("message", "获取稍后再看列表失败"))
         finally:
