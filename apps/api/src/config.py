@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     bilibili_api_base: str = "https://api.bilibili.com"
     bilibili_passport_base: str = "https://passport.bilibili.com"
 
+    # Can enable/disable cookies sync during startup and runtime (Phase 3 canary)
+    cookies_sync_canary_ratio: float = 0.0
+    enable_canary: bool = False
+
     class Config:
         env_file = ".env"
         case_sensitive = False

@@ -7,6 +7,10 @@ BiliTools使用全局HEADERS单例来管理所有HTTP请求的headers，
 import time
 import asyncio
 from typing import Dict, Optional
+from src.config import settings
+from src.metrics.auth_metrics import AuthMetrics
+import asyncio
+from typing import Dict, Optional
 import httpx
 from src.services.fingerprint_manager import FingerprintManager
 from src.services.cookie_manager import CookieManager
@@ -50,6 +54,8 @@ class HeadersManager:
         # 当前headers缓存
         self._cached_headers: Optional[Dict[str, str]] = None
         self._cache_time: float = 0
+        # per-user lock cache for synchronization
+        self._sync_locks: Dict[int, asyncio.Lock] = {}
         
         # 创建异步HTTP客户端（用于内部使用）
         self._async_client = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
@@ -328,9 +334,22 @@ class HeadersManager:
         Returns:
             Dict: {"success": bool, "loaded_count": int, "message": str}
         """
-        # 使用 per-user lock，避免并发冲突
+        # Canary: 根据配置进行分阶段同步
         if user_id is None:
             return {"success": False, "loaded_count": 0, "message": "无效的 user_id"}
+        # 可选性：Canary 机制控制部分用户跳过同步，用于灰度测试
+        canary_ratio = getattr(settings, "cookies_sync_canary_ratio", 0.0)
+        if canary_ratio and canary_ratio > 0:
+            try:
+                threshold = int(canary_ratio * 100)
+            except Exception:
+                threshold = 0
+            if threshold > 0 and (user_id % 100) >= threshold:
+                try:
+                    AuthMetrics.record_attempt(user_id, True, 0)
+                except Exception:
+                    pass
+                return {"success": True, "loaded_count": 0, "message": "Cookies 同步跳过（Canary）"}
         lock = self._sync_locks.get(user_id)
         if lock is None:
             lock = asyncio.Lock()
@@ -344,12 +363,20 @@ class HeadersManager:
                 loaded_count = 0
                 if isinstance(load_result, dict):
                     loaded_count = load_result.get("loaded_count", 0)
+                try:
+                    AuthMetrics.record_attempt(user_id, True, loaded_count)
+                except Exception:
+                    pass
                 return {
                     "success": True,
                     "loaded_count": loaded_count if loaded_count is not None else 0,
                     "message": "Cookies 已同步"
                 }
         except Exception as e:
+            try:
+                AuthMetrics.record_attempt(user_id, False, 0)
+            except Exception:
+                pass
             return {
                 "success": False,
                 "loaded_count": 0,
