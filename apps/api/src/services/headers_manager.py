@@ -5,6 +5,7 @@ BiliTools使用全局HEADERS单例来管理所有HTTP请求的headers，
 包括cookie的自动刷新和管理。这个模块实现相同的功能。
 """
 import time
+import asyncio
 from typing import Dict, Optional
 import httpx
 from src.services.fingerprint_manager import FingerprintManager
@@ -58,6 +59,8 @@ class HeadersManager:
         
         # 初始化标志
         self._initialized = True
+        # 针对每个用户的同步锁，避免并发竞争导致 cookie 覆盖或脏数据
+        self._sync_locks: Dict[int, asyncio.Lock] = {}
     
     async def init(self) -> Dict:
         """
@@ -325,21 +328,27 @@ class HeadersManager:
         Returns:
             Dict: {"success": bool, "loaded_count": int, "message": str}
         """
+        # 使用 per-user lock，避免并发冲突
+        if user_id is None:
+            return {"success": False, "loaded_count": 0, "message": "无效的 user_id"}
+        lock = self._sync_locks.get(user_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._sync_locks[user_id] = lock
         try:
-            if user_id is None:
-                return {"success": False, "loaded_count": 0, "message": "无效的 user_id"}
-            # 从数据库加载该用户的 cookies 到内存
-            load_result = await self.cookie_manager.load_from_db(user_id)
-            # 无论加载是否成功，尽量刷新 headers，使缓存生效
-            await self.refresh()
-            loaded_count = 0
-            if isinstance(load_result, dict):
-                loaded_count = load_result.get("loaded_count", 0)
-            return {
-                "success": True,
-                "loaded_count": loaded_count if loaded_count is not None else 0,
-                "message": "Cookies 已同步"
-            }
+            async with lock:
+                # 从数据库加载该用户的 cookies 到内存
+                load_result = await self.cookie_manager.load_from_db(user_id)
+                # 无论加载是否成功，尽量刷新 headers，使缓存生效
+                await self.refresh()
+                loaded_count = 0
+                if isinstance(load_result, dict):
+                    loaded_count = load_result.get("loaded_count", 0)
+                return {
+                    "success": True,
+                    "loaded_count": loaded_count if loaded_count is not None else 0,
+                    "message": "Cookies 已同步"
+                }
         except Exception as e:
             return {
                 "success": False,
