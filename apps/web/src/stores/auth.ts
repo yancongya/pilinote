@@ -62,16 +62,27 @@ export const useAuthStore = create<AuthState>()(
             })
             console.log('[Auth] 已登录:', userData.username)
           } else {
-            // 服务器返回未登录，清除本地状态
-            console.log('[Auth] 服务器返回未登录，清除本地状态')
-            set({
-              user: null,
-              isAuthenticated: false,
-            })
+            // 服务器返回未登录，检查本地状态
+            const currentUser = get().user
+            if (!currentUser) {
+              // 本地也没有用户信息，清除状态
+              console.log('[Auth] 服务器返回未登录，本地无用户信息，清除本地状态')
+              set({
+                user: null,
+                isAuthenticated: false,
+              })
+            } else {
+              // 本地有用户信息但服务器返回未登录，可能是session过期，清除状态
+              console.log('[Auth] 服务器返回未登录，清除本地状态（session可能已过期）')
+              set({
+                user: null,
+                isAuthenticated: false,
+              })
+            }
           }
         } catch (error) {
           console.error('Failed to fetch user:', error)
-          // 网络错误不清除本地状态
+          // 网络错误不清除本地状态，保持当前状态
         }
       },
     }),
@@ -85,7 +96,10 @@ export const useAuthStore = create<AuthState>()(
         // 在从localStorage恢复状态后，立即调用fetchUser来更新状态
         console.log('[Auth] 状态已从localStorage恢复，正在从服务器验证...')
         if (state) {
-          state.fetchUser()
+          // 使用异步方式调用fetchUser，避免阻塞
+          state.fetchUser().catch(err => {
+            console.error('[Auth] fetchUser失败:', err)
+          })
         }
       },
     }
