@@ -1,8 +1,6 @@
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 import VideoDetailPage from './pages/VideoDetailPage'
-import DownloadDetailPage from './pages/DownloadDetailPage'
-import DownloadSeriesDetailPage from './pages/DownloadSeriesDetailPage'
 import SettingsPage from './pages/SettingsPage'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
@@ -78,14 +76,11 @@ function App() {
         {/* 公开路由 - 游客也可以访问 */}
         <Route path="/home" element={<HomePage />} />
         <Route path="/video/:videoId" element={<VideoDetailPage />} />
-        <Route path="/download/series/:seriesId" element={<DownloadSeriesDetailPage />} />
 
         {/* 数据路由 - 可以访问页面，但未登录时显示空状态 */}
         <Route path="/favorites" element={<HomePage />} />
         <Route path="/favorites/:folderId" element={<HomePage />} />
         <Route path="/watch-later" element={<HomePage />} />
-        <Route path="/downloads" element={<HomePage />} />
-        <Route path="/downloads/:bvid" element={<DownloadDetailPage />} />
         <Route path="/new-downloads" element={<HomePage />} />
 
         {/* 受保护路由 - 需要登录 */}
