@@ -27,14 +27,17 @@ function App() {
     const restoreUserData = async () => {
       try {
         console.log('[App] 正在从后端验证会话状态...')
-        console.log('[App] 初始isLoading状态:', isLoading)
         
         // 强制重置isLoading状态，确保fetchUser可以被调用
         setIsLoading(false)
         
         await fetchUser()
-        console.log('[App] fetchUser完成，当前登录状态:', isAuthenticated)
-        console.log('[App] 当前用户信息:', user)
+        
+        // 使用store.getState()获取最新状态，避免闭包问题
+        const latestState = useAuthStore.getState()
+        console.log('[App] fetchUser完成，最新登录状态:', latestState.isAuthenticated)
+        console.log('[App] fetchUser完成，最新用户信息:', latestState.user)
+        
         await fetchSettings()
 
         console.log('[App] 数据恢复完成')

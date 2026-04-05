@@ -73,11 +73,14 @@ export const useAuthStore = create<AuthState>()(
 
           if (data.success && data.data?.is_logged_in && data.data?.user) {
             const userData = data.data.user
+            const currentUser = get().user
+            
+            // 保留原有的字段，只更新基本信息字段
             const newUser = {
+              ...currentUser,
               mid: userData.mid,
               username: userData.username,
               avatar: userData.avatar,
-              sessdata: undefined, // 不暴露敏感信息
             }
             console.log('[Auth] fetchUser准备更新状态，新user:', newUser)
             set({
@@ -110,17 +113,13 @@ export const useAuthStore = create<AuthState>()(
         // 不包含isLoading，确保每次刷新都从false开始
       }),
       onRehydrateStorage: () => (state) => {
-        // 在从localStorage恢复状态后，强制重置isLoading
+        // 在从localStorage恢复状态后，记录日志
         console.log('[Auth] onRehydrateStorage被调用')
         console.log('[Auth] 从localStorage恢复的state:', state ? {
           user: state.user ? { mid: state.user.mid, username: state.user.username, hasSessdata: !!state.user.sessdata } : null,
           isAuthenticated: state.isAuthenticated,
         } : 'state is null')
-        
-        // 强制重置isLoading状态
-        if (state) {
-          state.isLoading = false
-        }
+        // 不在这里修改state，让App组件在useEffect中处理
       },
     }
   )
