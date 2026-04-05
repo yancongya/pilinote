@@ -19,6 +19,7 @@ interface AuthState {
   setUser: (user: User | null) => void;
   logout: () => void;
   fetchUser: () => Promise<void>;
+  setIsLoading: (loading: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -47,13 +48,11 @@ export const useAuthStore = create<AuthState>()(
         })
       },
 
-      fetchUser: async () => {
-        // 如果已经在加载中，直接返回
-        if (get().isLoading) {
-          console.log('[Auth] 正在加载中，跳过重复请求')
-          return
-        }
+      setIsLoading: (loading: boolean) => {
+        set({ isLoading: loading })
+      },
 
+      fetchUser: async () => {
         const currentUser = get().user
         console.log('[Auth] fetchUser开始执行，当前user:', currentUser ? { mid: currentUser.mid, username: currentUser.username } : null)
 
@@ -108,18 +107,20 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-        isLoading: false, // 不持久化isLoading状态
+        // 不包含isLoading，确保每次刷新都从false开始
       }),
       onRehydrateStorage: () => (state) => {
-        // 在从localStorage恢复状态后，等待fetchUser完成
+        // 在从localStorage恢复状态后，强制重置isLoading
         console.log('[Auth] onRehydrateStorage被调用')
         console.log('[Auth] 从localStorage恢复的state:', state ? {
           user: state.user ? { mid: state.user.mid, username: state.user.username, hasSessdata: !!state.user.sessdata } : null,
           isAuthenticated: state.isAuthenticated,
-          isLoading: state.isLoading
         } : 'state is null')
-        // 不在这里调用fetchUser，让App组件来处理
-        // 这样可以避免竞态条件
+        
+        // 强制重置isLoading状态
+        if (state) {
+          state.isLoading = false
+        }
       },
     }
   )

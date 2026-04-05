@@ -13,8 +13,10 @@ import { apiService } from './services/api'
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const user = useAuthStore((state) => state.user)
+  const isLoading = useAuthStore((state) => state.isLoading)
   const setUser = useAuthStore((state) => state.setUser)
   const fetchUser = useAuthStore((state) => state.fetchUser)
+  const setIsLoading = useAuthStore((state) => state.setIsLoading)
   const location = useLocation()
   const navigate = useNavigate()
   const connectWebSocket = useNewQueueStore((state) => state.connectWebSocket)
@@ -25,6 +27,11 @@ function App() {
     const restoreUserData = async () => {
       try {
         console.log('[App] 正在从后端验证会话状态...')
+        console.log('[App] 初始isLoading状态:', isLoading)
+        
+        // 强制重置isLoading状态，确保fetchUser可以被调用
+        setIsLoading(false)
+        
         await fetchUser()
         console.log('[App] fetchUser完成，当前登录状态:', isAuthenticated)
         console.log('[App] 当前用户信息:', user)
