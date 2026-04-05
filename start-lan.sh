@@ -17,24 +17,24 @@ echo "后端 API 地址: http://$IP:8000"
 echo "========================================"
 echo ""
 
+# 保存脚本目录
+SCRIPT_DIR="$(dirname "$0")"
+
 # 检查服务是否已运行
 if pgrep -x "uvicorn" > /dev/null; then
     echo "后端服务已在运行"
 else
     # 启动后端
-    cd "$(dirname "$0")/apps/api"
-    source venv/bin/activate
-    nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/pilinote-api.log 2>&1 &
-    echo "后端服务已启动 (PID: $!)"
+    (cd "$SCRIPT_DIR/apps/api" && source venv/bin/activate && nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/pilinote-api.log 2>&1 &) &
+    echo "后端服务已启动"
 fi
 
 if pgrep -x "pnpm" > /dev/null; then
     echo "前端服务已在运行"
 else
     # 启动前端
-    cd "$(dirname "$0")/apps/web"
-    nohup pnpm dev > /tmp/pilinote-web.log 2>&1 &
-    echo "前端服务已启动 (PID: $!)"
+    (cd "$SCRIPT_DIR/apps/web" && nohup pnpm dev > /tmp/pilinote-web.log 2>&1 &) &
+    echo "前端服务已启动"
 fi
 
 echo ""
