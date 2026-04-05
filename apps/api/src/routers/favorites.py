@@ -17,19 +17,27 @@ async def get_folders(
     page_size: int = Query(20, ge=1, le=100, description="每页数量")
 ):
     """获取收藏夹列表"""
-    from src.services.headers_manager import get_headers_manager
+from src.services.headers_manager import get_headers_manager
+from src.utils.auth_headers_sync import sync_headers_for_user
     from src.models.user import User
     
     # 获取当前活跃用户
     active_user = db.query(User).filter(User.is_active == True).first()
     if not active_user:
         raise HTTPException(status_code=401, detail="未登录")
-    
+
     # 从HeadersManager获取sessdata
     headers_manager = get_headers_manager()
     sessdata = headers_manager.get_cookie("SESSDATA")
     if not sessdata:
         raise HTTPException(status_code=401, detail="未找到登录凭证")
+
+    # 同步活跃用户的Cookies到内存，确保后续请求可用
+    try:
+        await sync_headers_for_user(int(active_user.id))
+        sessdata = headers_manager.get_cookie("SESSDATA")
+    except Exception:
+        pass
     
     service = BilibiliService()
     try:

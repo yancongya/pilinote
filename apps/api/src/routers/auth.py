@@ -257,6 +257,15 @@ async def login_by_sessdata(request: SessdataLoginRequest, db: Session = Depends
             cookies_dict = service.headers_manager.cookie_manager.get_cookies()
             save_result = await service.headers_manager.cookie_manager.save_to_db(user_id)
 
+            # 同步内存中的Cookies到新登录的用户数据：加载DB中的cookies并刷新Headers
+            try:
+                headers_manager = __import__('src.services.headers_manager', fromlist=['get_headers_manager']).get_headers_manager()
+                await headers_manager.cookie_manager.load_from_db(user_id)
+                await headers_manager.refresh()
+            except Exception:
+                # 若同步失败，仍返回登录成功信息；不会阻塞登录流程
+                pass
+
             print(f"[Login] 用户 {user_data['username']} (mid={mid}) 登录成功")
             print(f"[Login] 保存了{save_result.get('saved_count', 0)}个cookie")
 
@@ -341,6 +350,14 @@ async def login_by_sms(request: SmsLoginRequest, db: Session = Depends(get_db)):
             # 保存所有cookie到数据库（关联user_id）
             cookies_dict = service.headers_manager.cookie_manager.get_cookies()
             save_result = await service.headers_manager.cookie_manager.save_to_db(user_id)
+
+            # 同步内存中的Cookies到新登录的账号：加载数据库中的cookies并刷新Headers
+            try:
+                headers_manager = __import__('src.services.headers_manager', fromlist=['get_headers_manager']).get_headers_manager()
+                await headers_manager.cookie_manager.load_from_db(user_id)
+                await headers_manager.refresh()
+            except Exception:
+                pass
 
             print(f"[SMS Login] 用户 {user_data.get('username', '')} (mid={mid}) 登录成功")
             print(f"[SMS Login] 保存了{save_result.get('saved_count', 0)}个cookie")
@@ -573,12 +590,19 @@ async def get_login_status(db: Session = Depends(get_db)):
     Returns:
         Dict: 登录状态信息
     """
-    from src.services.headers_manager import get_headers_manager
+from src.services.headers_manager import get_headers_manager
+from src.utils.auth_headers_sync import sync_headers_for_user
     
     service = BilibiliService()
     try:
         # 查找活跃用户
         active_user = db.query(User).filter(User.is_active == True).first()
+        # 读取活跃用户的Cookies到内存，确保后续验证能工作
+        if active_user:
+            try:
+                await sync_headers_for_user(int(active_user.id))
+            except Exception:
+                pass
         
         if not active_user:
             return {
