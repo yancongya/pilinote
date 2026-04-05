@@ -590,8 +590,7 @@ async def get_login_status(db: Session = Depends(get_db)):
     Returns:
         Dict: 登录状态信息
     """
-from src.services.headers_manager import get_headers_manager
-from src.utils.auth_headers_sync import sync_headers_for_user
+    from src.services.headers_manager import get_headers_manager
     
     service = BilibiliService()
     try:
@@ -600,7 +599,9 @@ from src.utils.auth_headers_sync import sync_headers_for_user
         # 读取活跃用户的Cookies到内存，确保后续验证能工作
         if active_user:
             try:
-                await sync_headers_for_user(int(active_user.id))
+                headers_manager = get_headers_manager()
+                await headers_manager.cookie_manager.load_from_db(active_user.id)
+                await headers_manager.refresh()
             except Exception:
                 pass
         

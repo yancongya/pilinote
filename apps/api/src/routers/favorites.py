@@ -17,8 +17,7 @@ async def get_folders(
     page_size: int = Query(20, ge=1, le=100, description="每页数量")
 ):
     """获取收藏夹列表"""
-from src.services.headers_manager import get_headers_manager
-from src.utils.auth_headers_sync import sync_headers_for_user
+    from src.services.headers_manager import get_headers_manager
     from src.models.user import User
     
     # 获取当前活跃用户
@@ -34,7 +33,8 @@ from src.utils.auth_headers_sync import sync_headers_for_user
 
     # 同步活跃用户的Cookies到内存，确保后续请求可用
     try:
-        await sync_headers_for_user(int(active_user.id))
+        await headers_manager.cookie_manager.load_from_db(active_user.id)
+        await headers_manager.refresh()
         sessdata = headers_manager.get_cookie("SESSDATA")
     except Exception:
         pass

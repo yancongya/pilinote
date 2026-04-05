@@ -5,7 +5,6 @@ from src.schemas.media import MediaStats
 from src.database import get_db
 from src.models.user import User
 from src.services.headers_manager import get_headers_manager
-from src.utils.auth_headers_sync import sync_headers_for_user
 
 router = APIRouter(prefix="/api/watchlater", tags=["稍后再看"])
 
@@ -30,9 +29,14 @@ async def get_watch_later_list(
     
     # 从HeadersManager获取sessdata
     headers_manager = get_headers_manager()
-    # 同步活跃用户的Cookies到内存并刷新
-    await sync_headers_for_user(int(active_user.id))
-    sessdata = headers_manager.get_cookie("SESSDATA")
+    # 确保从数据库加载活跃用户的cookies，以便后续请求可以携带有效的SESSDATA等信息
+    try:
+        await headers_manager.cookie_manager.load_from_db(active_user.id)
+        await headers_manager.refresh()
+        sessdata = headers_manager.get_cookie("SESSDATA")
+    except Exception as e:
+        # 回退到先前的状态，以防加载失败
+        sessdata = headers_manager.get_cookie("SESSDATA")
     if not sessdata:
         raise HTTPException(status_code=401, detail="未找到登录凭证")
     
