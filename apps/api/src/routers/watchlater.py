@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
+from sqlalchemy.orm import Session
 from src.services.bilibili import BilibiliService
 from src.schemas.media import MediaStats
+from src.database import get_db
+from src.models.user import User
+from src.services.headers_manager import get_headers_manager
 
 router = APIRouter(prefix="/api/watchlater", tags=["稍后再看"])
 
 
 @router.get("/list", response_model=dict)
 async def get_watch_later_list(
-    sessdata: str = Query(..., description="用户SESSDATA"),
+    db: Session = Depends(get_db),
     pn: int = Query(1, ge=1, description="页码"),
     ps: int = Query(20, ge=1, le=100, description="每页数量")
 ):
@@ -18,6 +22,17 @@ async def get_watch_later_list(
     - 加载速度提升90%以上
     - 支持分页和无限滚动
     """
+    # 获取当前活跃用户
+    active_user = db.query(User).filter(User.is_active == True).first()
+    if not active_user:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    # 从HeadersManager获取sessdata
+    headers_manager = get_headers_manager()
+    sessdata = headers_manager.get_cookie("SESSDATA")
+    if not sessdata:
+        raise HTTPException(status_code=401, detail="未找到登录凭证")
+    
     try:
         service = BilibiliService()
         try:

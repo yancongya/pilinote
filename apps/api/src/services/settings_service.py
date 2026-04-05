@@ -119,6 +119,16 @@ class SettingsService:
         }
         storage_settings_dict['webdav'] = webdav_dict
 
+        # 读取FTP设置
+        ftp_dict = {
+            'host': self._get_setting_value(all_settings, 'storage.ftp.host', ''),
+            'username': self._get_setting_value(all_settings, 'storage.ftp.username', ''),
+            'password': self._get_setting_value(all_settings, 'storage.ftp.password', ''),
+            'remote_path': self._get_setting_value(all_settings, 'storage.ftp.remote_path', '/pilinote'),
+            'use_tls': self._get_setting_value(all_settings, 'storage.ftp.use_tls', False)
+        }
+        storage_settings_dict['ftp'] = ftp_dict
+
         # 读取sidecar设置
         # 优先尝试从 storage.sidecar 读取 JSON 对象
         sidecar_setting = all_settings.get('storage.sidecar')

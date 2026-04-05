@@ -26,6 +26,8 @@ function App() {
       try {
         console.log('[App] 正在从后端验证会话状态...')
         await fetchUser()
+        console.log('[App] fetchUser完成，当前登录状态:', isAuthenticated)
+        console.log('[App] 当前用户信息:', user)
         await fetchSettings()
 
         console.log('[App] 数据恢复完成')

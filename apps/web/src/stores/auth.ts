@@ -60,10 +60,14 @@ export const useAuthStore = create<AuthState>()(
               },
               isAuthenticated: true,
             })
+            console.log('[Auth] 已登录:', userData.username)
           } else {
-            // 服务器返回未登录，但不清除本地状态
-            // 这可能是服务器还没初始化完成，暂时保留本地状态
-            console.log('[Auth] Server reports not logged in, keeping local state')
+            // 服务器返回未登录，清除本地状态
+            console.log('[Auth] 服务器返回未登录，清除本地状态')
+            set({
+              user: null,
+              isAuthenticated: false,
+            })
           }
         } catch (error) {
           console.error('Failed to fetch user:', error)
@@ -77,6 +81,13 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        // 在从localStorage恢复状态后，立即调用fetchUser来更新状态
+        console.log('[Auth] 状态已从localStorage恢复，正在从服务器验证...')
+        if (state) {
+          state.fetchUser()
+        }
+      },
     }
   )
 );

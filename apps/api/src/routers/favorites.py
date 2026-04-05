@@ -12,15 +12,28 @@ router = APIRouter(prefix="/api/favorites", tags=["收藏夹"])
 
 @router.get("/folders", response_model=dict)
 async def get_folders(
-    sessdata: str = Query(..., description="用户SESSDATA"),
-    up_mid: int = Query(..., description="用户mid"),
+    db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量")
 ):
     """获取收藏夹列表"""
+    from src.services.headers_manager import get_headers_manager
+    from src.models.user import User
+    
+    # 获取当前活跃用户
+    active_user = db.query(User).filter(User.is_active == True).first()
+    if not active_user:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    # 从HeadersManager获取sessdata
+    headers_manager = get_headers_manager()
+    sessdata = headers_manager.get_cookie("SESSDATA")
+    if not sessdata:
+        raise HTTPException(status_code=401, detail="未找到登录凭证")
+    
     service = BilibiliService()
     try:
-        result = await service.get_folder_list(sessdata, up_mid, page, page_size)
+        result = await service.get_folder_list(sessdata, active_user.mid, page, page_size)
         if result["success"]:
             data = result["data"]
             print(f"解析后的data: {data}")
@@ -52,7 +65,7 @@ async def get_folders(
 @router.get("/folders/{folder_id}", response_model=dict)
 async def get_folder_detail(
     folder_id: int,
-    sessdata: str = Query(..., description="用户SESSDATA"),
+    db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     keyword: str = Query("", description="搜索关键词"),
@@ -67,6 +80,20 @@ async def get_folder_detail(
     - 加载速度提升90%以上
     - 支持分页和无限滚动
     """
+    from src.services.headers_manager import get_headers_manager
+    from src.models.user import User
+    
+    # 获取当前活跃用户
+    active_user = db.query(User).filter(User.is_active == True).first()
+    if not active_user:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    # 从HeadersManager获取sessdata
+    headers_manager = get_headers_manager()
+    sessdata = headers_manager.get_cookie("SESSDATA")
+    if not sessdata:
+        raise HTTPException(status_code=401, detail="未找到登录凭证")
+    
     import traceback
     try:
         print(f"[DEBUG] 收藏夹详情请求: folder_id={folder_id}, page={page}, page_size={page_size}")

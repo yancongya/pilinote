@@ -24,7 +24,7 @@ function HomePage() {
   
   // Week 2: 定期检查并刷新cookie
   useEffect(() => {
-    if (!user || !user.sessdata) return
+    if (!user) return
 
     // 初始化认证系统状态
     const initAuthSystem = async () => {

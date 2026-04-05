@@ -78,7 +78,7 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
     if (settings?.storage?.ftp) {
       setLocalSettings({ ftp: { ...settings.storage.ftp } })
     }
-  }, []) // 空依赖数组，只在组件挂载时执行一次
+  }, [settings]) // 添加settings作为依赖，当settings更新时重新执行
 
   const handleChange = (field: string, value: any) => {
     setLocalSettings(prev => ({

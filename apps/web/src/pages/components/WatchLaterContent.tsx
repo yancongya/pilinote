@@ -5,9 +5,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useNewQueueStore } from '../../stores/newQueue'
 import { formatDuration, formatNumber, formatProgress, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
-import { useBatchDownload } from '../../hooks/useBatchDownload'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
-import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
 import AlertModal from '../../components/AlertModal'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -88,12 +86,13 @@ export default function WatchLaterContent() {
 
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number) => {
-    if (!user?.sessdata) {
+    if (!user?.mid) {
       return { success: false, message: '缺少必要参数' }
     }
-    const response = await apiService.getWatchLaterList(user.sessdata, page, pageSize)
+    // 调用getWatchLaterList时不需要传递sessdata，后端会从cookie中获取
+    const response = await apiService.getWatchLaterList(page, pageSize)
     return response
-  }, [user?.sessdata])
+  }, [user?.mid])
 
   // 使用 useVideoList Hook 管理视频列表
   const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
@@ -128,23 +127,8 @@ export default function WatchLaterContent() {
     })
   })
 
-  // 使用 useBatchDownload Hook 管理批量下载
-  const {
-    batchMode,
-    setBatchMode,
-    selectedVideos,
-    toggleVideoSelection,
-    toggleSelectAll,
-    batchDownloadSelected,
-    clearSelection
-  } = useBatchDownload({
-    videos,
-    setLoading,
-    setError
-  })
-
   // 使用 useVideoDownload Hook 处理单个视频下载（使用新的下载系统）
-  const { toggleDownload: baseToggleDownload } = useVideoDownload(true)
+  const { toggleDownload: baseToggleDownload } = useVideoDownload()
 
   // 包装toggleDownload，确保状态更新
 const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
@@ -321,7 +305,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
     }
   }
 
-  if (!user?.sessdata) {
+  if (!user?.mid) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '60px 20px' }}>
         <p style={{ color: '#999', fontSize: '16px' }}>请先登录以查看稍后再看</p>
@@ -340,16 +324,6 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
         <div className="section-title">
           <h2>稍后再看</h2>
           <span className="video-count">共{totalCount || videos.length}个视频</span>
-          {videos.length > 0 && (
-            <BatchActionsBar
-              batchMode={batchMode}
-              selectedCount={selectedVideos.size}
-              onEnterBatchMode={() => setBatchMode(true)}
-              onExitBatchMode={clearSelection}
-              onBatchDownload={batchDownloadSelected}
-              loading={loading}
-            />
-          )}
         </div>
       </div>
 
@@ -358,10 +332,6 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
         loading={videosLoading}
         loadingMore={loadingMore}
         error={videosError || error}
-        batchMode={batchMode}
-        selectedVideos={selectedVideos}
-        onToggleSelect={toggleVideoSelection}
-        onSelectAll={toggleSelectAll}
         onDownloadToggle={toggleDownload}
         getDownloadStatus={getDownloadStatus}
         loadMoreRef={loadMoreRef}

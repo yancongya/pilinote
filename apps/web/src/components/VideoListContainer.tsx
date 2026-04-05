@@ -29,13 +29,13 @@ export interface VideoListContainerProps {
   /** 错误信息 */
   error: string
   /** 批量模式状态 */
-  batchMode: boolean
+  batchMode?: boolean
   /** 选中的视频集合 */
-  selectedVideos: Set<string>
+  selectedVideos?: Set<string>
   /** 切换选中回调 */
-  onToggleSelect: (videoId: string) => void
+  onToggleSelect?: (videoId: string) => void
   /** 全选回调 */
-  onSelectAll: () => void
+  onSelectAll?: () => void
   /** 是否显示批量选择头部 */
   batchSelectHeader?: boolean
   /** 下载切换回调 */
@@ -65,11 +65,11 @@ export default function VideoListContainer({
   loading,
   loadingMore,
   error,
-  batchMode,
-  selectedVideos,
+  batchMode = false,
+  selectedVideos = new Set(),
   onToggleSelect,
   onSelectAll,
-  batchSelectHeader = true,
+  batchSelectHeader = false,
   onDownloadToggle,
   getDownloadStatus,
   extraHeader,
@@ -104,7 +104,7 @@ export default function VideoListContainer({
       {!loading && !error && (
         <div className="video-list" role="list" aria-label="视频列表">
           {/* 批量选择头部 */}
-          {batchMode && batchSelectHeader && (
+          {batchMode && batchSelectHeader && onSelectAll && (
             <div className="batch-select-header">
               <button
                 className="select-all-btn"
@@ -140,7 +140,7 @@ export default function VideoListContainer({
                     downloadStatus={getDownloadStatus?.(video.bvid)}
                     batchMode={batchMode}
                     selected={selectedVideos.has(video.id)}
-                    onToggleSelect={() => onToggleSelect(video.id)}
+                    onToggleSelect={onToggleSelect ? () => onToggleSelect(video.id) : undefined}
                     clickable={!batchMode && cardClickable}
                   />
                 )

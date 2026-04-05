@@ -614,7 +614,7 @@ async def get_login_status(db: Session = Depends(get_db)):
         try:
             user_info = await service.get_user_info(cookies_dict["SESSDATA"])
             
-            if user_info.get("code") != 0:
+            if not user_info.get("success"):
                 return {
                     "success": True,
                     "data": {

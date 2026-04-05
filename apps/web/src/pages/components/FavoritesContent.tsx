@@ -7,10 +7,8 @@ import { useNewQueueStore } from '../../stores/newQueue'
 import { ArrowLeft, Folder } from 'lucide-react'
 import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
-import { useBatchDownload } from '../../hooks/useBatchDownload'
 import { getAvatarProxyUrl } from '../../config/api'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
-import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
 import AlertModal from '../../components/AlertModal'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -111,12 +109,13 @@ export default function FavoritesContent() {
 
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchFavoriteVideos = useCallback(async (page: number, pageSize: number) => {
-    if (!selectedFolder || !user?.sessdata) {
+    if (!selectedFolder || !user?.mid) {
       // 当 selectedFolder 为 null 时（返回收藏夹列表页），返回空的成功结果
       return { success: true, data: { list: [], total: 0 } }
     }
-    return apiService.getFolderDetail(selectedFolder.id, user.sessdata, page, pageSize)
-  }, [selectedFolder?.id, user?.sessdata])
+    // 调用getFolderDetail时不需要传递sessdata，后端会从cookie中获取
+    return apiService.getFolderDetail(selectedFolder.id, page, pageSize)
+  }, [selectedFolder?.id, user?.mid])
 
   // 使用 useVideoList Hook 管理视频列表
   const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
@@ -148,23 +147,8 @@ export default function FavoritesContent() {
     })
   })
 
-  // 使用 useBatchDownload Hook 管理批量下载
-  const {
-    batchMode,
-    setBatchMode,
-    selectedVideos,
-    toggleVideoSelection,
-    toggleSelectAll,
-    batchDownloadSelected,
-    clearSelection
-  } = useBatchDownload({
-    videos,
-    setLoading,
-    setError
-  })
-
   // 使用 useVideoDownload Hook 处理单个视频下载（使用新的下载系统）
-  const { toggleDownload: baseToggleDownload } = useVideoDownload(true)
+  const { toggleDownload: baseToggleDownload } = useVideoDownload()
 
   // 包装toggleDownload，确保状态更新
 const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
@@ -350,7 +334,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
   // 获取收藏夹列表（带缓存）
   useEffect(() => {
     const fetchFolders = async () => {
-      if (!user?.sessdata || !user?.mid || foldersLoadedRef.current) return
+      if (!user?.mid || foldersLoadedRef.current) return
 
       foldersLoadedRef.current = true
 
@@ -360,7 +344,8 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
         setFolders(cachedFolders)
         // 后台静默刷新
         try {
-          const response = await apiService.getFolders(user.sessdata, user.mid)
+          // 调用getFolders时不需要传递sessdata和upMid，后端会从cookie中获取
+          const response = await apiService.getFolders()
           if (response.success && response.data) {
             setFolders(response.data)
             setFoldersCache(response.data)
@@ -375,7 +360,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       setError('')
 
       try {
-        const response = await apiService.getFolders(user.sessdata, user.mid)
+        const response = await apiService.getFolders()
         if (response.success && response.data) {
           setFolders(response.data)
           setFoldersCache(response.data)
@@ -392,7 +377,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
     fetchFolders()
   }, [user, getFoldersCache, setFoldersCache])
 
-  if (!user?.sessdata) {
+  if (!user?.mid) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '60px 20px' }}>
         <p style={{ color: '#999', fontSize: '16px' }}>请先登录以查看收藏夹</p>
@@ -427,16 +412,6 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
               ? `共${selectedFolder.media_count}条视频`
               : `${folders.length}个收藏夹`}
           </span>
-          {selectedFolder && videos.length > 0 && (
-            <BatchActionsBar
-              batchMode={batchMode}
-              selectedCount={selectedVideos.size}
-              onEnterBatchMode={() => setBatchMode(true)}
-              onExitBatchMode={clearSelection}
-              onBatchDownload={batchDownloadSelected}
-              loading={loading}
-            />
-          )}
         </div>
       </div>
 
@@ -494,10 +469,6 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
           loading={videosLoading}
           loadingMore={loadingMore}
           error={videosError}
-          batchMode={batchMode}
-          selectedVideos={selectedVideos}
-          onToggleSelect={toggleVideoSelection}
-          onSelectAll={toggleSelectAll}
           onDownloadToggle={toggleDownload}
           getDownloadStatus={getDownloadStatus}
           loadMoreRef={loadMoreRef}

@@ -152,23 +152,22 @@ class ApiService {
   }
 
 // 收藏夹相关API
-  async getFolders(sessdata: string, upMid: number, page: number = 1, pageSize: number = 20): Promise<ApiResponse<any>> {
+  async getFolders(page: number = 1, pageSize: number = 20): Promise<ApiResponse<any>> {
     return this.request<any>(
-      `/api/favorites/folders?sessdata=${encodeURIComponent(sessdata)}&up_mid=${upMid}&page=${page}&page_size=${pageSize}`,
+      `/api/favorites/folders?page=${page}&page_size=${pageSize}`,
       { method: 'GET' }
     );
   }
 
   async getFolderDetail(
     folderId: number,
-    sessdata: string,
     page: number = 1,
     pageSize: number = 20,
     keyword: string = '',
     order: string = 'mtime'
   ): Promise<ApiResponse<any>> {
     return this.request<any>(
-      `/api/favorites/folders/${folderId}?sessdata=${encodeURIComponent(sessdata)}&page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}`,
+      `/api/favorites/folders/${folderId}?page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}`,
       { method: 'GET' }
     );
   }
@@ -186,131 +185,13 @@ class ApiService {
 
   // 稍后再看相关API
   async getWatchLaterList(
-    sessdata: string,
     pn: number = 1,
     ps: number = 20
   ): Promise<ApiResponse<any>> {
     return this.request<any>(
-      `/api/watchlater/list?sessdata=${encodeURIComponent(sessdata)}&pn=${pn}&ps=${ps}`,
+      `/api/watchlater/list?pn=${pn}&ps=${ps}`,
       { method: 'GET' }
     );
-  }
-
-  // 下载链接解析API
-  async parseDownloadUrl(url: string): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/download/parse', {
-      method: 'POST',
-      body: JSON.stringify({ url }),
-    });
-  }
-
-  // 下载任务管理API
-  async startDownload(downloadData: {
-    bvid: string;
-    title: string;
-    cid?: number;
-    aid?: number;
-    quality?: number;
-    output_format?: string;
-    thumbnail_url?: string;
-    duration?: number;
-    uploader?: string;
-    uploader_mid?: number;
-    sessdata?: string;
-    audio_bitrate?: number;
-    codec?: string;
-    // 字幕相关参数
-    enable_subtitle?: boolean;
-    enable_nfo?: boolean;
-    enable_cover?: boolean;
-    enable_avatar?: boolean;
-  }): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/download/start', {
-      method: 'POST',
-      body: JSON.stringify(downloadData),
-    });
-  }
-
-  async getDownloadList(status?: string): Promise<ApiResponse<any>> {
-    const params = status ? `?status=${status}` : '';
-    return this.request<any>(`/api/download/list${params}`, {
-      method: 'GET',
-    });
-  }
-
-  async getDownloadDetail(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}`, {
-      method: 'GET',
-    });
-  }
-
-  async cancelDownload(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/cancel`, {
-      method: 'POST',
-    });
-  }
-
-  async retryDownload(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/retry`, {
-      method: 'POST',
-    });
-  }
-
-  async deleteDownload(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  // 添加到下载列表（不立即下载）
-  async addToDownloadQueue(downloadData: {
-    bvid: string;
-    title: string;
-    cid?: number;
-    aid?: number;
-    quality?: number;
-    output_format?: string;
-    thumbnail_url?: string;
-    duration?: number;
-    uploader?: string;
-    uploader_mid?: number;
-    sessdata?: string;
-    audio_bitrate?: number;
-    codec?: string;
-    // 字幕相关参数
-    enable_subtitle?: boolean;
-    enable_nfo?: boolean;
-    enable_cover?: boolean;
-    enable_avatar?: boolean;
-  }): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/download/add', {
-      method: 'POST',
-      body: JSON.stringify(downloadData),
-    });
-  }
-
-  // 批量开始下载
-  async startBatchDownloads(downloadIds?: string[]): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/download/start/batch', {
-      method: 'POST',
-      body: JSON.stringify(downloadIds ? { download_ids: downloadIds } : {}),
-    });
-  }
-
-  // 根据bvid获取下载任务
-  async getDownloadsByBvid(bvid: string, status?: string): Promise<ApiResponse<any>> {
-    const params = status ? `?status=${status}` : '';
-    return this.request<any>(`/api/download/bvid/${bvid}${params}`, {
-      method: 'GET',
-    });
-  }
-
-  // 根据bvid删除下载任务
-  async deleteDownloadByBvid(bvid: string, status?: string): Promise<ApiResponse<any>> {
-    const params = status ? `?status=${status}` : '';
-    return this.request<any>(`/api/download/bvid/${bvid}${params}`, {
-      method: 'DELETE',
-    });
   }
 
   // 认证升级相关API（Week 1 & 2）
@@ -398,44 +279,6 @@ class ApiService {
   async logout(): Promise<ApiResponse<any>> {
     return this.request<any>('/api/auth/logout', {
       method: 'POST',
-    });
-  }
-
-  // 任务管理相关API（Week 4-5）
-  async startDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/start`, {
-      method: 'POST',
-    });
-  }
-
-  async pauseDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/pause`, {
-      method: 'POST',
-    });
-  }
-
-  async resumeDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/resume`, {
-      method: 'POST',
-    });
-  }
-
-  async cancelDownloadTask(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/cancel`, {
-      method: 'POST',
-    });
-  }
-
-  async getDownloadTaskStatus(downloadId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/download/${downloadId}/status`, {
-      method: 'GET',
-    });
-  }
-
-  async getAllDownloadTasks(status?: string): Promise<ApiResponse<any>> {
-    const params = status ? `?status=${status}` : '';
-    return this.request<any>(`/api/download/manager/tasks${params}`, {
-      method: 'GET',
     });
   }
 

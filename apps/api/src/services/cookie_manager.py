@@ -291,12 +291,18 @@ class CookieManager:
                 for cookie in cookies:
                     # 确保cookie对象有name和value属性
                     if hasattr(cookie, 'name') and hasattr(cookie, 'value'):
-                        self.cookies[cookie.name] = cookie.value
+                        # 对SESSDATA和bili_jct等关键cookies进行URL解码
+                        cookie_value = cookie.value
+                        if cookie.name in ["SESSDATA", "bili_jct"]:
+                            from urllib.parse import unquote
+                            cookie_value = unquote(cookie_value)
+                        
+                        self.cookies[cookie.name] = cookie_value
                         loaded_count += 1
                         
                         # 特殊处理refresh_token
                         if cookie.name == "refresh_token":
-                            self.refresh_token = cookie.value
+                            self.refresh_token = cookie_value
                             if hasattr(cookie, 'expires_at') and cookie.expires_at:
                                 self.expires_at = datetime.fromtimestamp(cookie.expires_at)
                     else:

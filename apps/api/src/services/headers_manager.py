@@ -98,6 +98,23 @@ class HeadersManager:
             for name, value in fingerprint_cookies.items():
                 self.cookie_manager.set_cookie(name, value)
             
+            # 加载活跃用户的cookies从数据库
+            try:
+                from src.database import SessionLocal
+                from src.models.user import User
+                
+                db = SessionLocal()
+                try:
+                    active_user = db.query(User).filter(User.is_active == True).first()
+                    if active_user:
+                        load_result = await self.cookie_manager.load_from_db(active_user.id)
+                        if load_result.get("success"):
+                            print(f"[HeadersManager] 从数据库加载了{load_result.get('loaded_count', 0)}个用户cookie")
+                finally:
+                    db.close()
+            except Exception as e:
+                print(f"[HeadersManager] 加载用户cookie失败: {str(e)}")
+            
             # Step 4: 刷新headers
             await self.refresh()
             
