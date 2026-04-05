@@ -600,8 +600,7 @@ async def get_login_status(db: Session = Depends(get_db)):
         if active_user:
             try:
                 headers_manager = get_headers_manager()
-                await headers_manager.cookie_manager.load_from_db(active_user.id)
-                await headers_manager.refresh()
+                await headers_manager.sync_cookies_from_db(active_user.id)
             except Exception:
                 pass
         

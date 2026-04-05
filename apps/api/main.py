@@ -108,6 +108,21 @@ async def lifespan(app: FastAPI):
         await init_headers()
         headers_manager = get_headers_manager()
         logger.info("HeadersManager initialized successfully")
+        # Phase 2: 启动阶段预加载活跃账号 cookies 到内存（不影响阶段1行为）
+        try:
+            if getattr(settings, "ENABLE_COOKIES_SYNC", True):
+                from src.database import SessionLocal
+                from src.models.user import User
+                db = SessionLocal()
+                try:
+                    active_users = db.query(User).filter(User.is_active == True).all()
+                    for u in active_users:
+                        await headers_manager.sync_cookies_from_db(u.id)
+                        logger.info(f"[Startup] 预加载 cookies 完成 user_id={u.id}")
+                finally:
+                    db.close()
+        except Exception as e:
+            logger.warning(f"[Startup] 预加载 cookies 失败: {e}")
     except Exception as e:
         logger.error(f"Failed to initialize HeadersManager: {e}")
 
