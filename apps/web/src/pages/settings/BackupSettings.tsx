@@ -11,6 +11,7 @@ import {
   Upload
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
+import { getApiUrl } from '../../config/api'
 
 // 定义ref类型
 interface BackupSettingsRef {
@@ -92,7 +93,7 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
   const handleTestConnection = async () => {
     setTestingConnection(true)
     try {
-      const response = await fetch('http://localhost:8000/api/settings/ftp/test', {
+      const response = await fetch(getApiUrl('/api/settings/ftp/test'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +120,7 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
     setBackupProgress({ type: 'progress', message: '正在连接...' })
 
     try {
-      const response = await fetch('http://localhost:8000/api/settings/backup/download', {
+      const response = await fetch(getApiUrl('/api/settings/backup/download'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +176,7 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
     setBackupProgress({ type: 'progress', message: '正在连接...' })
 
     try {
-      const response = await fetch('http://localhost:8000/api/settings/backup/database', {
+      const response = await fetch(getApiUrl('/api/settings/backup/database'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

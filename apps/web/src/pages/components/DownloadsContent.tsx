@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListCard from './VideoListCard'
 import { useDownloadStore } from '../../stores/download'
+import { getApiUrl } from '../../config/api'
 
 interface DownloadTask {
   id: string
@@ -127,7 +128,7 @@ export default function DownloadsContent() {
   // 获取存储信息
   const fetchStorageInfo = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/settings/storage-info')
+      const response = await fetch(getApiUrl('/api/settings/storage-info'))
       const data = await response.json()
       
       if (data.success && data.data) {
@@ -153,7 +154,7 @@ export default function DownloadsContent() {
 
     try {
       // 根据当前视图模式获取不同的任务列表
-      let url = 'http://localhost:8000/api/download/list'
+      let url = getApiUrl('/api/download/list')
       if (viewMode === 'downloading') {
         url += '?status=downloading,queued,pending,paused,failed'
       } else if (viewMode === 'completed') {

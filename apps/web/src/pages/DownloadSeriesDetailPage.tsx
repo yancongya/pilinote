@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ChevronLeft, RefreshCw, Trash, Play } from 'lucide-react'
 import { apiService } from '../services/api'
+import { getApiUrl } from '../config/api'
+import { getAvatarProxyUrl } from '../config/api'
 
 interface DownloadTask {
   id: string
@@ -110,7 +112,7 @@ export default function DownloadSeriesDetailPage() {
     setError('')
     
     try {
-      const response = await fetch('http://localhost:8000/api/download/list')
+      const response = await fetch(getApiUrl('/api/download/list'))
       const data = await response.json()
       
       if (data.success) {
@@ -191,7 +193,7 @@ export default function DownloadSeriesDetailPage() {
   // 操作函数
   const handlePauseDownload = async (id: string) => {
     try {
-      await fetch(`http://localhost:8000/api/download/${id}/pause`, { method: 'POST' })
+      await fetch(getApiUrl(`/api/download/${id}/pause`), { method: 'POST' })
       fetchDownloads()
     } catch (err) {
       console.error('暂停下载失败:', err)
@@ -200,7 +202,7 @@ export default function DownloadSeriesDetailPage() {
 
   const handleResumeDownload = async (id: string) => {
     try {
-      await fetch(`http://localhost:8000/api/download/${id}/resume`, { method: 'POST' })
+      await fetch(getApiUrl(`/api/download/${id}/resume`), { method: 'POST' })
       fetchDownloads()
     } catch (err) {
       console.error('继续下载失败:', err)
@@ -209,7 +211,7 @@ export default function DownloadSeriesDetailPage() {
 
   const handleCancelDownload = async (id: string) => {
     try {
-      await fetch(`http://localhost:8000/api/download/${id}/cancel`, { method: 'POST' })
+      await fetch(getApiUrl(`/api/download/${id}/cancel`), { method: 'POST' })
       fetchDownloads()
     } catch (err) {
       console.error('取消下载失败:', err)
@@ -218,7 +220,7 @@ export default function DownloadSeriesDetailPage() {
 
   const handleRetryDownload = async (id: string) => {
     try {
-      await fetch(`http://localhost:8000/api/download/${id}/retry`, { method: 'POST' })
+      await fetch(getApiUrl(`/api/download/${id}/retry`), { method: 'POST' })
       fetchDownloads()
     } catch (err) {
       console.error('重试失败:', err)
@@ -227,7 +229,7 @@ export default function DownloadSeriesDetailPage() {
 
   const handleDeleteDownload = async (id: string) => {
     try {
-      await fetch(`http://localhost:8000/api/download/${id}`, { method: 'DELETE' })
+      await fetch(getApiUrl(`/api/download/${id}`), { method: 'DELETE' })
       fetchDownloads()
     } catch (err) {
       console.error('删除失败:', err)
@@ -300,7 +302,7 @@ export default function DownloadSeriesDetailPage() {
               <div className="task-thumb">
                 {task.thumbnail_url ? (
                   <img 
-                    src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(task.thumbnail_url)}`}
+                    src={getAvatarProxyUrl(task.thumbnail_url)}
                     alt={task.title}
                     className="thumb-img"
                   />

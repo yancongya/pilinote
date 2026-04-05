@@ -8,6 +8,7 @@ import { ArrowLeft, Folder } from 'lucide-react'
 import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
 import { useBatchDownload } from '../../hooks/useBatchDownload'
+import { getAvatarProxyUrl } from '../../config/api'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
 import BatchActionsBar from '../../components/BatchActionsBar'
 import VideoListContainer from '../../components/VideoListContainer'
@@ -469,7 +470,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
                 <div className="fav-folder-cover">
                   <div className="fav-folder-thumbnail">
                     {folder.cover ? (
-                      <img src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(folder.cover)}`} alt={folder.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarProxyUrl(folder.cover)} alt={folder.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <Folder />
                     )}

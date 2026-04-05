@@ -4,6 +4,7 @@ import SchedulerCard from './SchedulerCard'
 import TaskCard from './TaskCard'
 import { Inbox as EmptyIcon } from 'lucide-react'
 import { useMemo, useEffect } from 'react'
+import { getApiUrl } from '../../config/api'
 
 export default function VideoLibrary() {
   const { schedulers, tasks, connected, fetchTasks } = useNewQueueStore()
@@ -51,7 +52,7 @@ export default function VideoLibrary() {
       try {
         // 并行获取所有任务的文件大小
         const promises = completedTaskIds.map(taskId =>
-          fetch(`http://localhost:8000/api/queue/tasks/${taskId}/file-size`)
+          fetch(getApiUrl(`/api/queue/tasks/${taskId}/file-size`))
             .catch(error => {
               console.error(`Failed to fetch file size for task ${taskId}:`, error)
               return null

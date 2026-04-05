@@ -5,6 +5,7 @@ import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { Check, Smartphone, User } from 'lucide-react'
 import GeetestCaptcha from '../components/GeetestCaptcha'
+import { getAvatarProxyUrl } from '../config/api'
 
 interface LoginPageProps {
   onLogin: () => void
@@ -399,7 +400,7 @@ function LoginPage({ onLogin }: LoginPageProps) {
                   }}
                 >
                   <img
-                    src={`http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(account.avatar)}`}
+                    src={getAvatarProxyUrl(account.avatar)}
                     alt={account.username}
                     className="account-avatar"
                     onError={(e) => {

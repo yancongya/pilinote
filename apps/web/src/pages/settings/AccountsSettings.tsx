@@ -5,6 +5,7 @@ import { apiService } from '../../services/api'
 import { User, Trash2, RefreshCw, Info, Key, Cookie as CookieIcon, Shield, Plus } from 'lucide-react'
 import Modal from '../../components/Modal'
 import ConfirmModal from '../../components/ConfirmModal'
+import { getAvatarProxyUrl } from '../../config/api'
 
 interface Account {
   id: number
@@ -215,8 +216,7 @@ export default function AccountsSettings() {
     if (avatar.startsWith('//')) {
       fullUrl = `https:${avatar}`
     }
-    const encodedUrl = encodeURIComponent(fullUrl)
-    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodedUrl}`
+    return getAvatarProxyUrl(fullUrl)
   }
 
   const getDefaultAvatar = (username: string) => {

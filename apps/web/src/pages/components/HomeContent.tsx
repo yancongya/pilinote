@@ -3,6 +3,7 @@ import { apiService } from '../../services/api'
 import { useDownloadStore } from '../../stores/download'
 import { useSettingsStore } from '../../stores/settings'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
+import { getAvatarProxyUrl } from '../../config/api'
 
 interface VideoInfo {
   bvid: string
@@ -198,7 +199,7 @@ export default function HomeContent() {
 
   const getProxyImageUrl = (url: string): string => {
     if (!url) return ''
-    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+    return getAvatarProxyUrl(url)
   }
 
   const videoInfo = parseData?.data?.video

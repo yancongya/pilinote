@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw, Users, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
+import { getAvatarProxyUrl } from '../../config/api'
 
 interface VideoCardProps {
   id: string
@@ -162,7 +163,7 @@ export default function VideoListCard({
 
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
-    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+    return getAvatarProxyUrl(url)
   }
 
   const handleVideoClick = () => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getApiUrl } from '../config/api'
 
 // 类型定义
 export type TaskState = 'backlog' | 'pending' | 'active' | 'completed' | 'paused' | 'failed' | 'cancelled'
@@ -307,7 +308,7 @@ forceClearCache: () => {
 
       fetchTasks: async () => {
         try {
-          const response = await fetch('http://localhost:8000/api/queue/tasks')
+          const response = await fetch(getApiUrl('/api/queue/tasks'))
           if (response.ok) {
             const result = await response.json()
             const stateMap: Record<number, string> = {
@@ -359,7 +360,7 @@ forceClearCache: () => {
 
       fetchSchedulers: async () => {
         try {
-          const response = await fetch('http://localhost:8000/api/queue/schedulers')
+          const response = await fetch(getApiUrl('/api/queue/schedulers'))
           if (response.ok) {
             const result = await response.json()
             const schedulers: Record<string, Scheduler> = {}
@@ -393,7 +394,7 @@ forceClearCache: () => {
 
       submitTask: async (task) => {
         try {
-          const response = await fetch('http://localhost:8000/api/queue/tasks', {
+          const response = await fetch(getApiUrl('/api/queue/tasks'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(task),
@@ -414,7 +415,7 @@ forceClearCache: () => {
         try {
           // 如果是删除操作，使用DELETE方法
           if (action === 'cancelled') {
-            const response = await fetch(`http://localhost:8000/api/queue/tasks/${taskId}`, {
+            const response = await fetch(getApiUrl(`/api/queue/tasks/${taskId}`), {
               method: 'DELETE',
             })
             if (!response.ok) throw new Error('Delete failed')
@@ -437,7 +438,7 @@ forceClearCache: () => {
               throw new Error(`Invalid action: ${action}`)
             }
 
-            const response = await fetch(`http://localhost:8000/api/queue/tasks/${taskId}`, {
+            const response = await fetch(getApiUrl(`/api/queue/tasks/${taskId}`), {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ state: stateValue }),
@@ -453,7 +454,7 @@ forceClearCache: () => {
 
       controlScheduler: async (sid, action) => {
         try {
-          const response = await fetch(`http://localhost:8000/api/queue/schedulers/${sid}/${action}`, {
+          const response = await fetch(getApiUrl(`/api/queue/schedulers/${sid}/${action}`), {
             method: 'POST',
           })
           if (!response.ok) throw new Error('Control failed')
@@ -466,7 +467,7 @@ forceClearCache: () => {
 
       deleteScheduler: async (sid) => {
         try {
-          const response = await fetch(`http://localhost:8000/api/queue/schedulers/${sid}`, {
+          const response = await fetch(getApiUrl(`/api/queue/schedulers/${sid}`), {
             method: 'DELETE',
           })
           if (!response.ok) throw new Error('Delete failed')
@@ -480,7 +481,7 @@ forceClearCache: () => {
 
       deleteTask: async (taskId) => {
         try {
-          const response = await fetch(`http://localhost:8000/api/queue/tasks/${taskId}`, {
+          const response = await fetch(getApiUrl(`/api/queue/tasks/${taskId}`), {
             method: 'DELETE',
           })
           if (!response.ok) throw new Error('Delete failed')

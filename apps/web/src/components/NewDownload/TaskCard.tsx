@@ -1,6 +1,7 @@
 // components/NewDownload/TaskCard.tsx
 import { useNewQueueStore, Task, DownloadStage } from '../../stores/newQueue'
 import { Play, Pause, Trash2, RefreshCw, Film } from 'lucide-react'
+import { getAvatarProxyUrl } from '../../config/api'
 
 interface Props {
   task: Task
@@ -9,7 +10,7 @@ interface Props {
 // 代理图片URL，避免403错误
 const getProxyImageUrl = (url: string | null | undefined): string => {
   if (!url) return ''
-  return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+  return getAvatarProxyUrl(url)
 }
 
 // 格式化文件大小

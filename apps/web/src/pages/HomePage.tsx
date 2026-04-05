@@ -8,6 +8,7 @@ import FavoritesContent from './components/FavoritesContent'
 import WatchLaterContent from './components/WatchLaterContent'
 import DownloadsContent from './components/DownloadsContent'
 import NewDownloadContent from '../components/NewDownload'
+import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 
 function HomePage() {
@@ -99,7 +100,7 @@ function HomePage() {
 
   const getAvatarUrl = (avatarUrl: string) => {
     if (!avatarUrl) return ''
-    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(avatarUrl)}`
+    return getAvatarProxyUrl(avatarUrl)
   }
 
   const handleAvatarClick = () => {

@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Download, Clock, AlertCircle, Play, Trash, RefreshCw,
 import { useDownloadStore } from '../stores/download'
 import { useSettingsStore } from '../stores/settings'
 import { apiService } from '../services/api'
+import { getApiUrl } from '../config/api'
 
 export default function DownloadDetailPage() {
   const { bvid } = useParams<{ bvid: string }>()
@@ -52,7 +53,7 @@ export default function DownloadDetailPage() {
     
     try {
       // 强制从服务器获取最新数据，不使用本地缓存
-      const response = await fetch(`http://localhost:8000/api/download/bvid/${bvid}`)
+      const response = await fetch(getApiUrl(`/api/download/bvid/${bvid}`))
       const data = await response.json()
       
       if (data.success && data.downloads) {
@@ -234,7 +235,7 @@ const handleStartBatch = async () => {
       
       for (const id of downloadIds) {
         try {
-          const response = await fetch(`http://localhost:8000/api/download/${id}`, { method: 'DELETE' })
+          const response = await fetch(getApiUrl(`/api/download/${id}`), { method: 'DELETE' })
           const data = await response.json()
           
           if (data.success) {
@@ -372,7 +373,7 @@ const handleStartBatch = async () => {
     }
     
     try {
-      await fetch(`http://localhost:8000/api/download/${downloadId}`, { method: 'DELETE' })
+      await fetch(getApiUrl(`/api/download/${downloadId}`), { method: 'DELETE' })
       // 立即从前端列表中移除
       setDownloads(prev => prev.filter(d => d.id !== downloadId))
     } catch (err) {

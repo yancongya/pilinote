@@ -7,6 +7,7 @@ import { useNewQueueStore } from '../stores/newQueue'
 import { useVideoDownload } from '../hooks/useVideoDownload'
 import AlertModal from '../components/AlertModal'
 import { ArrowLeft, Film, User } from 'lucide-react'
+import { getAvatarProxyUrl } from '../config/api'
 
 export default function VideoDetailPage() {
   const { videoId } = useParams<{ videoId: string }>()
@@ -37,7 +38,7 @@ export default function VideoDetailPage() {
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
-    return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+    return getAvatarProxyUrl(url)
   }
 
   useEffect(() => {

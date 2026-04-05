@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react'
 import { useNewQueueStore, Scheduler, Task } from '../../stores/newQueue'
 import { Play, Pause, Trash2, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Loader2, X, Film } from 'lucide-react'
 import ConfirmModal from '../ConfirmModal'
+import { getAvatarProxyUrl } from '../../config/api'
 
 interface Props {
   scheduler: Scheduler
@@ -11,7 +12,7 @@ interface Props {
 // 代理图片URL，避免403错误
 const getProxyImageUrl = (url: string | null | undefined): string => {
   if (!url) return ''
-  return `http://localhost:8000/api/auth/proxy/avatar?url=${encodeURIComponent(url)}`
+  return getAvatarProxyUrl(url)
 }
 
 // 格式化文件大小

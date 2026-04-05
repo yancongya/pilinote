@@ -17,6 +17,7 @@ import {
   Upload,
   Edit2
 } from 'lucide-react'
+import { getApiUrl } from '../../config/api'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
 import { apiService } from '../../services/api'
@@ -137,7 +138,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   const loadStorageInfo = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/settings/storage-info')
+      const response = await fetch(getApiUrl('/api/settings/storage-info'))
       if (response.ok) {
         const data = await response.json()
         setStorageInfo({
@@ -153,13 +154,13 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   const loadCacheData = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/settings/cache-info')
+      const response = await fetch(getApiUrl('/api/settings/cache-info'))
       if (response.ok) {
         const data = await response.json()
         setCacheData(data.data || {})
 
         // 获取数据库文件大小
-        const dbResponse = await fetch('http://localhost:8000/api/settings/database/info')
+        const dbResponse = await fetch(getApiUrl('/api/settings/database/info'))
         if (dbResponse.ok) {
           const dbData = await dbResponse.json()
           setCacheData(prev => ({
@@ -207,7 +208,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
       // 尝试获取工具状态API，获取真实路径
       try {
-        const response = await fetch('http://localhost:8000/api/settings/tool-status')
+        const response = await fetch(getApiUrl('/api/settings/tool-status'))
         if (response.ok) {
           const data = await response.json()
           const toolStatus = data.data[tool]
@@ -301,7 +302,7 @@ const getCurrentValue = useCallback((field: string) => {
     const cacheType = showClearConfirm.type
     setClearingCache(cacheType)
     try {
-      const response = await fetch(`http://localhost:8000/api/settings/clear-cache/${cacheType}`, {
+      const response = await fetch(getApiUrl(`/api/settings/clear-cache/${cacheType}`), {
         method: 'POST'
       })
       if (response.ok) {
@@ -323,7 +324,7 @@ const getCurrentValue = useCallback((field: string) => {
   const handleExportDatabase = async () => {
     setExportingDatabase(true)
     try {
-      const response = await fetch('http://localhost:8000/api/settings/database/export', {
+      const response = await fetch(getApiUrl('/api/settings/database/export'), {
         method: 'GET'
       })
       
@@ -382,7 +383,7 @@ const getCurrentValue = useCallback((field: string) => {
         formData.append('file', file)
         
         // 导入数据库
-        const response = await fetch('http://localhost:8000/api/settings/database/import', {
+        const response = await fetch(getApiUrl('/api/settings/database/import'), {
           method: 'POST',
           body: formData
         })

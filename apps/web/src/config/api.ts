@@ -33,3 +33,11 @@ export const getAvatarProxyUrl = (avatarUrl: string): string => {
   const baseUrl = getApiBaseUrl();
   return `${baseUrl}/api/auth/proxy/avatar?url=${encodeURIComponent(avatarUrl)}`;
 };
+
+/**
+ * 获取 WebSocket URL
+ */
+export const getWebSocketUrl = (path: string = '/ws/queue'): string => {
+  const hostname = window.location.hostname;
+  return `ws://${hostname}:8000${path}`;
+};

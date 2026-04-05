@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { getApiUrl } from '../config/api'
 
 export interface VideoSettings {
   default_quality: number
@@ -65,7 +66,7 @@ export const useSettingsStore = create<SettingsState>()(
     fetchSettings: async () => {
       set({ loading: true, error: null })
       try {
-        const response = await fetch('http://localhost:8000/api/settings/')
+        const response = await fetch(getApiUrl('/api/settings/'))
         if (!response.ok) {
           throw new Error('Failed to fetch settings')
         }
@@ -82,7 +83,7 @@ export const useSettingsStore = create<SettingsState>()(
     updateSettings: async (updates: Partial<Settings>) => {
       set({ loading: true, error: null })
       try {
-        const response = await fetch('http://localhost:8000/api/settings/', {
+        const response = await fetch(getApiUrl('/api/settings/'), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -108,8 +109,8 @@ export const useSettingsStore = create<SettingsState>()(
       set({ loading: true, error: null })
       try {
         const url = category 
-          ? `http://localhost:8000/api/settings/reset?category=${category}`
-          : 'http://localhost:8000/api/settings/reset'
+          ? getApiUrl(`/api/settings/reset?category=${category}`)
+          : getApiUrl('/api/settings/reset')
           
         const response = await fetch(url, {
           method: 'POST',
@@ -131,7 +132,7 @@ export const useSettingsStore = create<SettingsState>()(
 
     exportSettings: async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/settings/export')
+        const response = await fetch(getApiUrl('/api/settings/export'))
         if (!response.ok) {
           throw new Error('Failed to export settings')
         }
@@ -146,7 +147,7 @@ export const useSettingsStore = create<SettingsState>()(
       set({ loading: true, error: null })
       try {
         const parsedData = JSON.parse(data)
-        const response = await fetch('http://localhost:8000/api/settings/import', {
+        const response = await fetch(getApiUrl('/api/settings/import'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

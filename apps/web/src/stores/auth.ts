@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getApiUrl } from '../config/api';
 
 export interface User {
   mid: number;
@@ -42,7 +43,7 @@ export const useAuthStore = create<AuthState>()(
 
       fetchUser: async () => {
         try {
-          const response = await fetch('http://localhost:8000/api/auth/status')
+          const response = await fetch(getApiUrl('/api/auth/status'))
           if (!response.ok) {
             throw new Error('Failed to fetch user status')
           }
