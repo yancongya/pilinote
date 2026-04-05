@@ -109,6 +109,16 @@ class SettingsService:
             'keep_failed': self._get_setting_value(all_settings, 'storage.keep_failed', False)
         }
 
+        # 读取webdav设置
+        webdav_dict = {
+            'url': self._get_setting_value(all_settings, 'storage.webdav.url', ''),
+            'username': self._get_setting_value(all_settings, 'storage.webdav.username', ''),
+            'password': self._get_setting_value(all_settings, 'storage.webdav.password', ''),
+            'remote_path': self._get_setting_value(all_settings, 'storage.webdav.remote_path', '/pilinote'),
+            'verify_ssl': self._get_setting_value(all_settings, 'storage.webdav.verify_ssl', False)
+        }
+        storage_settings_dict['webdav'] = webdav_dict
+
         # 读取sidecar设置
         # 优先尝试从 storage.sidecar 读取 JSON 对象
         sidecar_setting = all_settings.get('storage.sidecar')

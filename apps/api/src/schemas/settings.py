@@ -58,6 +58,15 @@ class DownloadSettings(BaseModel):
     metadata: MetadataSettings = Field(default_factory=MetadataSettings)
 
 
+class FTPConfig(BaseModel):
+    """FTP 配置"""
+    host: str = Field(default="", description="FTP 服务器地址（可包含端口，如 ftp.example.com:21）")
+    username: str = Field(default="", description="用户名")
+    password: str = Field(default="", description="密码")
+    remote_path: str = Field(default="/pilinote", description="远程存储路径")
+    use_tls: bool = Field(default=False, description="是否使用 TLS 加密（FTPS）")
+
+
 class StorageSettings(BaseModel):
     """Storage settings"""
     download_path: str = Field(default="./downloads", description="Download directory path")
@@ -70,6 +79,10 @@ class StorageSettings(BaseModel):
             "aria2c": "aria2c"
         },
         description="Sidecar工具路径（命令名称或绝对路径）"
+    )
+    ftp: FTPConfig = Field(
+        default_factory=FTPConfig,
+        description="FTP 配置"
     )
 
 

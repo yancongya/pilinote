@@ -9,16 +9,18 @@ import {
   Download,
   Database,
   Save,
-  RefreshCw
+  RefreshCw,
+  Cloud
 } from 'lucide-react'
 import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
 import StorageSettings from './settings/StorageSettings'
+import BackupSettings from './settings/BackupSettings'
 import ConfirmModal from '../components/ConfirmModal'
 import { useToast } from '../components/Toast'
 import '../settings-page.css'
 
-type TabType = 'accounts' | 'download' | 'storage'
+type TabType = 'accounts' | 'download' | 'storage' | 'backup'
 
 // 定义ref类型
 interface SettingsComponentRef {
@@ -37,7 +39,8 @@ function SettingsPage() {
   const tabs = [
     { id: 'accounts' as TabType, label: '账号', icon: User },
     { id: 'download' as TabType, label: '下载', icon: Download },
-    { id: 'storage' as TabType, label: '数据', icon: Database }
+    { id: 'storage' as TabType, label: '数据', icon: Database },
+    { id: 'backup' as TabType, label: '备份', icon: Cloud }
   ]
 
   // 从hash初始化activeTab
@@ -52,6 +55,7 @@ function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
   const storageSettingsRef = useRef<SettingsComponentRef>(null)
   const downloadSettingsRef = useRef<SettingsComponentRef>(null)
+  const backupSettingsRef = useRef<SettingsComponentRef>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
   
@@ -105,6 +109,9 @@ function SettingsPage() {
     if (targetTab === 'download' && downloadSettingsRef.current) {
       return downloadSettingsRef.current.hasUnsavedChanges()
     }
+    if (targetTab === 'backup' && backupSettingsRef.current) {
+      return backupSettingsRef.current.hasUnsavedChanges()
+    }
     return false
   }
 
@@ -117,6 +124,8 @@ function SettingsPage() {
         await storageSettingsRef.current.saveSettings()
       } else if (activeTab === 'download' && downloadSettingsRef.current) {
         await downloadSettingsRef.current.saveSettings()
+      } else if (activeTab === 'backup' && backupSettingsRef.current) {
+        await backupSettingsRef.current.saveSettings()
       }
       
       showToast('设置已保存', 'success')
@@ -194,10 +203,11 @@ function SettingsPage() {
           <DownloadSettings ref={downloadSettingsRef} />
         )}
         {activeTab === 'storage' && <StorageSettings ref={storageSettingsRef} />}
+        {activeTab === 'backup' && <BackupSettings ref={backupSettingsRef} />}
       </div>
 
       {/* 悬浮保存按钮 */}
-      {(activeTab === 'storage' || activeTab === 'download') && (
+      {(activeTab === 'storage' || activeTab === 'download' || activeTab === 'backup') && (
         <button
           className={`settings-fab-save-btn ${hasUnsavedChanges() ? 'has-changes' : ''} ${saving ? 'saving' : ''}`}
           onClick={handleSave}

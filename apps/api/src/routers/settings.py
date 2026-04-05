@@ -1,11 +1,14 @@
 """
 Settings router for managing system settings
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Body
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import logging
 import shutil
+import json
+import os
 
 from src.database import get_db
 from src.schemas.settings import (
@@ -16,6 +19,7 @@ SettingUpdate,
     SettingsExport
 )
 from src.services.settings_service import SettingsService
+from src.services.backup_service import BackupService
 
 logger = logging.getLogger(__name__)
 
@@ -740,6 +744,90 @@ async def import_database(file: UploadFile = File(..., description="Database fil
         raise HTTPException(status_code=500, detail=f"导入数据库失败: {str(e)}")
 
 
+@router.post("/backup/download")
+async def backup_download_directory(ftp_config: dict = Body(...), db: Session = Depends(get_db)):
+    """
+    备份下载目录到 FTP
+    
+    Args:
+        ftp_config: FTP 配置
+    
+    Returns:
+        备份进度流
+    """
+    try:
+        from src.services.settings_service import SettingsService
+        
+        # 获取设置
+        settings_service = SettingsService(db)
+        settings = settings_service.get_settings()
+        
+        # 获取下载路径
+        download_path = settings.storage.download_path
+        
+        # 创建备份服务
+        backup_service = BackupService(ftp_config)
+        
+        # 生成备份进度流
+        def generate_progress():
+            for progress in backup_service.backup_download_directory(download_path):
+                yield f"data: {json.dumps(progress)}\n\n"
+        
+        return StreamingResponse(
+            generate_progress(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
+    except Exception as e:
+        logger.error(f"备份下载目录失败: {e}")
+        raise HTTPException(status_code=500, detail=f"备份失败: {str(e)}")
+
+
+@router.post("/backup/database")
+async def backup_database(ftp_config: dict = Body(...), db: Session = Depends(get_db)):
+    """
+    备份数据库到 FTP
+    
+    Args:
+        ftp_config: FTP 配置
+    
+    Returns:
+        备份进度流
+    """
+    try:
+        from src.services.settings_service import SettingsService
+        
+        # 获取设置
+        settings_service = SettingsService(db)
+        settings = settings_service.get_settings()
+        
+        # 数据库文件路径
+        database_path = "pilinote.db"
+        
+        # 创建备份服务
+        backup_service = BackupService(ftp_config)
+        
+        # 生成备份进度流
+        def generate_progress():
+            for progress in backup_service.backup_database(database_path):
+                yield f"data: {json.dumps(progress)}\n\n"
+        
+        return StreamingResponse(
+            generate_progress(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
+    except Exception as e:
+        logger.error(f"备份数据库失败: {e}")
+        raise HTTPException(status_code=500, detail=f"备份失败: {str(e)}")
+
+
 @router.post("/cleanup/trigger")
 async def trigger_cleanup():
     """
@@ -826,5 +914,37 @@ async def get_cleanup_status():
             status_code=500,
             detail=f"获取清理状态失败: {str(e)}"
         )
+
+
+@router.post("/ftp/test")
+async def test_ftp_connection(ftp_config: dict = Body(...)):
+    """
+    测试 FTP 连接
+    
+    Args:
+        ftp_config: FTP 配置
+    
+    Returns:
+        连接测试结果
+    """
+    try:
+        from src.utils.ftp_adapter import FTPAdapter
+        
+        adapter = FTPAdapter(
+            host=ftp_config.get('host', ''),
+            username=ftp_config.get('username', ''),
+            password=ftp_config.get('password', ''),
+            use_tls=ftp_config.get('use_tls', False)
+        )
+        
+        success, message = adapter.test_connection()
+        
+        return {
+            "success": success,
+            "message": message
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"导入数据库失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"FTP 连接测试失败: {str(e)}"
+        )
