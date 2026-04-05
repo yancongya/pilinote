@@ -1,4 +1,6 @@
-const API_BASE_URL = 'http://localhost:8000';
+import { getApiBaseUrl } from '../config/api';
+
+const API_BASE_URL = getApiBaseUrl();
 
 export interface ApiResponse<T> {
   success: boolean;
