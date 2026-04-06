@@ -2360,12 +2360,75 @@ body {
   text-align: center;
 }
 
+/* Header 右侧区域 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* WebSocket 状态图标 - 纯图标带悬浮提示 */
+.ws-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  cursor: default;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  background: transparent;
+  position: relative;
+}
+
+.ws-status-icon::after {
+  content: attr(title);
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.ws-status-icon:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.ws-status-icon:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.ws-status-icon.ws-connected {
+  color: #22c55e;
+}
+
+.ws-status-icon.ws-disconnected {
+  color: #f59e0b;
+  animation: ws-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* 用户信息样式 */
 .user-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: 16px;
+  margin-left: 0;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 8px;
@@ -5156,12 +5219,48 @@ body {
 
 .video-card-stats {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 2px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   font-size: 12px;
   color: #999;
+  overflow: hidden;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.video-card-stats .stat-item {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.video-card-stats .stat-item svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.video-card-stats .stat-item span {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-card-stats .video-card-size {
+  font-size: 12px;
+  color: #666;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .video-card-stats svg {
@@ -5170,10 +5269,12 @@ body {
   flex-shrink: 0;
 }
 
-.video-card-stats .video-card-size {
-  font-size: 12px;
-  color: #666;
-  margin-left: 4px;
+.video-card-stats span {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .video-card-download-btn {
@@ -5264,21 +5365,35 @@ body {
   /* 统计数据固定一行，自适应缩小 */
   .video-card-stats {
     grid-area: stats;
-    gap: 4px 3px;
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
     font-size: 10px;
     flex-wrap: nowrap;
     justify-content: flex-start;
     overflow: hidden;
     margin-top: 0;
+    width: 100%;
   }
 
-  .video-card-stats svg {
+  .video-card-stats .stat-item {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  .video-card-stats .stat-item svg {
     width: 9px;
     height: 9px;
     flex-shrink: 0;
   }
 
-  .video-card-stats span {
+  .video-card-stats .stat-item span {
     flex-shrink: 1;
     min-width: 0;
     overflow: hidden;
@@ -5290,6 +5405,7 @@ body {
   .video-card-stats .video-card-size {
     font-size: 10px;
     margin-left: auto;
+    flex-shrink: 0;
   }
   
   #favorites-panel .section-header,

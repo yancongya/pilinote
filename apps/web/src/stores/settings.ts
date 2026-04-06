@@ -40,17 +40,9 @@ export interface IGeneralSettings {
   clipboard_monitor: boolean
 }
 
-export interface FolderScanRule {
-  // 收藏夹匹配规则
-  match_type: 'all' | 'regex' | 'name'  // 匹配类型
-  pattern: string  // 匹配模式（正则表达式或文件夹名）
-  enabled: boolean  // 是否启用
-  
-  // 扫描限制
-  max_videos: number  // 每个收藏夹最大扫描视频数
-  max_folders: number  // 最大扫描收藏夹数
-  sort_by: 'time' | 'name' | 'count'  // 排序方式
-  sort_order: 'desc' | 'asc'  // 排序顺序
+export interface FolderScanConfig {
+  folder_name: string  // 收藏夹名称
+  max_videos: number  // 最大扫描视频数
 }
 
 export interface Settings {
@@ -66,10 +58,10 @@ export interface Settings {
       video: number
       page: number
     }
-    // 高级扫描配置
-    advanced_scan: {
-      enabled: boolean  // 是否启用高级扫描
-      folder_rules: FolderScanRule[]  // 收藏夹扫描规则
+    // 自定义扫描配置
+    custom_scan: {
+      enabled: boolean  // 是否启用自定义扫描
+      folder_list: FolderScanConfig[]  // 收藏夹扫描列表
     }
   }
 }

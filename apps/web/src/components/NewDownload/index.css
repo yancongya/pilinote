@@ -8,32 +8,6 @@
   background: #f8fafc;
 }
 
-/* Connection Status */
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.connection-status.connected {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.connection-status.disconnected {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.connection-status svg {
-  flex-shrink: 0;
-}
-
 /* Loading State */
 .loading-state {
   display: flex;
@@ -182,28 +156,6 @@
   height: 100%;
   padding: 16px;
   background: #f8fafc;
-}
-
-/* 连接状态 */
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.connection-status.connected {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.connection-status.disconnected {
-  background: #fef3c7;
-  color: #92400e;
 }
 
 /* 加载状态 */

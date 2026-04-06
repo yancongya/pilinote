@@ -123,9 +123,10 @@ export default function VideoLibrary() {
   if (!connected) {
     return (
       <div className="video-library">
-        <div className="connection-status disconnected">
-          <EmptyIcon size={16} />
-          <span>WebSocket 未连接，请检查后端服务</span>
+        <div style={{ textAlign: 'center', padding: '40px', color: '#92400e', background: '#fef3c7', borderRadius: '8px', fontSize: '14px' }}>
+          <EmptyIcon size={16} style={{ marginBottom: '8px' }} />
+          <br />
+          WebSocket 未连接，请检查后端服务
         </div>
       </div>
     )

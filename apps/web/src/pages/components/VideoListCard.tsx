@@ -357,20 +357,34 @@ export default function VideoListCard({
           {/* 只在非操作按钮模式下显示统计信息 */}
           {!showActionButtons && (
             <div className="video-card-stats">
-              <Eye size={9} />
-              <span>{views}</span>
-              <MessageSquare size={9} />
-              <span>{danmaku !== undefined ? danmaku : '0'}</span>
-              <ThumbsUp size={9} />
-              <span>{likes !== undefined ? likes : '0'}</span>
-              <Coins size={9} />
-              <span>{coins !== undefined ? coins : '0'}</span>
-              <Star size={9} />
-              <span>{favorites !== undefined ? favorites : '0'}</span>
-              <MessageCircle size={9} />
-              <span>{comments !== undefined ? comments : '0'}</span>
-              <Share2 size={9} />
-              <span>{shares !== undefined ? shares : '0'}</span>
+              <div className="stat-item">
+                <Eye size={9} />
+                <span>{views}</span>
+              </div>
+              <div className="stat-item">
+                <MessageSquare size={9} />
+                <span>{danmaku !== undefined ? danmaku : '0'}</span>
+              </div>
+              <div className="stat-item">
+                <ThumbsUp size={9} />
+                <span>{likes !== undefined ? likes : '0'}</span>
+              </div>
+              <div className="stat-item">
+                <Coins size={9} />
+                <span>{coins !== undefined ? coins : '0'}</span>
+              </div>
+              <div className="stat-item">
+                <Star size={9} />
+                <span>{favorites !== undefined ? favorites : '0'}</span>
+              </div>
+              <div className="stat-item">
+                <MessageCircle size={9} />
+                <span>{comments !== undefined ? comments : '0'}</span>
+              </div>
+              <div className="stat-item">
+                <Share2 size={9} />
+                <span>{shares !== undefined ? shares : '0'}</span>
+              </div>
               {(fileSize || (isSeries && seriesCount)) && (
                 <span className="video-card-size">
                   {isSeries && seriesCount ? `${seriesCount}集` : formatFileSize(fileSize || 0)}

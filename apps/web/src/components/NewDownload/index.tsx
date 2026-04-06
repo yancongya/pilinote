@@ -4,11 +4,11 @@ import { useNewQueueStore } from '../../stores/newQueue'
 import DownloadsList from './DownloadsList'
 import VideoLibrary from './VideoLibrary'
 import ScanResultContent from './ScanResultContent'
-import { Wifi, WifiOff, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import './index.css'
 
 export default function NewDownloadContent() {
-  const { activeTab, setActiveTab, connectWebSocket, connected, fetchTasks, fetchSchedulers } = useNewQueueStore()
+  const { activeTab, setActiveTab, connectWebSocket, fetchTasks, fetchSchedulers } = useNewQueueStore()
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -33,25 +33,6 @@ export default function NewDownloadContent() {
 
   return (
     <div className="new-download-page" role="main" aria-label="新下载管理">
-      {/* 连接状态 */}
-      <div 
-        className={`connection-status ${connected ? 'connected' : 'disconnected'}`}
-        role="status"
-        aria-live="polite"
-      >
-        {connected ? (
-          <>
-            <Wifi size={16} aria-hidden="true" />
-            <span>已连接</span>
-          </>
-        ) : (
-          <>
-            <WifiOff size={16} aria-hidden="true" />
-            <span>连接断开，正在重连...</span>
-          </>
-        )}
-      </div>
-
       {/* 内部Tab */}
       <div className="new-download-tabs" role="tablist" aria-label="下载管理选项卡">
         <button

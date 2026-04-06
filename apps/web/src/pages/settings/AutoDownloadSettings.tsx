@@ -3,11 +3,14 @@ import {
   Clock,
   RotateCw,
   Zap,
-  Hash
+  Hash,
+  Plus,
+  Trash2
 } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
+import type { FolderScanConfig } from '../../stores/settings'
 
 interface AutoDownloadSettingsRef {
   hasUnsavedChanges: () => boolean
@@ -50,17 +53,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             video: 3,
             page: 3
           },
-          advanced_scan: {
+          custom_scan: {
             enabled: false,
-            folder_rules: [{
-              match_type: 'all',
-              pattern: '',
-              enabled: true,
-              max_videos: 20,
-              max_folders: 10,
-              sort_by: 'time',
-              sort_order: 'desc'
-            }]
+            folder_list: []
           }
         }
 
@@ -73,9 +68,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             video: localSettings.concurrent_limit?.video ?? currentAutoDownload.concurrent_limit?.video ?? 3,
             page: localSettings.concurrent_limit?.page ?? currentAutoDownload.concurrent_limit?.page ?? 3
           },
-          advanced_scan: {
-            enabled: localSettings.advanced_scan?.enabled ?? currentAutoDownload.advanced_scan?.enabled ?? false,
-            folder_rules: localSettings.advanced_scan?.folder_rules ?? currentAutoDownload.advanced_scan?.folder_rules ?? []
+          custom_scan: {
+            enabled: localSettings.custom_scan?.enabled ?? currentAutoDownload.custom_scan?.enabled ?? false,
+            folder_list: localSettings.custom_scan?.folder_list ?? currentAutoDownload.custom_scan?.folder_list ?? []
           }
         }
 
@@ -145,18 +140,36 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
       video: 3,
       page: 3
     },
-    advanced_scan: {
+    custom_scan: {
       enabled: false,
-      folder_rules: [{
-        match_type: 'all',
-        pattern: '',
-        enabled: true,
-        max_videos: 20,
-        max_folders: 10,
-        sort_by: 'time',
-        sort_order: 'desc'
-      }]
+      folder_list: []
     }
+  }
+
+  // 自定义扫描配置
+  const customScanEnabled = getCurrentValue('custom_scan.enabled') ?? false
+  const folderList = (getCurrentValue('custom_scan.folder_list') ?? []) as FolderScanConfig[]
+
+  // 添加收藏夹配置
+  const addFolderConfig = () => {
+    const newConfig: FolderScanConfig = {
+      folder_name: '',
+      max_videos: 20
+    }
+    handleLocalUpdate('custom_scan.folder_list', [...folderList, newConfig])
+  }
+
+  // 删除收藏夹配置
+  const removeFolderConfig = (index: number) => {
+    const newList = folderList.filter((_, i) => i !== index)
+    handleLocalUpdate('custom_scan.folder_list', newList)
+  }
+
+  // 更新收藏夹配置
+  const updateFolderConfig = (index: number, field: keyof FolderScanConfig, value: any) => {
+    const newList = [...folderList]
+    newList[index] = { ...newList[index], [field]: value }
+    handleLocalUpdate('custom_scan.folder_list', newList)
   }
 
   return (
@@ -293,181 +306,122 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         </div>
       </div>
 
-      {/* 高级扫描设置 */}
+      {/* 自定义扫描列表 */}
       <div className="stg-group">
         <div className="stg-group-header">
-          <span className="stg-group-title">高级扫描设置</span>
-          <span className="stg-group-subtitle">精确控制扫描的收藏夹和视频数量</span>
+          <span className="stg-group-title">自定义扫描列表</span>
+          <span className="stg-group-subtitle">只扫描列表中的收藏夹，不在列表的则不扫描</span>
         </div>
         
         <div className="stg-toggles">
           <label className="stg-toggle">
             <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用高级扫描</span>
-              <span className="stg-toggle-subtitle">使用自定义规则筛选收藏夹</span>
+              <span className="stg-toggle-label">启用自定义扫描</span>
+              <span className="stg-toggle-subtitle">启用后只扫描列表中的收藏夹</span>
             </div>
             <input
               type="checkbox"
               className="stg-toggle-input"
-              checked={getCurrentValue('advanced_scan.enabled') ?? false}
-              onChange={(e) => handleLocalUpdate('advanced_scan.enabled', e.target.checked)}
+              checked={customScanEnabled}
+              onChange={(e) => handleLocalUpdate('custom_scan.enabled', e.target.checked)}
             />
           </label>
         </div>
 
-        {getCurrentValue('advanced_scan.enabled') && (
-          <div className="stg-list" style={{ marginTop: '16px' }}>
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <Hash size={18} className="stg-item-icon" />
-                <span className="stg-item-label">匹配类型</span>
-              </div>
-              <select
-                className="stg-select"
-                value={getCurrentValue('advanced_scan.folder_rules.0.match_type') ?? 'all'}
-                onChange={(e) => {
-                  const matchType = e.target.value as 'all' | 'regex' | 'name'
-                  handleLocalUpdate('advanced_scan.folder_rules', [{
-                    match_type: matchType,
-                    pattern: '',
-                    enabled: true,
-                    max_videos: 20,
-                    max_folders: 10,
-                    sort_by: 'time',
-                    sort_order: 'desc'
-                  }])
-                }}
-              >
-                <option value="all">全部收藏夹</option>
-                <option value="regex">正则表达式</option>
-                <option value="name">文件夹名称</option>
-              </select>
+        {customScanEnabled && (
+          <div style={{ marginTop: '16px' }}>
+            {/* 表头 */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 120px 50px', 
+              gap: '12px',
+              padding: '12px',
+              backgroundColor: '#f1f5f9',
+              borderRadius: '8px',
+              marginBottom: '8px',
+              fontWeight: 500,
+              fontSize: '13px',
+              color: '#64748b'
+            }}>
+              <div>收藏夹名称</div>
+              <div>视频数</div>
+              <div></div>
             </div>
-
-            {(getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex' || 
-              getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'name') && (
-              <div className="stg-item stg-item-col">
-                <div className="stg-item-label-row">
-                  <Hash size={18} className="stg-item-icon" />
-                  <span className="stg-item-label">
-                    {getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex' ? '正则表达式' : '文件夹名称'}
-                  </span>
-                  <span className="stg-hint-inline">
-                    {getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex' 
-                      ? '例：^Blender|^AI 匹配以Blender或AI开头的收藏夹'
-                      : '例：Blender 匹配包含Blender的收藏夹'}
-                  </span>
+            
+            {/* 收藏夹列表 */}
+            {folderList.length === 0 ? (
+              <div style={{ 
+                padding: '32px 16px', 
+                textAlign: 'center', 
+                color: '#94a3b8',
+                fontSize: '14px' 
+              }}>
+                暂无收藏夹配置，点击下方按钮添加
+              </div>
+            ) : (
+              folderList.map((config, index) => (
+                <div key={index} style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 120px 50px', 
+                  gap: '12px',
+                  padding: '12px',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '8px',
+                  marginBottom: '8px',
+                  alignItems: 'center'
+                }}>
+                  <input
+                    type="text"
+                    className="stg-input"
+                    value={config.folder_name}
+                    onChange={(e) => updateFolderConfig(index, 'folder_name', e.target.value)}
+                    placeholder="输入收藏夹名称"
+                  />
+                  <input
+                    type="number"
+                    className="stg-input"
+                    value={config.max_videos}
+                    onChange={(e) => updateFolderConfig(index, 'max_videos', parseInt(e.target.value) || 20)}
+                    min={1}
+                    max={999}
+                    placeholder="20"
+                  />
+                  <button
+                    className="stg-btn stg-btn-danger"
+                    onClick={() => removeFolderConfig(index)}
+                    style={{ 
+                      padding: '8px',
+                      height: 'auto',
+                      minWidth: 'auto',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    aria-label="删除配置"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <input
-                  type="text"
-                  className="stg-input"
-                  value={getCurrentValue('advanced_scan.folder_rules.0.pattern') ?? ''}
-                  onChange={(e) => {
-                    const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
-                    handleLocalUpdate('advanced_scan.folder_rules', [{
-                      ...currentRules[0],
-                      pattern: e.target.value
-                    }])
-                  }}
-                  placeholder={
-                    getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex'
-                      ? '输入正则表达式'
-                      : '输入文件夹名称'
-                  }
-                />
-              </div>
+              ))
             )}
-
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <Clock size={18} className="stg-item-icon" />
-                <span className="stg-item-label">每个收藏夹最大视频数</span>
-              </div>
-              <select
-                className="stg-select"
-                value={getCurrentValue('advanced_scan.folder_rules.0.max_videos') ?? 20}
-                onChange={(e) => {
-                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
-                  handleLocalUpdate('advanced_scan.folder_rules', [{
-                    ...currentRules[0],
-                    max_videos: parseInt(e.target.value)
-                  }])
-                }}
-              >
-                <option value={10}>10 个视频</option>
-                <option value={20}>20 个视频</option>
-                <option value={50}>50 个视频</option>
-                <option value={100}>100 个视频</option>
-                <option value={999}>不限</option>
-              </select>
-            </div>
-
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <Clock size={18} className="stg-item-icon" />
-                <span className="stg-item-label">最大扫描收藏夹数</span>
-              </div>
-              <select
-                className="stg-select"
-                value={getCurrentValue('advanced_scan.folder_rules.0.max_folders') ?? 10}
-                onChange={(e) => {
-                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
-                  handleLocalUpdate('advanced_scan.folder_rules', [{
-                    ...currentRules[0],
-                    max_folders: parseInt(e.target.value)
-                  }])
-                }}
-              >
-                <option value={5}>5 个收藏夹</option>
-                <option value={10}>10 个收藏夹</option>
-                <option value={20}>20 个收藏夹</option>
-                <option value={50}>50 个收藏夹</option>
-                <option value={999}>不限</option>
-              </select>
-            </div>
-
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <RotateCw size={18} className="stg-item-icon" />
-                <span className="stg-item-label">排序方式</span>
-              </div>
-              <select
-                className="stg-select"
-                value={getCurrentValue('advanced_scan.folder_rules.0.sort_by') ?? 'time'}
-                onChange={(e) => {
-                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
-                  handleLocalUpdate('advanced_scan.folder_rules', [{
-                    ...currentRules[0],
-                    sort_by: e.target.value
-                  }])
-                }}
-              >
-                <option value="time">按时间</option>
-                <option value="name">按名称</option>
-                <option value="count">按视频数</option>
-              </select>
-            </div>
-
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <RotateCw size={18} className="stg-item-icon" />
-                <span className="stg-item-label">排序顺序</span>
-              </div>
-              <select
-                className="stg-select"
-                value={getCurrentValue('advanced_scan.folder_rules.0.sort_order') ?? 'desc'}
-                onChange={(e) => {
-                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
-                  handleLocalUpdate('advanced_scan.folder_rules', [{
-                    ...currentRules[0],
-                    sort_order: e.target.value
-                  }])
-                }}
-              >
-                <option value="desc">降序</option>
-                <option value="asc">升序</option>
-              </select>
-            </div>
+            
+            {/* 添加按钮 */}
+            <button 
+              className="stg-btn stg-btn-primary"
+              onClick={addFolderConfig}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                justifyContent: 'center',
+                width: '100%',
+                marginTop: '12px'
+              }}
+              aria-label="添加收藏夹配置"
+            >
+              <Plus size={16} />
+              <span>添加收藏夹</span>
+            </button>
           </div>
         )}
       </div>
@@ -497,6 +451,10 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             concurrent_limit: {
               video: 3,
               page: 3
+            },
+            custom_scan: {
+              enabled: false,
+              folder_list: []
             }
           })
           setShowResetConfirm(false)

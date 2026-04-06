@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
-import { Home, Heart, Clock, Download, User } from 'lucide-react'
+import { useNewQueueStore } from '../stores/newQueue'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 import HomeContent from '../pages/components/HomeContent'
@@ -21,6 +22,7 @@ function MainLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
+  const { connected } = useNewQueueStore()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
 
@@ -102,6 +104,12 @@ function MainLayout() {
         <div className="header-right">
           {user ? (
             <>
+              <div
+                className={`ws-status-icon ${connected ? 'ws-connected' : 'ws-disconnected'}`}
+                title={connected ? 'WebSocket 已连接' : 'WebSocket 连接断开，正在重连...'}
+              >
+                {connected ? <Wifi size={18} /> : <WifiOff size={18} />}
+              </div>
               <div className="user-info" onClick={handleAvatarClick}>
                 <img
                   src={getAvatarUrl(user.avatar || '')}
