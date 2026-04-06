@@ -1,0 +1,297 @@
+import { useState, useEffect } from 'react'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../stores/auth'
+import { Home, Heart, Clock, Download, User } from 'lucide-react'
+import { getAvatarProxyUrl } from '../config/api'
+import { apiService } from '../services/api'
+import HomeContent from '../pages/components/HomeContent'
+import FavoritesContent from '../pages/components/FavoritesContent'
+import WatchLaterContent from '../pages/components/WatchLaterContent'
+import NewDownloadContent from '../components/NewDownload'
+import { LogIn } from 'lucide-react'
+
+const navItems = [
+  { id: 'home', label: '首页', path: '/home', icon: Home },
+  { id: 'favorites', label: '收藏', path: '/favorites', icon: Heart },
+  { id: 'watch-later', label: '稍后再看', path: '/watch-later', icon: Clock },
+  { id: 'new-downloads', label: '新下载', path: '/new-downloads', icon: Download },
+]
+
+function MainLayout() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAuthStore()
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
+
+  useEffect(() => {
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+
+    const initAuthSystem = async () => {
+      try {
+        const response = await apiService.refreshCookies()
+        if (response.success) {
+          setAuthStatus('initialized')
+        } else {
+          setAuthStatus('error')
+        }
+      } catch {
+        setAuthStatus('error')
+      }
+    }
+
+    initAuthSystem()
+
+    const checkCookieInterval = setInterval(async () => {
+      try {
+        const response = await apiService.refreshCookies()
+        if (response.success) {
+          setAuthStatus('initialized')
+        } else {
+          setAuthStatus('error')
+        }
+      } catch {
+        setAuthStatus('error')
+      }
+    }, 24 * 60 * 60 * 1000)
+
+    return () => clearInterval(checkCookieInterval)
+  }, [user])
+
+  const getActiveTabFromPath = () => {
+    const path = location.pathname
+    if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
+    if (path === '/watch-later') return 'watch-later'
+    if (path === '/new-downloads') return 'new-downloads'
+    return 'home'
+  }
+
+  const activeTab = getActiveTabFromPath()
+
+  const handleTabChange = (path: string) => {
+    navigate(path)
+  }
+
+  const confirmLogout = () => {
+    logout()
+    setShowLogoutConfirm(false)
+  }
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false)
+  }
+
+  const getAvatarUrl = (avatarUrl: string) => {
+    if (!avatarUrl) return ''
+    return getAvatarProxyUrl(avatarUrl)
+  }
+
+  const handleAvatarClick = () => {
+    navigate('/settings')
+  }
+
+  return (
+    <div className={`home-container ${activeTab === 'home' ? 'has-tabs' : ''}`}>
+      <header className="home-header">
+        <div className="header-left">
+          <h1>PiliNote</h1>
+        </div>
+        <div className="header-right">
+          {user ? (
+            <>
+              <div className="user-info" onClick={handleAvatarClick}>
+                <img
+                  src={getAvatarUrl(user.avatar || '')}
+                  alt={user.username}
+                  className="user-avatar"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect fill='%235CB67B' width='40' height='40'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='white' font-size='20'>${user.username?.[0]?.toUpperCase() || 'U'}</text></svg>`
+                  }}
+                />
+                <span className="user-name">{user.username}</span>
+                <div
+                  className={`auth-status ${authStatus}`}
+                  title={`认证系统状态: ${authStatus === 'initialized' ? '已启用' : authStatus === 'error' ? '异常' : '初始化中...'}`}
+                >
+                  {authStatus === 'initialized' && <span>✓</span>}
+                  {authStatus === 'error' && <span>!</span>}
+                </div>
+              </div>
+              {showLogoutConfirm && (
+                <div className="logout-confirm-overlay" onClick={() => setShowLogoutConfirm(false)}>
+                  <div className="logout-confirm-panel" onClick={(e) => e.stopPropagation()}>
+                    <p>确定要退出登录吗？</p>
+                    <div className="logout-confirm-buttons">
+                      <button onClick={cancelLogout}>取消</button>
+                      <button onClick={confirmLogout}>确定</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="user-info guest-info" onClick={handleAvatarClick}>
+              <div className="user-avatar guest-avatar">
+                <User className="guest-avatar-icon" />
+              </div>
+              <span className="user-name">游客</span>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div className="home-main">
+        <aside className="home-sidebar">
+          <nav className="sidebar-nav" role="tablist" aria-label="功能导航">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                role="tab"
+                aria-selected={activeTab === item.id}
+                aria-controls={`${item.id}-panel`}
+                className={`sidebar-tab ${activeTab === item.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(item.path)}
+                tabIndex={activeTab === item.id ? 0 : -1}
+              >
+                <item.icon className="sidebar-icon" />
+                <span className="sidebar-label">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="home-content">
+          <div className="content-wrapper">
+            <div style={{ display: activeTab === 'home' ? 'block' : 'none' }}>
+              <HomeContent />
+            </div>
+            <div style={{ display: activeTab === 'favorites' ? 'block' : 'none' }}>
+              {user?.sessdata ? (
+                <FavoritesContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
+              )}
+            </div>
+            <div style={{ display: activeTab === 'watch-later' ? 'block' : 'none' }}>
+              {user?.sessdata ? (
+                <WatchLaterContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
+              )}
+            </div>
+            <div style={{ display: activeTab === 'new-downloads' ? 'block' : 'none' }}>
+              <NewDownloadContent />
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <nav className="bottom-nav" role="navigation" aria-label="底部导航">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
+            onClick={() => handleTabChange(item.path)}
+            aria-label={item.label}
+            aria-current={activeTab === item.id ? 'page' : undefined}
+          >
+            <item.icon className="nav-icon" />
+            <span className="nav-label">{item.label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  )
+}
+
+function LoginPrompt({ message }: { message: string }) {
+  const navigate = useNavigate()
+  
+  return (
+    <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
+      <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
+      <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1E293B', marginBottom: '12px' }}>请先登录</h3>
+      <p style={{ fontSize: '16px', color: '#64748B', marginBottom: '24px' }}>{message}</p>
+      <button
+        onClick={() => navigate('/login')}
+        style={{
+          padding: '12px 24px',
+          background: '#2563EB',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: '500',
+          cursor: 'pointer',
+        }}
+      >
+        去登录
+      </button>
+    </section>
+  )
+}
+
+function AuthGuardWrapper({ children }: { children: React.ReactNode }) {
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
+  
+  if (!user?.sessdata) {
+    return (
+      <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
+        <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
+        <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1E293B', marginBottom: '12px' }}>请先登录</h3>
+        <p style={{ fontSize: '16px', color: '#64748B', marginBottom: '24px' }}>登录后可以查看和管理您的内容</p>
+        <button
+          onClick={() => navigate('/login')}
+          style={{
+            padding: '12px 24px',
+            background: '#2563EB',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: '500',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.background = '#1D4ED8'}
+          onMouseOut={(e) => e.currentTarget.style.background = '#2563EB'}
+        >
+          去登录
+        </button>
+      </section>
+    )
+  }
+  
+  return <>{children}</>
+}
+
+export function HomePageContent() {
+  return <HomeContent />
+}
+
+export function FavoritesPage() {
+  return (
+    <AuthGuardWrapper>
+      <FavoritesContent />
+    </AuthGuardWrapper>
+  )
+}
+
+export function WatchLaterPage() {
+  return (
+    <AuthGuardWrapper>
+      <WatchLaterContent />
+    </AuthGuardWrapper>
+  )
+}
+
+export function NewDownloadsPage() {
+  return <NewDownloadContent />
+}
+
+export default MainLayout

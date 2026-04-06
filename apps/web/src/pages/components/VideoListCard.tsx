@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Film, Eye, MessageCircle, Download, Plus, Play, Trash2, ThumbsUp, Coins, Star, Share2, MessageSquare, RefreshCw, Users, Check } from 'lucide-react'
+import { Film, Eye, MessageSquare, ThumbsUp, Coins, Star, MessageCircle, Share2, Download, Plus, Play, Trash2, RefreshCw, Users, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
 import { getAvatarProxyUrl } from '../../config/api'
@@ -357,55 +357,24 @@ export default function VideoListCard({
           {/* 只在非操作按钮模式下显示统计信息 */}
           {!showActionButtons && (
             <div className="video-card-stats">
-              <span className="stat-item" title="播放量">
-                <Eye />
-                {views}
-              </span>
-              {danmaku !== undefined && (
-                <span className="stat-item" title="弹幕数">
-                  <MessageSquare />
-                  {danmaku}
-                </span>
-              )}
-              {comments !== undefined && (
-                <span className="stat-item" title="评论数">
-                  <MessageCircle />
-                  {comments}
-                </span>
-              )}
-              {likes !== undefined && (
-                <span className="stat-item" title="点赞数">
-                  <ThumbsUp />
-                  {likes}
-                </span>
-              )}
-              {coins !== undefined && (
-                <span className="stat-item" title="投币数">
-                  <Coins />
-                  {coins}
-                </span>
-              )}
-              {favorites !== undefined && (
-                <span className="stat-item" title="收藏数">
-                  <Star />
-                  {favorites}
-                </span>
-              )}
-              {shares !== undefined && (
-                <span className="stat-item" title="转发数">
-                  <Share2 />
-                  {shares}
-                </span>
-              )}
-              {/* Bilibili风格：在底部显示文件大小 */}
+              <Eye size={9} />
+              <span>{views}</span>
+              <MessageSquare size={9} />
+              <span>{danmaku !== undefined ? danmaku : '0'}</span>
+              <ThumbsUp size={9} />
+              <span>{likes !== undefined ? likes : '0'}</span>
+              <Coins size={9} />
+              <span>{coins !== undefined ? coins : '0'}</span>
+              <Star size={9} />
+              <span>{favorites !== undefined ? favorites : '0'}</span>
+              <MessageCircle size={9} />
+              <span>{comments !== undefined ? comments : '0'}</span>
+              <Share2 size={9} />
+              <span>{shares !== undefined ? shares : '0'}</span>
               {(fileSize || (isSeries && seriesCount)) && (
-                <div className="video-card-size">
-                  {isSeries && seriesCount ? (
-                    <>{seriesCount}集</>
-                  ) : (
-                    formatFileSize(fileSize || 0)
-                  )}
-                </div>
+                <span className="video-card-size">
+                  {isSeries && seriesCount ? `${seriesCount}集` : formatFileSize(fileSize || 0)}
+                </span>
               )}
             </div>
           )}
