@@ -5316,54 +5316,20 @@ body {
 @media (max-width: 640px) {
   .video-card {
     padding: 10px;
-    gap: 6px;
-    display: grid;
-    grid-template-columns: 120px 1fr;
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "cover title"
-      "cover meta"
-      "stats stats";
+    gap: 10px;
   }
-
+  
   .video-card-cover {
-    grid-area: cover;
     width: 120px;
     height: 68px;
   }
-
-  .video-card-info {
-    display: contents;
-  }
-
+  
   .video-card-info h3 {
-    grid-area: title;
     font-size: 13px;
-    -webkit-line-clamp: 2;
-    margin-bottom: 2px;
   }
-
-  /* 上传者、日期在标题下方 */
-  .video-card-meta {
-    grid-area: meta;
-    flex-direction: row;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .video-card-uploader,
-  .video-card-time,
-  .video-card-watched {
-    font-size: 11px;
-    flex-shrink: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  /* 统计数据固定一行，自适应缩小 */
+  
   .video-card-stats {
+<<<<<<< HEAD
     grid-area: stats;
     display: flex;
     flex-direction: row;
@@ -5402,10 +5368,35 @@ body {
     font-size: 10px;
   }
 
+=======
+    gap: 4px 6px;
+    font-size: 9px;
+    justify-content: flex-start;
+  }
+  
+  .video-card-stats svg {
+    width: 8px;
+    height: 8px;
+  }
+  
+>>>>>>> parent of 648083a (style(video-card): 优化手机端视频卡片布局为 Grid 排版)
   .video-card-stats .video-card-size {
+    font-size: 9px;
+  }
+  
+  .video-card-meta {
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .video-card-uploader,
+  .video-card-time {
     font-size: 10px;
+<<<<<<< HEAD
     margin-left: auto;
     flex-shrink: 0;
+=======
+>>>>>>> parent of 648083a (style(video-card): 优化手机端视频卡片布局为 Grid 排版)
   }
   
   #favorites-panel .section-header,

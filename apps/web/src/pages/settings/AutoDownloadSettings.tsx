@@ -308,16 +308,17 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
 
       {/* 自定义扫描列表 */}
       <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">自定义扫描列表</span>
-          <span className="stg-group-subtitle">只扫描列表中的收藏夹，不在列表的则不扫描</span>
-        </div>
-        
-        <div className="stg-toggles">
-          <label className="stg-toggle">
+        <div className="stg-group-header" style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center' 
+        }}>
+          <div>
+            <span className="stg-group-title">自定义扫描列表</span>
+          </div>
+          <label className="stg-toggle" style={{ marginBottom: 0 }}>
             <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用自定义扫描</span>
-              <span className="stg-toggle-subtitle">启用后只扫描列表中的收藏夹</span>
+              <span className="stg-toggle-label">启用</span>
             </div>
             <input
               type="checkbox"
