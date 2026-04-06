@@ -183,12 +183,30 @@ class SettingsService:
             'video': int(self._get_setting_value(all_settings, 'auto_download.concurrent_limit.video', 3)),
             'page': int(self._get_setting_value(all_settings, 'auto_download.concurrent_limit.page', 3))
         }
+        
+        # 提取custom_scan配置
+        custom_scan_setting = all_settings.get('auto_download.custom_scan')
+        custom_scan_dict = {
+            'enabled': False,
+            'folder_list': []
+        }
+        if custom_scan_setting:
+            try:
+                custom_scan_data = json.loads(custom_scan_setting.value)
+                custom_scan_dict = {
+                    'enabled': custom_scan_data.get('enabled', False),
+                    'folder_list': custom_scan_data.get('folder_list', [])
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse custom_scan setting: {e}")
+        
         auto_download_settings = AutoDownloadSettings(
             enabled=self._get_setting_value(all_settings, 'auto_download.enabled', False),
             trigger_type=self._get_setting_value(all_settings, 'auto_download.trigger_type', 'interval'),
             scan_interval=int(self._get_setting_value(all_settings, 'auto_download.scan_interval', 60)),
             cron_expression=self._get_setting_value(all_settings, 'auto_download.cron_expression', ''),
-            concurrent_limit=concurrent_limit_dict
+            concurrent_limit=concurrent_limit_dict,
+            custom_scan=custom_scan_dict
         )
 
         return Settings(
@@ -227,6 +245,13 @@ class SettingsService:
     def update_settings(self, settings_dict: Dict[str, Any]) -> bool:
         """Update multiple settings"""
         try:
+            # 预先处理 custom_scan，将其作为JSON存储
+            if 'auto_download' in settings_dict and 'custom_scan' in settings_dict['auto_download']:
+                custom_scan_value = settings_dict['auto_download']['custom_scan']
+                if isinstance(custom_scan_value, dict):
+                    self._update_single_setting('auto_download.custom_scan', custom_scan_value)
+                del settings_dict['auto_download']['custom_scan']
+            
             # 预先处理 concurrent_limit，避免在主循环中被处理
             if 'auto_download' in settings_dict and 'concurrent_limit' in settings_dict['auto_download']:
                 concurrent_limit_dict = settings_dict['auto_download']['concurrent_limit']

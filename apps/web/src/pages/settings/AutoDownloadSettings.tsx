@@ -3,11 +3,10 @@ import {
   Clock,
   RotateCw,
   Zap,
-  Hash,
-  Plus,
-  Trash2
+  Hash
 } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings'
+import { apiService } from '../../services/api'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
 import type { FolderScanConfig } from '../../stores/settings'
@@ -149,21 +148,43 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
   // 自定义扫描配置
   const customScanEnabled = getCurrentValue('custom_scan.enabled') ?? false
   const folderList = (getCurrentValue('custom_scan.folder_list') ?? []) as FolderScanConfig[]
+  const [loadingFavorites, setLoadingFavorites] = useState(false)
 
-  // 添加收藏夹配置
-  const addFolderConfig = () => {
-    const newConfig: FolderScanConfig = {
-      folder_name: '',
-      max_videos: 20
+  // 加载收藏夹列表
+  const loadFavorites = async () => {
+    setLoadingFavorites(true)
+    try {
+      const result = await apiService.getFolders(1, 100)
+      
+      if (result.success && result.data && result.data.length > 0) {
+        // 如果folderList为空，则用收藏夹列表初始化（默认视频数为0）
+        if (folderList.length === 0) {
+          const initialConfigs: FolderScanConfig[] = result.data.map((folder: any) => ({
+            folder_name: folder.title,
+            max_videos: 0
+          }))
+          handleLocalUpdate('custom_scan.folder_list', initialConfigs)
+          showToast(`已加载 ${result.data.length} 个收藏夹`, 'success')
+        } else {
+          showToast('收藏夹列表已存在', 'info')
+        }
+      } else {
+        showToast('获取收藏夹列表失败', 'error')
+      }
+    } catch (error) {
+      console.error('加载收藏夹失败:', error)
+      showToast('加载收藏夹失败，请检查网络连接', 'error')
+    } finally {
+      setLoadingFavorites(false)
     }
-    handleLocalUpdate('custom_scan.folder_list', [...folderList, newConfig])
   }
 
-  // 删除收藏夹配置
-  const removeFolderConfig = (index: number) => {
-    const newList = folderList.filter((_, i) => i !== index)
-    handleLocalUpdate('custom_scan.folder_list', newList)
-  }
+  // 初始化时加载收藏夹
+  useEffect(() => {
+    if (customScanEnabled && folderList.length === 0) {
+      loadFavorites()
+    }
+  }, [customScanEnabled])
 
   // 更新收藏夹配置
   const updateFolderConfig = (index: number, field: keyof FolderScanConfig, value: any) => {
@@ -313,20 +334,43 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
           justifyContent: 'space-between', 
           alignItems: 'center' 
         }}>
-          <div>
-            <span className="stg-group-title">自定义扫描列表</span>
+          <span className="stg-group-title">自定义扫描列表</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              className="stg-btn stg-btn-secondary"
+              onClick={loadFavorites}
+              disabled={loadingFavorites}
+              style={{ 
+                padding: '6px',
+                fontSize: '12px',
+                height: '28px',
+                width: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minWidth: 'auto'
+              }}
+              aria-label="刷新收藏夹列表"
+            >
+              <RotateCw size={14} className={loadingFavorites ? 'animate-spin' : ''} />
+            </button>
+            <label className="stg-toggle" style={{ marginBottom: 0 }}>
+              <div className="stg-toggle-content">
+                <span className="stg-toggle-label">启用</span>
+              </div>
+              <input
+                type="checkbox"
+                className="stg-toggle-input"
+                checked={customScanEnabled}
+                onChange={(e) => {
+                  handleLocalUpdate('custom_scan.enabled', e.target.checked)
+                  if (e.target.checked && folderList.length === 0) {
+                    loadFavorites()
+                  }
+                }}
+              />
+            </label>
           </div>
-          <label className="stg-toggle" style={{ marginBottom: 0 }}>
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用</span>
-            </div>
-            <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={customScanEnabled}
-              onChange={(e) => handleLocalUpdate('custom_scan.enabled', e.target.checked)}
-            />
-          </label>
         </div>
 
         {customScanEnabled && (
@@ -334,7 +378,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             {/* 表头 */}
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: '1fr 120px 50px', 
+              gridTemplateColumns: '1fr 120px', 
               gap: '12px',
               padding: '12px',
               backgroundColor: '#f1f5f9',
@@ -346,24 +390,45 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             }}>
               <div>收藏夹名称</div>
               <div>视频数</div>
-              <div></div>
+            </div>
+            
+            {/* 说明文字 */}
+            <div style={{ 
+              padding: '12px',
+              backgroundColor: '#fef3c7',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              fontSize: '12px',
+              color: '#92400e',
+              border: '1px solid #fcd34d'
+            }}>
+              💡 视频数为 0 表示不扫描该收藏夹，设置大于 0 的数值后才进行扫描
             </div>
             
             {/* 收藏夹列表 */}
-            {folderList.length === 0 ? (
+            {loadingFavorites ? (
               <div style={{ 
                 padding: '32px 16px', 
                 textAlign: 'center', 
                 color: '#94a3b8',
                 fontSize: '14px' 
               }}>
-                暂无收藏夹配置，点击下方按钮添加
+                正在加载收藏夹列表...
+              </div>
+            ) : folderList.length === 0 ? (
+              <div style={{ 
+                padding: '32px 16px', 
+                textAlign: 'center', 
+                color: '#94a3b8',
+                fontSize: '14px' 
+              }}>
+                点击"刷新列表"按钮获取收藏夹列表
               </div>
             ) : (
               folderList.map((config, index) => (
                 <div key={index} style={{ 
                   display: 'grid', 
-                  gridTemplateColumns: '1fr 120px 50px', 
+                  gridTemplateColumns: '1fr 120px', 
                   gap: '12px',
                   padding: '12px',
                   backgroundColor: '#f8fafc',
@@ -371,58 +436,25 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                   marginBottom: '8px',
                   alignItems: 'center'
                 }}>
-                  <input
-                    type="text"
-                    className="stg-input"
-                    value={config.folder_name}
-                    onChange={(e) => updateFolderConfig(index, 'folder_name', e.target.value)}
-                    placeholder="输入收藏夹名称"
-                  />
+                  <div style={{ 
+                    color: '#1e293b',
+                    fontSize: '14px',
+                    fontWeight: 500
+                  }}>
+                    {config.folder_name}
+                  </div>
                   <input
                     type="number"
                     className="stg-input"
                     value={config.max_videos}
-                    onChange={(e) => updateFolderConfig(index, 'max_videos', parseInt(e.target.value) || 20)}
-                    min={1}
+                    onChange={(e) => updateFolderConfig(index, 'max_videos', parseInt(e.target.value) || 0)}
+                    min={0}
                     max={999}
-                    placeholder="20"
+                    placeholder="0=不扫描"
                   />
-                  <button
-                    className="stg-btn stg-btn-danger"
-                    onClick={() => removeFolderConfig(index)}
-                    style={{ 
-                      padding: '8px',
-                      height: 'auto',
-                      minWidth: 'auto',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                    aria-label="删除配置"
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               ))
             )}
-            
-            {/* 添加按钮 */}
-            <button 
-              className="stg-btn stg-btn-primary"
-              onClick={addFolderConfig}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px',
-                justifyContent: 'center',
-                width: '100%',
-                marginTop: '12px'
-              }}
-              aria-label="添加收藏夹配置"
-            >
-              <Plus size={16} />
-              <span>添加收藏夹</span>
-            </button>
           </div>
         )}
       </div>

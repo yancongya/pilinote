@@ -2,7 +2,7 @@
 Settings schemas for data validation and API request/response
 """
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 
@@ -100,6 +100,18 @@ class ConcurrentLimit(BaseModel):
     page: int = Field(default=3, ge=1, le=5, description="分页并发数")
 
 
+class FolderScanConfig(BaseModel):
+    """收藏夹扫描配置"""
+    folder_name: str = Field(default="", description="收藏夹名称")
+    max_videos: int = Field(default=0, ge=0, le=999, description="最大扫描视频数，0表示不扫描")
+
+
+class CustomScanConfig(BaseModel):
+    """自定义扫描配置"""
+    enabled: bool = Field(default=False, description="是否启用自定义扫描")
+    folder_list: List[FolderScanConfig] = Field(default_factory=list, description="收藏夹扫描列表")
+
+
 class AutoDownloadSettings(BaseModel):
     """自动下载设置"""
     enabled: bool = Field(default=False, description="启用自动下载")
@@ -107,6 +119,7 @@ class AutoDownloadSettings(BaseModel):
     scan_interval: int = Field(default=60, ge=15, description="扫描间隔（分钟）")
     cron_expression: str = Field(default="", description="Cron 表达式")
     concurrent_limit: ConcurrentLimit = Field(default_factory=ConcurrentLimit)
+    custom_scan: CustomScanConfig = Field(default_factory=CustomScanConfig)
 
 
 class Settings(BaseModel):

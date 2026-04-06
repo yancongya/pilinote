@@ -168,16 +168,24 @@ class ScanService:
                         # 创建文件夹名称到配置的映射
                         folder_config_map = {item['folder_name']: item['max_videos'] for item in custom_scan_config['folder_list']}
                         
-                        # 只保留配置中的收藏夹
+                        # 只保留配置中的收藏夹，且max_videos大于0的
                         filtered_folders = []
                         for folder in folders:
                             folder_name = folder.get("title", "")
                             if folder_name in folder_config_map:
-                                folder['max_videos'] = folder_config_map[folder_name]
-                                filtered_folders.append(folder)
+                                max_videos = folder_config_map[folder_name]
+                                if max_videos and max_videos > 0:
+                                    folder['max_videos'] = max_videos
+                                    filtered_folders.append(folder)
+                                else:
+                                    logger.info(f"跳过收藏夹 {folder_name} (max_videos={max_videos}，不扫描)")
                         
                         folders = filtered_folders
                         logger.info(f"应用自定义扫描配置后，剩余 {len(folders)} 个收藏夹")
+                    elif custom_scan_config['enabled']:
+                        # 启用了自定义扫描但folder_list为空，不扫描任何收藏夹
+                        logger.info("启用了自定义扫描但收藏夹列表为空，不扫描任何收藏夹")
+                        return [], []
                     
                     videos = []
                     folder_infos = []
