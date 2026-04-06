@@ -68,7 +68,7 @@ interface NewQueueState {
   schedulers: Record<string, Scheduler>
 
   // UI状态
-  activeTab: 'downloads' | 'library'
+  activeTab: 'downloads' | 'library' | 'scan'
   filterStatus: TaskState | 'all'
 
   // WebSocket
@@ -86,7 +86,7 @@ interface NewQueueState {
   controlScheduler: (sid: string, action: string) => Promise<void>
   deleteScheduler: (sid: string) => Promise<void>
   deleteTask: (taskId: string) => Promise<void>
-  setActiveTab: (tab: 'downloads' | 'library') => void
+  setActiveTab: (tab: 'downloads' | 'library' | 'scan') => void
   setFilterStatus: (status: TaskState | 'all') => void
   forceClearCache: () => void
   cleanupDuplicateCompletedTasks: () => Promise<void>

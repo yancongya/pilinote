@@ -49,6 +49,18 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
           concurrent_limit: {
             video: 3,
             page: 3
+          },
+          advanced_scan: {
+            enabled: false,
+            folder_rules: [{
+              match_type: 'all',
+              pattern: '',
+              enabled: true,
+              max_videos: 20,
+              max_folders: 10,
+              sort_by: 'time',
+              sort_order: 'desc'
+            }]
           }
         }
 
@@ -60,6 +72,10 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
           concurrent_limit: {
             video: localSettings.concurrent_limit?.video ?? currentAutoDownload.concurrent_limit?.video ?? 3,
             page: localSettings.concurrent_limit?.page ?? currentAutoDownload.concurrent_limit?.page ?? 3
+          },
+          advanced_scan: {
+            enabled: localSettings.advanced_scan?.enabled ?? currentAutoDownload.advanced_scan?.enabled ?? false,
+            folder_rules: localSettings.advanced_scan?.folder_rules ?? currentAutoDownload.advanced_scan?.folder_rules ?? []
           }
         }
 
@@ -128,6 +144,18 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
     concurrent_limit: {
       video: 3,
       page: 3
+    },
+    advanced_scan: {
+      enabled: false,
+      folder_rules: [{
+        match_type: 'all',
+        pattern: '',
+        enabled: true,
+        max_videos: 20,
+        max_folders: 10,
+        sort_by: 'time',
+        sort_order: 'desc'
+      }]
     }
   }
 
@@ -263,6 +291,185 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             </select>
           </div>
         </div>
+      </div>
+
+      {/* 高级扫描设置 */}
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">高级扫描设置</span>
+          <span className="stg-group-subtitle">精确控制扫描的收藏夹和视频数量</span>
+        </div>
+        
+        <div className="stg-toggles">
+          <label className="stg-toggle">
+            <div className="stg-toggle-content">
+              <span className="stg-toggle-label">启用高级扫描</span>
+              <span className="stg-toggle-subtitle">使用自定义规则筛选收藏夹</span>
+            </div>
+            <input
+              type="checkbox"
+              className="stg-toggle-input"
+              checked={getCurrentValue('advanced_scan.enabled') ?? false}
+              onChange={(e) => handleLocalUpdate('advanced_scan.enabled', e.target.checked)}
+            />
+          </label>
+        </div>
+
+        {getCurrentValue('advanced_scan.enabled') && (
+          <div className="stg-list" style={{ marginTop: '16px' }}>
+            <div className="stg-item stg-item-col">
+              <div className="stg-item-label-row">
+                <Hash size={18} className="stg-item-icon" />
+                <span className="stg-item-label">匹配类型</span>
+              </div>
+              <select
+                className="stg-select"
+                value={getCurrentValue('advanced_scan.folder_rules.0.match_type') ?? 'all'}
+                onChange={(e) => {
+                  const matchType = e.target.value as 'all' | 'regex' | 'name'
+                  handleLocalUpdate('advanced_scan.folder_rules', [{
+                    match_type: matchType,
+                    pattern: '',
+                    enabled: true,
+                    max_videos: 20,
+                    max_folders: 10,
+                    sort_by: 'time',
+                    sort_order: 'desc'
+                  }])
+                }}
+              >
+                <option value="all">全部收藏夹</option>
+                <option value="regex">正则表达式</option>
+                <option value="name">文件夹名称</option>
+              </select>
+            </div>
+
+            {(getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex' || 
+              getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'name') && (
+              <div className="stg-item stg-item-col">
+                <div className="stg-item-label-row">
+                  <Hash size={18} className="stg-item-icon" />
+                  <span className="stg-item-label">
+                    {getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex' ? '正则表达式' : '文件夹名称'}
+                  </span>
+                  <span className="stg-hint-inline">
+                    {getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex' 
+                      ? '例：^Blender|^AI 匹配以Blender或AI开头的收藏夹'
+                      : '例：Blender 匹配包含Blender的收藏夹'}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  className="stg-input"
+                  value={getCurrentValue('advanced_scan.folder_rules.0.pattern') ?? ''}
+                  onChange={(e) => {
+                    const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
+                    handleLocalUpdate('advanced_scan.folder_rules', [{
+                      ...currentRules[0],
+                      pattern: e.target.value
+                    }])
+                  }}
+                  placeholder={
+                    getCurrentValue('advanced_scan.folder_rules.0.match_type') === 'regex'
+                      ? '输入正则表达式'
+                      : '输入文件夹名称'
+                  }
+                />
+              </div>
+            )}
+
+            <div className="stg-item stg-item-col">
+              <div className="stg-item-label-row">
+                <Clock size={18} className="stg-item-icon" />
+                <span className="stg-item-label">每个收藏夹最大视频数</span>
+              </div>
+              <select
+                className="stg-select"
+                value={getCurrentValue('advanced_scan.folder_rules.0.max_videos') ?? 20}
+                onChange={(e) => {
+                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
+                  handleLocalUpdate('advanced_scan.folder_rules', [{
+                    ...currentRules[0],
+                    max_videos: parseInt(e.target.value)
+                  }])
+                }}
+              >
+                <option value={10}>10 个视频</option>
+                <option value={20}>20 个视频</option>
+                <option value={50}>50 个视频</option>
+                <option value={100}>100 个视频</option>
+                <option value={999}>不限</option>
+              </select>
+            </div>
+
+            <div className="stg-item stg-item-col">
+              <div className="stg-item-label-row">
+                <Clock size={18} className="stg-item-icon" />
+                <span className="stg-item-label">最大扫描收藏夹数</span>
+              </div>
+              <select
+                className="stg-select"
+                value={getCurrentValue('advanced_scan.folder_rules.0.max_folders') ?? 10}
+                onChange={(e) => {
+                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
+                  handleLocalUpdate('advanced_scan.folder_rules', [{
+                    ...currentRules[0],
+                    max_folders: parseInt(e.target.value)
+                  }])
+                }}
+              >
+                <option value={5}>5 个收藏夹</option>
+                <option value={10}>10 个收藏夹</option>
+                <option value={20}>20 个收藏夹</option>
+                <option value={50}>50 个收藏夹</option>
+                <option value={999}>不限</option>
+              </select>
+            </div>
+
+            <div className="stg-item stg-item-col">
+              <div className="stg-item-label-row">
+                <RotateCw size={18} className="stg-item-icon" />
+                <span className="stg-item-label">排序方式</span>
+              </div>
+              <select
+                className="stg-select"
+                value={getCurrentValue('advanced_scan.folder_rules.0.sort_by') ?? 'time'}
+                onChange={(e) => {
+                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
+                  handleLocalUpdate('advanced_scan.folder_rules', [{
+                    ...currentRules[0],
+                    sort_by: e.target.value
+                  }])
+                }}
+              >
+                <option value="time">按时间</option>
+                <option value="name">按名称</option>
+                <option value="count">按视频数</option>
+              </select>
+            </div>
+
+            <div className="stg-item stg-item-col">
+              <div className="stg-item-label-row">
+                <RotateCw size={18} className="stg-item-icon" />
+                <span className="stg-item-label">排序顺序</span>
+              </div>
+              <select
+                className="stg-select"
+                value={getCurrentValue('advanced_scan.folder_rules.0.sort_order') ?? 'desc'}
+                onChange={(e) => {
+                  const currentRules = getCurrentValue('advanced_scan.folder_rules') || [{}]
+                  handleLocalUpdate('advanced_scan.folder_rules', [{
+                    ...currentRules[0],
+                    sort_order: e.target.value
+                  }])
+                }}
+              >
+                <option value="desc">降序</option>
+                <option value="asc">升序</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 重置按钮 */}

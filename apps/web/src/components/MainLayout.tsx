@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { Home, Heart, Clock, Download, User } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'

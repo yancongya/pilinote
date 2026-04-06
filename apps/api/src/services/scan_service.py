@@ -147,17 +147,26 @@ class ScanService:
         decoded_sessdata = unquote(original_sessdata)
         logger.info(f"解码后的sessdata: {decoded_sessdata[:50]}...")
         
+        # 获取高级扫描配置
+        advanced_scan_config = self._get_advanced_scan_config()
+        logger.info(f"高级扫描配置: enabled={advanced_scan_config['enabled']}")
+        
         service = BilibiliService()
         try:
             if source_type == "favorite":
                 # 获取收藏夹视频
                 logger.info(f"开始获取收藏夹列表, user_mid={user_mid}")
-                result = await service.get_folder_list(decoded_sessdata, user_mid, 1, 20)
+                result = await service.get_folder_list(decoded_sessdata, user_mid, 1, 50)  # 增加到50以便筛选
                 logger.info(f"收藏夹列表结果: {result.get('success')}")
                 
                 if result["success"]:
                     folders = result["data"].get("list", [])
                     logger.info(f"获取到 {len(folders)} 个收藏夹")
+                    
+                    # 应用高级扫描配置
+                    if advanced_scan_config['enabled'] and advanced_scan_config['folder_rules']:
+                        folders = self._apply_advanced_scan_config(folders, advanced_scan_config['folder_rules'][0])
+                        logger.info(f"应用高级扫描配置后，剩余 {len(folders)} 个收藏夹")
                     
                     videos = []
                     folder_infos = []
@@ -166,18 +175,32 @@ class ScanService:
                         if source_id == "all" or str(folder.get("id")) == source_id:
                             logger.info(f"正在扫描收藏夹: {folder.get('title')} (ID: {folder.get('id')}, FID: {folder.get('fid')})")
                             
-                            # 获取收藏夹详情（使用 id 字段，page_size 改为 20）
+                            # 获取收藏夹详情
+                            page_size = 20
+                            if advanced_scan_config['enabled'] and advanced_scan_config['folder_rules']:
+                                # 使用配置中的max_videos限制
+                                max_videos = advanced_scan_config['folder_rules'][0].get('max_videos', 20)
+                                page_size = min(max_videos, 20)  # B站API限制每页最多20个
+                            
                             detail_result = await service.get_folder_detail(
                                 decoded_sessdata,
-                                folder.get("id"),  # 使用 id 而不是 fid
+                                folder.get("id"),
                                 1,
-                                20  # 改为 20，避免 API 限制
+                                page_size
                             )
                             logger.info(f"收藏夹详情结果: {detail_result.get('success')}")
                             
                             if detail_result["success"]:
                                 # B站 API 返回的是 "medias" 而不是 "media_list"
                                 media_list = detail_result["data"].get("medias", [])
+                                
+                                # 应用视频数量限制
+                                if advanced_scan_config['enabled'] and advanced_scan_config['folder_rules']:
+                                    max_videos = advanced_scan_config['folder_rules'][0].get('max_videos', 20)
+                                    if max_videos and max_videos < len(media_list):
+                                        media_list = media_list[:max_videos]
+                                        logger.info(f"应用视频数量限制，保留 {len(media_list)} 个视频")
+                                
                                 media_count = detail_result["data"].get("info", {}).get("media_count", len(media_list))
                                 logger.info(f"收藏夹 {folder.get('title')} 包含 {len(media_list)} 个视频 (总计: {media_count})")
                                 
@@ -360,3 +383,80 @@ class ScanService:
             self.db.add(setting)
         
         self.db.commit()
+    
+    def _get_advanced_scan_config(self) -> Dict[str, Any]:
+        """
+        获取高级扫描配置
+        
+        Returns:
+            高级扫描配置字典
+        """
+        try:
+            import json
+            setting = self.db.query(Setting).filter(Setting.key == "auto_download.advanced_scan").first()
+            if setting and setting.value:
+                return json.loads(setting.value)
+        except Exception as e:
+            logger.error(f"获取高级扫描配置失败: {e}")
+        
+        # 返回默认配置
+        return {
+            "enabled": False,
+            "folder_rules": []
+        }
+    
+    def _apply_advanced_scan_config(self, folders: List[Dict], rule: Dict[str, Any]) -> List[Dict]:
+        """
+        应用高级扫描配置筛选收藏夹
+        
+        Args:
+            folders: 收藏夹列表
+            rule: 扫描规则
+            
+        Returns:
+            筛选后的收藏夹列表
+        """
+        if not rule.get("enabled", False):
+            return folders
+        
+        match_type = rule.get("match_type", "all")
+        pattern = rule.get("pattern", "")
+        max_folders = rule.get("max_folders", 10)
+        sort_by = rule.get("sort_by", "time")
+        sort_order = rule.get("sort_order", "desc")
+        
+        # 根据匹配类型筛选收藏夹
+        filtered_folders = []
+        
+        if match_type == "all":
+            # 扫描所有收藏夹
+            filtered_folders = folders
+        elif match_type == "regex":
+            # 使用正则表达式匹配
+            import re
+            try:
+                regex = re.compile(pattern, re.IGNORECASE)
+                filtered_folders = [f for f in folders if regex.search(f.get("title", ""))]
+                logger.info(f"正则表达式匹配: {pattern}, 匹配到 {len(filtered_folders)} 个收藏夹")
+            except re.error as e:
+                logger.error(f"正则表达式错误: {e}")
+                filtered_folders = folders
+        elif match_type == "name":
+            # 使用文件夹名匹配
+            filtered_folders = [f for f in folders if pattern.lower() in f.get("title", "").lower()]
+            logger.info(f"文件夹名匹配: {pattern}, 匹配到 {len(filtered_folders)} 个收藏夹")
+        
+        # 排序
+        if sort_by == "time":
+            # 按最后更新时间排序
+            filtered_folders.sort(key=lambda x: x.get("mtime", 0), reverse=(sort_order == "desc"))
+        elif sort_by == "count":
+            # 按视频数量排序
+            filtered_folders.sort(key=lambda x: x.get("media_count", 0), reverse=(sort_order == "desc"))
+        
+        # 限制收藏夹数量
+        if max_folders and max_folders < len(filtered_folders):
+            filtered_folders = filtered_folders[:max_folders]
+            logger.info(f"限制收藏夹数量为 {max_folders}")
+        
+        return filtered_folders

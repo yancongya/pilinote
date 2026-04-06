@@ -49,8 +49,6 @@ export const useAuthStore = create<AuthState>()(
       },
 
       fetchUser: async () => {
-        const currentUser = get().user
-
         set({ isLoading: true })
 
         try {
@@ -98,9 +96,6 @@ export const useAuthStore = create<AuthState>()(
         isAuthenticated: state.isAuthenticated,
         // 不包含isLoading，确保每次刷新都从false开始
       }),
-      onRehydrateStorage: () => (state) => {
-        // 不在这里修改state，让App组件在useEffect中处理
-      },
     }
   )
 );
