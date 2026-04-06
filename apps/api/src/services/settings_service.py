@@ -4,6 +4,7 @@ Settings service for managing system settings
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 import json
+import logging
 from datetime import datetime
 
 from src.models.setting import Setting
@@ -12,8 +13,13 @@ from src.schemas.settings import (
     DownloadSettings,
     StorageSettings,
     GeneralSettings,
-    SettingsExport
+    SettingsExport,
+    AutoDownloadSettings,
+    ConcurrentLimit
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class SettingsService:
@@ -66,7 +72,10 @@ class SettingsService:
     
     def get_setting(self, key: str) -> Optional[Setting]:
         """Get setting by key"""
-        return self.db.query(Setting).filter(Setting.key == key).first()
+        setting = self.db.query(Setting).filter(Setting.key == key).first()
+        if not setting:
+            logger.info(f"Setting key '{key}' not found in database")
+        return setting
     
     def get_all_settings(self) -> Dict[str, Setting]:
         """Get all settings as dictionary"""
@@ -169,10 +178,24 @@ class SettingsService:
             clipboard_monitor=self._get_setting_value(all_settings, 'general.clipboard_monitor', False)
         )
 
+        # 提取auto_download设置
+        concurrent_limit_dict = {
+            'video': int(self._get_setting_value(all_settings, 'auto_download.concurrent_limit.video', 3)),
+            'page': int(self._get_setting_value(all_settings, 'auto_download.concurrent_limit.page', 3))
+        }
+        auto_download_settings = AutoDownloadSettings(
+            enabled=self._get_setting_value(all_settings, 'auto_download.enabled', False),
+            trigger_type=self._get_setting_value(all_settings, 'auto_download.trigger_type', 'interval'),
+            scan_interval=int(self._get_setting_value(all_settings, 'auto_download.scan_interval', 60)),
+            cron_expression=self._get_setting_value(all_settings, 'auto_download.cron_expression', ''),
+            concurrent_limit=concurrent_limit_dict
+        )
+
         return Settings(
             download=download_settings,
             storage=storage_settings,
-            general=general_settings
+            general=general_settings,
+            auto_download=auto_download_settings
         )
 
     def _get_setting_value(self, all_settings: Dict[str, Setting], key: str, default: Any = None):
@@ -201,10 +224,23 @@ class SettingsService:
             self.db.commit()
             self.db.refresh(setting)
         return setting
-    
     def update_settings(self, settings_dict: Dict[str, Any]) -> bool:
         """Update multiple settings"""
         try:
+            # 预先处理 concurrent_limit，避免在主循环中被处理
+            if 'auto_download' in settings_dict and 'concurrent_limit' in settings_dict['auto_download']:
+                concurrent_limit_dict = settings_dict['auto_download']['concurrent_limit']
+                if isinstance(concurrent_limit_dict, dict):
+                    if 'video' in concurrent_limit_dict:
+                        self._update_single_setting('auto_download.concurrent_limit.video', concurrent_limit_dict['video'])
+                    if 'page' in concurrent_limit_dict:
+                        self._update_single_setting('auto_download.concurrent_limit.page', concurrent_limit_dict['page'])
+                del settings_dict['auto_download']['concurrent_limit']
+            
+            # 如果 auto_download 只剩下空字典，也删除它
+            if 'auto_download' in settings_dict and not settings_dict['auto_download']:
+                del settings_dict['auto_download']
+
             # 处理嵌套的settings_dict
             for category, category_dict in settings_dict.items():
                 if isinstance(category_dict, dict):
@@ -244,6 +280,8 @@ class SettingsService:
 
     def _update_single_setting(self, db_key: str, value: Any):
         """Update a single setting"""
+        logger.info(f"Updating setting: {db_key} = {value}")
+        
         # 转换值为字符串
         if isinstance(value, bool):
             str_value = str(value).lower()
@@ -254,12 +292,15 @@ class SettingsService:
 
         # 获取或创建设置
         setting = self.get_setting(db_key)
+        logger.info(f"Found setting: {setting}")
+        
         if setting:
             setting.value = str_value
             setting.updated_at = datetime.utcnow()
         else:
             # 创建新设置
             category = db_key.split('.')[0]
+            logger.info(f"Creating new setting: {db_key}")
             new_setting = Setting(
                 key=db_key,
                 value=str_value,
@@ -358,8 +399,18 @@ class SettingsService:
                 'general.clipboard_monitor': 'false',
             }
             
+            # 自动下载设置默认值
+            auto_download_defaults = {
+                'auto_download.enabled': 'false',
+                'auto_download.trigger_type': 'interval',
+                'auto_download.scan_interval': '60',
+                'auto_download.cron_expression': '',
+                'auto_download.concurrent_limit.video': '3',
+                'auto_download.concurrent_limit.page': '3',
+            }
+            
             # 合并所有默认设置
-            all_defaults = {**download_defaults, **storage_defaults, **general_defaults}
+            all_defaults = {**download_defaults, **storage_defaults, **general_defaults, **auto_download_defaults}
             
             # 只创建不存在的设置
             for key, value in all_defaults.items():

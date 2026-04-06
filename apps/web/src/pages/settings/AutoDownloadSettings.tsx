@@ -1,4 +1,4 @@
-import { useState, forwardRef, useImperativeHandle } from 'react'
+import { useState, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { 
   Clock,
   RotateCw,
@@ -16,21 +16,17 @@ interface AutoDownloadSettingsRef {
 }
 
 const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) => {
-  const { settings, updateSettings } = useSettingsStore()
+  const { settings, updateSettings, fetchSettings } = useSettingsStore()
   const { showToast } = useToast()
   
-  const [localSettings, setLocalSettings] = useState({
-    enabled: false,
-    trigger_type: 'interval' as 'interval' | 'cron',
-    scan_interval: 60,
-    cron_expression: '',
-    concurrent_limit: {
-      video: 3,
-      page: 3
-    }
-  })
+  const [localSettings, setLocalSettings] = useState<Record<string, any>>({})
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+
+  // 初始化时获取设置
+  useEffect(() => {
+    useSettingsStore.getState().fetchSettings()
+  }, [])
 
   useImperativeHandle(ref, () => ({
     hasUnsavedChanges: () => {
@@ -45,12 +41,37 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
       setSavedStatus('saving')
 
       try {
+        const currentAutoDownload = settings?.auto_download || {
+          enabled: false,
+          trigger_type: 'interval',
+          scan_interval: 60,
+          cron_expression: '',
+          concurrent_limit: {
+            video: 3,
+            page: 3
+          }
+        }
+
+        const mergedSettings = {
+          enabled: localSettings.enabled ?? currentAutoDownload.enabled,
+          trigger_type: localSettings.trigger_type ?? currentAutoDownload.trigger_type,
+          scan_interval: localSettings.scan_interval ?? currentAutoDownload.scan_interval,
+          cron_expression: localSettings.cron_expression ?? currentAutoDownload.cron_expression,
+          concurrent_limit: {
+            video: localSettings.concurrent_limit?.video ?? currentAutoDownload.concurrent_limit?.video ?? 3,
+            page: localSettings.concurrent_limit?.page ?? currentAutoDownload.concurrent_limit?.page ?? 3
+          }
+        }
+
         await updateSettings({
-          auto_download: localSettings
+          auto_download: mergedSettings
         })
         
         setSavedStatus('saved')
-        setLocalSettings({} as any)
+        setLocalSettings({})
+        
+        // 重新获取设置以确保数据同步
+        await fetchSettings()
         
         setTimeout(() => {
           setSavedStatus('idle')

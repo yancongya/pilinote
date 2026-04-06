@@ -94,17 +94,27 @@ class GeneralSettings(BaseModel):
     clipboard_monitor: bool = Field(default=False, description="Clipboard monitor")
 
 
+class ConcurrentLimit(BaseModel):
+    """并发限制设置"""
+    video: int = Field(default=3, ge=1, le=5, description="视频并发数")
+    page: int = Field(default=3, ge=1, le=5, description="分页并发数")
+
+
+class AutoDownloadSettings(BaseModel):
+    """自动下载设置"""
+    enabled: bool = Field(default=False, description="启用自动下载")
+    trigger_type: str = Field(default="interval", description="触发方式 (interval/cron)")
+    scan_interval: int = Field(default=60, ge=15, description="扫描间隔（分钟）")
+    cron_expression: str = Field(default="", description="Cron 表达式")
+    concurrent_limit: ConcurrentLimit = Field(default_factory=ConcurrentLimit)
+
+
 class Settings(BaseModel):
     """All settings"""
     download: DownloadSettings
     storage: StorageSettings
     general: GeneralSettings
-
-
-class SettingUpdate(BaseModel):
-    """Setting update request"""
-    key: str
-    value: str
+    auto_download: AutoDownloadSettings
 
 
 class SettingsUpdate(BaseModel):
@@ -112,6 +122,7 @@ class SettingsUpdate(BaseModel):
     download: Optional[Dict[str, Any]] = None
     storage: Optional[Dict[str, Any]] = None
     general: Optional[Dict[str, Any]] = None
+    auto_download: Optional[Dict[str, Any]] = None
 
 
 class SettingsExport(BaseModel):
@@ -119,3 +130,9 @@ class SettingsExport(BaseModel):
     export_time: str
     version: str
     settings: Dict[str, Any]
+
+
+class SettingUpdate(BaseModel):
+    """Setting update request"""
+    key: str
+    value: str

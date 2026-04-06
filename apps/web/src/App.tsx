@@ -22,21 +22,15 @@ function App() {
   useEffect(() => {
     const restoreUserData = async () => {
       try {
-        console.log('[App] 正在从后端验证会话状态...')
-        
         // 强制重置isLoading状态，确保fetchUser可以被调用
         setIsLoading(false)
-        
+
         await fetchUser()
-        
+
         // 使用store.getState()获取最新状态，避免闭包问题
         const latestState = useAuthStore.getState()
-        console.log('[App] fetchUser完成，最新登录状态:', latestState.isAuthenticated)
-        console.log('[App] fetchUser完成，最新用户信息:', latestState.user)
-        
-        await fetchSettings()
 
-        console.log('[App] 数据恢复完成')
+        await fetchSettings()
       } catch (err) {
         console.error('[App] 数据恢复失败:', err)
       }

@@ -34,10 +34,6 @@ export const useAuthStore = create<AuthState>()(
           user,
           isAuthenticated: user !== null,
         }
-        console.log('[Auth] setUser被调用:', {
-          user: user ? { mid: user.mid, username: user.username, hasSessdata: !!user.sessdata } : null,
-          isAuthenticated: newState.isAuthenticated
-        })
         set(newState)
       },
 
@@ -54,7 +50,6 @@ export const useAuthStore = create<AuthState>()(
 
       fetchUser: async () => {
         const currentUser = get().user
-        console.log('[Auth] fetchUser开始执行，当前user:', currentUser ? { mid: currentUser.mid, username: currentUser.username } : null)
 
         set({ isLoading: true })
 
@@ -64,12 +59,6 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Failed to fetch user status')
           }
           const data = await response.json()
-
-          console.log('[Auth] fetchUser从服务器获取到数据:', {
-            success: data.success,
-            is_logged_in: data.data?.is_logged_in,
-            user: data.data?.user ? { mid: data.data.user.mid, username: data.data.user.username } : null
-          })
 
           if (data.success && data.data?.is_logged_in && data.data?.user) {
             const userData = data.data.user
@@ -82,16 +71,13 @@ export const useAuthStore = create<AuthState>()(
               username: userData.username,
               avatar: userData.avatar,
             }
-            console.log('[Auth] fetchUser准备更新状态，新user:', newUser)
             set({
               user: newUser,
               isAuthenticated: true,
               isLoading: false,
             })
-            console.log('[Auth] 已登录:', userData.username)
           } else {
             // 服务器返回未登录，清除状态
-            console.log('[Auth] 服务器返回未登录，清除本地状态')
             set({
               user: null,
               isAuthenticated: false,
@@ -113,12 +99,6 @@ export const useAuthStore = create<AuthState>()(
         // 不包含isLoading，确保每次刷新都从false开始
       }),
       onRehydrateStorage: () => (state) => {
-        // 在从localStorage恢复状态后，记录日志
-        console.log('[Auth] onRehydrateStorage被调用')
-        console.log('[Auth] 从localStorage恢复的state:', state ? {
-          user: state.user ? { mid: state.user.mid, username: state.user.username, hasSessdata: !!state.user.sessdata } : null,
-          isAuthenticated: state.isAuthenticated,
-        } : 'state is null')
         // 不在这里修改state，让App组件在useEffect中处理
       },
     }
