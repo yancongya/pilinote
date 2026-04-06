@@ -40,6 +40,8 @@ interface ScanState {
   // Actions
   fetchScanRecords: (sourceType?: string) => Promise<void>
   triggerScan: (sourceType: string, sourceId?: string) => Promise<void>
+  deleteScanRecord: (recordId: string) => Promise<void>
+  clearScanRecords: (sourceType?: string, days?: number) => Promise<void>
   clearError: () => void
 }
 
@@ -117,5 +119,70 @@ export const useScanStore = create<ScanState>()((set, get) => ({
   // 清除错误
   clearError: () => {
     set({ error: null })
+  },
+
+  // 删除单个扫描记录
+  deleteScanRecord: async (recordId: string) => {
+    try {
+      const url = getApiUrl(`/api/auto-download/scan-records/${recordId}`)
+      const response = await fetch(url, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete scan record')
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        // 从列表中移除已删除的记录
+        set(state => ({
+          scanRecords: state.scanRecords.filter(r => r.id !== recordId)
+        }))
+      } else {
+        throw new Error(result.error || 'Failed to delete scan record')
+      }
+    } catch (error) {
+      console.error('Failed to delete scan record:', error)
+      throw error
+    }
+  },
+
+  // 清除扫描记录
+  clearScanRecords: async (sourceType?: string, days?: number) => {
+    try {
+      let url = getApiUrl('/api/auto-download/scan-records')
+      const params = new URLSearchParams()
+      
+      if (sourceType) {
+        params.append('source_type', sourceType)
+      }
+      if (days !== undefined) {
+        params.append('days', days.toString())
+      }
+      
+      if (params.toString()) {
+        url += '?' + params.toString()
+      }
+
+      const response = await fetch(url, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to clear scan records')
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        // 刷新扫描记录列表
+        await get().fetchScanRecords(sourceType)
+      } else {
+        throw new Error(result.error || 'Failed to clear scan records')
+      }
+    } catch (error) {
+      console.error('Failed to clear scan records:', error)
+      throw error
+    }
   }
 }))

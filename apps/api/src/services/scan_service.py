@@ -111,6 +111,69 @@ class ScanService:
         
         return records
     
+    async def delete_scan_record(self, record_id: str) -> bool:
+        """
+        删除单个扫描记录
+        
+        Args:
+            record_id: 记录 ID
+            
+        Returns:
+            是否删除成功
+        """
+        try:
+            settings = self.db.query(Setting).filter(
+                Setting.key.like(f"auto_download.scan_records.%.{record_id}")
+            ).all()
+            
+            for setting in settings:
+                self.db.delete(setting)
+            
+            self.db.commit()
+            logger.info(f"Deleted scan record: {record_id}")
+            return True
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to delete scan record {record_id}: {e}")
+            return False
+    
+    async def clear_scan_records(self, source_type: Optional[str] = None, days: Optional[int] = None) -> int:
+        """
+        清除扫描记录
+        
+        Args:
+            source_type: 视频源类型过滤（None表示清除所有）
+            days: 保留最近几天的记录（None表示清除所有）
+            
+        Returns:
+            删除的记录数量
+        """
+        try:
+            query = self.db.query(Setting).filter(
+                Setting.key.like("auto_download.scan_records.%")
+            )
+            
+            if source_type:
+                query = query.filter(Setting.key.like(f"auto_download.scan_records.{source_type}%"))
+            
+            if days is not None:
+                from datetime import timedelta
+                cutoff_time = datetime.utcnow() - timedelta(days=days)
+                query = query.filter(Setting.created_at < cutoff_time)
+            
+            deleted_count = query.count()
+            query.delete()
+            self.db.commit()
+            
+            logger.info(f"Cleared {deleted_count} scan records (source_type={source_type}, days={days})")
+            return deleted_count
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to clear scan records: {e}")
+            return 0
+        
+        return records
+    
     async def _fetch_videos(
         self,
         source_type: str,

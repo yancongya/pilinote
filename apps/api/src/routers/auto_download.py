@@ -102,3 +102,70 @@ async def trigger_scan(
             status_code=500,
             detail=f"扫描失败: {str(e)}"
         )
+
+
+@router.delete("/scan-records/{record_id}", response_model=dict)
+async def delete_scan_record(
+    record_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    删除单个扫描记录
+    
+    Args:
+        record_id: 记录 ID
+        
+    Returns:
+        删除结果
+    """
+    try:
+        service = ScanService(db)
+        success = await service.delete_scan_record(record_id)
+        
+        if success:
+            return {
+                "success": True,
+                "message": "扫描记录已删除"
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="删除扫描记录失败"
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"删除扫描记录失败: {str(e)}"
+        )
+
+
+@router.delete("/scan-records", response_model=dict)
+async def clear_scan_records(
+    source_type: Optional[str] = Query(None, description="视频源类型 (favorite/watch_later)"),
+    days: Optional[int] = Query(None, description="保留最近几天的记录，不传则删除所有"),
+    db: Session = Depends(get_db)
+):
+    """
+    清除扫描记录
+    
+    Args:
+        source_type: 可选的视频源类型过滤
+        days: 保留最近几天的记录，不传则删除所有
+        
+    Returns:
+        清除结果
+    """
+    try:
+        service = ScanService(db)
+        deleted_count = await service.clear_scan_records(source_type, days)
+        
+        return {
+            "success": True,
+            "message": f"已清除 {deleted_count} 条扫描记录",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"清除扫描记录失败: {str(e)}"
+        )
