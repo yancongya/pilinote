@@ -1599,6 +1599,26 @@
 }
 
 /* Responsive */
+@media (max-width: 768px) {
+  .scan-actions {
+    gap: 8px;
+  }
+
+  .scan-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .scan-btn span {
+    font-size: 13px;
+  }
+
+  .folders-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+  }
+}
+
 @media (max-width: 640px) {
   .scan-actions {
     flex-direction: column;
@@ -1617,5 +1637,87 @@
   .record-stats {
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  /* 扫描记录移动端优化 */
+  .scan-records {
+    padding: 12px;
+  }
+
+  .scan-records h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .record-item {
+    padding: 10px;
+  }
+
+  .record-header {
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+
+  .record-source {
+    font-size: 13px;
+  }
+
+  .record-stats {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .record-stat {
+    flex: 1;
+    min-width: calc(50% - 6px);
+  }
+
+  .record-time {
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  /* 收藏夹详情移动端 */
+  .folders-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .folder-stats {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 8px;
+  }
+
+  /* 移动端控制按钮文本显示 */
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: inline;
+  }
+}
+
+/* 平板适配 */
+@media (min-width: 641px) and (max-width: 768px) {
+  .desktop-only {
+    display: inline;
+  }
+
+  .mobile-only {
+    display: none;
+  }
+}
+
+/* 桌面端 */
+@media (min-width: 769px) {
+  .desktop-only {
+    display: inline;
+  }
+
+  .mobile-only {
+    display: none;
   }
 }

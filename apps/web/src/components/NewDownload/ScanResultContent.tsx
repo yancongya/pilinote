@@ -176,9 +176,11 @@ export default function ScanResultContent() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          marginBottom: '16px'
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+          gap: '12px'
         }}>
-          <h3>扫描记录</h3>
+          <h3 style={{ flex: 1, minWidth: 'auto' }}>扫描记录</h3>
           {scanRecords.length > 0 && (
             <button
               className="scan-btn"
@@ -191,11 +193,14 @@ export default function ScanResultContent() {
                 gap: '6px',
                 backgroundColor: '#fee2e2',
                 color: '#dc2626',
-                border: '1px solid #fca5a5'
+                border: '1px solid #fca5a5',
+                minWidth: 'auto',
+                whiteSpace: 'nowrap'
               }}
             >
               <Trash2 size={14} />
-              <span>清空记录</span>
+              <span className="desktop-only">清空记录</span>
+              <span className="mobile-only" style={{ display: 'none' }}>清空</span>
             </button>
           )}
         </div>
