@@ -891,6 +891,13 @@
   line-height: 1.4;
 }
 
+/* 行内提示文字 */
+.stg-hint-inline {
+  font-size: 12px;
+  color: #94A3B8;
+  margin-left: auto;
+}
+
 /* 开关列表 */
 .stg-toggles {
   padding: 8px 16px 12px;

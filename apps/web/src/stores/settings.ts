@@ -44,6 +44,16 @@ export interface Settings {
   download: DownloadSettings
   storage: IStorageSettings
   general: IGeneralSettings
+  auto_download: {
+    enabled: boolean
+    trigger_type: 'interval' | 'cron'
+    scan_interval: number
+    cron_expression: string
+    concurrent_limit: {
+      video: number
+      page: number
+    }
+  }
 }
 
 interface SettingsState {
