@@ -336,24 +336,31 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         }}>
           <span className="stg-group-title">自定义扫描列表</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              className="stg-btn stg-btn-secondary"
+            <div
               onClick={loadFavorites}
-              disabled={loadingFavorites}
               style={{ 
-                padding: '6px',
-                fontSize: '12px',
-                height: '28px',
-                width: '28px',
+                cursor: loadingFavorites ? 'not-allowed' : 'pointer',
+                opacity: loadingFavorites ? 0.5 : 1,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minWidth: 'auto'
+                color: '#64748b',
+                transition: 'all 0.2s',
+                padding: '4px'
+              }}
+              onMouseEnter={(e) => {
+                if (!loadingFavorites) {
+                  e.currentTarget.style.color = '#fb7299'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = '#64748b'
               }}
               aria-label="刷新收藏夹列表"
+              title="刷新收藏夹列表"
             >
-              <RotateCw size={14} className={loadingFavorites ? 'animate-spin' : ''} />
-            </button>
+              <RotateCw size={16} className={loadingFavorites ? 'animate-spin' : ''} />
+            </div>
             <label className="stg-toggle" style={{ marginBottom: 0 }}>
               <div className="stg-toggle-content">
                 <span className="stg-toggle-label">启用</span>
