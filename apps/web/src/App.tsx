@@ -8,13 +8,9 @@ import { useSettingsStore } from './stores/settings'
 import { useNewQueueStore } from './stores/newQueue'
 import { useEffect } from 'react'
 import { ToastProvider } from './components/Toast'
-import { apiService } from './services/api'
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  const user = useAuthStore((state) => state.user)
-  const isLoading = useAuthStore((state) => state.isLoading)
-  const setUser = useAuthStore((state) => state.setUser)
   const fetchUser = useAuthStore((state) => state.fetchUser)
   const setIsLoading = useAuthStore((state) => state.setIsLoading)
   const location = useLocation()

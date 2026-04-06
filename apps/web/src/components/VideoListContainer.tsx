@@ -47,7 +47,7 @@ export interface VideoListContainerProps {
   /** 额外的操作按钮 */
   extraActions?: ReactNode
   /** 加载更多的 ref，用于无限滚动 */
-  loadMoreRef?: RefObject<HTMLDivElement>
+  loadMoreRef?: RefObject<HTMLDivElement | null>
   /** 是否有更多数据 */
   hasMore?: boolean
   /** 空状态提示文本 */

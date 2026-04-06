@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
-import { useSettingsStore } from '../stores/settings'
 import { useNewQueueStore } from '../stores/newQueue'
 import { useVideoDownload } from '../hooks/useVideoDownload'
 import AlertModal from '../components/AlertModal'
@@ -13,8 +12,7 @@ export default function VideoDetailPage() {
   const { videoId } = useParams<{ videoId: string }>()
   const navigate = useNavigate()
   const newQueueStore = useNewQueueStore()
-  const settingsStore = useSettingsStore()
-  const { toggleDownload } = useVideoDownload(true)
+  const { toggleDownload } = useVideoDownload()
   const [video, setVideo] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
@@ -33,7 +31,6 @@ export default function VideoDetailPage() {
   })
   const { user } = useAuthStore()
   const sessdata = user?.sessdata
-  const { settings } = settingsStore
 
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {

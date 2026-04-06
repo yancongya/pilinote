@@ -11,8 +11,6 @@ import AlertModal from '../../components/AlertModal'
 import ConfirmModal from '../../components/ConfirmModal'
 
 export default function WatchLaterContent() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [totalCount, setTotalCount] = useState(0)
   const [alertModal, setAlertModal] = useState<{ show: boolean; title: string; message: string; type: 'success' | 'error' }>({
     show: false,
@@ -171,140 +169,6 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
     }
   }, [videos.length, totalCount])
 
-  // 批量下载稍后再看（使用新系统API）
-  const batchDownloadWatchLater = async () => {
-    if (videos.length === 0) {
-      setAlertModal({
-        show: true,
-        title: '提示',
-        message: '稍后再看中没有视频可下载',
-        type: 'error'
-      })
-      return
-    }
-
-    // 显示确认对话框
-    setConfirmModal({
-      show: true,
-      title: '确认批量下载',
-      message: `确定要批量下载稍后再看中的所有 ${videos.length} 个视频吗？`,
-      onConfirm: async () => {
-        await executeBatchDownload()
-      }
-    })
-  }
-
-  // 执行批量下载的实际逻辑
-  const executeBatchDownload = async () => {
-    setLoading(true)
-    setError('')
-
-    try {
-      // 1. 使用新API获取稍后再看媒体信息
-      const mediaResponse = await apiService.getWatchlaterMedia()
-      if (!mediaResponse.success || !mediaResponse.data) {
-        throw new Error(mediaResponse.message || '获取稍后再看信息失败')
-      }
-
-      const mediaInfo = mediaResponse.data
-      const videoList = mediaInfo.list || []
-
-      if (videoList.length === 0) {
-        setAlertModal({
-          show: true,
-          title: '提示',
-          message: '稍后再看中没有视频可下载',
-          type: 'error'
-        })
-        setLoading(false)
-        return
-      }
-
-      // 2. 先批量提交任务到backlog，收集任务ID
-      const taskIds: string[] = []
-      let successCount = 0
-
-      for (const video of videoList) {
-        try {
-          const taskResponse = await apiService.submitTask({
-            media_type: 'video',
-            media_id: video.bvid || '',
-            title: video.title || '',
-            cover: video.cover || '',
-            desc: video.desc || '',
-            meta: {
-              aid: video.aid,
-              cid: video.cid,
-              duration: video.duration,
-              uploader: video.uploader?.name || '',
-              uploader_mid: video.uploader?.mid || 0
-            }
-          })
-
-          if (taskResponse.success && taskResponse.data) {
-            taskIds.push(taskResponse.data.id)
-            successCount++
-          }
-        } catch (err) {
-          console.error(`提交任务失败: ${video.title}`, err)
-        }
-      }
-
-      if (taskIds.length === 0) {
-        throw new Error('所有任务提交失败')
-      }
-
-      // 3. 创建调度器，使用收集到的任务ID
-      const folderName = `稍后再看-${new Date().toISOString().slice(0, 10)}`
-      
-      // Get user settings to use configured download path
-      const { useSettingsStore } = await import('../../stores/settings')
-      const settingsStore = useSettingsStore.getState()
-      
-      // Fetch settings if not already loaded
-      if (!settingsStore.settings) {
-        await settingsStore.fetchSettings()
-      }
-      
-      // Use download path from settings or fallback to default
-      const downloadPath = settingsStore.settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads'
-      const folderPath = `${downloadPath}/${folderName}`
-
-      const schedulerResponse = await apiService.createScheduler({
-        title: `稍后再看批量下载`,
-        task_ids: taskIds,
-        folder: folderPath
-      })
-
-      if (!schedulerResponse.success || !schedulerResponse.data) {
-        throw new Error(schedulerResponse.message || '创建调度器失败')
-      }
-
-      const schedulerId = schedulerResponse.data.id
-
-      setAlertModal({
-        show: true,
-        title: '添加成功',
-        message: `批量下载已添加到队列！\n成功提交 ${successCount}/${videoList.length} 个任务\n保存路径: ${folderPath}\n请在下载列表中点击"开始下载"按钮开始下载`,
-        type: 'success'
-      })
-      // 切换到下载页面
-      navigate('/downloads')
-
-    } catch (err) {
-      console.error('批量下载失败:', err)
-      setError(`批量下载失败: ${err instanceof Error ? err.message : '未知错误'}`)
-      setAlertModal({
-        show: true,
-        title: '批量下载失败',
-        message: err instanceof Error ? err.message : '未知错误',
-        type: 'error'
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   if (!user?.mid) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '60px 20px' }}>
@@ -331,7 +195,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
         videos={videos}
         loading={videosLoading}
         loadingMore={loadingMore}
-        error={videosError || error}
+        error={videosError}
         onDownloadToggle={toggleDownload}
         getDownloadStatus={getDownloadStatus}
         loadMoreRef={loadMoreRef}

@@ -89,6 +89,7 @@ interface NewQueueState {
   setActiveTab: (tab: 'downloads' | 'library') => void
   setFilterStatus: (status: TaskState | 'all') => void
   forceClearCache: () => void
+  cleanupDuplicateCompletedTasks: () => Promise<void>
 
   // 计算属性
   getTaskProgress: (taskId: string) => number
@@ -219,7 +220,7 @@ forceClearCache: () => {
 
 
                 if (tasks[data.id]) {
-                  tasks[data.id] = { ...tasks[data.id], state: stateStr }
+                  tasks[data.id] = { ...tasks[data.id], state: stateStr as TaskState }
                 }
               }
               return { tasks }

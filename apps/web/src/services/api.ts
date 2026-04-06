@@ -48,7 +48,7 @@ export interface SmsLoginRequest {
 }
 
 class ApiService {
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -246,12 +246,6 @@ class ApiService {
     });
   }
 
-  async getLoginStatus(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/auth/status', {
-      method: 'GET',
-    });
-  }
-
   async getAccounts(): Promise<ApiResponse<any>> {
     return this.request<any>('/api/auth/accounts', {
       method: 'GET',
@@ -401,6 +395,104 @@ class ApiService {
     return this.request<any>('/api/cache/stats', {
       method: 'GET',
     });
+  }
+
+  async parseDownloadUrl(url: string): Promise<ApiResponse<any>> {
+    const bvidMatch = url.match(/BV[\w]+/)
+    const avidMatch = url.match(/av(\d+)/)
+    let mediaId = ''
+    let mediaType = 'video'
+
+    if (bvidMatch) {
+      mediaId = bvidMatch[0]
+    } else if (avidMatch) {
+      mediaId = avidMatch[1]
+    } else {
+      return { success: false, message: '无效的链接格式' }
+    }
+
+    return this.getMediaInfo(mediaType, mediaId)
+  }
+
+  async addToDownloadQueue(data: {
+    bvid: string
+    cid: number
+    title: string
+    page?: number
+    quality?: number
+    audio_bitrate?: number
+    codec?: string
+    output_format?: string
+    thumbnail_url?: string
+    duration?: number
+    uploader?: string
+    uploader_mid?: number
+    sessdata?: string
+    enable_subtitle?: boolean
+    enable_nfo?: boolean
+    enable_cover?: boolean
+    enable_avatar?: boolean
+  }): Promise<ApiResponse<any>> {
+    return this.submitTask({
+      media_type: 'video',
+      media_id: data.bvid,
+      title: data.title,
+      meta: {
+        cid: data.cid,
+        page: data.page,
+        quality: data.quality,
+        audio_bitrate: data.audio_bitrate,
+        codec: data.codec,
+        output_format: data.output_format,
+        thumbnail_url: data.thumbnail_url,
+        duration: data.duration,
+        uploader: data.uploader,
+        uploader_mid: data.uploader_mid,
+        enable_subtitle: data.enable_subtitle,
+        enable_nfo: data.enable_nfo,
+        enable_cover: data.enable_cover,
+        enable_avatar: data.enable_avatar
+      }
+    })
+  }
+
+  async getDownloadList(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/downloads', { method: 'GET' })
+  }
+
+  async deleteDownload(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/${taskId}`, { method: 'DELETE' })
+  }
+
+  async deleteDownloadByBvid(bvid: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/by-bvid/${bvid}`, { method: 'DELETE' })
+  }
+
+  async startBatchDownloads(bvidList: string[]): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/downloads/batch/start', {
+      method: 'POST',
+      body: JSON.stringify({ bvids: bvidList }),
+    })
+  }
+
+  async startDownloadTask(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/${taskId}/start`, { method: 'POST' })
+  }
+
+  async pauseDownloadTask(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/${taskId}/pause`, { method: 'POST' })
+  }
+
+  async resumeDownloadTask(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/${taskId}/resume`, { method: 'POST' })
+  }
+
+  async cancelDownloadTask(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/${taskId}/cancel`, { method: 'POST' })
+  }
+
+  async getDownloadTaskStatus(taskId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/downloads/${taskId}/status`, { method: 'GET' })
   }
 }
 

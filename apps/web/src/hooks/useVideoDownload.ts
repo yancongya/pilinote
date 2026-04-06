@@ -198,7 +198,8 @@ export function useVideoDownload() {
                   throw new Error(schedulerResponse.message || '创建调度器失败')
                 }
 
-                const schedulerId = schedulerResponse.data.id
+                const _schedulerId = schedulerResponse.data.id
+                void _schedulerId
 
                 // 立即刷新任务列表，确保状态更新
                 await newQueueStore.fetchTasks()

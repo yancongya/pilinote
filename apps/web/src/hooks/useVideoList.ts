@@ -132,7 +132,7 @@ export interface UseVideoListReturn {
   /**
    * 加载更多元素引用
    */
-  loadMoreRef: React.RefObject<HTMLDivElement>
+  loadMoreRef: React.RefObject<HTMLDivElement | null>
 
   /**
    * 手动获取视频列表

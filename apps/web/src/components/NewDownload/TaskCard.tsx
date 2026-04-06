@@ -22,14 +22,6 @@ const formatFileSize = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-// 格式化ETA（预计剩余时间）
-const formatETA = (seconds: number): string => {
-  if (!seconds || seconds === 0 || seconds === Infinity) return '--'
-  if (seconds < 60) return `${Math.floor(seconds)}秒`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${Math.floor(seconds % 60)}秒`
-  return `${Math.floor(seconds / 3600)}小时${Math.floor((seconds % 3600) / 60)}分`
-}
-
 // 格式化下载速度
 const formatSpeed = (bytes: number): string => {
   if (!bytes || bytes === 0) return '--'

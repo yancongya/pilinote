@@ -328,7 +328,10 @@ export const useDownloadStore = create<DownloadState>()(
               started_at: null,
               completed_at: null,
               aid: downloadData.aid || null,
-              cid: downloadData.cid || null
+              cid: downloadData.cid || null,
+              quality: downloadData.quality || null,
+              audio_bitrate: downloadData.audio_bitrate || null,
+              codec: downloadData.codec || null
             }
             get().addDownload(newItem)
             
@@ -388,7 +391,7 @@ export const useDownloadStore = create<DownloadState>()(
       
       startBatchDownloads: async (downloadIds?: string[]) => {
         try {
-          const response = await apiService.startBatchDownloads(downloadIds)
+          const response = await apiService.startBatchDownloads(downloadIds || [])
           
           if (response.success) {
             // 同步最新的下载列表
