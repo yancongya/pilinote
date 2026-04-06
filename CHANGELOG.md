@@ -1,5 +1,127 @@
 # PiliNote 开发日志
 
+## 2026-04-06 自动下载扫描功能修复
+
+### 🎯 问题修复
+修复收藏夹扫描功能返回空结果的问题。
+
+### 🔍 问题分析
+
+#### 根本原因
+1. **SESSDATA格式问题**：
+   - 数据库中的SESSDATA是URL编码格式（`%2C`表示逗号）
+   - HeadersManager获取的SESSDATA被解码为普通逗号
+   - B站API要求URL编码格式的SESSDATA，导致请求失败（错误码-400）
+
+2. **API参数缺失**：
+   - 收藏夹详情API缺少`platform: "web"`参数
+   - 导致B站API返回错误码-400
+
+### 🔧 修复方案
+
+#### 1. 修复B站API调用
+- **修改文件**: `apps/api/src/services/bilibili.py`
+- **修改**: 在`get_folder_detail`方法中添加`platform: "web"`参数
+```python
+params = {
+    "media_id": media_id,
+    "pn": page,
+    "ps": page_size,
+    "keyword": keyword,
+    "order": order,
+    "type": type,
+    "tid": tid,
+    "platform": "web"  # 新增此参数
+}
+```
+
+#### 2. 修复auth依赖
+- **修改文件**: `apps/api/src/dependencies/auth.py`
+- **修改**: `get_current_user_with_sessdata`方法直接返回数据库中的原始SESSDATA
+```python
+async def get_current_user_with_sessdata(
+    db: Session = Depends(get_db)
+) -> Tuple[User, str]:
+    """获取当前活跃用户和 SESSDATA
+    
+    直接返回数据库中的原始SESSDATA（URL编码格式），确保B站API正常工作。
+    """
+    active_user = db.query(User).filter(User.is_active == True).first()
+    if not active_user:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    # 直接使用数据库中的原始SESSDATA（URL编码格式）
+    if not active_user.sessdata:
+        raise HTTPException(status_code=401, detail="未找到登录凭证")
+    
+    return active_user, active_user.sessdata
+```
+
+#### 3. 修复scan_service
+- **修改文件**: `apps/api/src/services/scan_service.py`
+- **修改**: `_fetch_videos`方法从数据库重新获取原始SESSDATA
+```python
+# 从数据库获取用户的原始sessdata（URL编码格式）
+user = self.db.query(User).filter(User.mid == user_mid).first()
+if not user:
+    logger.error(f"未找到MID={user_mid}的用户")
+    return [], []
+
+# 使用数据库中的原始sessdata（URL编码格式）
+original_sessdata = user.sessdata
+```
+
+### 📝 技术细节
+
+#### SESSDATA格式对比
+```
+数据库中的格式: f30a8887%2C1790979472%2Cefbd3%2A42CjAjFOW...
+HeadersManager中的格式: f30a8887,1790979472,efbd3*42CjAjFOW...
+```
+
+#### API调用成功条件
+1. SESSDATA必须是URL编码格式（包含`%2C`而不是`,`）
+2. 请求参数必须包含`platform: "web"`
+3. Headers必须包含正确的Cookie
+
+### ✅ 测试结果
+
+#### Python脚本测试
+- ✅ 直接调用BilibiliService成功
+- ✅ 获取收藏夹列表成功（11个收藏夹）
+- ✅ 获取收藏夹详情成功（20个视频）
+- ✅ SESSDATA格式正确（URL编码）
+
+#### HTTP API测试
+- ✅ POST /api/auto-download/scan/trigger 调用成功
+- ✅ 返回扫描结果（视频数量、新视频数量、收藏夹数量）
+- ✅ 收藏夹信息正确（每个收藏夹的视频数量）
+
+### 📝 代码变更统计
+
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/api/src/services/bilibili.py | +1 | 1 | 0 |
+| apps/api/src/dependencies/auth.py | +10 | 10 | 15 |
+| apps/api/src/services/scan_service.py | +20 | 20 | 5 |
+| apps/api/test_api_flow.py | +50 | 50 | 0 |
+| apps/api/test_compare.py | +40 | 40 | 0 |
+| apps/api/debug_scan_service.py | +60 | 60 | 0 |
+| apps/api/compare_sessdata.py | +40 | 40 | 0 |
+| apps/api/test_singleton.py | +30 | 30 | 0 |
+| apps/api/test_direct_vs_scan.py | +70 | 70 | 0 |
+| CHANGELOG.md | +80 | 80 | 0 |
+| **总计** | **+401** | **401** | **20** |
+
+### 🚀 相关功能
+- 自动下载扫描功能
+- 收藏夹扫描
+- 稍后再看扫描
+- 新视频识别
+- 扫描记录管理
+
+---
+
 ## 2026-04-03 调度器删除功能和封面显示优化
 
 ### 🎯 功能增强

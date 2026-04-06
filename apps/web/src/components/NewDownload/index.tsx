@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNewQueueStore } from '../../stores/newQueue'
 import DownloadsList from './DownloadsList'
 import VideoLibrary from './VideoLibrary'
+import ScanResultContent from './ScanResultContent'
 import { Wifi, WifiOff, Loader2 } from 'lucide-react'
 import './index.css'
 
@@ -73,6 +74,16 @@ export default function NewDownloadContent() {
         >
           视频库
         </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'scan'}
+          aria-controls="scan-panel"
+          className={`tab ${activeTab === 'scan' ? 'active' : ''}`}
+          onClick={() => setActiveTab('scan')}
+          tabIndex={activeTab === 'scan' ? 0 : -1}
+        >
+          自动扫描
+        </button>
       </div>
 
       {/* 内容 */}
@@ -92,6 +103,11 @@ export default function NewDownloadContent() {
             {activeTab === 'library' && (
               <div id="library-panel" role="tabpanel" aria-labelledby="library-tab">
                 <VideoLibrary />
+              </div>
+            )}
+            {activeTab === 'scan' && (
+              <div id="scan-panel" role="tabpanel" aria-labelledby="scan-tab">
+                <ScanResultContent />
               </div>
             )}
           </>

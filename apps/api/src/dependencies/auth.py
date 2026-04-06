@@ -18,12 +18,13 @@ async def get_current_user_with_sessdata(
     """获取当前活跃用户和 SESSDATA
     
     统一的认证逻辑，用于需要 B站 API 认证的路由。
+    直接返回数据库中的原始SESSDATA（URL编码格式），确保B站API正常工作。
     
     Args:
         db: 数据库会话
         
     Returns:
-        Tuple[User, str]: (用户对象, SESSDATA)
+        Tuple[User, str]: (用户对象, 原始SESSDATA)
         
     Raises:
         HTTPException: 401 未登录或未找到 SESSDATA
@@ -33,21 +34,11 @@ async def get_current_user_with_sessdata(
     if not active_user:
         raise HTTPException(status_code=401, detail="未登录")
     
-    # 从 HeadersManager 获取 sessdata
-    headers_manager = get_headers_manager()
-    
-    # 同步活跃用户的 cookies 到内存
-    try:
-        await headers_manager.sync_cookies_from_db(active_user.id)
-    except Exception:
-        # 同步失败不影响后续获取 SESSDATA
-        pass
-    
-    sessdata = headers_manager.get_cookie("SESSDATA")
-    if not sessdata:
+    # 直接使用数据库中的原始SESSDATA（URL编码格式）
+    if not active_user.sessdata:
         raise HTTPException(status_code=401, detail="未找到登录凭证")
     
-    return active_user, sessdata
+    return active_user, active_user.sessdata
 
 
 async def get_current_user_with_refreshed_sessdata(

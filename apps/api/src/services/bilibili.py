@@ -524,7 +524,8 @@ class BilibiliService:
             "keyword": keyword,
             "order": order,
             "type": type,
-            "tid": tid
+            "tid": tid,
+            "platform": "web"
         }
         
         try:
