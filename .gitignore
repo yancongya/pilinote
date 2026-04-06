@@ -120,3 +120,5 @@ apps/api/tools/linux/
 apps/api/tools/windows/
 !apps/api/tools/README.md
 !apps/api/tools/setup_tools.py
+.qwen/settings.json.orig
+.qwen/settings.json
