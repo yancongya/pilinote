@@ -2380,33 +2380,10 @@ body {
   transition: all 0.3s ease;
   flex-shrink: 0;
   background: transparent;
-  position: relative;
-}
-
-.ws-status-icon::after {
-  content: attr(title);
-  position: absolute;
-  bottom: -32px;
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: all 0.2s ease;
 }
 
 .ws-status-icon:hover {
   background: rgba(0, 0, 0, 0.05);
-}
-
-.ws-status-icon:hover::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
 }
 
 .ws-status-icon.ws-connected {
@@ -5006,6 +4983,7 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  overflow: visible;
 }
 
 .video-card:hover {
@@ -5164,40 +5142,41 @@ body {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  position: relative;
+  overflow: visible;
   transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.video-card-info h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a1a1a;
+/* CSS 模拟 title 提示（原生 title 在可点击卡片内不可靠） */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #333;
+  font-size: 12px;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin: 0;
-  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
-@media (min-width: 769px) {
-  .video-card-info h3 {
-    font-size: 15px;
-  }
-}
-
-.video-card:hover .video-card-info h3 {
-  color: #fb7299;
-}
-
-.video-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #999;
+.video-card-info h3[data-tip]:hover::after {
   flex-wrap: nowrap;
   transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 @media (min-width: 769px) {
@@ -5215,52 +5194,24 @@ body {
 .video-card-time,
 .video-card-watched {
   flex-shrink: 0;
+  cursor: default;
+  display: inline-block;
+  vertical-align: middle;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .video-card-stats {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 2px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   font-size: 12px;
   color: #999;
-  overflow: hidden;
-  width: 100%;
-  white-space: nowrap;
-}
-
-.video-card-stats .stat-item {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.video-card-stats .stat-item svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-
-.video-card-stats .stat-item span {
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.video-card-stats .video-card-size {
-  font-size: 12px;
-  color: #666;
-  flex-shrink: 0;
-  margin-left: auto;
 }
 
 .video-card-stats svg {
@@ -5269,12 +5220,10 @@ body {
   flex-shrink: 0;
 }
 
-.video-card-stats span {
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.video-card-stats .video-card-size {
+  font-size: 12px;
+  color: #666;
+  margin-left: 4px;
 }
 
 .video-card-download-btn {
@@ -5329,74 +5278,34 @@ body {
   }
   
   .video-card-stats {
-<<<<<<< HEAD
-    grid-area: stats;
-    display: flex;
-    flex-direction: row;
-    gap: 3px;
-    font-size: 10px;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow: hidden;
-    margin-top: 0;
-    width: 100%;
-  }
-
-  .video-card-stats .stat-item {
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 2px;
-    flex: 0 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    white-space: nowrap;
-  }
-
-  .video-card-stats .stat-item svg {
-    width: 9px;
-    height: 9px;
-    flex-shrink: 0;
-  }
-
-  .video-card-stats .stat-item span {
-    flex-shrink: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 10px;
-  }
-
-=======
     gap: 4px 6px;
     font-size: 9px;
     justify-content: flex-start;
   }
-  
+
   .video-card-stats svg {
     width: 8px;
     height: 8px;
   }
-  
->>>>>>> parent of 648083a (style(video-card): 优化手机端视频卡片布局为 Grid 排版)
+
   .video-card-stats .video-card-size {
     font-size: 9px;
   }
-  
+
   .video-card-meta {
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow: visible;
+    min-height: 20px;
   }
-  
+
   .video-card-uploader,
-  .video-card-time {
+  .video-card-time,
+  .video-card-watched {
     font-size: 10px;
-<<<<<<< HEAD
-    margin-left: auto;
     flex-shrink: 0;
-=======
->>>>>>> parent of 648083a (style(video-card): 优化手机端视频卡片布局为 Grid 排版)
+    white-space: nowrap;
   }
   
   #favorites-panel .section-header,

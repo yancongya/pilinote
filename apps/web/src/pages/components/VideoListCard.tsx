@@ -250,7 +250,7 @@ export default function VideoListCard({
         </div>
       </div>
       <div className="video-card-info">
-        <h3>{title}</h3>
+        <h3 title={title}>{title}</h3>
         {/* 下载进度显示 - 仅在下载列表显示 */}
         {showDownloadProgress && progress !== undefined && progress > 0 && (
           <div className="video-download-progress">
@@ -273,7 +273,7 @@ export default function VideoListCard({
             </div>
           </div>
         )}
-        <div className="video-card-meta">
+        <div className="video-card-meta" title={`${uploader} · ${time}${watched ? ` · ${watched}` : ''}`}>
           {/* 下载列表：显示下载速度和进度 */}
           {showActionButtons ? (
             <>
@@ -301,11 +301,11 @@ export default function VideoListCard({
           ) : (
             <>
               {/* 视频列表：显示上传者、时间等 */}
-              <span className="video-card-uploader">{uploader}</span>
-              <span className="video-card-time">{time}</span>
-              {watched && <span className="video-card-watched">{watched}</span>}
+              <span className="video-card-uploader" title={`上传者：${uploader}`}>{uploader}</span>
+              <span className="video-card-time" title={`发布时间：${time}`}>{time}</span>
+              {watched && <span className="video-card-watched" title={`观看进度：${watched}`}>{watched}</span>}
               {fileSize !== undefined && (
-                <span className="video-card-file-size">
+                <span className="video-card-file-size" title={`文件大小：${formatFileSize(fileSize)}`}>
                   {formatFileSize(fileSize)}
                 </span>
               )}
@@ -357,34 +357,20 @@ export default function VideoListCard({
           {/* 只在非操作按钮模式下显示统计信息 */}
           {!showActionButtons && (
             <div className="video-card-stats">
-              <div className="stat-item">
-                <Eye size={9} />
-                <span>{views}</span>
-              </div>
-              <div className="stat-item">
-                <MessageSquare size={9} />
-                <span>{danmaku !== undefined ? danmaku : '0'}</span>
-              </div>
-              <div className="stat-item">
-                <ThumbsUp size={9} />
-                <span>{likes !== undefined ? likes : '0'}</span>
-              </div>
-              <div className="stat-item">
-                <Coins size={9} />
-                <span>{coins !== undefined ? coins : '0'}</span>
-              </div>
-              <div className="stat-item">
-                <Star size={9} />
-                <span>{favorites !== undefined ? favorites : '0'}</span>
-              </div>
-              <div className="stat-item">
-                <MessageCircle size={9} />
-                <span>{comments !== undefined ? comments : '0'}</span>
-              </div>
-              <div className="stat-item">
-                <Share2 size={9} />
-                <span>{shares !== undefined ? shares : '0'}</span>
-              </div>
+              <Eye size={12} />
+              <span>{views}</span>
+              <MessageSquare size={12} />
+              <span>{danmaku !== undefined ? danmaku : '0'}</span>
+              <ThumbsUp size={12} />
+              <span>{likes !== undefined ? likes : '0'}</span>
+              <Coins size={12} />
+              <span>{coins !== undefined ? coins : '0'}</span>
+              <Star size={12} />
+              <span>{favorites !== undefined ? favorites : '0'}</span>
+              <MessageCircle size={12} />
+              <span>{comments !== undefined ? comments : '0'}</span>
+              <Share2 size={12} />
+              <span>{shares !== undefined ? shares : '0'}</span>
               {(fileSize || (isSeries && seriesCount)) && (
                 <span className="video-card-size">
                   {isSeries && seriesCount ? `${seriesCount}集` : formatFileSize(fileSize || 0)}
