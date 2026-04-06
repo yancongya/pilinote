@@ -5215,41 +5215,81 @@ body {
 @media (max-width: 640px) {
   .video-card {
     padding: 10px;
-    gap: 10px;
+    gap: 6px;
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "cover title"
+      "cover meta"
+      "stats stats";
   }
-  
+
   .video-card-cover {
+    grid-area: cover;
     width: 120px;
     height: 68px;
   }
-  
+
+  .video-card-info {
+    display: contents;
+  }
+
   .video-card-info h3 {
+    grid-area: title;
     font-size: 13px;
+    -webkit-line-clamp: 2;
+    margin-bottom: 2px;
   }
-  
-  .video-card-stats {
-    gap: 4px 6px;
-    font-size: 9px;
-    justify-content: flex-start;
-  }
-  
-  .video-card-stats svg {
-    width: 8px;
-    height: 8px;
-  }
-  
-  .video-card-stats .video-card-size {
-    font-size: 9px;
-  }
-  
+
+  /* 上传者、日期在标题下方 */
   .video-card-meta {
-    flex-direction: column;
-    gap: 2px;
+    grid-area: meta;
+    flex-direction: row;
+    gap: 6px;
+    align-items: center;
   }
-  
+
   .video-card-uploader,
-  .video-card-time {
+  .video-card-time,
+  .video-card-watched {
+    font-size: 11px;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 统计数据固定一行，自适应缩小 */
+  .video-card-stats {
+    grid-area: stats;
+    gap: 4px 3px;
     font-size: 10px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow: hidden;
+    margin-top: 0;
+  }
+
+  .video-card-stats svg {
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+  }
+
+  .video-card-stats span {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+  }
+
+  .video-card-stats .video-card-size {
+    font-size: 10px;
+    margin-left: auto;
   }
   
   #favorites-panel .section-header,
