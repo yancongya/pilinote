@@ -9,6 +9,7 @@ import {
   Video
 } from 'lucide-react'
 import ConfirmModal from '../../components/ConfirmModal'
+import { useToast } from '../../components/Toast'
 
 // 定义ref类型
 interface DownloadSettingsRef {
@@ -19,6 +20,7 @@ interface DownloadSettingsRef {
 
 const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
   const { settings, loading, updateSettings, resetSettings } = useSettingsStore()
+  const { showToast } = useToast()
   
   // 本地状态暂存修改
   const [localSettings, setLocalSettings] = useState<Record<string, any>>({
@@ -48,7 +50,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
       setSavedStatus('saving')
 
       try {
-        // 合并现有的 download 设置，确保提供完整的对象结构
         const currentDownload = settings?.download || {
           video: {
             default_quality: 64,
@@ -66,7 +67,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           }
         }
 
-        // 深度合并设置
         const mergedSettings = {
           video: { ...currentDownload.video, ...(localSettings.video || {}) },
           max_concurrent: localSettings.max_concurrent ?? currentDownload.max_concurrent,
@@ -80,13 +80,11 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
         
         setSavedStatus('saved')
         
-        // 清除已保存的字段
         setLocalSettings({
           video: {},
           metadata: {}
         })
         
-        // 2秒后重置状态
         setTimeout(() => {
           setSavedStatus('idle')
         }, 2000)
@@ -106,7 +104,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
   // 本地更新函数
   const handleLocalUpdate = useCallback((field: string, value: any) => {
     setLocalSettings(prev => {
-      // 处理嵌套字段（如 video.default_quality）
       if (field.includes('.')) {
         const [parent, child] = field.split('.')
         return {
@@ -117,7 +114,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           }
         }
       }
-      // 处理顶级字段（如 max_concurrent）
       return {
         ...prev,
         [field]: value
@@ -129,7 +125,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
   const getCurrentValue = useCallback((field: string) => {
     if (!settings?.download) return undefined
     
-    // 处理嵌套字段
     if (field.includes('.')) {
       const [parent, child] = field.split('.')
       const localValue = localSettings[parent]?.[child]
@@ -139,7 +134,6 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
       return (settings.download as any)[parent]?.[child]
     }
     
-    // 处理顶级字段
     if (field in localSettings) {
       return localSettings[field]
     }
@@ -157,34 +151,36 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
       metadata: {}
     })
     setShowResetConfirm(false)
+    showToast('下载设置已重置', 'success')
   }
 
   if (!settings) {
     return (
-      <div className="dl-loading-state" role="status" aria-live="polite">
-        <p className="dl-loading-text">加载中...</p>
+      <div className="stg-loading" role="status" aria-live="polite">
+        <RotateCw className="stg-spinner" />
+        <p>加载中...</p>
       </div>
     )
   }
 
   return (
-    <div className="dl-panel">
+    <div className="stg-panel">
       {/* 视频参数设置组 */}
-      <div className="dl-group">
-        <div className="dl-group-header">
-          <span className="dl-group-title">视频参数</span>
-          <span className="dl-group-subtitle">分辨率、音频和编码</span>
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">视频参数</span>
+          <span className="stg-group-subtitle">分辨率、音频和编码</span>
         </div>
         
-        <div className="dl-list">
+        <div className="stg-list">
           {/* 分辨率 */}
-          <div className="dl-item dl-item-select">
-            <div className="dl-label-row">
-              <Monitor size={18} className="dl-icon" />
-              <span className="dl-label">分辨率</span>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Monitor size={18} className="stg-item-icon" />
+              <span className="stg-item-label">分辨率</span>
             </div>
             <select
-              className="dl-select"
+              className="stg-select"
               value={getCurrentValue('video.default_quality') || 64}
               onChange={(e) => handleLocalUpdate('video.default_quality', parseInt(e.target.value))}
               disabled={loading}
@@ -197,17 +193,17 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
               <option value={112}>1080P+</option>
               <option value={116}>4K</option>
             </select>
-            <p className="dl-hint">下载时，将会优先使用此处参数。若目标资源不支持此处选定的参数，则会使用其支持的最高参数。</p>
+            <p className="stg-hint">下载时，将会优先使用此处参数。若目标资源不支持此处选定的参数，则会使用其支持的最高参数。</p>
           </div>
 
           {/* 音频码率 */}
-          <div className="dl-item dl-item-select">
-            <div className="dl-label-row">
-              <Music size={18} className="dl-icon" />
-              <span className="dl-label">音频码率</span>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Music size={18} className="stg-item-icon" />
+              <span className="stg-item-label">音频码率</span>
             </div>
             <select
-              className="dl-select"
+              className="stg-select"
               value={getCurrentValue('video.audio_bitrate') || 192}
               onChange={(e) => handleLocalUpdate('video.audio_bitrate', parseInt(e.target.value))}
               disabled={loading}
@@ -224,13 +220,13 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           </div>
 
           {/* 编码格式 */}
-          <div className="dl-item dl-item-select">
-            <div className="dl-label-row">
-              <Video size={18} className="dl-icon" />
-              <span className="dl-label">编码格式</span>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Video size={18} className="stg-item-icon" />
+              <span className="stg-item-label">编码格式</span>
             </div>
             <select
-              className="dl-select"
+              className="stg-select"
               value={getCurrentValue('video.codec') || 'avc'}
               onChange={(e) => handleLocalUpdate('video.codec', e.target.value)}
               disabled={loading}
@@ -246,21 +242,21 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
       </div>
 
       {/* 下载性能组 */}
-      <div className="dl-group">
-        <div className="dl-group-header">
-          <span className="dl-group-title">下载性能</span>
-          <span className="dl-group-subtitle">并发和速度控制</span>
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">下载性能</span>
+          <span className="stg-group-subtitle">并发和速度控制</span>
         </div>
         
-        <div className="dl-list">
+        <div className="stg-list">
           {/* 最大并发下载数 */}
-          <div className="dl-item dl-item-select">
-            <div className="dl-label-row">
-              <HardDrive size={18} className="dl-icon" />
-              <span className="dl-label">最大并发下载数</span>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <HardDrive size={18} className="stg-item-icon" />
+              <span className="stg-item-label">最大并发下载数</span>
             </div>
             <select
-              className="dl-select"
+              className="stg-select"
               value={getCurrentValue('max_concurrent') || 3}
               onChange={(e) => handleLocalUpdate('max_concurrent', parseInt(e.target.value))}
               disabled={loading}
@@ -275,14 +271,14 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
           </div>
 
           {/* 速度限制 */}
-          <div className="dl-item dl-item-input">
-            <div className="dl-label-row">
-              <Gauge size={18} className="dl-icon" />
-              <span className="dl-label">速度限制 (KB/s)</span>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Gauge size={18} className="stg-item-icon" />
+              <span className="stg-item-label">速度限制 (KB/s)</span>
             </div>
             <input
               type="number"
-              className="dl-input"
+              className="stg-input"
               value={getCurrentValue('speed_limit') || 0}
               onChange={(e) => handleLocalUpdate('speed_limit', parseInt(e.target.value) || 0)}
               min="0"
@@ -291,26 +287,26 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
               aria-label="输入速度限制"
               inputMode="numeric"
             />
-            <p className="dl-hint">0 表示不限制速度</p>
+            <p className="stg-hint">0 表示不限制速度</p>
           </div>
         </div>
       </div>
 
       {/* 元数据设置组 */}
-      <div className="dl-group">
-        <div className="dl-group-header">
-          <span className="dl-group-title">元数据</span>
-          <span className="dl-group-subtitle">字幕、弹幕和封面</span>
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">元数据</span>
+          <span className="stg-group-subtitle">字幕、弹幕和封面</span>
         </div>
         
-        <div className="dl-toggles">
-          <label className="dl-toggle">
-            <div className="dl-toggle-content">
-              <span className="dl-toggle-label">启用字幕下载</span>
+        <div className="stg-toggles">
+          <label className="stg-toggle">
+            <div className="stg-toggle-content">
+              <span className="stg-toggle-label">启用字幕下载</span>
             </div>
             <input
               type="checkbox"
-              className="dl-toggle-input"
+              className="stg-toggle-input"
               checked={getCurrentValue('metadata.enable_subtitle') as boolean ?? true}
               onChange={(e) => handleLocalUpdate('metadata.enable_subtitle', e.target.checked)}
               disabled={loading}
@@ -318,13 +314,13 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
             />
           </label>
 
-          <label className="dl-toggle">
-            <div className="dl-toggle-content">
-              <span className="dl-toggle-label">启用 NFO 文件</span>
+          <label className="stg-toggle">
+            <div className="stg-toggle-content">
+              <span className="stg-toggle-label">启用 NFO 文件</span>
             </div>
             <input
               type="checkbox"
-              className="dl-toggle-input"
+              className="stg-toggle-input"
               checked={getCurrentValue('metadata.enable_nfo') as boolean ?? true}
               onChange={(e) => handleLocalUpdate('metadata.enable_nfo', e.target.checked)}
               disabled={loading}
@@ -332,13 +328,13 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
             />
           </label>
 
-          <label className="dl-toggle">
-            <div className="dl-toggle-content">
-              <span className="dl-toggle-label">启用封面下载</span>
+          <label className="stg-toggle">
+            <div className="stg-toggle-content">
+              <span className="stg-toggle-label">启用封面下载</span>
             </div>
             <input
               type="checkbox"
-              className="dl-toggle-input"
+              className="stg-toggle-input"
               checked={getCurrentValue('metadata.enable_cover') as boolean ?? true}
               onChange={(e) => handleLocalUpdate('metadata.enable_cover', e.target.checked)}
               disabled={loading}
@@ -346,13 +342,13 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
             />
           </label>
 
-          <label className="dl-toggle">
-            <div className="dl-toggle-content">
-              <span className="dl-toggle-label">启用头像下载</span>
+          <label className="stg-toggle">
+            <div className="stg-toggle-content">
+              <span className="stg-toggle-label">启用头像下载</span>
             </div>
             <input
               type="checkbox"
-              className="dl-toggle-input"
+              className="stg-toggle-input"
               checked={getCurrentValue('metadata.enable_avatar') as boolean ?? false}
               onChange={(e) => handleLocalUpdate('metadata.enable_avatar', e.target.checked)}
               disabled={loading}
@@ -363,292 +359,17 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
       </div>
 
       {/* 重置按钮 */}
-      <div className="dl-actions">
+      <div className="stg-actions">
         <button 
-          className="dl-reset-btn"
+          className="stg-btn stg-btn-secondary"
           onClick={handleReset}
           disabled={loading}
           aria-label="重置下载设置"
         >
-          <RotateCw className="dl-reset-icon" />
+          <RotateCw size={16} className="stg-item-icon" />
           <span>重置下载设置</span>
         </button>
       </div>
-
-      <style>{`
-        .dl-panel {
-          padding: 12px;
-          background: #F8FAFC;
-          min-height: 100vh;
-        }
-
-        /* 分组 */
-        .dl-group {
-          background: white;
-          border-radius: 12px;
-          border: 1px solid #E2E8F0;
-          margin-bottom: 12px;
-          overflow: hidden;
-        }
-
-        .dl-group-header {
-          padding: 12px 16px;
-          background: #F8FAFC;
-          border-bottom: 1px solid #E2E8F0;
-        }
-
-        .dl-group-title {
-          font-size: 15px;
-          font-weight: 600;
-          color: #1E293B;
-          display: block;
-        }
-
-        .dl-group-subtitle {
-          font-size: 12px;
-          color: #64748B;
-          margin-top: 2px;
-          display: block;
-        }
-
-        /* 列表 */
-        .dl-list {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .dl-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 16px;
-          min-height: 56px;
-          border-bottom: 1px solid #F1F5F9;
-        }
-
-        .dl-item:last-child {
-          border-bottom: none;
-        }
-
-        .dl-item-select,
-        .dl-item-input {
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 8px;
-        }
-
-        .dl-icon {
-          color: #64748B;
-          flex-shrink: 0;
-        }
-
-        .dl-label-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          width: 100%;
-        }
-
-        .dl-label {
-          font-size: 15px;
-          font-weight: 500;
-          color: #1E293B;
-          margin-bottom: 4px;
-        }
-
-        .dl-item-select .dl-label,
-        .dl-item-input .dl-label {
-          margin-bottom: 0;
-        }
-
-        .dl-select {
-          width: 100%;
-          padding: 8px 12px;
-          font-size: 14px;
-          border: 1px solid #E2E8F0;
-          border-radius: 6px;
-          background: #F8FAFC;
-          color: #1E293B;
-          outline: none;
-          transition: all 0.15s ease;
-          cursor: pointer;
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-          background-position: right 8px center;
-          background-repeat: no-repeat;
-          background-size: 16px;
-          padding-right: 32px;
-        }
-
-        .dl-select:hover {
-          border-color: #CBD5E1;
-          background-color: white;
-        }
-
-        .dl-select:focus {
-          border-color: #2563EB;
-          background-color: white;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .dl-select:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .dl-input {
-          width: 100%;
-          padding: 8px 12px;
-          font-size: 14px;
-          border: 1px solid #E2E8F0;
-          border-radius: 6px;
-          background: #F8FAFC;
-          color: #1E293B;
-          outline: none;
-          transition: all 0.15s ease;
-        }
-
-        .dl-input:focus {
-          border-color: #2563EB;
-          background: white;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .dl-input:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .dl-hint {
-          font-size: 12px;
-          color: #94A3B8;
-          margin: 0;
-          line-height: 1.4;
-        }
-
-        /* 开关 */
-        .dl-toggles {
-          padding: 8px 16px 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .dl-toggle {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 0;
-          cursor: pointer;
-          -webkit-tap-highlight-color: transparent;
-          gap: 12px;
-        }
-
-        .dl-toggle-content {
-          flex: 1;
-        }
-
-        .dl-toggle-label {
-          font-size: 15px;
-          font-weight: 500;
-          color: #1E293B;
-        }
-
-        .dl-toggle-input {
-          width: 48px;
-          height: 28px;
-          border-radius: 14px;
-          appearance: none;
-          background: #E2E8F0;
-          position: relative;
-          cursor: pointer;
-          transition: background-color 0.15s ease;
-          flex-shrink: 0;
-        }
-
-        .dl-toggle-input:checked {
-          background: #2563EB;
-        }
-
-        .dl-toggle-input:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .dl-toggle-input::before {
-          content: '';
-          position: absolute;
-          top: 2px;
-          left: 2px;
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: white;
-          transition: transform 0.15s ease;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .dl-toggle-input:checked::before {
-          transform: translateX(20px);
-        }
-
-        /* 重置按钮 */
-        .dl-actions {
-          margin-top: 16px;
-          display: flex;
-          justify-content: center;
-        }
-
-        .dl-reset-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 20px;
-          border: 1px solid #E2E8F0;
-          border-radius: 8px;
-          background: white;
-          color: #64748B;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .dl-reset-btn:hover {
-          background: #F8FAFC;
-          border-color: #CBD5E1;
-          color: #475569;
-        }
-
-        .dl-reset-btn:active {
-          background: #F1F5F9;
-        }
-
-        .dl-reset-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .dl-reset-icon {
-          width: 16px;
-          height: 16px;
-        }
-
-        /* Loading */
-        .dl-loading-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 16px;
-          color: #64748B;
-        }
-
-        .dl-loading-text {
-          font-size: 14px;
-          color: #64748B;
-        }
-      `}</style>
 
       {/* 重置确认弹窗 */}
       <ConfirmModal

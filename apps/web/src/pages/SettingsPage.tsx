@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
-import { useAuthStore } from '../stores/auth'
-import { apiService } from '../services/api'
 import { 
   ArrowLeft, 
   User, 
@@ -16,7 +14,6 @@ import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
 import StorageSettings from './settings/StorageSettings'
 import BackupSettings from './settings/BackupSettings'
-import ConfirmModal from '../components/ConfirmModal'
 import { useToast } from '../components/Toast'
 import '../settings-page.css'
 
@@ -32,7 +29,6 @@ interface SettingsComponentRef {
 function SettingsPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { logout } = useAuthStore()
   const [animationParent] = useAutoAnimate({ duration: 200, easing: 'ease-out' })
   const { showToast } = useToast()
   

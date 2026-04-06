@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
 import { 
   Cloud, 
@@ -8,43 +8,30 @@ import {
   Folder,
   RefreshCw,
   Shield,
-  Upload
+  Database
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { getApiUrl } from '../../config/api'
 
-// 定义ref类型
 interface BackupSettingsRef {
   hasUnsavedChanges: () => boolean
   saveSettings: () => Promise<void>
   getSavedStatus: () => 'idle' | 'saving' | 'saved' | 'error'
 }
 
-interface FTPConfig {
-  host: string
-  port: number
-  username: string
-  password: string
-  remote_path: string
-  use_tls: boolean
-}
-
 const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
-  const { settings, loading, updateSettings } = useSettingsStore()
+  const { settings, updateSettings } = useSettingsStore()
   const { showToast } = useToast()
   
-  // 本地状态暂存修改
   const [localSettings, setLocalSettings] = useState<Record<string, any>>({
     ftp: {}
   })
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   
-  // FTP 连接测试状态
   const [testingConnection, setTestingConnection] = useState(false)
   const [backupProgress, setBackupProgress] = useState<any>(null)
   const [isBackingUp, setIsBackingUp] = useState(false)
 
-  // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
     hasUnsavedChanges: () => {
       return Object.keys(localSettings.ftp || {}).length > 0
@@ -57,11 +44,10 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
 
       setSavedStatus('saving')
       try {
-        await updateSettings({ storage: { ftp: localSettings.ftp } })
+        await updateSettings({ storage: { ftp: localSettings.ftp } as any })
         setSavedStatus('saved')
         showToast('保存成功', 'success')
         
-        // 保存成功后，等待 2 秒再重置状态
         setTimeout(() => {
           setSavedStatus('idle')
         }, 2000)
@@ -73,12 +59,12 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
     getSavedStatus: () => savedStatus
   }))
 
-  // 只在组件初始化时从全局状态加载
   useEffect(() => {
-    if (settings?.storage?.ftp) {
-      setLocalSettings({ ftp: { ...settings.storage.ftp } })
+    const storage = settings?.storage as any
+    if (storage?.ftp) {
+      setLocalSettings({ ftp: { ...storage.ftp } })
     }
-  }, [settings]) // 添加settings作为依赖，当settings更新时重新执行
+  }, [settings])
 
   const handleChange = (field: string, value: any) => {
     setLocalSettings(prev => ({
@@ -238,409 +224,183 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
   const renderProgressBar = () => {
     if (!backupProgress || backupProgress.type !== 'progress') return null
 
-    const percentage = backupProgress.completed_files / backupProgress.total_files * 100
+    const percentage = (backupProgress.completed_files / backupProgress.total_files) * 100
     const completedSize = formatFileSize(backupProgress.completed_size)
     const totalSize = formatFileSize(backupProgress.total_size)
 
     return (
-      <div className="backup-progress">
-        <div className="progress-info">
-          <span>{backupProgress.message}</span>
-          <span>{backupProgress.completed_files}/{backupProgress.total_files} 个文件</span>
+      <div className="bg-slate-100 rounded-xl p-4 mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <span className="text-sm font-semibold text-slate-700">{backupProgress.message}</span>
+          <span className="text-xs text-slate-500">{backupProgress.completed_files}/{backupProgress.total_files} 个文件</span>
         </div>
-        <div className="progress-bar">
+        <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-2">
           <div 
-            className="progress-fill" 
+            className="h-full bg-primary-500 rounded-full transition-all duration-300"
             style={{ width: `${percentage}%` }}
-          ></div>
+          />
         </div>
-        <div className="progress-details">
+        <div className="flex justify-between text-xs text-slate-400">
           <span>{completedSize} / {totalSize}</span>
-          <span>当前: {backupProgress.current_file}</span>
+          <span className="truncate max-w-[60%] text-right">{backupProgress.current_file}</span>
         </div>
       </div>
     )
   }
 
+  const isProcessing = testingConnection || isBackingUp
+
   return (
-    <>
-      <style>{`
-        .backup-settings {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-        }
+    <div className="stg-panel">
+      {/* FTP 配置 */}
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">FTP 备份配置</span>
+          <span className="stg-group-subtitle">配置 FTP 服务器以备份文件</span>
+        </div>
 
-        .settings-section {
-          background: white;
-          border-radius: 16px;
-          padding: 24px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .section-title {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 20px;
-          font-weight: 700;
-          color: #1E293B;
-          margin: 0 0 8px 0;
-        }
-
-        .section-icon {
-          width: 28px;
-          height: 28px;
-          color: #2563EB;
-          flex-shrink: 0;
-        }
-
-        .section-description {
-          font-size: 14px;
-          color: #64748B;
-          margin: 0 0 20px 0;
-          line-height: 1.5;
-        }
-
-        .settings-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        @media (max-width: 640px) {
-          .settings-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .form-group {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .form-label {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 14px;
-          font-weight: 600;
-          color: #475569;
-        }
-
-        .form-icon {
-          width: 18px;
-          height: 18px;
-          color: #94A3B8;
-          flex-shrink: 0;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 12px 16px;
-          border: 2px solid #E2E8F0;
-          border-radius: 10px;
-          font-size: 15px;
-          font-weight: 500;
-          color: #1E293B;
-          background: white;
-          transition: all 0.2s ease;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        .form-input:hover {
-          border-color: #CBD5E1;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: #2563EB;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .form-input:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          background: #F8FAFC;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        .btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 12px 24px;
-          border-radius: 10px;
-          font-size: 15px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: none;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        .btn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .btn-primary {
-          background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-          color: white;
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-          transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-          background: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%);
-          color: #475569;
-          border: 1px solid #CBD5E1;
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-          background: linear-gradient(135deg, #E2E8F0 0%, #CBD5E1 100%);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-          transform: translateY(-1px);
-        }
-
-        .btn-icon {
-          width: 18px;
-          height: 18px;
-          flex-shrink: 0;
-        }
-
-        .btn-icon.spinning {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .backup-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 20px;
-        }
-
-        .backup-progress {
-          background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
-          border-radius: 12px;
-          padding: 20px;
-          margin-bottom: 20px;
-          border: 1px solid #E2E8F0;
-        }
-
-        .progress-info {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-
-        .progress-info span:first-child {
-          font-size: 14px;
-          font-weight: 600;
-          color: #475569;
-        }
-
-        .progress-info span:last-child {
-          font-size: 13px;
-          color: #64748B;
-        }
-
-        .progress-bar {
-          height: 8px;
-          background: #E2E8F0;
-          border-radius: 4px;
-          overflow: hidden;
-          margin-bottom: 8px;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
-          border-radius: 4px;
-          transition: width 0.3s ease;
-        }
-
-        .progress-details {
-          display: flex;
-          justify-content: space-between;
-          font-size: 12px;
-          color: #94A3B8;
-        }
-      `}</style>
-      
-      <div className="backup-settings">
-        <div className="settings-section">
-          <h3 className="section-title">
-            <Cloud className="section-icon" />
-            FTP 备份配置
-          </h3>
-          <p className="section-description">
-            配置 FTP 服务器以备份下载文件和数据库
-          </p>
-
-          <div className="settings-grid">
-            <div className="form-group">
-              <label className="form-label">
-                <Server className="form-icon" />
-                服务器地址
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="例如: ftp.example.com:21 或 192.168.1.100"
-                value={localSettings.ftp?.host || ''}
-                onChange={(e) => handleChange('host', e.target.value)}
-                disabled={isBackingUp}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <RefreshCw className="form-icon" />
-                用户名
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="用户名"
-                value={localSettings.ftp?.username || ''}
-                onChange={(e) => handleChange('username', e.target.value)}
-                disabled={isBackingUp}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <Lock className="form-icon" />
-                密码
-              </label>
-              <input
-                type="password"
-                className="form-input"
-                placeholder="密码"
-                value={localSettings.ftp?.password || ''}
-                onChange={(e) => handleChange('password', e.target.value)}
-                disabled={isBackingUp}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <Folder className="form-icon" />
-                远程路径
-              </label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="/pilinote"
-                value={localSettings.ftp?.remote_path || ''}
-                onChange={(e) => handleChange('remote_path', e.target.value)}
-                disabled={isBackingUp}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <Shield className="form-icon" />
-                使用 TLS 加密
-              </label>
-              <select
-                className="form-input"
-                value={localSettings.ftp?.use_tls ? 'true' : 'false'}
-                onChange={(e) => handleChange('use_tls', e.target.value === 'true')}
-                disabled={isBackingUp}
-              >
-                <option value="false">否</option>
-                <option value="true">是（FTPS）</option>
-              </select>
-            </div>
+        <div className="stg-form-stack">
+          <div className="stg-form-item">
+            <label className="stg-form-label">
+              <Server className="w-4 h-4" />
+              服务器地址
+            </label>
+            <input
+              type="text"
+              className="stg-input"
+              placeholder="ftp.example.com:21"
+              value={localSettings.ftp?.host || ''}
+              onChange={(e) => handleChange('host', e.target.value)}
+              disabled={isProcessing}
+            />
           </div>
 
-          <div className="form-actions">
-            <button
-              className="btn btn-primary"
-              onClick={handleTestConnection}
-              disabled={testingConnection || isBackingUp}
+          <div className="stg-form-item">
+            <label className="stg-form-label">
+              <RefreshCw className="w-4 h-4" />
+              用户名
+            </label>
+            <input
+              type="text"
+              className="stg-input"
+              placeholder="用户名"
+              value={localSettings.ftp?.username || ''}
+              onChange={(e) => handleChange('username', e.target.value)}
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="stg-form-item">
+            <label className="stg-form-label">
+              <Lock className="w-4 h-4" />
+              密码
+            </label>
+            <input
+              type="password"
+              className="stg-input"
+              placeholder="密码"
+              value={localSettings.ftp?.password || ''}
+              onChange={(e) => handleChange('password', e.target.value)}
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="stg-form-item">
+            <label className="stg-form-label">
+              <Folder className="w-4 h-4" />
+              远程路径
+            </label>
+            <input
+              type="text"
+              className="stg-input"
+              placeholder="/pilinote"
+              value={localSettings.ftp?.remote_path || ''}
+              onChange={(e) => handleChange('remote_path', e.target.value)}
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="stg-form-item">
+            <label className="stg-form-label">
+              <Shield className="w-4 h-4" />
+              TLS 加密
+            </label>
+            <select
+              className="stg-select"
+              value={localSettings.ftp?.use_tls ? 'true' : 'false'}
+              onChange={(e) => handleChange('use_tls', e.target.value === 'true')}
+              disabled={isProcessing}
             >
-              {testingConnection ? (
-                <>
-                  <Loader2 className="btn-icon spinning" />
-                  测试中...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="btn-icon" />
-                  测试连接
-                </>
-              )}
-            </button>
+              <option value="false">否</option>
+              <option value="true">是（FTPS）</option>
+            </select>
           </div>
         </div>
 
-        <div className="settings-section">
-          <h3 className="section-title">
-            <Upload className="section-icon" />
-            备份操作
-          </h3>
-          <p className="section-description">
-            将下载文件和数据库备份到 FTP 服务器
-          </p>
+        <div className="stg-actions">
+          <button
+            className="stg-btn stg-btn-secondary stg-btn-block"
+            onClick={handleTestConnection}
+            disabled={testingConnection || isBackingUp}
+            aria-label="测试 FTP 连接"
+          >
+            {testingConnection ? (
+              <>
+                <Loader2 size={16} className="stg-item-icon stg-spin" />
+                测试中...
+              </>
+            ) : (
+              <>
+                <RefreshCw size={16} className="stg-item-icon" />
+                测试连接
+              </>
+            )}
+          </button>
+        </div>
+      </div>
 
+      {/* 备份操作 */}
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">备份操作</span>
+          <span className="stg-group-subtitle">将文件和数据库备份到 FTP</span>
+        </div>
+
+        <div className="stg-action-body">
           {renderProgressBar()}
 
-          <div className="backup-actions">
+          <div className="stg-backup-actions">
             <button
-              className="btn btn-primary"
+              className="stg-btn stg-btn-primary stg-btn-lg stg-btn-block"
               onClick={handleBackupDownload}
               disabled={isBackingUp}
             >
               {isBackingUp ? (
                 <>
-                  <Loader2 className="btn-icon spinning" />
+                  <Loader2 size={16} className="stg-spin" />
                   备份中...
                 </>
               ) : (
                 <>
-                  <Cloud className="btn-icon" />
+                  <Cloud size={16} />
                   备份下载目录
                 </>
               )}
             </button>
 
             <button
-              className="btn btn-secondary"
+              className="stg-btn stg-btn-secondary stg-btn-lg stg-btn-block"
               onClick={handleBackupDatabase}
               disabled={isBackingUp}
             >
               {isBackingUp ? (
                 <>
-                  <Loader2 className="btn-icon spinning" />
+                  <Loader2 size={16} className="stg-spin" />
                   备份中...
                 </>
               ) : (
                 <>
-                  <Folder className="btn-icon" />
+                  <Database size={16} />
                   备份数据库
                 </>
               )}
@@ -648,7 +408,7 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 })
 
