@@ -142,12 +142,17 @@ class ScanService:
         original_sessdata = user.sessdata
         logger.info(f"使用原始sessdata: {original_sessdata[:50]}...")
         
+        # 对sessdata进行URL解码，确保格式正确
+        from urllib.parse import unquote
+        decoded_sessdata = unquote(original_sessdata)
+        logger.info(f"解码后的sessdata: {decoded_sessdata[:50]}...")
+        
         service = BilibiliService()
         try:
             if source_type == "favorite":
                 # 获取收藏夹视频
                 logger.info(f"开始获取收藏夹列表, user_mid={user_mid}")
-                result = await service.get_folder_list(original_sessdata, user_mid, 1, 100)
+                result = await service.get_folder_list(decoded_sessdata, user_mid, 1, 20)
                 logger.info(f"收藏夹列表结果: {result.get('success')}")
                 
                 if result["success"]:
@@ -159,14 +164,14 @@ class ScanService:
                     
                     for folder in folders:
                         if source_id == "all" or str(folder.get("id")) == source_id:
-                            logger.info(f"正在扫描收藏夹: {folder.get('title')} (ID: {folder.get('id')})")
+                            logger.info(f"正在扫描收藏夹: {folder.get('title')} (ID: {folder.get('id')}, FID: {folder.get('fid')})")
                             
-                            # 获取收藏夹详情
+                            # 获取收藏夹详情（使用 id 字段，page_size 改为 20）
                             detail_result = await service.get_folder_detail(
-                                original_sessdata,
-                                folder.get("id"),
+                                decoded_sessdata,
+                                folder.get("id"),  # 使用 id 而不是 fid
                                 1,
-                                100
+                                20  # 改为 20，避免 API 限制
                             )
                             logger.info(f"收藏夹详情结果: {detail_result.get('success')}")
                             
@@ -199,7 +204,7 @@ class ScanService:
             elif source_type == "watch_later":
                 # 获取稍后再看视频
                 logger.info("开始获取稍后再看列表")
-                result = await service.get_watch_later(sessdata)
+                result = await service.get_watch_later(decoded_sessdata)
                 if result["success"]:
                     watch_later_data = result["data"]
                     video_list = watch_later_data.get("list", []) if isinstance(watch_later_data, dict) else []

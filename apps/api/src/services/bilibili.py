@@ -473,24 +473,26 @@ class BilibiliService:
 
     async def get_folder_list(self, sessdata: str, up_mid: int, page: int = 1, page_size: int = 20) -> Dict:
         """获取收藏夹列表（使用HeadersManager获取headers）"""
-        # 确保SESSDATA在headers中
-        await self.headers_manager.update_cookie("SESSDATA", sessdata)
-        
+        # 确保SESSDATA在headers中（如果 HeadersManager 中没有 SESSDATA，才更新）
+        current_sessdata = self.headers_manager.get_cookie("SESSDATA")
+        if not current_sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
         url = f"{self.api_base}/x/v3/fav/folder/created/list"
         headers = await self.headers_manager.get_headers()
-        
+
         params = {
             "pn": page,
             "ps": page_size,
             "up_mid": up_mid
         }
-        
+
         try:
             # 使用异步请求
             response = await self._request("GET", url, params=params)
             data = response.json()
             print(f"收藏夹列表响应: {data}")
-            
+
             if data.get("code") == 0:
                 return {
                     "success": True,
@@ -508,32 +510,41 @@ class BilibiliService:
                 "message": f"获取收藏夹列表异常: {str(e)}"
             }
 
-    async def get_folder_detail(self, sessdata: str, media_id: int, page: int = 1, page_size: int = 20, 
+    async def get_folder_detail(self, sessdata: str, media_id: int, page: int = 1, page_size: int = 20,
                          keyword: str = "", order: str = "mtime", type: str = "0", tid: int = 0) -> Dict:
         """获取收藏夹详情（使用HeadersManager获取headers）"""
-        # 确保SESSDATA在headers中
-        await self.headers_manager.update_cookie("SESSDATA", sessdata)
-        
+        # 确保SESSDATA在headers中（如果 HeadersManager 中没有 SESSDATA，才更新）
+        current_sessdata = self.headers_manager.get_cookie("SESSDATA")
+        if not current_sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
         url = f"{self.api_base}/x/v3/fav/resource/list"
         headers = await self.headers_manager.get_headers()
-        
+
+        # 简化参数，只使用必要的参数（参考 BiliTools）
         params = {
             "media_id": media_id,
             "pn": page,
             "ps": page_size,
-            "keyword": keyword,
-            "order": order,
-            "type": type,
-            "tid": tid,
             "platform": "web"
         }
-        
+
+        # 添加调试信息
+        cookies = self.headers_manager.get_cookies()
+        print(f"[Debug] 收藏夹详情请求:")
+        print(f"  URL: {url}")
+        print(f"  Params: {params}")
+        print(f"  Media ID: {media_id}")
+        print(f"  Cookies count: {len(cookies)}")
+        print(f"  Cookies names: {list(cookies.keys())}")
+        print(f"  Has bili_jct: {'bili_jct' in cookies}")
+
         try:
             # 使用异步请求
             response = await self._request("GET", url, params=params)
             data = response.json()
             print(f"收藏夹详情响应: {data}")
-            
+
             if data.get("code") == 0:
                 return {
                     "success": True,

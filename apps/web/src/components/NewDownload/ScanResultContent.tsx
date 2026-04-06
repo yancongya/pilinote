@@ -92,6 +92,39 @@ export default function ScanResultContent() {
       {lastScanResult && (
         <div className="scan-last-result">
           <h3>扫描结果</h3>
+
+          {/* 收藏夹详情列表 - 放在最前面 */}
+          {lastScanResult.folders && lastScanResult.folders.length > 0 && (
+            <div className="folders-list">
+              <h4>收藏夹详情</h4>
+              <div className="folders-grid">
+                {lastScanResult.folders.map((folder) => (
+                  <div key={folder.id} className="folder-card">
+                    <div className="folder-header">
+                      <Heart size={14} />
+                      <span className="folder-title">{folder.title}</span>
+                    </div>
+                    <div className="folder-stats">
+                      <div className="folder-stat">
+                        <span className="folder-stat-label">视频数</span>
+                        <span className="folder-stat-value">{folder.video_count}</span>
+                      </div>
+                      <div className="folder-stat">
+                        <span className="folder-stat-label">新视频</span>
+                        <span className="folder-stat-value new">{folder.new_count}</span>
+                      </div>
+                      <div className="folder-stat">
+                        <span className="folder-stat-label">总计</span>
+                        <span className="folder-stat-value">{folder.media_count}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 总体统计 - 放在底部 */}
           <div className="result-stats">
             <div className="stat-item">
               <span className="stat-label">总视频数</span>

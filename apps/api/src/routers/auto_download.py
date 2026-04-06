@@ -64,8 +64,14 @@ async def trigger_scan(
     Returns:
         扫描结果
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         user, sessdata = user_sessdata
+        logger.info(f"[API Trigger Scan] User: {user.username}, MID: {user.mid}")
+        logger.info(f"[API Trigger Scan] Source type: {source_type}, Source ID: {source_id}")
+        logger.info(f"[API Trigger Scan] SESSDATA length: {len(sessdata) if sessdata else 0}")
         
         # 验证视频源类型
         if source_type not in ["favorite", "watch_later"]:
@@ -82,6 +88,8 @@ async def trigger_scan(
             user_mid=user.mid
         )
         
+        logger.info(f"[API Trigger Scan] Result: total={result.total}, new={result.new}, folders={result.folder_count}")
+        
         return {
             "success": True,
             "data": result.model_dump()
@@ -89,6 +97,7 @@ async def trigger_scan(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"[API Trigger Scan] Error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"扫描失败: {str(e)}"

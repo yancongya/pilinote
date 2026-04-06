@@ -13,10 +13,20 @@ export interface ScanRecord {
   created_at?: string
 }
 
+export interface FolderScanInfo {
+  id: number
+  title: string
+  video_count: number
+  new_count: number
+  media_count: number
+}
+
 export interface ScanTriggerResponse {
   total: number
   new: number
   added: number
+  folder_count: number
+  folders: FolderScanInfo[]
 }
 
 interface ScanState {

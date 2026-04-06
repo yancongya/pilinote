@@ -1,5 +1,141 @@
 # PiliNote 开发日志
 
+## 2026-04-06 收藏夹扫描功能修复和前端显示优化
+
+### 🎯 问题修复
+修复收藏夹扫描功能返回空结果的问题，并优化前端显示，清晰展示每个收藏夹的视频数量。
+
+### 🔍 问题分析
+
+#### 根本原因
+1. **后端服务器未正确运行**：
+   - 虽然代码修复正确（SESSDATA URL解码、page_size调整），但服务器启动失败
+   - 导致API调用一直返回空数据
+
+2. **SESSDATA格式问题**：
+   - 数据库中的SESSDATA是URL编码格式（`%2C`表示逗号）
+   - 需要在使用前进行URL解码
+
+3. **API参数限制**：
+   - B站API的page_size参数过大（100）会导致-400错误
+   - 需要调整为较小的值（20）
+
+### 🔧 修复方案
+
+#### 1. 修复后端扫描服务
+- **修改文件**: `apps/api/src/services/scan_service.py`
+- **修改**: 
+  - 添加URL解码：`decoded_sessdata = unquote(original_sessdata)`
+  - 调整page_size从100到20
+  - 使用正确的`id`字段代替`fid`
+
+#### 2. 添加调试日志
+- **修改文件**: `apps/api/src/routers/auto_download.py`
+- **实现**:
+  - 在`trigger_scan`路由中添加详细日志
+  - 记录用户信息、SESSDATA长度、扫描参数
+  - 记录扫描结果统计
+
+#### 3. 重新启动后端服务器
+- **操作**: 
+  - 清理所有占用8000端口的进程
+  - 使用正确的启动命令：`uvicorn main:app --reload --host 0.0.0.0 --port 8000`
+  - 验证服务器正常运行
+
+### 🎨 前端优化
+
+#### 1. 更新数据类型定义
+- **修改文件**: `apps/web/src/stores/scanStore.ts`
+- **新增**: `FolderScanInfo`接口
+```typescript
+export interface FolderScanInfo {
+  id: number
+  title: string
+  video_count: number
+  new_count: number
+  media_count: number
+}
+
+export interface ScanTriggerResponse {
+  total: number
+  new: number
+  added: number
+  folder_count: number
+  folders: FolderScanInfo[]
+}
+```
+
+#### 2. 优化扫描结果显示
+- **修改文件**: `apps/web/src/components/NewDownload/ScanResultContent.tsx`
+- **改进**:
+  - 收藏夹详情放在最前面作为主要展示内容
+  - 每个收藏夹卡片显示：名称、视频数、新视频数、总计
+  - 总体统计（总视频数、新视频数、已添加）移到底部
+
+#### 3. 添加收藏夹详情样式
+- **修改文件**: `apps/web/src/components/NewDownload/index.css`
+- **新增样式**:
+  - 响应式网格布局
+  - 收藏夹卡片样式（悬停效果、阴影）
+  - 统计数据展示样式
+
+### ✅ 测试结果
+
+#### 后端测试
+```bash
+curl -X POST 'http://localhost:8000/api/auto-download/scan/trigger?source_type=favorite&source_id=all'
+```
+```json
+{
+  "success": true,
+  "data": {
+    "total": 160,
+    "new": 160,
+    "added": 0,
+    "folder_count": 11,
+    "folders": [
+      {
+        "id": 54507208,
+        "title": "默认收藏夹",
+        "video_count": 20,
+        "new_count": 20,
+        "media_count": 1261
+      },
+      // ... 其他10个收藏夹
+    ]
+  }
+}
+```
+
+#### 前端测试
+- ✅ 点击"扫描收藏夹"按钮成功
+- ✅ 收藏夹详情正确显示（11个收藏夹）
+- ✅ 每个收藏夹的视频数量正确显示
+- ✅ 新视频数量正确标识（绿色高亮）
+- ✅ 总体统计正确（总视频数160、新视频160）
+
+### 📝 代码变更统计
+
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/api/src/routers/auto_download.py | +15 | 15 | 0 |
+| apps/api/src/services/scan_service.py | +5 | 5 | 0 |
+| apps/web/src/stores/scanStore.ts | +8 | 8 | 0 |
+| apps/web/src/components/NewDownload/ScanResultContent.tsx | +45 | 45 | 0 |
+| apps/web/src/components/NewDownload/index.css | +80 | 80 | 0 |
+| CHANGELOG.md | +80 | 80 | 0 |
+| **总计** | **+233** | **233** | 0 |
+
+### 🚀 相关功能
+- 自动下载扫描功能
+- 收藏夹扫描
+- 稍后再看扫描
+- 新视频识别
+- 扫描记录管理
+- 收藏夹详情展示
+
+---
+
 ## 2026-04-06 自动下载扫描功能修复
 
 ### 🎯 问题修复
