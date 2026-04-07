@@ -6,9 +6,11 @@
 - 自动刷新即将过期的cookie
 - 支持多账号的定时刷新
 - 定时清理临时文件
+- 自动下载定时扫描
 """
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timedelta
 from typing import Optional
 from pathlib import Path
@@ -17,6 +19,7 @@ import shutil
 
 from src.services.bilibili import BilibiliService
 from src.services.headers_manager import get_headers_manager
+from src.services.scan_service import ScanService
 from src.models.user import User
 from src.models.cookie import Cookie
 from src.database import SessionLocal
@@ -29,6 +32,7 @@ class SchedulerService:
     
     def __init__(self):
         self.scheduler: Optional[BackgroundScheduler] = None
+        self.auto_scan_job_id = 'auto_scan'
     
     def start(self):
         """启动定时任务"""
@@ -56,6 +60,18 @@ class SchedulerService:
             name='清理临时文件任务',
             replace_existing=True
         )
+        
+        # 添加定时任务：每5分钟检查并更新自动扫描配置
+        self.scheduler.add_job(
+            self.update_auto_scan_schedule,
+            trigger=IntervalTrigger(minutes=5),
+            id='update_auto_scan_schedule',
+            name='更新自动扫描配置',
+            replace_existing=True
+        )
+        
+        # 初始化自动扫描任务
+        self.update_auto_scan_schedule()
         
         # 启动调度器
         self.scheduler.start()
@@ -230,6 +246,174 @@ class SchedulerService:
         except Exception as e:
             logger.warning(f"[Scheduler] 获取临时路径失败: {str(e)}")
             return None
+    
+    def update_auto_scan_schedule(self):
+        """
+        更新自动扫描的定时任务配置
+        
+        从设置中读取自动下载配置，动态调整扫描任务
+        """
+        try:
+            from src.services.settings_service import SettingsService
+            
+            with SessionLocal() as db:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                auto_download = getattr(settings, 'auto_download', None)
+                
+                if not auto_download:
+                    logger.debug("[Scheduler] 未找到自动下载配置")
+                    self._remove_auto_scan_job()
+                    return
+                
+                # 检查是否启用自动下载
+                if not auto_download.get('enabled', False):
+                    logger.debug("[Scheduler] 自动下载未启用")
+                    self._remove_auto_scan_job()
+                    return
+                
+                # 根据触发类型设置不同的定时任务
+                trigger_type = auto_download.get('trigger_type', 'interval')
+                
+                if trigger_type == 'interval':
+                    # 间隔执行
+                    scan_interval = auto_download.get('scan_interval', 60)
+                    self._schedule_interval_scan(scan_interval)
+                elif trigger_type == 'cron':
+                    # Cron 表达式
+                    cron_expression = auto_download.get('cron_expression', '')
+                    self._schedule_cron_scan(cron_expression)
+                else:
+                    logger.warning(f"[Scheduler] 未知的触发类型: {trigger_type}")
+                    self._remove_auto_scan_job()
+                    
+        except Exception as e:
+            logger.error(f"[Scheduler] 更新自动扫描配置失败: {str(e)}")
+    
+    def _schedule_interval_scan(self, minutes: int):
+        """
+        设置间隔扫描任务
+        
+        Args:
+            minutes: 扫描间隔（分钟）
+        """
+        try:
+            # 移除旧的定时任务
+            self._remove_auto_scan_job()
+            
+            # 添加新的定时任务
+            self.scheduler.add_job(
+                self.perform_auto_scan,
+                trigger=IntervalTrigger(minutes=minutes),
+                id=self.auto_scan_job_id,
+                name='自动扫描任务',
+                replace_existing=True
+            )
+            
+            logger.info(f"[Scheduler] 已设置间隔扫描任务，间隔: {minutes}分钟")
+        except Exception as e:
+            logger.error(f"[Scheduler] 设置间隔扫描任务失败: {str(e)}")
+    
+    def _schedule_cron_scan(self, cron_expression: str):
+        """
+        设置 Cron 扫描任务
+        
+        Args:
+            cron_expression: Cron 表达式
+        """
+        try:
+            if not cron_expression:
+                logger.warning("[Scheduler] Cron 表达式为空，取消定时扫描")
+                self._remove_auto_scan_job()
+                return
+            
+            # 移除旧的定时任务
+            self._remove_auto_scan_job()
+            
+            # 添加新的定时任务
+            self.scheduler.add_job(
+                self.perform_auto_scan,
+                trigger=CronTrigger.from_crontab(cron_expression),
+                id=self.auto_scan_job_id,
+                name='自动扫描任务',
+                replace_existing=True
+            )
+            
+            logger.info(f"[Scheduler] 已设置 Cron 扫描任务，表达式: {cron_expression}")
+        except Exception as e:
+            logger.error(f"[Scheduler] 设置 Cron 扫描任务失败: {str(e)}")
+    
+    def _remove_auto_scan_job(self):
+        """移除自动扫描任务"""
+        try:
+            if self.scheduler and self.scheduler.get_job(self.auto_scan_job_id):
+                self.scheduler.remove_job(self.auto_scan_job_id)
+                logger.debug("[Scheduler] 已移除自动扫描任务")
+        except Exception as e:
+            logger.error(f"[Scheduler] 移除自动扫描任务失败: {str(e)}")
+    
+    async def perform_auto_scan(self):
+        """
+        执行自动扫描
+        
+        扫描收藏夹和稍后再看，将新视频添加到队列
+        """
+        try:
+            logger.info("[Scheduler] 开始执行自动扫描...")
+            
+            # 获取活跃用户
+            db = SessionLocal()
+            try:
+                from src.services.settings_service import SettingsService
+                
+                active_user = db.query(User).filter(User.is_active == True).first()
+                if not active_user:
+                    logger.warning("[Scheduler] 未找到活跃用户，跳过扫描")
+                    return
+                
+                # 获取用户配置的扫描源类型
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                auto_download = getattr(settings, 'auto_download', None)
+                
+                if not auto_download or not auto_download.get('enabled', False):
+                    logger.debug("[Scheduler] 自动下载未启用，跳过扫描")
+                    return
+                
+                # 创建扫描服务
+                scan_service = ScanService(db)
+                
+                # 扫描收藏夹
+                logger.info("[Scheduler] 开始扫描收藏夹...")
+                try:
+                    result = await scan_service.trigger_scan(
+                        source_type='favorite',
+                        source_id='all',
+                        user_mid=active_user.mid
+                    )
+                    logger.info(f"[Scheduler] 收藏夹扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
+                except Exception as e:
+                    logger.error(f"[Scheduler] 收藏夹扫描失败: {str(e)}")
+                
+                # 扫描稍后再看
+                logger.info("[Scheduler] 开始扫描稍后再看...")
+                try:
+                    result = await scan_service.trigger_scan(
+                        source_type='watch_later',
+                        source_id='all',
+                        user_mid=active_user.mid
+                    )
+                    logger.info(f"[Scheduler] 稍后再看扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
+                except Exception as e:
+                    logger.error(f"[Scheduler] 稍后再看扫描失败: {str(e)}")
+                
+                logger.info("[Scheduler] 自动扫描完成")
+                
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"[Scheduler] 执行自动扫描失败: {str(e)}")
 
 
 # 全局实例
