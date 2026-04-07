@@ -206,7 +206,8 @@ class SettingsService:
             scan_interval=int(self._get_setting_value(all_settings, 'auto_download.scan_interval', 60)),
             cron_expression=self._get_setting_value(all_settings, 'auto_download.cron_expression', ''),
             concurrent_limit=concurrent_limit_dict,
-            custom_scan=custom_scan_dict
+            custom_scan=custom_scan_dict,
+            watch_later_max=int(self._get_setting_value(all_settings, 'auto_download.watch_later_max', 0))
         )
 
         return Settings(
@@ -432,6 +433,7 @@ class SettingsService:
                 'auto_download.cron_expression': '',
                 'auto_download.concurrent_limit.video': '3',
                 'auto_download.concurrent_limit.page': '3',
+                'auto_download.watch_later_max': '0',
             }
             
             # 合并所有默认设置
