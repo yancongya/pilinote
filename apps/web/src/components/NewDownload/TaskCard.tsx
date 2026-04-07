@@ -1,10 +1,13 @@
 // components/NewDownload/TaskCard.tsx
 import { useNewQueueStore, Task, DownloadStage } from '../../stores/newQueue'
-import { Play, Pause, Trash2, RefreshCw, Film } from 'lucide-react'
+import { Play, Pause, Trash2, RefreshCw, Film, Square } from 'lucide-react'
 import { getAvatarProxyUrl } from '../../config/api'
 
 interface Props {
   task: Task
+  isBatchMode?: boolean
+  isSelected?: boolean
+  onSelect?: () => void
 }
 
 // 代理图片URL，避免403错误
@@ -40,10 +43,16 @@ const getStageText = (stage: DownloadStage): string => {
   return stageMap[stage] || stage
 }
 
-export default function TaskCard({ task }: Props) {
+export default function TaskCard({ task, isBatchMode = false, isSelected = false, onSelect }: Props) {
   const { controlTask, getTaskProgress } = useNewQueueStore()
   const progress = getTaskProgress(task.id)
   const coverUrl = getProxyImageUrl(task.cover)
+
+  const handleCardClick = () => {
+    if (isBatchMode && onSelect) {
+      onSelect()
+    }
+  }
 
   const statusConfig: Record<string, { label: string; color: string }> = {
     'backlog': { label: '待处理', color: '#f59e0b' },
@@ -92,11 +101,59 @@ export default function TaskCard({ task }: Props) {
   return (
     <article
       className="video-card"
+      data-selected={isSelected && isBatchMode}
       style={{
         borderLeft: `4px solid ${status.color}`,
-        cursor: 'default'
+        cursor: isBatchMode ? 'pointer' : 'default',
+        ...(isSelected && isBatchMode && { backgroundColor: '#f0f9ff' })
       }}
+      onClick={handleCardClick}
     >
+      {/* 批量选择复选框 */}
+      {isBatchMode && (
+        <div 
+          className="batch-checkbox"
+          style={{
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: '4px',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '4px',
+            width: '24px',
+            height: '24px',
+            minWidth: '24px'
+          }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect?.()
+          }}
+        >
+          {isSelected ? (
+            <div style={{
+              width: '16px',
+              height: '16px',
+              backgroundColor: '#3b82f6',
+              borderRadius: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+          ) : (
+            <Square size={16} color="#64748b" />
+          )}
+        </div>
+      )}
+
       {/* 封面 */}
       <div className="video-card-cover">
         <div className="video-card-thumbnail">

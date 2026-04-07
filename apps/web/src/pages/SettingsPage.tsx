@@ -219,7 +219,7 @@ function SettingsPage() {
           onClick={handleSave}
           disabled={saving}
           aria-label="保存设置"
-          title={hasUnsavedChanges() ? "保存设置" : "没有需要保存的修改"}
+          title={hasUnsavedChanges() ? "点击保存所有修改的设置" : "当前没有需要保存的修改"}
         >
           {saving ? (
             <RefreshCw className="settings-fab-icon spinning" />

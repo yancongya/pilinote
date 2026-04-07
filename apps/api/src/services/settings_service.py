@@ -288,16 +288,6 @@ class SettingsService:
                     # 处理非嵌套字段
                     self._update_single_setting(category, category_dict)
 
-            # 特殊处理：如果有更新 sidecar，同时更新 storage.sidecar JSON 对象
-            if 'storage' in settings_dict and 'sidecar' in settings_dict['storage']:
-                sidecar_dict = settings_dict['storage']['sidecar']
-                if isinstance(sidecar_dict, dict):
-                    # 确保 storage.sidecar.ffmpeg 和 storage.sidecar.aria2c 存在
-                    if 'ffmpeg' in sidecar_dict:
-                        self._update_single_setting('storage.sidecar.ffmpeg', sidecar_dict['ffmpeg'])
-                    if 'aria2c' in sidecar_dict:
-                        self._update_single_setting('storage.sidecar.aria2c', sidecar_dict['aria2c'])
-
             self.db.commit()
             return True
         except Exception as e:

@@ -320,7 +320,7 @@ class ScanService:
                     logger.info(f"获取到 {len(video_list)} 个稍后再看视频")
                     
                     # 应用稍后再看数量限制
-                    watch_later_max = self.auto_download_config.get('watch_later_max', 0) if self.auto_download_config else 0
+                    watch_later_max = self._get_watch_later_max()
                     if watch_later_max and watch_later_max < len(video_list):
                         video_list = video_list[:watch_later_max]
                         logger.info(f"应用稍后再看数量限制，保留 {len(video_list)} 个视频")
@@ -500,6 +500,26 @@ class ScanService:
             "enabled": False,
             "folder_list": []
         }
+
+    def _get_watch_later_max(self) -> int:
+        """
+        获取稍后再看数量限制配置
+        
+        Returns:
+            稍后再看数量限制，0表示不限制
+        """
+        try:
+            setting = self.db.query(Setting).filter(Setting.key == "auto_download.watch_later_max").first()
+            if setting and setting.value:
+                max_value = int(setting.value)
+                logger.info(f"稍后再看数量限制配置: {max_value}")
+                return max_value
+        except Exception as e:
+            logger.error(f"获取稍后再看数量限制配置失败: {e}")
+        
+        # 返回默认配置（不限制）
+        logger.info("稍后再看数量限制配置: 0 (不限制)")
+        return 0
 
     def _convert_video_to_task_create(self, video: ScanVideoInfo, source_type: str) -> TaskCreate:
         """

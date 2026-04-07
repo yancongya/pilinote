@@ -103,10 +103,11 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         
         setSavedStatus('saved')
         
-        const newLocalSettings = { ...localSettings }
-        pathFields.forEach(field => delete newLocalSettings[field])
-        delete (newLocalSettings as any).sidecar
-        setLocalSettings(newLocalSettings)
+        // 清空本地设置
+        setLocalSettings({})
+        
+        // 重新获取设置以确认保存成功
+        await useSettingsStore.getState().fetchSettings()
         
         setTimeout(() => {
           setSavedStatus('idle')
@@ -233,28 +234,35 @@ const getCurrentValue = useCallback((field: string) => {
   if (field.includes('.')) {
     const [parent, child] = field.split('.')
     
-    // Check local temporary settings first
-    if (parent in localSettings) {
-      const localValue = (localSettings as any)[parent]
-      if (localValue && child in localValue) {
-        return localValue[child]
-      }
+    // Check backend settings first
+    const storageValue = (settings.storage as any)[parent]
+    if (storageValue && typeof storageValue === 'object' && child in storageValue) {
+      return storageValue[child]
     }
     
-    // Check backend settings
-    const storageValue = (settings.storage as any)[parent]
-    if (storageValue && child in storageValue) {
-      return storageValue[child]
+    // Then check local temporary settings
+    if (parent in localSettings) {
+      const localValue = (localSettings as any)[parent]
+      if (localValue && typeof localValue === 'object' && child in localValue) {
+        return localValue[child]
+      }
     }
     
     return undefined
   }
   
-  // Handle regular fields
+  // Handle regular fields - check backend settings first
+  const storageValue = (settings.storage as any)[field]
+  if (storageValue !== undefined && storageValue !== null) {
+    return storageValue
+  }
+  
+  // Then check local settings
   if (field in localSettings) {
     return (localSettings as any)[field]
   }
-  return (settings.storage as any)[field]
+  
+  return undefined
 }, [localSettings, settings])
 
   const handleClearCache = async (cacheType: string) => {
@@ -393,7 +401,7 @@ const getCurrentValue = useCallback((field: string) => {
           // 由于浏览器安全限制，我们只能获取目录名
           // 建议用户使用手动输入来指定完整路径
           handleLocalUpdate(field, entry.name)
-          showToast(`已设置目录: ${entry.name}（如需完整路径，请使用编辑按钮）`, 'success')
+          showToast(`目录已设置: ${entry.name}，请点击"保存设置"按钮保存`, 'info')
           return
         }
         
@@ -406,7 +414,7 @@ const getCurrentValue = useCallback((field: string) => {
           
           if (directoryName && directoryName !== path) {
             handleLocalUpdate(field, directoryName)
-            showToast(`已设置目录: ${directoryName}（如需完整路径，请使用编辑按钮）`, 'success')
+            showToast(`目录已设置: ${directoryName}，请点击"保存设置"按钮保存`, 'info')
             return
           }
         }
@@ -434,7 +442,7 @@ const getCurrentValue = useCallback((field: string) => {
       handleLocalUpdate(showEditModal.field, editingPath)
       setShowEditModal({ show: false, field: null })
       setEditingPath('')
-      showToast('路径已保存', 'success')
+      showToast('路径已更新，请点击右下角"保存设置"按钮保存', 'info')
     }
   }
 
@@ -480,7 +488,7 @@ const getCurrentValue = useCallback((field: string) => {
             <input
               type="text"
               className="stg-input"
-              value={String(getCurrentValue('download_path') || './downloads')}
+              value={getCurrentValue('download_path') ?? ''}
               onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
               disabled={loading}
               placeholder="./downloads 或 /path/to/downloads"
@@ -515,7 +523,7 @@ const getCurrentValue = useCallback((field: string) => {
             <input
               type="text"
               className="stg-input"
-              value={String(getCurrentValue('temp_path') || './temp')}
+              value={getCurrentValue('temp_path') ?? ''}
               onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
               disabled={loading}
               placeholder="./temp 或 /path/to/temp"

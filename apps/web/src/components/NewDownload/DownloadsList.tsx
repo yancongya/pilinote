@@ -1,13 +1,15 @@
 // components/NewDownload/DownloadsList.tsx
 import { useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Trash2, Square, Play } from 'lucide-react'
 import { useNewQueueStore } from '../../stores/newQueue'
 import TaskCard from './TaskCard'
 import SchedulerCard from './SchedulerCard'
 
 export default function DownloadsList() {
-  const { filterStatus, setFilterStatus, getFilteredTasks, fetchTasks, fetchSchedulers, schedulers } = useNewQueueStore()
+  const { filterStatus, setFilterStatus, getFilteredTasks, fetchTasks, fetchSchedulers, schedulers, batchDeleteTasks, deleteAllTasks, batchStartTasks } = useNewQueueStore()
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isBatchMode, setIsBatchMode] = useState(false)
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
 
   const filteredTasks = getFilteredTasks()
 
@@ -43,6 +45,71 @@ export default function DownloadsList() {
     }
     localStorage.removeItem('new-queue-storage')
     window.location.reload()
+  }
+
+  // 批量选择
+  const handleTaskSelect = (taskId: string) => {
+    const newSelected = new Set(selectedTasks)
+    if (newSelected.has(taskId)) {
+      newSelected.delete(taskId)
+    } else {
+      newSelected.add(taskId)
+    }
+    setSelectedTasks(newSelected)
+  }
+
+  // 全选/取消全选
+  const handleSelectAll = () => {
+    if (selectedTasks.size === filteredTasks.length) {
+      setSelectedTasks(new Set())
+    } else {
+      setSelectedTasks(new Set(filteredTasks.map(t => t.id)))
+    }
+  }
+
+  // 批量删除
+  const handleBatchDelete = async () => {
+    if (selectedTasks.size === 0) return
+    if (!confirm(`确定要删除选中的 ${selectedTasks.size} 个任务吗？`)) {
+      return
+    }
+    try {
+      await batchDeleteTasks(Array.from(selectedTasks))
+      setSelectedTasks(new Set())
+      setIsBatchMode(false)
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      alert('批量删除失败，请重试')
+    }
+  }
+
+  // 批量开始下载
+  const handleBatchStart = async () => {
+    if (selectedTasks.size === 0) return
+    try {
+      await batchStartTasks(Array.from(selectedTasks))
+      setSelectedTasks(new Set())
+      setIsBatchMode(false)
+    } catch (error) {
+      console.error('批量开始下载失败:', error)
+      alert('批量开始下载失败，请重试')
+    }
+  }
+
+  // 删除所有任务
+  const handleDeleteAll = async () => {
+    if (filteredTasks.length === 0) return
+    if (!confirm(`确定要删除所有 ${filteredTasks.length} 个任务吗？此操作不可恢复！`)) {
+      return
+    }
+    try {
+      await deleteAllTasks()
+      setSelectedTasks(new Set())
+      setIsBatchMode(false)
+    } catch (error) {
+      console.error('删除所有任务失败:', error)
+      alert('删除所有任务失败，请重试')
+    }
   }
 
   return (
@@ -84,6 +151,91 @@ export default function DownloadsList() {
         >
           <span>清除缓存</span>
         </button>
+
+        {/* 批量管理按钮 */}
+        {filteredTasks.length > 0 && (
+          <button
+            className="refresh-button"
+            onClick={() => setIsBatchMode(!isBatchMode)}
+            aria-label="批量管理"
+            title="批量管理任务"
+            style={{ marginLeft: '8px' }}
+          >
+            <span>{isBatchMode ? '取消批量管理' : '批量管理'}</span>
+          </button>
+        )}
+
+        {/* 批量删除按钮 */}
+        {isBatchMode && selectedTasks.size > 0 && (
+          <button
+            className="refresh-button"
+            onClick={handleBatchDelete}
+            aria-label="批量删除"
+            title={`删除选中的 ${selectedTasks.size} 个任务`}
+            style={{ marginLeft: '8px', color: '#ef4444' }}
+          >
+            <Trash2 size={16} />
+            <span>删除 ({selectedTasks.size})</span>
+          </button>
+        )}
+
+        {/* 批量开始下载按钮 */}
+        {isBatchMode && selectedTasks.size > 0 && (
+          <button
+            className="refresh-button"
+            onClick={handleBatchStart}
+            aria-label="批量开始下载"
+            title={`开始下载选中的 ${selectedTasks.size} 个任务`}
+            style={{ marginLeft: '8px', color: '#10b981' }}
+          >
+            <Play size={16} />
+            <span>开始 ({selectedTasks.size})</span>
+          </button>
+        )}
+
+        {/* 删除所有按钮 */}
+        {isBatchMode && (
+          <button
+            className="refresh-button"
+            onClick={handleDeleteAll}
+            aria-label="删除所有"
+            title={`删除所有 ${filteredTasks.length} 个任务`}
+            style={{ marginLeft: '8px', color: '#ef4444' }}
+          >
+            <Trash2 size={16} />
+            <span>全部删除</span>
+          </button>
+        )}
+
+        {/* 全选按钮 */}
+        {isBatchMode && (
+          <button
+            className="refresh-button"
+            onClick={handleSelectAll}
+            aria-label="全选"
+            title={selectedTasks.size === filteredTasks.length ? '取消全选' : '全选'}
+            style={{ marginLeft: '8px' }}
+          >
+            {selectedTasks.size === filteredTasks.length ? (
+              <div style={{
+                width: '16px',
+                height: '16px',
+                backgroundColor: '#3b82f6',
+                borderRadius: '2px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+            ) : (
+              <Square size={16} />
+            )}
+            <span>{selectedTasks.size === filteredTasks.length ? '取消全选' : '全选'}</span>
+          </button>
+        )}
       </div>
 
       {/* 调度器任务 */}
@@ -91,13 +243,25 @@ export default function DownloadsList() {
         const scheduler = schedulers[sid]
         if (!scheduler) return null
         return (
-          <SchedulerCard key={sid} scheduler={scheduler} />
+          <SchedulerCard 
+            key={sid} 
+            scheduler={scheduler} 
+            isBatchMode={isBatchMode}
+            selectedTasks={selectedTasks}
+            onTaskSelect={handleTaskSelect}
+          />
         )
       })}
 
       {/* 独立任务 */}
       {independentTasks.map(task => (
-        <TaskCard key={task.id} task={task} />
+        <TaskCard 
+          key={task.id} 
+          task={task} 
+          isBatchMode={isBatchMode}
+          isSelected={selectedTasks.has(task.id)}
+          onSelect={() => handleTaskSelect(task.id)}
+        />
       ))}
 
       {filteredTasks.length === 0 && (

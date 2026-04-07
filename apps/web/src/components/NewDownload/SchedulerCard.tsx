@@ -1,12 +1,15 @@
 // components/NewDownload/SchedulerCard.tsx
 import { useState, useMemo } from 'react'
 import { useNewQueueStore, Scheduler, Task } from '../../stores/newQueue'
-import { Play, Pause, Trash2, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Loader2, X, Film } from 'lucide-react'
+import { Play, Pause, Trash2, ChevronDown, ChevronRight, CheckCircle, XCircle, Clock, Loader2, X, Film, Square } from 'lucide-react'
 import ConfirmModal from '../ConfirmModal'
 import { getAvatarProxyUrl } from '../../config/api'
 
 interface Props {
   scheduler: Scheduler
+  isBatchMode?: boolean
+  selectedTasks?: Set<string>
+  onTaskSelect?: (taskId: string) => void
 }
 
 // 代理图片URL，避免403错误
@@ -127,7 +130,7 @@ const calculateSchedulerMetadataSize = (scheduler: Scheduler, tasks: Record<stri
   return metadataSize
 }
 
-export default function SchedulerCard({ scheduler }: Props) {
+export default function SchedulerCard({ scheduler, isBatchMode = false, selectedTasks = new Set(), onTaskSelect }: Props) {
   const { tasks, controlScheduler, deleteScheduler } = useNewQueueStore()
   const [isExpanded, setIsExpanded] = useState(false)
   const [confirmModal, setConfirmModal] = useState<{
@@ -355,7 +358,49 @@ export default function SchedulerCard({ scheduler }: Props) {
               const coverUrl = getProxyImageUrl(task.cover)
               const hasCover = task.cover && task.cover.trim()
               return (
-                <div key={task.id} className="scheduler-task-item">
+                <div key={task.id} className="scheduler-task-item" data-selected={selectedTasks.has(task.id)}>
+                  {/* 批量选择复选框 */}
+                  {isBatchMode && (
+                    <div 
+                      className="batch-checkbox"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        borderRadius: '4px',
+                        flexShrink: 0,
+                        width: '24px',
+                        height: '24px',
+                        minWidth: '24px'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onTaskSelect?.(task.id)
+                      }}
+                    >
+                      {selectedTasks.has(task.id) ? (
+                        <div style={{
+                          width: '16px',
+                          height: '16px',
+                          backgroundColor: '#3b82f6',
+                          borderRadius: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                      ) : (
+                        <Square size={16} color="#64748b" />
+                      )}
+                    </div>
+                  )}
+
                   {/* 任务封面 */}
                   {hasCover && (
                     <div className="task-cover">

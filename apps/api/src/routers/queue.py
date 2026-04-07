@@ -1,5 +1,5 @@
 import asyncio
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Body
 from typing import List, Optional, Any
 from datetime import datetime
 import logging
@@ -407,6 +407,125 @@ async def create_scheduler(scheduler_create: SchedulerCreate):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to create scheduler: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/tasks/batch", response_model=ApiResponse)
+async def batch_delete_tasks(task_ids: List[str] = Body(...)):
+    """批量删除任务"""
+    if not task_ids:
+        return ApiResponse(
+            success=True,
+            message="没有选择要删除的任务"
+        )
+    
+    deleted_count = 0
+    failed_count = 0
+    errors = []
+    
+    for task_id in task_ids:
+        try:
+            # 复用单个任务的删除逻辑
+            task = await queue_manager.get_task(task_id)
+            if not task:
+                failed_count += 1
+                errors.append(f"任务 {task_id} 不存在")
+                continue
+            
+            # 删除本地文件
+            try:
+                from pathlib import Path
+                import shutil
+                from src.services.settings_service import SettingsService
+                
+                # 从设置中获取临时路径和下载路径
+                db = SessionLocal()
+                try:
+                    settings_service = SettingsService(db)
+                    settings = settings_service.get_settings()
+                    temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
+                    download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
+                finally:
+                    db.close()
+                
+                # 删除临时文件夹
+                temp_folder = Path(temp_path) / task_id
+                if temp_folder.exists():
+                    logger.info(f"删除临时文件夹: {temp_folder}")
+                    shutil.rmtree(temp_folder)
+                
+                # 如果任务不属于调度器，删除视频文件夹
+                if not task.scheduler_id:
+                    video_title = task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
+                    video_folder = Path(download_path) / video_title
+                    
+                    if video_folder.exists():
+                        logger.info(f"删除视频文件夹: {video_folder}")
+                        shutil.rmtree(video_folder)
+                else:
+                    # 如果任务属于调度器，删除该任务的分P子文件夹
+                    # 查找调度器
+                    scheduler = await queue_manager.get_scheduler(task.scheduler_id)
+                    if scheduler and scheduler.folder:
+                        # 获取任务的分P标题
+                        part_title = task.meta.get('part_title') if task.meta else None
+                        if part_title:
+                            # 删除分P子文件夹
+                            part_folder = Path(scheduler.folder) / part_title
+                            if part_folder.exists():
+                                logger.info(f"删除分P子文件夹: {part_folder}")
+                                shutil.rmtree(part_folder)
+                
+            except Exception as e:
+                logger.error(f"删除本地文件失败: {e}")
+                # 继续删除任务，即使删除文件失败
+
+            # Remove from all queues
+            await queue_manager.remove_task(task_id)
+
+            # Broadcast WebSocket event
+            from src.routers.websocket import broadcast_task_updated
+            broadcast_task_updated(task_id, 'cancelled', cancelled=True)
+
+            deleted_count += 1
+        except Exception as e:
+            failed_count += 1
+            errors.append(f"删除任务 {task_id} 失败: {str(e)}")
+    
+    return ApiResponse(
+        success=failed_count == 0,
+        message=f"批量删除完成：成功 {deleted_count} 个，失败 {failed_count} 个",
+        data={
+            "deleted_count": deleted_count,
+            "failed_count": failed_count,
+            "errors": errors
+        }
+    )
+
+
+@router.delete("/tasks/all", response_model=ApiResponse)
+async def delete_all_tasks():
+    """删除所有任务"""
+    try:
+        # 获取所有任务ID
+        all_task_ids = list(queue_manager.tasks.keys())
+        
+        if not all_task_ids:
+            return ApiResponse(
+                success=True,
+                message="没有任务可删除"
+            )
+        
+        # 调用批量删除
+        result = await batch_delete_tasks(all_task_ids)
+        
+        return ApiResponse(
+            success=result.success,
+            message=f"删除所有任务完成：{result.message}",
+            data=result.data
+        )
+    except Exception as e:
+        logger.error(f"删除所有任务失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

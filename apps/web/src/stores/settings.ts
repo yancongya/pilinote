@@ -117,7 +117,44 @@ export const useSettingsStore = create<SettingsState>()(
         }
 
         const data = await response.json()
-        set({ settings: data, loading: false })
+        
+        // 合并设置，而不是直接替换
+        const currentSettings = get().settings
+        const mergedSettings = {
+          ...currentSettings,
+          ...data,
+          // 深度合并嵌套对象
+          storage: {
+            ...currentSettings.storage,
+            ...data.storage,
+            sidecar: {
+              ...currentSettings.storage.sidecar,
+              ...(data.storage?.sidecar || {})
+            }
+          },
+          download: {
+            ...currentSettings.download,
+            ...data.download,
+            video: {
+              ...currentSettings.download.video,
+              ...(data.download?.video || {})
+            },
+            metadata: {
+              ...currentSettings.download.metadata,
+              ...(data.download?.metadata || {})
+            }
+          },
+          general: {
+            ...currentSettings.general,
+            ...(data.general || {})
+          },
+          auto_download: {
+            ...currentSettings.auto_download,
+            ...(data.auto_download || {})
+          }
+        }
+        
+        set({ settings: mergedSettings, loading: false })
       } catch (error) {
         set({ 
           error: error instanceof Error ? error.message : 'Unknown error',

@@ -86,6 +86,9 @@ interface NewQueueState {
   controlScheduler: (sid: string, action: string) => Promise<void>
   deleteScheduler: (sid: string) => Promise<void>
   deleteTask: (taskId: string) => Promise<void>
+  batchDeleteTasks: (taskIds: string[]) => Promise<void>
+  batchStartTasks: (taskIds: string[]) => Promise<void>
+  deleteAllTasks: () => Promise<void>
   setActiveTab: (tab: 'downloads' | 'library' | 'scan') => void
   setFilterStatus: (status: TaskState | 'all') => void
   forceClearCache: () => void
@@ -490,6 +493,65 @@ forceClearCache: () => {
           await get().fetchSchedulers()
         } catch (error) {
           console.error('[NewQueue] Failed to delete task:', error)
+          throw error
+        }
+      },
+
+      batchDeleteTasks: async (taskIds) => {
+        try {
+          const response = await fetch(getApiUrl('/api/queue/tasks/batch'), {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskIds),
+          })
+          if (!response.ok) throw new Error('Batch delete failed')
+          await get().fetchTasks()
+          await get().fetchSchedulers()
+        } catch (error) {
+          console.error('[NewQueue] Failed to batch delete tasks:', error)
+          throw error
+        }
+      },
+
+      batchStartTasks: async (taskIds) => {
+        try {
+          const stateMap: Record<string, number> = {
+            'backlog': 0,
+            'pending': 1,
+            'active': 2,
+            'completed': 3,
+            'paused': 4,
+            'failed': 5,
+            'cancelled': 6
+          }
+          
+          // 使用Promise.all批量开始下载
+          await Promise.all(taskIds.map(taskId => 
+            fetch(getApiUrl(`/api/queue/tasks/${taskId}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ state: stateMap.active }),
+            })
+          ))
+          
+          await get().fetchTasks()
+          await get().fetchSchedulers()
+        } catch (error) {
+          console.error('[NewQueue] Failed to batch start tasks:', error)
+          throw error
+        }
+      },
+
+      deleteAllTasks: async () => {
+        try {
+          const response = await fetch(getApiUrl('/api/queue/tasks/all'), {
+            method: 'DELETE',
+          })
+          if (!response.ok) throw new Error('Delete all failed')
+          await get().fetchTasks()
+          await get().fetchSchedulers()
+        } catch (error) {
+          console.error('[NewQueue] Failed to delete all tasks:', error)
           throw error
         }
       },
