@@ -318,6 +318,16 @@ class ScanService:
                     watch_later_data = result["data"]
                     video_list = watch_later_data.get("list", []) if isinstance(watch_later_data, dict) else []
                     logger.info(f"获取到 {len(video_list)} 个稍后再看视频")
+                    
+                    # 应用稍后再看数量限制
+                    watch_later_max = self.auto_download_config.get('watch_later_max', 0) if self.auto_download_config else 0
+                    if watch_later_max and watch_later_max < len(video_list):
+                        video_list = video_list[:watch_later_max]
+                        logger.info(f"应用稍后再看数量限制，保留 {len(video_list)} 个视频")
+                    elif watch_later_max == 0:
+                        logger.info(f"稍后再看数量限制为0，跳过扫描")
+                        return [], []
+                    
                     return self._transform_watchlater_to_videos(video_list), []
             
             return [], []

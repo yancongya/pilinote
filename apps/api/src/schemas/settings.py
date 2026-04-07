@@ -120,6 +120,7 @@ class AutoDownloadSettings(BaseModel):
     cron_expression: str = Field(default="", description="Cron 表达式")
     concurrent_limit: ConcurrentLimit = Field(default_factory=ConcurrentLimit)
     custom_scan: CustomScanConfig = Field(default_factory=CustomScanConfig)
+    watch_later_max: int = Field(default=0, ge=0, le=999, description="稍后再看最大扫描数量，0表示不扫描")
 
 
 class Settings(BaseModel):

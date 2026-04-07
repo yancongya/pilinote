@@ -3,7 +3,8 @@ import {
   Clock,
   RotateCw,
   Zap,
-  Hash
+  Hash,
+  Clock as ClockIcon
 } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings'
 import { apiService } from '../../services/api'
@@ -55,7 +56,8 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
           custom_scan: {
             enabled: false,
             folder_list: []
-          }
+          },
+          watch_later_max: 0
         }
 
         const mergedSettings = {
@@ -70,7 +72,8 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
           custom_scan: {
             enabled: localSettings.custom_scan?.enabled ?? currentAutoDownload.custom_scan?.enabled ?? false,
             folder_list: localSettings.custom_scan?.folder_list ?? currentAutoDownload.custom_scan?.folder_list ?? []
-          }
+          },
+          watch_later_max: localSettings.watch_later_max ?? currentAutoDownload.watch_later_max ?? 0
         }
 
         await updateSettings({
@@ -142,7 +145,8 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
     custom_scan: {
       enabled: false,
       folder_list: []
-    }
+    },
+    watch_later_max: 0
   }
 
   // 自定义扫描配置
@@ -464,6 +468,74 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             )}
           </div>
         )}
+
+        {/* 稍后再看数量设置 */}
+        <div style={{ marginTop: '16px' }}>
+          <div className="stg-item-label-row" style={{ marginBottom: '8px' }}>
+            <ClockIcon size={18} className="stg-item-icon" />
+            <span className="stg-item-label">稍后再看数量限制</span>
+          </div>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 120px', 
+            gap: '12px',
+            padding: '12px',
+            backgroundColor: '#f1f5f9',
+            borderRadius: '8px',
+            marginBottom: '8px',
+            fontWeight: 500,
+            fontSize: '13px',
+            color: '#64748b'
+          }}>
+            <div>稍后再看</div>
+            <div>视频数</div>
+          </div>
+          
+          <div style={{ 
+            padding: '12px',
+            backgroundColor: '#fef3c7',
+            borderRadius: '8px',
+            marginBottom: '12px',
+            fontSize: '12px',
+            color: '#92400e',
+            border: '1px solid #fcd34d'
+          }}>
+            💡 稍后再看数量为 0 表示不扫描稍后再看，设置大于 0 的数值后才进行扫描
+          </div>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 120px', 
+            gap: '12px',
+            padding: '12px',
+            backgroundColor: '#ffffff',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              fontSize: '14px',
+              color: '#64748b'
+            }}>
+              稍后再看列表
+            </div>
+            <div>
+              <input
+                type="number"
+                className="stg-input"
+                min="0"
+                max="999"
+                value={getCurrentValue('watch_later_max') ?? currentSettings.watch_later_max}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0
+                  handleLocalUpdate('watch_later_max', Math.max(0, Math.min(999, value)))
+                }}
+                style={{ width: '100%' }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 重置按钮 */}
@@ -495,7 +567,8 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             custom_scan: {
               enabled: false,
               folder_list: []
-            }
+            },
+            watch_later_max: 0
           })
           setShowResetConfirm(false)
           showToast('自动下载设置已重置', 'success')

@@ -63,6 +63,7 @@ export interface Settings {
       enabled: boolean  // 是否启用自定义扫描
       folder_list: FolderScanConfig[]  // 收藏夹扫描列表
     }
+    watch_later_max: number  // 稍后再看最大扫描数量，0表示不扫描
   }
 }
 
