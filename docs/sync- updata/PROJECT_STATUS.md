@@ -17,6 +17,7 @@
 - ✅ 阶段 3: 自动下载队列落地与显示
 - ✅ 阶段 3.5: 定时扫描功能实现
 - ✅ 阶段 3.6: 重复任务与媒体类型修复
+- ✅ 阶段 3.7: 稍后再看数量限制功能
 
 ### 待实施阶段 (3/10)
 - ⏳ 阶段 4: 配置持久化与界面扩展（部分完成）
@@ -34,6 +35,7 @@
 - ✅ 并发限制（视频并发数、分页并发数）
 - ✅ 自定义扫描列表
 - ✅ 收藏夹筛选和数量限制
+- ✅ 稍后再看数量限制
 
 #### 2. 扫描功能
 - ✅ 收藏夹扫描
@@ -152,10 +154,30 @@
    - 问题: 浏览器控制台错误
    - 解决: 使用虚拟环境 Python
 
+### 阶段 3.7 修复
+1. **保存后恢复默认值问题**
+   - 问题: 点击保存后，稍后再看数量限制恢复为默认值
+   - 原因: 后端 `get_settings` 方法没有读取 `watch_later_max` 字段
+   - 解决: 在 `get_settings` 方法中添加 `watch_later_max` 字段读取
+
+2. **Brotli 压缩解码问题**
+   - 问题: 二维码 API 返回 400 错误
+   - 错误: 'utf-8' codec can't decode byte 0xd0 in position 1
+   - 原因: Bilibili API 返回 Brotli 压缩响应，但缺少 brotli 库
+   - 解决: 添加 `brotli==1.2.0` 到 requirements.txt
+
+3. **TypeScript 类型错误**
+   - 问题: 编译失败，提示 `watch_later_max` 字段缺失
+   - 原因: 多处默认值定义不完整
+   - 解决: 在所有相关位置添加 `watch_later_max: 0`
+
 ## 📝 代码质量
 
 ### Git 提交
 ```
+2501e84 fix(settings): 修复稍后再看数量限制保存问题
+de21ca0 feat(settings): 添加稍后再看数量限制功能
+97d79e3 fix(queue): 修复下载队列和定时扫描相关问题
 5fefef2 fix(scheduler): 修复Pydantic模型属性访问错误
 e9a2b27 feat(scheduler): 实现自动下载定时扫描功能
 757a2b5 feat(scan): 实现扫描结果自动加入队列功能

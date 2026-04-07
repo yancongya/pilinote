@@ -4,7 +4,7 @@
 
 本文档记录自动下载功能各阶段的详细实施过程和修复记录。
 
-**最新状态**: 阶段 3.6 已完成（2026-04-07）
+**最新状态**: 阶段 3.7 已完成（2026-04-07）
 
 ### ✅ 已完成阶段
 - **阶段 1**: 基础数据存储与设置界面 (2024-04-06)
@@ -14,6 +14,7 @@
 - **阶段 3**: 自动下载队列落地与显示 (2026-04-07)
 - **阶段 3.5**: 定时扫描功能实现 (2026-04-07)
 - **阶段 3.6**: 重复任务与媒体类型修复 (2026-04-07)
+- **阶段 3.7**: 稍后再看数量限制功能 (2026-04-07)
 
 ### 📊 系统状态
 - **后端服务**: ✅ 正常
@@ -845,3 +846,157 @@ def _schedule_interval_scan(self, minutes: int):
 - ✅ 重复任务数从 90 降至 0
 - ✅ 任务总数 360，无重复
 - ✅ 媒体类型分布：8 个 video，29 个 favorite，323 个 watch_later
+
+---
+
+## 阶段 3.7：稍后再看数量限制功能 (2026-04-07) ✅ 已完成
+
+### 功能描述
+- 添加稍后再看扫描数量限制功能
+- 用户可以设置扫描稍后再看的最大视频数量
+- 数量为 0 表示不扫描稍后再看
+- 数量大于 0 时只扫描前 N 个视频
+
+### 后端改动
+#### 1. Schema 扩展
+- 在 `AutoDownloadSettings` 模型中添加 `watch_later_max` 字段：
+  ```python
+  watch_later_max: int = Field(default=0, ge=0, le=999, description="稍后再看最大扫描数量，0表示不扫描")
+  ```
+
+#### 2. 扫描服务修改
+- 在 `scan_service.py` 的 `_fetch_videos` 方法中添加数量限制逻辑：
+  ```python
+  # 应用稍后再看数量限制
+  watch_later_max = self.auto_download_config.get('watch_later_max', 0)
+  if watch_later_max and watch_later_max < len(video_list):
+      video_list = video_list[:watch_later_max]
+      logger.info(f"应用稍后再看数量限制，保留 {len(video_list)} 个视频")
+  elif watch_later_max == 0:
+      logger.info(f"稍后再看数量限制为0，跳过扫描")
+      return [], []
+  ```
+
+#### 3. 设置服务修改
+- 在 `SettingsService.get_settings()` 中添加 `watch_later_max` 字段读取：
+  ```python
+  auto_download_settings = AutoDownloadSettings(
+      ...
+      watch_later_max=int(self._get_setting_value(all_settings, 'auto_download.watch_later_max', 0))
+  )
+  ```
+- 在 `SettingsService.init_default_settings()` 中添加默认值：
+  ```python
+  auto_download_defaults = {
+      ...
+      'auto_download.watch_later_max': '0',
+  }
+  ```
+
+#### 4. 依赖修复
+- 添加 `brotli` 库到 `requirements.txt`：
+  - 修复二维码 API 的压缩解码问题
+  - 确保 Brotli 压缩响应能够正确处理
+
+### 前端改动
+#### 1. TypeScript 类型定义
+- 在 `Settings` 接口中添加 `watch_later_max` 字段：
+  ```typescript
+  export interface Settings {
+    ...
+    auto_download: {
+      ...
+      watch_later_max: number  // 稍后再看最大扫描数量，0表示不扫描
+    }
+  }
+  ```
+
+#### 2. 设置界面扩展
+- 在 `AutoDownloadSettings.tsx` 中添加稍后再看数量设置：
+  - 新增"稍后再看数量限制"配置区域
+  - 数字输入框，范围 0-999
+  - 说明文字：稍后再看数量为 0 表示不扫描
+  - 与自定义扫描列表类似的表格布局
+
+#### 3. 保存逻辑更新
+- 在 `handleSaveSettings` 方法中添加 `watch_later_max` 字段处理：
+  ```typescript
+  const mergedSettings = {
+    ...
+    watch_later_max: localSettings.watch_later_max ?? currentAutoDownload.watch_later_max ?? 0
+  }
+  ```
+- 在默认值中添加 `watch_later_max: 0`
+- 在重置功能中添加 `watch_later_max: 0`
+
+#### 4. 导入修复
+- 添加 `Clock as ClockIcon` 导入，修复类型错误
+
+### 技术实现
+#### 1. 限制逻辑
+- 基于配置的 `watch_later_max` 值进行限制
+- 0 表示完全跳过稍后再看扫描
+- 大于 0 表示只扫描前 N 个视频
+
+#### 2. 数据持久化
+- 通过现有的 `/api/settings/` API 保存
+- 使用 Setting 表存储 `auto_download.watch_later_max`
+- 前端通过 WebSocket 接收配置更新
+
+#### 3. 用户界面
+- 统一的设置界面风格
+- 与自定义扫描列表保持一致
+- 清晰的说明文字和提示
+
+### 数据库变化
+- 新增 `auto_download.watch_later_max` 配置项
+- 默认值为 0（不扫描稍后再看）
+
+### 修复的问题
+
+#### 1. 保存后恢复默认值问题
+- **问题**: 点击保存后，稍后再看数量限制恢复为默认值
+- **原因**: 后端 `get_settings` 方法没有读取 `watch_later_max` 字段
+- **解决**: 在 `get_settings` 方法中添加 `watch_later_max` 字段读取
+
+#### 2. Brotli 压缩解码问题
+- **问题**: 二维码 API 返回 400 错误
+- **错误信息**: 'utf-8' codec can't decode byte 0xd0 in position 1
+- **原因**: Bilibili API 返回 Brotli 压缩响应，但缺少 brotli 库
+- **解决**: 添加 `brotli==1.2.0` 到 requirements.txt
+
+#### 3. TypeScript 类型错误
+- **问题**: 编译失败，提示 `watch_later_max` 字段缺失
+- **原因**: 多处默认值定义不完整
+- **解决**: 在所有相关位置添加 `watch_later_max: 0`
+
+### 测试要点
+- ✅ 设置稍后再看数量为 0，不扫描稍后再看
+- ✅ 设置稍后再看数量为 N，只扫描前 N 个视频
+- ✅ 设置可以正常保存和读取
+- ✅ 刷新页面后设置保持不变
+- ✅ 重置功能恢复为默认值 0
+- ✅ 后端服务正常启动
+- ✅ 扫描日志正确显示限制应用
+- ✅ 二维码 API 正常工作
+
+### 验收标准
+- ✅ 数量限制功能完整
+- ✅ 设置持久化正常
+- ✅ 前端界面完整
+- ✅ 扫描逻辑正确
+- ✅ 修复的问题已解决
+- ✅ 无错误和异常
+
+### 完成状态
+- ✅ 所有验收标准已通过
+- ✅ 阶段 3.7 已完成
+
+### 修改文件
+- `apps/api/src/schemas/settings.py`: 添加 watch_later_max 字段
+- `apps/api/src/services/settings_service.py`: 添加读写逻辑和默认值
+- `apps/api/src/services/scan_service.py`: 添加数量限制逻辑
+- `apps/api/requirements.txt`: 添加 brotli 依赖
+- `apps/web/src/stores/settings.ts`: 更新类型定义
+- `apps/web/src/pages/settings/AutoDownloadSettings.tsx`: 添加设置界面
+- `docs/sync- updata/CHANGELOG.md`: 更新功能文档
