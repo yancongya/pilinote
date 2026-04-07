@@ -465,3 +465,145 @@ const handleDeleteRecord = async (recordId: string) => {
 - `apps/web/src/components/NewDownload/ScanResultContent.tsx`: 添加定时删除、界面优化、动画效果
 - `apps/web/src/components/NewDownload/index.css`: 添加动画样式、布局优化
 - `docs/sync- updata/CHANGELOG.md`: 更新功能文档
+
+---
+
+## 阶段 3：自动下载队列落地与显示 (2026-04-07) ✅ 已完成
+
+### 功能描述
+- 实现将扫描到的新视频自动添加到下载队列
+- 在扫描完成后，新视频自动进入队列并显示在下载列表中
+- 更新扫描记录，记录实际添加到队列的视频数量
+
+### 后端改动
+#### 1. 添加视频到队列转换方法
+- 新增 `_convert_video_to_task_create` 方法：
+  - 将 `ScanVideoInfo` 转换为 `TaskCreate`
+  - 包含完整的 meta 信息（UP主、发布时间、封面等）
+  - 根据视频源类型设置正确的 media_type
+  - 保留收藏夹 folder_id 信息
+- 新增 `add_videos_to_queue` 方法：
+  - 批量将新视频添加到队列
+  - 使用 QueueManager 的 submit_backlog 方法
+  - 统计实际添加成功的视频数量
+  - 错误处理和日志记录
+
+#### 2. 集成队列到扫描流程
+- 在 `trigger_scan` 方法中集成队列添加逻辑：
+  - 识别新视频后，自动调用 `add_videos_to_queue`
+  - 将添加数量记录到扫描记录
+  - 返回的 `ScanTriggerResponse` 包含 added 字段
+
+#### 3. 数据流
+```python
+# 扫描流程
+videos, folder_infos = await self._fetch_videos(...)
+new_videos = await self._identify_new_videos(source_type, videos)
+
+# 添加到队列
+added_count = await self.add_videos_to_queue(new_videos, source_type)
+
+# 保存扫描记录（包含 added_to_queue）
+await self._save_scan_record(
+    ...
+    added_to_queue=added_count
+)
+```
+
+### 前端改动
+- 无需改动（下载列表已存在）
+- 前端会通过 WebSocket 接收新任务创建事件
+- 自动更新下载列表显示
+
+### 技术实现
+#### 1. 视频信息转换
+```python
+def _convert_video_to_task_create(self, video: ScanVideoInfo, source_type: str) -> TaskCreate:
+    # 构建 meta 信息
+    meta = {
+        "bvid": video.bvid,
+        "author": video.author,
+        "duration": video.duration,
+        "pubdate": video.pubdate,
+        "cover": video.cover,
+        "source_type": source_type
+    }
+    
+    if hasattr(video, 'folder_id') and video.folder_id:
+        meta["folder_id"] = video.folder_id
+    
+    # 确定媒体类型
+    if source_type == "favorite":
+        media_type = MediaType.FAVORITE
+    elif source_type == "watch_later":
+        media_type = MediaType.WATCH_LATER
+    else:
+        media_type = MediaType.VIDEO
+    
+    return TaskCreate(
+        media_type=media_type,
+        media_id=video.bvid,
+        title=video.title,
+        cover=video.cover,
+        desc=f"UP主: {video.author}",
+        meta=meta
+    )
+```
+
+#### 2. 批量添加到队列
+```python
+async def add_videos_to_queue(self, videos: List[ScanVideoInfo], source_type: str) -> int:
+    from src.services.queue.manager import queue_manager
+    
+    added_count = 0
+    
+    for video in videos:
+        try:
+            task_create = self._convert_video_to_task_create(video, source_type)
+            await queue_manager.submit_backlog(task_create)
+            added_count += 1
+            logger.info(f"✓ 视频已添加到队列: {video.title}")
+        except Exception as e:
+            logger.error(f"✗ 添加视频到队列失败: {video.title} - {e}")
+            continue
+    
+    return added_count
+```
+
+#### 3. WebSocket 事件广播
+- QueueManager 的 submit_backlog 方法会自动广播 `broadcast_task_created` 事件
+- 前端通过 WebSocket 接收事件并更新下载列表
+- 实现实时同步，无需手动刷新
+
+### 数据库变化
+- 新任务自动添加到 Task 表
+- 队列状态更新到 Queue 表
+- 扫描记录包含 added_to_queue 统计
+
+### 测试要点
+- ✅ 扫描收藏夹后，新视频自动出现在下载列表
+- ✅ 扫描稍后再看后，新视频自动出现在下载列表
+- ✅ 扫描结果返回的 added 字段正确
+- ✅ 扫描记录的 added_to_queue 字段正确
+- ✅ 任务状态为 BACKLOG（待下载）
+- ✅ 任务包含完整的 meta 信息
+- ✅ WebSocket 事件正确触发
+- ✅ 后端服务正常启动
+- ✅ 无循环依赖问题
+
+### 验收标准
+- ✅ 扫描结果自动进入队列
+- ✅ 队列可观测（下载列表显示）
+- ✅ added 统计正确
+- ✅ added_to_queue 记录正确
+- ✅ 任务创建成功
+- ✅ WebSocket 事件触发
+- ✅ 无错误和异常
+
+### 完成状态
+- ✅ 所有验收标准已通过
+- ✅ 阶段 3 已完成
+
+### 修改文件
+- `apps/api/src/services/scan_service.py`: 添加队列集成功能
+- `docs/sync- updata/CHANGELOG.md`: 更新功能文档

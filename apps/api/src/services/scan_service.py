@@ -15,6 +15,7 @@ from src.schemas.auto_download import (
     ScanVideoInfo,
     ScanResult
 )
+from src.schemas.task import TaskCreate, MediaType
 from src.services.bilibili import BilibiliService
 
 
@@ -62,19 +63,22 @@ class ScanService:
             folder_new_videos = [v for v in new_videos if v.bvid in folder_bvids]
             folder_info.new_count = len(folder_new_videos)
         
+        # 将新视频添加到队列
+        added_count = await self.add_videos_to_queue(new_videos, source_type)
+        
         # 保存扫描记录
         await self._save_scan_record(
             source_type=source_type,
             source_id=source_id,
             total_videos=total_videos,
             new_videos=new_count,
-            added_to_queue=0  # 阶段二暂不添加到队列
+            added_to_queue=added_count
         )
         
         return ScanTriggerResponse(
             total=total_videos,
             new=new_count,
-            added=0,
+            added=added_count,
             folder_count=len(folder_infos),
             folders=folder_infos
         )
@@ -486,3 +490,83 @@ class ScanService:
             "enabled": False,
             "folder_list": []
         }
+
+    def _convert_video_to_task_create(self, video: ScanVideoInfo, source_type: str) -> TaskCreate:
+        """
+        将扫描到的视频信息转换为任务创建请求
+        
+        Args:
+            video: 扫描到的视频信息
+            source_type: 视频源类型
+            
+        Returns:
+            任务创建请求
+        """
+        # 构建 meta 信息
+        meta = {
+            "bvid": video.bvid,
+            "author": video.author,
+            "duration": video.duration,
+            "pubdate": video.pubdate,
+            "cover": video.cover,
+            "source_type": source_type
+        }
+        
+        # 如果是收藏夹，添加 folder_id
+        if hasattr(video, 'folder_id') and video.folder_id:
+            meta["folder_id"] = video.folder_id
+        
+        # 确定媒体类型
+        if source_type == "favorite":
+            media_type = MediaType.FAVORITE
+        elif source_type == "watch_later":
+            media_type = MediaType.WATCH_LATER
+        else:
+            media_type = MediaType.VIDEO
+        
+        return TaskCreate(
+            media_type=media_type,
+            media_id=video.bvid,
+            title=video.title,
+            cover=video.cover,
+            desc=f"UP主: {video.author}",
+            meta=meta
+        )
+    
+    async def add_videos_to_queue(self, videos: List[ScanVideoInfo], source_type: str) -> int:
+        """
+        将新视频添加到队列
+        
+        Args:
+            videos: 新视频列表
+            source_type: 视频源类型
+            
+        Returns:
+            实际添加到队列的视频数量
+        """
+        if not videos:
+            return 0
+        
+        logger.info(f"准备将 {len(videos)} 个新视频添加到队列")
+        
+        # 延迟导入避免循环依赖
+        from src.services.queue.manager import queue_manager
+        
+        added_count = 0
+        
+        for video in videos:
+            try:
+                # 转换为任务创建请求
+                task_create = self._convert_video_to_task_create(video, source_type)
+                
+                # 提交到队列
+                await queue_manager.submit_backlog(task_create)
+                added_count += 1
+                logger.info(f"✓ 视频已添加到队列: {video.title} (BV: {video.bvid})")
+                
+            except Exception as e:
+                logger.error(f"✗ 添加视频到队列失败: {video.title} - {e}")
+                continue
+        
+        logger.info(f"✓ 成功将 {added_count}/{len(videos)} 个视频添加到队列")
+        return added_count
