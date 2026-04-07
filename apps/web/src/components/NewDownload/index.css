@@ -1228,12 +1228,15 @@
 .scan-actions {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
 }
 
 .scan-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 10px 16px;
   border: none;
@@ -1243,6 +1246,8 @@
   cursor: pointer;
   transition: all 0.15s ease-out;
   min-height: 44px;
+  white-space: nowrap;
+  flex: 1;
 }
 
 .scan-btn:disabled {
@@ -1396,6 +1401,29 @@
   margin: 0 0 16px 0;
 }
 
+/* 记录保留时间选择器 */
+.retention-selector {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  min-width: 120px;
+}
+
+.retention-selector:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.retention-selector:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .scan-empty {
   display: flex;
   flex-direction: column;
@@ -1445,6 +1473,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  flex-wrap: nowrap;
+  gap: 12px;
 }
 
 .record-source {
@@ -1481,6 +1511,7 @@
   display: flex;
   gap: 16px;
   margin-bottom: 8px;
+  flex-wrap: nowrap;
 }
 
 .record-stat {
@@ -1541,6 +1572,35 @@
   transition: all 0.15s ease-out;
 }
 
+.folder-card-animating {
+  animation: folderSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.folder-card-scanning {
+  animation: folderSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+  transform: translateY(10px);
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.scanning-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes folderSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .folder-card:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
@@ -1573,6 +1633,7 @@
 .folder-stats {
   display: flex;
   gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .folder-stat {
@@ -1621,22 +1682,36 @@
 
 @media (max-width: 640px) {
   .scan-actions {
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .scan-btn {
-    width: 100%;
-    justify-content: center;
+    flex: 1 1 auto;
+    min-width: calc(50% - 4px);
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .scan-btn span {
+    font-size: 13px;
   }
 
   .result-stats {
-    flex-direction: column;
+    flex-direction: row;
     gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .stat-item {
+    flex: 1;
+    min-width: 80px;
   }
 
   .record-stats {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
+    overflow-x: auto;
   }
 
   /* 扫描记录移动端优化 */
@@ -1647,6 +1722,12 @@
   .scan-records h3 {
     font-size: 14px;
     margin-bottom: 12px;
+  }
+
+  .retention-selector {
+    font-size: 12px;
+    padding: 5px 10px;
+    min-width: 100px;
   }
 
   .record-item {
@@ -1662,15 +1743,9 @@
     font-size: 13px;
   }
 
-  .record-stats {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
   .record-stat {
     flex: 1;
-    min-width: calc(50% - 6px);
+    min-width: 80px;
   }
 
   .record-time {
@@ -1688,6 +1763,12 @@
     flex-direction: row;
     justify-content: space-around;
     gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .folder-stat {
+    flex: 1;
+    min-width: 60px;
   }
 
   /* 移动端控制按钮文本显示 */

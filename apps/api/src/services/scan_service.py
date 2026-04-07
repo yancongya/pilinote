@@ -430,7 +430,7 @@ class ScanService:
             added_to_queue: 添加到队列数
         """
         record_id = str(uuid.uuid4())
-        now = datetime.utcnow()
+        now = datetime.now()
         
         # 保存扫描记录
         record_data = {
