@@ -267,21 +267,21 @@ class SchedulerService:
                     return
                 
                 # 检查是否启用自动下载
-                if not auto_download.get('enabled', False):
+                if not auto_download.enabled:
                     logger.debug("[Scheduler] 自动下载未启用")
                     self._remove_auto_scan_job()
                     return
                 
                 # 根据触发类型设置不同的定时任务
-                trigger_type = auto_download.get('trigger_type', 'interval')
+                trigger_type = auto_download.trigger_type
                 
                 if trigger_type == 'interval':
                     # 间隔执行
-                    scan_interval = auto_download.get('scan_interval', 60)
+                    scan_interval = auto_download.scan_interval
                     self._schedule_interval_scan(scan_interval)
                 elif trigger_type == 'cron':
                     # Cron 表达式
-                    cron_expression = auto_download.get('cron_expression', '')
+                    cron_expression = auto_download.cron_expression
                     self._schedule_cron_scan(cron_expression)
                 else:
                     logger.warning(f"[Scheduler] 未知的触发类型: {trigger_type}")
@@ -376,7 +376,7 @@ class SchedulerService:
                 settings = settings_service.get_settings()
                 auto_download = getattr(settings, 'auto_download', None)
                 
-                if not auto_download or not auto_download.get('enabled', False):
+                if not auto_download or not auto_download.enabled:
                     logger.debug("[Scheduler] 自动下载未启用，跳过扫描")
                     return
                 
