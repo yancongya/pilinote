@@ -131,12 +131,13 @@ class TaskService:
         await bilibili_service.init()
 
         # 根据媒体类型准备数据
-        if self.task.media_type == "video":
+        # favorite 和 watch_later 本质上也是视频，使用相同的准备逻辑
+        if self.task.media_type in ["video", "favorite", "watch_later"]:
             await self._prepare_video(bilibili_service)
         elif self.task.media_type == "bangumi":
             await self._prepare_bangumi()
-        elif self.task.media_type == "favorite":
-            await self._prepare_favorite()
+        else:
+            raise Exception(f"不支持的媒体类型: {self.task.media_type}")
 
         logger.info(f"✓ 任务 {self.task.id} 准备完成")
 

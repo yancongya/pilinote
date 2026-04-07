@@ -14,6 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timedelta
 from typing import Optional
 from pathlib import Path
+import asyncio
 import logging
 import shutil
 
@@ -33,6 +34,13 @@ class SchedulerService:
     def __init__(self):
         self.scheduler: Optional[BackgroundScheduler] = None
         self.auto_scan_job_id = 'auto_scan'
+        # 缓存当前配置，避免频繁重置
+        self._current_config = {
+            'enabled': False,
+            'trigger_type': None,
+            'scan_interval': None,
+            'cron_expression': None
+        }
     
     def start(self):
         """启动定时任务"""
@@ -252,6 +260,7 @@ class SchedulerService:
         更新自动扫描的定时任务配置
         
         从设置中读取自动下载配置，动态调整扫描任务
+        只有当配置真正改变时才重新设置任务，避免频繁重置
         """
         try:
             from src.services.settings_service import SettingsService
@@ -260,6 +269,29 @@ class SchedulerService:
                 settings_service = SettingsService(db)
                 settings = settings_service.get_settings()
                 auto_download = getattr(settings, 'auto_download', None)
+                
+                # 构建当前配置
+                new_config = {
+                    'enabled': False,
+                    'trigger_type': None,
+                    'scan_interval': None,
+                    'cron_expression': None
+                }
+                
+                if auto_download:
+                    new_config['enabled'] = auto_download.enabled
+                    new_config['trigger_type'] = auto_download.trigger_type
+                    new_config['scan_interval'] = auto_download.scan_interval
+                    new_config['cron_expression'] = auto_download.cron_expression
+                
+                # 检查配置是否改变
+                if new_config == self._current_config:
+                    logger.debug("[Scheduler] 自动扫描配置未改变，跳过更新")
+                    return
+                
+                # 配置改变了，更新任务
+                logger.info(f"[Scheduler] 自动扫描配置已改变: {self._current_config} -> {new_config}")
+                self._current_config = new_config
                 
                 if not auto_download:
                     logger.debug("[Scheduler] 未找到自动下载配置")
@@ -301,9 +333,9 @@ class SchedulerService:
             # 移除旧的定时任务
             self._remove_auto_scan_job()
             
-            # 添加新的定时任务
+            # 添加新的定时任务（包装为同步函数）
             self.scheduler.add_job(
-                self.perform_auto_scan,
+                lambda: asyncio.run(self.perform_auto_scan()),
                 trigger=IntervalTrigger(minutes=minutes),
                 id=self.auto_scan_job_id,
                 name='自动扫描任务',
@@ -330,9 +362,9 @@ class SchedulerService:
             # 移除旧的定时任务
             self._remove_auto_scan_job()
             
-            # 添加新的定时任务
+            # 添加新的定时任务（包装为同步函数）
             self.scheduler.add_job(
-                self.perform_auto_scan,
+                lambda: asyncio.run(self.perform_auto_scan()),
                 trigger=CronTrigger.from_crontab(cron_expression),
                 id=self.auto_scan_job_id,
                 name='自动扫描任务',

@@ -146,6 +146,32 @@ class QueueManager:
         print(f"[DEBUG] submit_backlog called with meta: {task_create.meta}")
         logger.info(f"Task meta: {task_create.meta}")
 
+        # 检查是否已经存在相同 media_id 的任务
+        db = SessionLocal()
+        try:
+            existing_task = db.query(Task).filter_by(media_id=task_create.media_id).first()
+            if existing_task:
+                logger.info(f"Task with media_id {task_create.media_id} already exists, skipping creation")
+                # 返回已存在的任务
+                return TaskResponse(
+                    id=existing_task.id,
+                    media_type=existing_task.media_type,
+                    media_id=existing_task.media_id,
+                    title=existing_task.title,
+                    cover=existing_task.cover,
+                    desc=existing_task.desc,
+                    meta=existing_task.meta,
+                    prepare=existing_task.prepare,
+                    status=existing_task.status,
+                    state=TaskState(existing_task.state),
+                    scheduler_id=existing_task.scheduler_id,
+                    subtasks=[],
+                    created_at=existing_task.created_at,
+                    updated_at=existing_task.updated_at
+                )
+        finally:
+            db.close()
+
         # 1. Create task
         task = Task(
             media_type=task_create.media_type,
