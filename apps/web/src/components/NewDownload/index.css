@@ -273,16 +273,25 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.15s ease;
 }
 
 .video-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .video-card:hover:not([data-selected]) {
   background: #fafafa;
+}
+
+.video-card[data-selected="true"] {
+  background: #f0f9ff;
+  border-left-width: 4px;
+}
+
+.video-card[data-selected="true"]:hover {
+  background: #e8f4fc;
 }
 
 .video-card-cover {
@@ -354,7 +363,12 @@
 
 .video-progress-bar {
   height: 100%;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.2s ease-out;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  transition: width 0.2s ease-out;
 }
 
 .video-card-info {
@@ -387,9 +401,12 @@
   flex-wrap: wrap;
 }
 
-.video-card-progress-text {
-  font-size: 12px;
+.video-card-status-badge {
+  font-size: 11px;
   font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
 }
 
 .video-card-file-size {
@@ -412,6 +429,43 @@
 
 .video-download-progress {
   padding: 8px 0;
+}
+
+.download-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.detail-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stage-label {
+  font-weight: 500;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.size-label {
+  color: #64748b;
+}
+
+.progress-label {
+  font-weight: 600;
+  color: #10b981;
+  min-width: 48px;
+}
+
+.speed-label {
+  color: #3b82f6;
 }
 
 .progress-text {
@@ -442,14 +496,15 @@
   cursor: pointer;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 4px;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  touch-action: manipulation;
 }
 
 .action-icon-btn:hover {
@@ -457,8 +512,13 @@
 }
 
 .action-icon-btn:active {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.08);
   transform: scale(0.95);
+}
+
+.action-icon-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .start-icon-btn {
@@ -2206,21 +2266,22 @@
 
 
   /* TaskCard移动端优化 */
-
-
-
   .video-card {
-
-
-
     padding: 12px;
-
-
-
     gap: 10px;
+  }
 
+  .download-details {
+    gap: 8px;
+    font-size: 11px;
+  }
 
+  .detail-item {
+    white-space: nowrap;
+  }
 
+  .progress-bar-container {
+    height: 2px;
   }
 
 

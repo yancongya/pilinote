@@ -54,10 +54,10 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
     }
   }
 
-  const statusConfig: Record<string, { label: string; color: string }> = {
+  const statusConfig: Record<string, { label: string; color: string; icon?: string }> = {
     'backlog': { label: '待处理', color: '#f59e0b' },
     'pending': { label: '已规划', color: '#3b82f6' },
-    'active': { label: '下载中', color: '#10b981' },
+    'active': { label: '进行中', color: '#10b981' },
     'paused': { label: '已暂停', color: '#f97316' },
     'failed': { label: '失败', color: '#ef4444' },
     'cancelled': { label: '已取消', color: '#6b7280' },
@@ -204,19 +204,22 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
         {task.state === 'active' && (progress > 0 || task.status.stage) && (
           <div className="video-download-progress">
             <div className="download-details">
-              <span className="detail-item">
-                {task.status.stage ? `${getStageText(task.status.stage)}` : '下载中'}
-              </span>
+              {/* 只显示当前阶段，不重复显示"下载中" */}
+              {task.status.stage && (
+                <span className="detail-item stage-label">
+                  {getStageText(task.status.stage)}
+                </span>
+              )}
               {task.status.downloaded > 0 && task.status.total > 0 && (
-                <span className="detail-item">
+                <span className="detail-item size-label">
                   {formatFileSize(task.status.downloaded)} / {formatFileSize(task.status.total)}
                 </span>
               )}
-              <span className="detail-item">
+              <span className="detail-item progress-label">
                 {progress.toFixed(1)}%
               </span>
               {task.status.speed > 0 && (
-                <span className="detail-item">
+                <span className="detail-item speed-label">
                   {formatSpeed(task.status.speed)}
                 </span>
               )}
@@ -235,17 +238,20 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
 
         {/* 元数据区域 */}
         <div className="video-card-meta">
-          {/* 状态标签（仅在非完成状态时显示） */}
-          {task.state !== 'completed' && (
+          {/* 状态标签（仅在非活跃状态时显示，避免重复） */}
+          {task.state !== 'completed' && task.state !== 'active' && (
             <span
-              className="video-card-progress-text"
-              style={{ color: status.color }}
+              className="video-card-status-badge"
+              style={{ 
+                color: status.color,
+                backgroundColor: `${status.color}15`
+              }}
             >
               {status.label}
             </span>
           )}
 
-          {/* 文件大小（仅在非下载状态或下载完成时显示） */}
+          {/* 文件大小（仅在非活跃状态或下载完成时显示） */}
           {fileSizeInfo && task.state !== 'active' && (
             <span className="video-card-file-size">
               {fileSizeInfo.total && (
@@ -260,10 +266,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
             </span>
           )}
 
-          {/* 分隔符 */}
-          <span className="video-card-divider">·</span>
-
-          {/* 操作按钮 */}
+          {/* 操作按钮区域 */}
           <div className="video-card-actions-inline">
             {task.state === 'backlog' && (
               <>
