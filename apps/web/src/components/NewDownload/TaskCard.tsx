@@ -200,54 +200,56 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
       <div className="video-card-info">
         <h3>{task.title}</h3>
 
-        {/* 下载进度显示（仅在下载中时显示） */}
-        {task.state === 'active' && (progress > 0 || task.status.stage) && (
-          <div className="video-download-progress">
-            <div className="download-details">
-              {/* 只显示当前阶段，不重复显示"下载中" */}
-              {task.status.stage && (
-                <span className="detail-item stage-label">
-                  {getStageText(task.status.stage)}
+        {/* 下载进度显示 - 始终存在以保持高度一致，非下载状态时隐藏内容 */}
+        <div className={`video-download-progress ${task.state === 'active' ? 'active' : ''}`}>
+          {task.state === 'active' && (progress > 0 || task.status.stage) && (
+            <>
+              <div className="download-details">
+                {/* 只显示当前阶段，不重复显示"下载中" */}
+                {task.status.stage && (
+                  <span className="detail-item stage-label">
+                    {getStageText(task.status.stage)}
+                  </span>
+                )}
+                {task.status.downloaded > 0 && task.status.total > 0 && (
+                  <span className="detail-item size-label">
+                    {formatFileSize(task.status.downloaded)} / {formatFileSize(task.status.total)}
+                  </span>
+                )}
+                <span className="detail-item progress-label">
+                  {progress.toFixed(1)}%
                 </span>
-              )}
-              {task.status.downloaded > 0 && task.status.total > 0 && (
-                <span className="detail-item size-label">
-                  {formatFileSize(task.status.downloaded)} / {formatFileSize(task.status.total)}
-                </span>
-              )}
-              <span className="detail-item progress-label">
-                {progress.toFixed(1)}%
-              </span>
-              {task.status.speed > 0 && (
-                <span className="detail-item speed-label">
-                  {formatSpeed(task.status.speed)}
-                </span>
-              )}
-            </div>
-            <div className="progress-bar-with-action">
-              <div className="progress-bar-container">
-                <div
-                  className="progress-bar-fill"
-                  style={{
-                    width: `${progress}%`,
-                    backgroundColor: status.color
-                  }}
-                />
+                {task.status.speed > 0 && (
+                  <span className="detail-item speed-label">
+                    {formatSpeed(task.status.speed)}
+                  </span>
+                )}
               </div>
-              {/* 活跃状态下的操作按钮（和进度条同一行） */}
-              <div className="video-card-actions-inline progress-actions">
-                <button
-                  className="action-icon-btn pause-icon-btn"
-                  onClick={() => handleControl('paused')}
-                  title="暂停"
-                  aria-label="暂停下载"
-                >
-                  <Pause size={14} />
-                </button>
+              <div className="progress-bar-with-action">
+                <div className="progress-bar-container">
+                  <div
+                    className="progress-bar-fill"
+                    style={{
+                      width: `${progress}%`,
+                      backgroundColor: status.color
+                    }}
+                  />
+                </div>
+                {/* 活跃状态下的操作按钮（和进度条同一行） */}
+                <div className="video-card-actions-inline progress-actions">
+                  <button
+                    className="action-icon-btn pause-icon-btn"
+                    onClick={() => handleControl('paused')}
+                    title="暂停"
+                    aria-label="暂停下载"
+                  >
+                    <Pause size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
         {/* 元数据区域 */}
         <div className="video-card-meta">
@@ -300,6 +302,17 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
                   <Trash2 size={14} />
                 </button>
               </>
+            )}
+
+            {task.state === 'active' && (
+              <button
+                className="action-icon-btn delete-icon-btn"
+                onClick={() => handleControl('cancelled')}
+                title="删除"
+                aria-label="删除"
+              >
+                <Trash2 size={14} />
+              </button>
             )}
 
             {task.state === 'paused' && (

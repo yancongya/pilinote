@@ -427,7 +427,20 @@
 }
 
 .video-download-progress {
+  /* 默认状态（非下载）：不占用空间，但保持DOM结构一致 */
+  height: 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.2s ease-out;
+}
+
+.video-download-progress.active {
+  /* 活跃状态（下载中）：正常显示 */
+  height: auto;
   padding: 4px 0;
+  opacity: 1;
 }
 
 .download-details {
