@@ -377,7 +377,6 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  justify-content: space-between;
 }
 
 .video-card-info h3 {
@@ -428,7 +427,7 @@
 }
 
 .video-download-progress {
-  padding: 8px 0;
+  padding: 4px 0;
 }
 
 .download-details {
@@ -444,7 +443,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .progress-bar-container {
