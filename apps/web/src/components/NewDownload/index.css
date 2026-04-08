@@ -433,13 +433,13 @@
   margin: 0;
   opacity: 0;
   overflow: hidden;
-  transition: all 0.2s ease-out;
+  transition: all 0.15s ease-out;
 }
 
 .video-download-progress.active {
   /* 活跃状态（下载中）：正常显示 */
   height: auto;
-  padding: 4px 0;
+  padding: 0;
   opacity: 1;
 }
 
@@ -447,7 +447,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   font-size: 12px;
   color: #64748b;
 }
@@ -456,7 +456,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .progress-bar-container {
