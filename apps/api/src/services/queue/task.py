@@ -414,6 +414,7 @@ class TaskService:
             
             # 标记任务为失败
             self.task.state = TaskState.FAILED
+            self.task.status['stage'] = 'failed'
             self.task.status['error'] = str(e)
             self.task.updated_at = int(datetime.now().timestamp())
             

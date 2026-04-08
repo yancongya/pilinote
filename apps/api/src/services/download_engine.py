@@ -198,13 +198,13 @@ class DownloadEngine:
         if self._check_aria2c_available():
             ydl_opts['external_downloader'] = self.aria2c_path
             ydl_opts['external_downloader_args'] = [
-                '-x', '8',                    # 8个连接（适中配置）
+                '-x', '4',                    # 4个连接（降低被检测风险）
                 '-k', '1M',                    # 每个连接分块1MB
                 '--max-tries=5',             # 最多重试5次
                 '--retry-wait=10',           # 重试等待10秒
                 '--timeout=60',              # 60秒超时
-                '--max-connection-per-server=8',  # 每服务器最大连接数
-                '--split=8',                 # 分成8块下载
+                '--max-connection-per-server=4',  # 每服务器最大连接数
+                '--split=4',                 # 分成4块下载
                 '--min-split-size=1M',       # 最小分片1MB
                 '--continue=true',           # 启用断点续传
                 '--check-certificate=false', # 跳过证书验证
@@ -213,7 +213,7 @@ class DownloadEngine:
                 '--summary-interval=0',      # 减少输出
             ]
             logger.info(f"Using Aria2c downloader: {self.aria2c_path}")
-            logger.info(f"Aria2c configuration: 8 connections, 1MB chunks")
+            logger.info(f"Aria2c configuration: 4 connections, 1MB chunks (optimized for stability)")
         else:
             logger.info("Using yt-dlp built-in downloader")
         
@@ -279,12 +279,43 @@ class DownloadEngine:
         try:
             # 执行下载
             logger.info(f"Starting download: {bvid}")
+            use_aria2c = self._check_aria2c_available()
             
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # 在单独的线程中运行下载以避免阻塞
-                await asyncio.to_thread(ydl.download, [f'https://www.bilibili.com/video/{bvid}'])
-            
-            logger.info(f"Download completed: {bvid}")
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    # 在单独的线程中运行下载以避免阻塞
+                    await asyncio.to_thread(ydl.download, [f'https://www.bilibili.com/video/{bvid}'])
+                
+                logger.info(f"Download completed: {bvid}")
+                
+            except Exception as download_error:
+                # 检查是否是aria2c错误
+                error_str = str(download_error)
+                if use_aria2c and ('aria2c' in error_str.lower() or 'exited with code' in error_str):
+                    logger.warning(f"⚠️ Aria2c download failed for {bvid}")
+                    logger.warning(f"Error details: {error_str}")
+                    logger.warning(f"Possible causes: Network interruption, B站反爬机制, or connection timeout")
+                    logger.info(f"🔄 Falling back to yt-dlp built-in downloader (slower but more stable)")
+                    
+                    # 移除aria2c配置，使用内置下载器重试
+                    ydl_opts.pop('external_downloader', None)
+                    ydl_opts.pop('external_downloader_args', None)
+                    
+                    try:
+                        logger.info(f"Retrying with built-in downloader: {bvid}")
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            await asyncio.to_thread(ydl.download, [f'https://www.bilibili.com/video/{bvid}'])
+                        
+                        logger.info(f"✅ Download completed successfully with built-in downloader: {bvid}")
+                    except Exception as fallback_error:
+                        logger.error(f"❌ Built-in downloader also failed: {fallback_error}")
+                        logger.error(f"Both aria2c and built-in downloader failed for {bvid}")
+                        # 抛出组合错误信息
+                        raise Exception(f"Download failed with both aria2c and built-in downloader. Aria2c error: {error_str}, Built-in error: {fallback_error}")
+                else:
+                    # 非aria2c错误，直接抛出
+                    logger.error(f"❌ Download failed (non-aria2c): {error_str}")
+                    raise
             
         except asyncio.CancelledError:
             logger.info(f"Download cancelled: {bvid}")
