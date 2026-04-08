@@ -375,7 +375,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -393,7 +393,7 @@
 
 /* 信息行容器 - 固定高度，确保布局一致 */
 .video-card-info-row {
-  min-height: 20px;
+  min-height: 16px;
   position: relative;
 }
 
