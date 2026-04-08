@@ -391,19 +391,50 @@
   margin: 0;
 }
 
-.video-card-dynamic-info {
-  /* 动态信息区域 - 确保高度一致 */
-  min-height: 36px;
+/* 信息行容器 - 固定高度，确保布局一致 */
+.video-card-info-row {
+  min-height: 20px;
+  position: relative;
+}
+
+/* 信息行 - 默认隐藏，visible时显示 */
+.info-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-out;
+}
+
+.info-row.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.download-info-row {
   display: flex;
   align-items: center;
 }
 
-.video-download-progress {
-  /* 下载进度 - 使用flex布局，占据全部空间 */
-  width: 100%;
+.meta-info-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+}
+
+.actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .download-details {
@@ -419,6 +450,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
 }
 
 .progress-bar-container {
@@ -440,12 +472,6 @@
   gap: 4px;
 }
 
-.detail-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .video-card-meta {
   display: flex;
   align-items: center;
@@ -453,7 +479,6 @@
   font-size: 12px;
   color: #999;
   flex-wrap: wrap;
-  width: 100%;
 }
 
 .video-card-status-badge {
