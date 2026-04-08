@@ -440,6 +440,26 @@
   color: #64748b;
 }
 
+.progress-bar-with-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.progress-bar-container {
+  flex: 1;
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.progress-actions {
+  flex-shrink: 0;
+}
+
 .detail-item {
   display: inline-flex;
   align-items: center;
@@ -473,16 +493,9 @@
   margin-bottom: 6px;
 }
 
-.progress-bar-container {
-  height: 3px;
-  background: #e5e7eb;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
 .progress-bar-fill {
   height: 100%;
-  transition: width 0.3s ease;
+  transition: width 0.2s ease-out;
 }
 
 .video-card-actions-inline {

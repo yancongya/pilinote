@@ -224,14 +224,27 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
                 </span>
               )}
             </div>
-            <div className="progress-bar-container">
-              <div
-                className="progress-bar-fill"
-                style={{
-                  width: `${progress}%`,
-                  backgroundColor: status.color
-                }}
-              />
+            <div className="progress-bar-with-action">
+              <div className="progress-bar-container">
+                <div
+                  className="progress-bar-fill"
+                  style={{
+                    width: `${progress}%`,
+                    backgroundColor: status.color
+                  }}
+                />
+              </div>
+              {/* 活跃状态下的操作按钮（和进度条同一行） */}
+              <div className="video-card-actions-inline progress-actions">
+                <button
+                  className="action-icon-btn pause-icon-btn"
+                  onClick={() => handleControl('paused')}
+                  title="暂停"
+                  aria-label="暂停下载"
+                >
+                  <Pause size={14} />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -287,17 +300,6 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
                   <Trash2 size={14} />
                 </button>
               </>
-            )}
-
-            {task.state === 'active' && (
-              <button
-                className="action-icon-btn pause-icon-btn"
-                onClick={() => handleControl('paused')}
-                title="暂停"
-                aria-label="暂停下载"
-              >
-                <Pause size={14} />
-              </button>
             )}
 
             {task.state === 'paused' && (
