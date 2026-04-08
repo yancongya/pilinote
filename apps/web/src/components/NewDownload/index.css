@@ -391,6 +391,61 @@
   margin: 0;
 }
 
+.video-card-dynamic-info {
+  /* 动态信息区域 - 确保高度一致 */
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.video-download-progress {
+  /* 下载进度 - 使用flex布局，占据全部空间 */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.download-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.progress-bar-with-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar-container {
+  flex: 1;
+  height: 3px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.progress-actions {
+  flex-shrink: 0;
+}
+
+.detail-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .video-card-meta {
   display: flex;
   align-items: center;
@@ -398,6 +453,7 @@
   font-size: 12px;
   color: #999;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .video-card-status-badge {
@@ -424,58 +480,6 @@
 .video-card-divider {
   color: #e2e8f0;
   margin: 0 4px;
-}
-
-.video-download-progress {
-  /* 默认状态（非下载）：不占用空间，但保持DOM结构一致 */
-  height: 0;
-  padding: 0;
-  margin: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: all 0.15s ease-out;
-}
-
-.video-download-progress.active {
-  /* 活跃状态（下载中）：正常显示 */
-  height: auto;
-  padding: 0;
-  opacity: 1;
-}
-
-.download-details {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: nowrap;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.progress-bar-with-action {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 0;
-}
-
-.progress-bar-container {
-  flex: 1;
-  height: 3px;
-  background: #e5e7eb;
-  border-radius: 2px;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.progress-actions {
-  flex-shrink: 0;
-}
-
-.detail-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .stage-label {

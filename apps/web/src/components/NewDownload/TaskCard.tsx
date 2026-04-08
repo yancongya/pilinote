@@ -200,10 +200,11 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
       <div className="video-card-info">
         <h3>{task.title}</h3>
 
-        {/* 下载进度显示 - 始终存在以保持高度一致，非下载状态时隐藏内容 */}
-        <div className={`video-download-progress ${task.state === 'active' ? 'active' : ''}`}>
+        {/* 动态信息区域 - 根据状态显示不同内容 */}
+        <div className="video-card-dynamic-info">
+          {/* 下载进度显示 - 使用绝对定位 */}
           {task.state === 'active' && (progress > 0 || task.status.stage) && (
-            <>
+            <div className="video-download-progress">
               <div className="download-details">
                 {/* 只显示当前阶段，不重复显示"下载中" */}
                 {task.status.stage && (
@@ -247,137 +248,128 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
                   </button>
                 </div>
               </div>
-            </>
-          )}
-        </div>
-
-        {/* 元数据区域 */}
-        <div className="video-card-meta">
-          {/* 状态标签（仅在非活跃状态时显示，避免重复） */}
-          {task.state !== 'completed' && task.state !== 'active' && (
-            <span
-              className="video-card-status-badge"
-              style={{ 
-                color: status.color,
-                backgroundColor: `${status.color}15`
-              }}
-            >
-              {status.label}
-            </span>
+            </div>
           )}
 
-          {/* 文件大小（仅在非活跃状态或下载完成时显示） */}
-          {fileSizeInfo && task.state !== 'active' && (
-            <span className="video-card-file-size">
-              {fileSizeInfo.total && (
-                <>
-                  {fileSizeInfo.total}
-                  {fileSizeInfo.video && fileSizeInfo.metadata && ' | '}
-                  {fileSizeInfo.video && `视频: ${fileSizeInfo.video}`}
-                  {fileSizeInfo.metadata && ` | 元数据: ${fileSizeInfo.metadata}`}
-                </>
+          {/* 元数据区域 - 非下载状态显示 */}
+          {task.state !== 'active' && (
+            <div className="video-card-meta">
+              {/* 状态标签 */}
+              {task.state !== 'completed' && (
+                <span
+                  className="video-card-status-badge"
+                  style={{ 
+                    color: status.color,
+                    backgroundColor: `${status.color}15`
+                  }}
+                >
+                  {status.label}
+                </span>
               )}
-              {!fileSizeInfo.total && fileSizeInfo.video && `视频: ${fileSizeInfo.video}`}
-            </span>
+
+              {/* 文件大小 */}
+              {fileSizeInfo && (
+                <span className="video-card-file-size">
+                  {fileSizeInfo.total && (
+                    <>
+                      {fileSizeInfo.total}
+                      {fileSizeInfo.video && fileSizeInfo.metadata && ' | '}
+                      {fileSizeInfo.video && `视频: ${fileSizeInfo.video}`}
+                      {fileSizeInfo.metadata && ` | 元数据: ${fileSizeInfo.metadata}`}
+                    </>
+                  )}
+                  {!fileSizeInfo.total && fileSizeInfo.video && `视频: ${fileSizeInfo.video}`}
+                </span>
+              )}
+
+              {/* 操作按钮区域 */}
+              <div className="video-card-actions-inline">
+                {task.state === 'backlog' && (
+                  <>
+                    <button
+                      className="action-icon-btn start-icon-btn"
+                      onClick={() => handleControl('active')}
+                      title="开始下载"
+                      aria-label="开始下载"
+                    >
+                      <Play size={14} fill="currentColor" />
+                    </button>
+                    <button
+                      className="action-icon-btn delete-icon-btn"
+                      onClick={() => handleControl('cancelled')}
+                      title="删除"
+                      aria-label="删除"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
+
+                {task.state === 'paused' && (
+                  <>
+                    <button
+                      className="action-icon-btn start-icon-btn"
+                      onClick={() => handleControl('active')}
+                      title="继续"
+                      aria-label="继续下载"
+                    >
+                      <Play size={14} fill="currentColor" />
+                    </button>
+                    <button
+                      className="action-icon-btn delete-icon-btn"
+                      onClick={() => handleControl('cancelled')}
+                      title="删除"
+                      aria-label="删除"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
+
+                {task.state === 'failed' && (
+                  <>
+                    <button
+                      className="action-icon-btn start-icon-btn"
+                      onClick={() => handleControl('backlog')}
+                      title="重试"
+                      aria-label="重试下载"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <button
+                      className="action-icon-btn delete-icon-btn"
+                      onClick={() => handleControl('cancelled')}
+                      title="删除"
+                      aria-label="删除"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
+
+                {task.state === 'completed' && (
+                  <>
+                    <button
+                      className="action-icon-btn start-icon-btn"
+                      onClick={() => handleControl('backlog')}
+                      title="重新下载"
+                      aria-label="重新下载"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                    <button
+                      className="action-icon-btn delete-icon-btn"
+                      onClick={() => handleControl('cancelled')}
+                      title="删除"
+                      aria-label="删除"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           )}
-
-          {/* 操作按钮区域 */}
-          <div className="video-card-actions-inline">
-            {task.state === 'backlog' && (
-              <>
-                <button
-                  className="action-icon-btn start-icon-btn"
-                  onClick={() => handleControl('active')}
-                  title="开始下载"
-                  aria-label="开始下载"
-                >
-                  <Play size={14} fill="currentColor" />
-                </button>
-                <button
-                  className="action-icon-btn delete-icon-btn"
-                  onClick={() => handleControl('cancelled')}
-                  title="删除"
-                  aria-label="删除"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </>
-            )}
-
-            {task.state === 'active' && (
-              <button
-                className="action-icon-btn delete-icon-btn"
-                onClick={() => handleControl('cancelled')}
-                title="删除"
-                aria-label="删除"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
-
-            {task.state === 'paused' && (
-              <>
-                <button
-                  className="action-icon-btn start-icon-btn"
-                  onClick={() => handleControl('active')}
-                  title="继续"
-                  aria-label="继续下载"
-                >
-                  <Play size={14} fill="currentColor" />
-                </button>
-                <button
-                  className="action-icon-btn delete-icon-btn"
-                  onClick={() => handleControl('cancelled')}
-                  title="删除"
-                  aria-label="删除"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </>
-            )}
-
-            {task.state === 'failed' && (
-              <>
-                <button
-                  className="action-icon-btn start-icon-btn"
-                  onClick={() => handleControl('backlog')}
-                  title="重试"
-                  aria-label="重试下载"
-                >
-                  <RefreshCw size={14} />
-                </button>
-                <button
-                  className="action-icon-btn delete-icon-btn"
-                  onClick={() => handleControl('cancelled')}
-                  title="删除"
-                  aria-label="删除"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </>
-            )}
-
-            {task.state === 'completed' && (
-              <>
-                <button
-                  className="action-icon-btn start-icon-btn"
-                  onClick={() => handleControl('backlog')}
-                  title="重新下载"
-                  aria-label="重新下载"
-                >
-                  <RefreshCw size={14} />
-                </button>
-                <button
-                  className="action-icon-btn delete-icon-btn"
-                  onClick={() => handleControl('cancelled')}
-                  title="删除"
-                  aria-label="删除"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </>
-            )}
-          </div>
         </div>
       </div>
     </article>
