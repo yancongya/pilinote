@@ -3,11 +3,13 @@ Scan service for auto-download scanning functionality
 """
 import uuid
 import logging
+import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 
 from src.models.setting import Setting
+from src.database import SessionLocal
 from src.models.user import User
 from src.schemas.auto_download import (
     ScanRecord,
@@ -27,6 +29,111 @@ class ScanService:
     
     def __init__(self, db: Session):
         self.db = db
+    
+    def _get_library_size_gb(self) -> float:
+        """
+        计算视频库的大小（GB）
+        
+        Returns:
+            视频库大小（GB）
+        """
+        try:
+            # 获取下载路径设置
+            setting = self.db.query(Setting).filter(Setting.key == "storage.download_path").first()
+            if not setting:
+                logger.warning("未找到下载路径设置，使用默认路径")
+                download_path = "./downloads"
+            else:
+                download_path = setting.value
+            
+            # 解析路径（处理相对路径）
+            if not os.path.isabs(download_path):
+                download_path = os.path.abspath(download_path)
+            
+            logger.info(f"计算视频库大小: {download_path}")
+            
+            # 如果目录不存在，返回0
+            if not os.path.exists(download_path):
+                logger.warning(f"下载路径不存在: {download_path}")
+                return 0.0
+            
+            # 计算目录大小
+            total_size = 0
+            for root, dirs, files in os.walk(download_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        total_size += os.path.getsize(file_path)
+                    except (OSError, FileNotFoundError) as e:
+                        logger.warning(f"无法计算文件大小: {file_path} - {e}")
+                        continue
+            
+            # 转换为GB
+            size_gb = total_size / (1024 * 1024 * 1024)
+            logger.info(f"视频库大小: {size_gb:.2f} GB")
+            return size_gb
+            
+        except Exception as e:
+            logger.error(f"计算视频库大小失败: {e}")
+            return 0.0
+    
+    def _check_storage_threshold(self) -> tuple[bool, float]:
+        """
+        检查存储空间是否超过阈值
+        
+        Returns:
+            (是否超过阈值, 当前库大小GB)
+        """
+        try:
+            # 获取存储阈值设置
+            setting = self.db.query(Setting).filter(Setting.key == "auto_download.storage_threshold_gb").first()
+            if not setting:
+                logger.warning("未找到存储阈值设置，使用默认值20GB")
+                threshold_gb = 20
+            else:
+                threshold_gb = int(setting.value)
+            
+            # 计算当前库大小
+            current_size_gb = self._get_library_size_gb()
+            
+            # 检查是否超过阈值
+            exceeds_threshold = current_size_gb >= threshold_gb
+            
+            logger.info(f"存储检查: 当前 {current_size_gb:.2f}GB, 阈值 {threshold_gb}GB, 超过: {exceeds_threshold}")
+            
+            return exceeds_threshold, current_size_gb
+            
+        except Exception as e:
+            logger.error(f"检查存储阈值失败: {e}")
+            return False, 0.0
+    
+    def _should_auto_start_download(self) -> tuple[bool, str]:
+        """
+        检查是否应该自动开始下载
+        
+        Returns:
+            (是否应该自动开始, 原因描述)
+        """
+        try:
+            # 检查是否启用自动开始下载
+            setting = self.db.query(Setting).filter(Setting.key == "auto_download.auto_start_after_scan").first()
+            if not setting or setting.value.lower() != 'true':
+                logger.info("自动开始下载未启用")
+                return False, "自动开始下载未启用"
+            
+            # 检查存储空间
+            exceeds_threshold, current_size = self._check_storage_threshold()
+            if exceeds_threshold:
+                reason = f"存储空间超过阈值 ({current_size:.2f}GB >= 阈值)"
+                logger.info(reason)
+                return False, reason
+            
+            logger.info("满足自动开始下载条件")
+            return True, "满足条件"
+            
+        except Exception as e:
+            logger.error(f"检查自动开始下载失败: {e}")
+            return False, f"检查失败: {str(e)}"
     
     async def trigger_scan(
         self,
@@ -63,8 +170,64 @@ class ScanService:
             folder_new_videos = [v for v in new_videos if v.bvid in folder_bvids]
             folder_info.new_count = len(folder_new_videos)
         
-        # 将新视频添加到队列
-        added_count = await self.add_videos_to_queue(new_videos, source_type)
+        # 检查是否应该自动添加到下载队列
+        should_auto_add, auto_add_reason = self._should_auto_start_download()
+        added_count = 0
+        
+        if should_auto_add and new_videos:
+            # 自动添加到下载队列
+            added_count, task_ids = await self.add_videos_to_queue(new_videos, source_type)
+            logger.info(f"✓ 自动添加到队列: {added_count}/{new_count} 个视频已添加到队列")
+            
+            # 触发开始下载
+            if added_count > 0 and task_ids:
+                try:
+                    import asyncio
+                    from src.models.task import Task
+                    from src.routers.queue import _execute_single_task
+                    from src.routers.websocket import broadcast_task_updated
+                    
+                    # 更新任务状态为active
+                    db = SessionLocal()
+                    try:
+                        for task_id in task_ids:
+                            task = db.query(Task).filter_by(id=task_id).first()
+                            if task:
+                                task.state = 2  # TaskState.ACTIVE = 2
+                                task.updated_at = int(datetime.now().timestamp())
+                                logger.info(f"✓ 触发下载: {task.title} (ID: {task.id})")
+                                
+                                # 广播任务更新事件
+                                broadcast_task_updated(task_id, "2", False)
+                        
+                        db.commit()
+                        
+                        # 创建异步任务来执行下载
+                        async def execute_tasks():
+                            for task_id in task_ids:
+                                try:
+                                    await _execute_single_task(task_id)
+                                except Exception as e:
+                                    logger.error(f"执行任务失败: {task_id} - {e}")
+                        
+                        asyncio.create_task(execute_tasks())
+                        logger.info(f"✓ 已触发 {added_count} 个任务开始下载")
+                        
+                    finally:
+                        db.close()
+                        
+                except Exception as e:
+                    logger.error(f"✗ 触发下载失败: {e}")
+            
+        elif not should_auto_add:
+            # 不自动添加，但不影响扫描记录
+            logger.info(f"✗ 不自动添加到队列: {auto_add_reason}")
+            # 新视频数量为0（因为不会添加到队列）
+            added_count = 0
+        else:
+            # 没有新视频
+            logger.info("✓ 扫描完成，没有新视频")
+            added_count = 0
         
         # 保存扫描记录
         await self._save_scan_record(
@@ -563,7 +726,7 @@ class ScanService:
             meta=meta
         )
     
-    async def add_videos_to_queue(self, videos: List[ScanVideoInfo], source_type: str) -> int:
+    async def add_videos_to_queue(self, videos: List[ScanVideoInfo], source_type: str) -> tuple[int, List[str]]:
         """
         将新视频添加到队列
         
@@ -572,10 +735,10 @@ class ScanService:
             source_type: 视频源类型
             
         Returns:
-            实际添加到队列的视频数量
+            (实际添加到队列的视频数量, 任务ID列表)
         """
         if not videos:
-            return 0
+            return 0, []
         
         logger.info(f"准备将 {len(videos)} 个新视频添加到队列")
         
@@ -583,6 +746,7 @@ class ScanService:
         from src.services.queue.manager import queue_manager
         
         added_count = 0
+        task_ids = []
         
         for video in videos:
             try:
@@ -590,13 +754,14 @@ class ScanService:
                 task_create = self._convert_video_to_task_create(video, source_type)
                 
                 # 提交到队列
-                await queue_manager.submit_backlog(task_create)
+                task = await queue_manager.submit_backlog(task_create)
+                task_ids.append(task.id)
                 added_count += 1
-                logger.info(f"✓ 视频已添加到队列: {video.title} (BV: {video.bvid})")
+                logger.info(f"✓ 视频已添加到队列: {video.title} (BV: {video.bvid}, Task ID: {task.id})")
                 
             except Exception as e:
                 logger.error(f"✗ 添加视频到队列失败: {video.title} - {e}")
                 continue
         
         logger.info(f"✓ 成功将 {added_count}/{len(videos)} 个视频添加到队列")
-        return added_count
+        return added_count, task_ids

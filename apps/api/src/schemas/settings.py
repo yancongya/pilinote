@@ -121,6 +121,8 @@ class AutoDownloadSettings(BaseModel):
     concurrent_limit: ConcurrentLimit = Field(default_factory=ConcurrentLimit)
     custom_scan: CustomScanConfig = Field(default_factory=CustomScanConfig)
     watch_later_max: int = Field(default=0, ge=0, le=999, description="稍后再看最大扫描数量，0表示不扫描")
+    auto_start_after_scan: bool = Field(default=False, description="扫描完成后是否自动开始下载")
+    storage_threshold_gb: int = Field(default=20, ge=1, le=1024, description="存储空间阈值（GB），超过此阈值时不触发自动下载")
 
 
 class Settings(BaseModel):

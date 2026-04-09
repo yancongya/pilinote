@@ -57,7 +57,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             enabled: false,
             folder_list: []
           },
-          watch_later_max: 0
+          watch_later_max: 0,
+          auto_start_after_scan: false,
+          storage_threshold_gb: 20
         }
 
         const mergedSettings = {
@@ -73,7 +75,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             enabled: localSettings.custom_scan?.enabled ?? currentAutoDownload.custom_scan?.enabled ?? false,
             folder_list: localSettings.custom_scan?.folder_list ?? currentAutoDownload.custom_scan?.folder_list ?? []
           },
-          watch_later_max: localSettings.watch_later_max ?? currentAutoDownload.watch_later_max ?? 0
+          watch_later_max: localSettings.watch_later_max ?? currentAutoDownload.watch_later_max ?? 0,
+          auto_start_after_scan: localSettings.auto_start_after_scan ?? currentAutoDownload.auto_start_after_scan ?? false,
+          storage_threshold_gb: localSettings.storage_threshold_gb ?? currentAutoDownload.storage_threshold_gb ?? 20
         }
 
         await updateSettings({
@@ -146,7 +150,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
       enabled: false,
       folder_list: []
     },
-    watch_later_max: 0
+    watch_later_max: 0,
+    auto_start_after_scan: false,
+    storage_threshold_gb: 20
   }
 
   // 自定义扫描配置
@@ -538,6 +544,76 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         </div>
       </div>
 
+      {/* 自动开始下载和存储阈值设置 */}
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">下载触发控制</span>
+          <span className="stg-group-subtitle">控制扫描后是否自动开始下载及存储空间限制</span>
+        </div>
+        
+        <div className="stg-list">
+          {/* 自动开始下载开关 */}
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Zap size={18} className="stg-item-icon" />
+              <span className="stg-item-label">扫描后自动开始下载</span>
+              <span className="stg-hint-inline">开启后，扫描完成会自动开始下载新视频</span>
+            </div>
+            <label className="stg-toggle">
+              <input
+                type="checkbox"
+                className="stg-toggle-input"
+                checked={getCurrentValue('auto_start_after_scan') ?? currentSettings.auto_start_after_scan}
+                onChange={(e) => handleLocalUpdate('auto_start_after_scan', e.target.checked)}
+              />
+            </label>
+          </div>
+
+          {/* 存储空间阈值设置 */}
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Hash size={18} className="stg-item-icon" />
+              <span className="stg-item-label">存储空间阈值 (GB)</span>
+              <span className="stg-hint-inline">超过此值时不触发自动下载，避免空间不足</span>
+            </div>
+            <select
+              className="stg-select"
+              value={getCurrentValue('storage_threshold_gb') ?? currentSettings.storage_threshold_gb}
+              onChange={(e) => handleLocalUpdate('storage_threshold_gb', parseInt(e.target.value))}
+            >
+              <option value={5}>5 GB</option>
+              <option value={10}>10 GB</option>
+              <option value={20}>20 GB</option>
+              <option value={30}>30 GB</option>
+              <option value={50}>50 GB</option>
+              <option value={100}>100 GB</option>
+              <option value={200}>200 GB</option>
+              <option value={500}>500 GB</option>
+              <option value={1024}>1 TB</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 说明信息 */}
+        <div style={{ 
+          padding: '12px',
+          backgroundColor: '#eff6ff',
+          borderRadius: '8px',
+          marginTop: '12px',
+          fontSize: '12px',
+          color: '#1e40af',
+          border: '1px solid #bfdbfe'
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px' }}>💡 工作流程说明：</div>
+          <div style={{ lineHeight: '1.6' }}>
+            1. 当"扫描后自动开始下载"开启时，扫描完成后会自动触发下载<br/>
+            2. 触发下载前会检查当前视频库占用空间<br/>
+            3. 如果占用空间超过设定的阈值，则不会触发下载，避免磁盘空间不足<br/>
+            4. 即使自动下载被禁用，你也可以手动选择扫描结果进行下载
+          </div>
+        </div>
+      </div>
+
       {/* 重置按钮 */}
       <div className="stg-actions">
         <button 
@@ -568,7 +644,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
               enabled: false,
               folder_list: []
             },
-            watch_later_max: 0
+            watch_later_max: 0,
+            auto_start_after_scan: false,
+            storage_threshold_gb: 20
           })
           setShowResetConfirm(false)
           showToast('自动下载设置已重置', 'success')

@@ -207,7 +207,9 @@ class SettingsService:
             cron_expression=self._get_setting_value(all_settings, 'auto_download.cron_expression', ''),
             concurrent_limit=concurrent_limit_dict,
             custom_scan=custom_scan_dict,
-            watch_later_max=int(self._get_setting_value(all_settings, 'auto_download.watch_later_max', 0))
+            watch_later_max=int(self._get_setting_value(all_settings, 'auto_download.watch_later_max', 0)),
+            auto_start_after_scan=self._get_setting_value(all_settings, 'auto_download.auto_start_after_scan', False),
+            storage_threshold_gb=int(self._get_setting_value(all_settings, 'auto_download.storage_threshold_gb', 20))
         )
 
         return Settings(
@@ -424,6 +426,8 @@ class SettingsService:
                 'auto_download.concurrent_limit.video': '3',
                 'auto_download.concurrent_limit.page': '3',
                 'auto_download.watch_later_max': '0',
+                'auto_download.auto_start_after_scan': 'false',
+                'auto_download.storage_threshold_gb': '20',
             }
             
             # 合并所有默认设置

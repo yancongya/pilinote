@@ -79,7 +79,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
 
   // 计算文件大小信息（从元数据或状态中获取）
   const getFileSizeInfo = () => {
-    if (task.state === 'active' && task.status.total > 0) {
+    if (task.state === 'active' && task.status?.total > 0) {
       return {
         total: formatFileSize(task.status.total),
         video: formatFileSize(task.status.downloaded),
@@ -205,12 +205,12 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
           {/* 下载进度信息行 - 始终渲染，通过opacity控制显示 */}
           <div className={`info-row download-info-row ${task.state === 'active' ? 'visible' : 'hidden'}`}>
             <div className="download-details">
-              {task.status.stage && (
+              {task.status?.stage && (
                 <span className="detail-item stage-label">
                   {getStageText(task.status.stage)}
                 </span>
               )}
-              {task.status.downloaded > 0 && task.status.total > 0 && (
+              {task.status?.downloaded > 0 && task.status?.total > 0 && (
                 <span className="detail-item size-label">
                   {formatFileSize(task.status.downloaded)} / {formatFileSize(task.status.total)}
                 </span>
@@ -218,7 +218,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
               <span className="detail-item progress-label">
                 {progress.toFixed(1)}%
               </span>
-              {task.status.speed > 0 && (
+              {task.status?.speed > 0 && (
                 <span className="detail-item speed-label">
                   {formatSpeed(task.status.speed)}
                 </span>

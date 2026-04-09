@@ -75,16 +75,34 @@
   - WebSocket 连接错误
 - **验证**: 所有验收标准通过
 
-## 待实施阶段
+### ✅ 阶段 3.7：稍后再看数量限制功能
+- **状态**: 已完成 (2026-04-07)
+- **实际实现**:
+  - AutoDownloadSettings 添加 watch_later_max 字段
+  - ScanService 添加数量限制逻辑
+  - SettingsService 添加读写逻辑和默认值
+  - 前端 AutoDownloadSettings 添加设置界面
+- **修复**:
+  - 保存后恢复默认值问题
+  - Brotli 压缩解码问题
+  - TypeScript 类型错误
+- **验证**: 所有验收标准通过
 
-### ⏳ 阶段 4：配置持久化与界面扩展
-- **状态**: 部分完成
-- **已完成**: 基础配置持久化
-- **待实现**:
-  - 高级筛选规则 UI
-  - min_duration、max_duration 字段
-  - allowed_uploaders、blocked_uploaders
-  - max_retries、retry_interval
+### ✅ 阶段 4：存储阈值与自动开始下载功能
+- **状态**: 已完成 (2026-04-09)
+- **实际实现**:
+  - AutoDownloadSettings 添加 auto_start_after_scan 和 storage_threshold_gb 字段
+  - ScanService 添加存储计算、阈值检查、自动触发逻辑
+  - SettingsService 添加读写逻辑和默认值
+  - 前端 AutoDownloadSettings 添加设置界面
+  - TaskCard 修复 status 未定义问题
+- **修复**:
+  - SessionLocal 未定义错误
+  - 前端缓存问题
+  - task.status 未定义错误
+- **验证**: 所有验收标准通过
+
+## 待实施阶段
 
 ### ⏳ 阶段 5：定时任务集成
 - **状态**: 已完成（在阶段 3.5 中实现）

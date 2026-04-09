@@ -64,6 +64,8 @@ export interface Settings {
       folder_list: FolderScanConfig[]  // 收藏夹扫描列表
     }
     watch_later_max: number  // 稍后再看最大扫描数量，0表示不扫描
+    auto_start_after_scan: boolean  // 扫描完成后是否自动开始下载
+    storage_threshold_gb: number  // 存储空间阈值（GB），超过此阈值时不触发自动下载
   }
 }
 
@@ -120,6 +122,11 @@ export const useSettingsStore = create<SettingsState>()(
         
         // 合并设置，而不是直接替换
         const currentSettings = get().settings
+        if (!currentSettings) {
+          set({ settings: data, loading: false })
+          return
+        }
+        
         const mergedSettings = {
           ...currentSettings,
           ...data,
