@@ -657,6 +657,55 @@ async def cancel_task(task_id: str):
     )
 
 
+@router.post("/tasks/{task_id}/retry", response_model=ApiResponse)
+async def retry_task(task_id: str):
+    """Retry failed or cancelled task"""
+    task = await queue_manager.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # 只有失败或取消的任务才能重试
+    if task.state not in [TaskState.FAILED, TaskState.CANCELLED, TaskState.PAUSED, TaskState.COMPLETED]:
+        raise HTTPException(status_code=400, detail="只有失败、取消、暂停或已完成的任务才能重试")
+
+    # 重置任务状态
+    task.state = TaskState.BACKLOG
+    task.status = {
+        'stage': 'pending',
+        'progress': 0,
+        'total': 0,
+        'speed': 0,
+        'eta': 0
+    }
+    task.started_at = None
+    task.completed_at = None
+    task.updated_at = int(datetime.now().timestamp())
+
+    # 持久化到数据库
+    db = SessionLocal()
+    try:
+        db.merge(task)
+        db.commit()
+        logger.info(f"✓ 任务 {task_id} 状态已重置为 BACKLOG")
+    finally:
+        db.close()
+
+    # 重新添加到队列
+    from src.models.queue import QueueType
+    await queue_manager.queues[QueueType.BACKLOG].put(task_id)
+    await queue_manager._save_queue_to_db(QueueType.BACKLOG)
+    logger.info(f"✓ 任务 {task_id} 已重新添加到队列")
+
+    # 广播 WebSocket 事件
+    from src.routers.websocket import broadcast_task_updated
+    broadcast_task_updated(task_id, str(task.state), cancelled=False)
+
+    return ApiResponse(
+        success=True,
+        message="任务重试成功，已添加到队列"
+    )
+
+
 @router.get("/schedulers", response_model=ApiResponse)
 async def list_schedulers():
     """Get all schedulers"""
