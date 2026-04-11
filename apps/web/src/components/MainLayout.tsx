@@ -244,10 +244,10 @@ function LoginPrompt({ message }: { message: string }) {
 }
 
 function AuthGuardWrapper({ children }: { children: React.ReactNode }) {
-  const { user } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   
-  if (!user?.sessdata) {
+  if (!isAuthenticated) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
         <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
