@@ -69,6 +69,36 @@ GET /api/auth/status
 - `is_logged_in: true` → 已登录，显示用户信息
 - `is_logged_in: false` → 游客，调用 logout() 清除本地状态
 
+### 修复记录 (2026.04.12)
+
+**问题**：收藏夹和稍后再看页面显示"请先登录"，但实际已登录
+
+**原因**：
+- `MainLayout.tsx` 检查 `user?.sessdata` 判断登录状态
+- 后端 `/api/auth/status` 返回数据不包含 `sessdata` 字段
+- 导致 `user?.sessdata` 始终为 `undefined`
+
+**修复方案**：
+- 使用 `isAuthenticated` 代替 `user?.sessdata` 检查
+- 修改文件：
+  - `MainLayout.tsx`: 收藏夹/稍后再看检查条件
+  - `MainLayout.tsx`: AuthGuardWrapper 检查条件
+
+**代码变更**：
+```typescript
+// 修改前
+{user?.sessdata ? <FavoritesContent /> : <LoginPrompt />}
+
+// 修改后
+{isAuthenticated ? <FavoritesContent /> : <LoginPrompt />}
+```
+
+```typescript
+// AuthGuardWrapper
+// 修改前: if (!user?.sessdata)
+// 修改后: if (!isAuthenticated)
+```
+
 ---
 
 ## 多账号管理
