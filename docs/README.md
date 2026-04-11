@@ -1,32 +1,26 @@
 # PiliNote 文档中心
 
-## 目录
+## 文档索引
 
-### 快速入门
-- [快速开始](quickstart/getting-started.md) - 项目启动指南
-- [API 端点](quickstart/api-endpoints.md) - 后端接口文档
-
-### 架构设计
-- [架构概览](architecture/overview.md) - 系统架构设计
-- [项目结构](architecture/project-structure.md) - 目录结构说明
-- [系统设计](architecture/system-design.md) - 核心系统设计
+### 基础文档
+- [技术栈](base/tech-stack.md) - 技术选型
+- [参考项目](base/reference-projects.md) - 参考项目
 
 ### 功能模块
-- [认证功能](features/authentication/) - 登录与 Cookies 管理
-- [下载功能](features/download/) - 下载引擎与队列
-- [自动下载](features/auto-download/) - 定时扫描与自动下载
-- [视频源](features/video-sources/) - 收藏夹、稍后再看等
-- [备份功能](features/backup/) - FTP/WebDAV 备份
+- [认证功能](auth/) - 登录、Cookies、刷新、多账号
+- [视频源](video-sources/) - 收藏夹、稍后再看
+- [下载系统](download/) - 队列、任务、调度器
+- [设置管理](settings/) - 存储、备份
 
-### 开发指南
-- [技术栈](guides/tech-stack.md) - 技术选型
-- [部署指南](guides/deployment.md) - 部署配置
-- [参考项目](guides/reference-projects.md) - 参考项目
+### 数据层
+- [数据库设计](database/) - 数据模型、API Schema
+
+### 接口文档
+- [API 端点](api/) - 后端接口列表
 
 ### 开发笔记
-- [开发日志](notes/dev-log.md) - 开发记录
-- [规划中](notes/planning/) - 待实现功能
+- [开发日志](dev/dev-log.md) - 开发记录
 
 ---
 
-> 旧文档已备份至 `docs-backup/20260412/`
+> 旧文档备份至 `docs-backup/`
