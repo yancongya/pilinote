@@ -22,7 +22,13 @@
 ### API
 
 ```
-GET /api/watchlater?pn=1&ps=20
+GET /api/watchlater/list?pn=1&ps=20
+```
+
+或者使用 media API：
+
+```
+GET /api/media/watchlater
 ```
 
 **参数**：
@@ -33,16 +39,16 @@ GET /api/watchlater?pn=1&ps=20
 
 ```
 1. 前端调用 getWatchLaterList(pn, ps)
-2. 后端 /api/watchlater
-3. BilibiliService.get_watchlater_list()
+2. 后端 /api/watchlater/list
+3. BilibiliService.get_watch_later()
 4. MediaDataTransformer.transform_watchlater_list()
 5. 返回视频列表
 ```
 
 **关键文件**：
-- 前端: `apps/web/src/services/api.ts` - `getWatchLaterList()`
-- 前端: `apps/web/src/pages/components/WatchLaterContent.tsx`
-- 后端: `apps/api/src/routers/watchlater.py`
+- 前端: `apps/web/src/services/api.ts` - `getWatchLaterMedia()` (使用 `/api/media/watchlater`)
+- 后端: `apps/api/src/routers/watchlater.py` - `/api/watchlater/list`
+- 后端: `apps/api/src/routers/media.py` - `/api/media/watchlater`
 - 数据转换: `apps/api/src/services/media_data_transformer.py`
 
 ---
