@@ -133,43 +133,6 @@ POST /api/auth/accounts/refresh?account_id=1
 ```
 
 > 注意：路径参数在 auth.py 中实际是 query 参数：`async def refresh_account(account_id: int, ...)`
-POST /api/auth/accounts/switch
-Body: { "account_id": 1 }
-
-流程:
-1. 查找目标账号 (User)
-2. 更新 is_active 状态
-3. 清除当前 Cookie
-4. 加载目标账号 Cookie 到内存
-5. 刷新 HeadersManager
-6. 返回新账号信息
-```
-
-### 删除账号
-
-```
-DELETE /api/auth/accounts/{account_id}
-
-流程:
-1. 查找目标账号
-2. 如果是活跃账号，清除 Cookie
-3. 删除 User 记录
-4. 删除该账号的所有 Cookie 记录
-```
-
-### 刷新账号
-
-```
-POST /api/auth/accounts/{account_id}/refresh
-
-流程:
-1. 设置 SESSDATA 到 HeadersManager
-2. 调用 check_and_refresh_cookies() 刷新
-3. 访问 B站首页和 nav 接口获取完整 Cookie
-4. 更新 User 表 (bili_jct, dedeuserid 等)
-5. 保存到 Cookie 表
-6. 返回刷新结果
-```
 
 ---
 
