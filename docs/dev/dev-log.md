@@ -2,6 +2,13 @@
 
 ## 2026.04.12
 
+### 修复：登录状态验证问题
+
+- 修复 MainLayout 登录检查：使用 `isAuthenticated` 代替 `user?.sessdata`
+- 修复 AuthGuardWrapper 登录检查：使用 `isAuthenticated` 代替 `user?.sessdata`
+- 原因：后端 `/api/auth/status` 返回的 user 对象不包含 sessdata
+- 修复后收藏夹和稍后再看页面正常显示内容
+
 ### 文档完善
 
 - 重建文档系统，按功能模块组织文档结构
