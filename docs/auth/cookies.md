@@ -1,5 +1,23 @@
 # Cookies 管理
 
+---
+关联文档:
+  - login-flow.md       # 登录流程
+  - database/models.md  # User 模型
+  - wbi-sign.md        # WBI 签名
+  - ../video-sources/favorites.md   # 验证 Cookie 有效
+  - ../video-sources/watchlater.md # 验证 Cookie 有效
+涉及文件:
+  - apps/api/src/models/user.py
+  - apps/api/src/services/headers_manager.py
+  - apps/api/src/services/cookie_manager.py
+  - apps/api/src/services/account_refresh_service.py
+依赖服务:
+  - HeadersManager
+  - CookieManager
+  - AccountRefreshService
+---
+
 ## 存储结构
 
 ### 数据库表: users

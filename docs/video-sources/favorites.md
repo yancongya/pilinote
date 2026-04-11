@@ -1,5 +1,22 @@
 # 收藏夹
 
+---
+关联文档:
+  - ../auth/login-flow.md    # 需要登录验证
+  - ../auth/cookies.md      # Cookie 管理
+  - ../database/models.md   # User 模型
+  - ../api/endpoints.md    # API 端点
+涉及文件:
+  - apps/api/src/routers/favorites.py
+  - apps/api/src/services/bilibili.py
+  - apps/api/src/services/media_data_transformer.py
+  - apps/api/src/services/headers_manager.py
+依赖服务:
+  - BilibiliService
+  - HeadersManager
+  - MediaDataTransformer
+---
+
 ## 数据获取
 
 ### 1. 获取收藏夹列表

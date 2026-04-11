@@ -1,5 +1,21 @@
 # 登录流程
 
+---
+关联文档:
+  - cookies.md         # Cookie 管理
+  - database/models.md  # User 模型
+  - wbi-sign.md        # WBI 签名
+涉及文件:
+  - apps/api/src/routers/auth.py
+  - apps/api/src/services/bilibili.py
+  - apps/api/src/services/headers_manager.py
+  - apps/api/src/services/cookie_manager.py
+依赖服务:
+  - BilibiliService
+  - HeadersManager
+  - CookieManager
+---
+
 ## 支持的登录方式
 
 ### 1. 二维码登录
