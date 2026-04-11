@@ -4,6 +4,7 @@
 关联文档:
   - ../auth/login-flow.md    # 需要登录验证
   - ../auth/cookies.md      # Cookie 管理
+  - ../auth/multi-account.md  # 登录状态验证 isAuthenticated
   - ../database/models.md   # User 模型
   - ../api/endpoints.md    # API 端点
 涉及文件:
@@ -11,11 +12,27 @@
   - apps/api/src/services/bilibili.py
   - apps/api/src/services/media_data_transformer.py
   - apps/api/src/services/headers_manager.py
+  - apps/web/src/components/MainLayout.tsx  # isAuthenticated 登录检查
+  - apps/web/src/pages/components/FavoritesContent.tsx
 依赖服务:
   - BilibiliService
   - HeadersManager
   - MediaDataTransformer
 ---
+
+## 登录状态验证
+
+**前端检查**（已修复）：
+```typescript
+// apps/web/src/components/MainLayout.tsx
+{isAuthenticated ? (
+  <FavoritesContent />
+) : (
+  <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
+)}
+```
+
+之前使用 `user?.sessdata` 检查，现改为 `isAuthenticated`。
 
 ## 数据获取
 
