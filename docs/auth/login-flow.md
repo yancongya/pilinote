@@ -81,24 +81,32 @@
 |------|------|------|
 | POST | `/api/auth/init` | 初始化指纹系统 |
 | POST | `/api/auth/refresh/cookies` | 检查并刷新 Cookie |
+| GET | `/api/auth/captcha/params` | 获取极验验证码参数 |
+| POST | `/api/auth/captcha/validate` | 验证极验验证码 |
+| POST | `/api/auth/sms/send` | 发送手机验证码 |
 | GET | `/api/auth/qrcode` | 获取登录二维码 |
 | GET | `/api/auth/qrcode/status/{qrcode_key}` | 查询二维码状态 |
 | POST | `/api/auth/sessdata` | SESSDATA 登录 |
+| POST | `/api/auth/sms/login` | 手机验证码登录 |
+| POST | `/api/auth/password` | 密码登录 |
 | GET | `/api/auth/user-info` | 获取用户信息 |
+| GET | `/api/auth/proxy/avatar` | 代理获取头像 |
+| POST | `/api/auth/refresh-cookie` | 使用 refresh_token 刷新 Cookie |
 | POST | `/api/auth/logout` | 退出登录 |
+| GET | `/api/auth/status` | 获取登录状态 |
 
 ### 账号管理
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/auth/accounts` | 获取账号列表 |
-| GET | `/api/auth/status` | 获取登录状态 |
-| POST | `/api/auth/accounts/switch` | 切换账号 |
-| DELETE | `/api/auth/accounts/{id}` | 删除账号 |
-| POST | `/api/auth/accounts/refresh` | 刷新账号 |
-| GET | `/api/auth/accounts/refresh/status` | 获取刷新服务状态 |
-| POST | `/api/auth/accounts/refresh/start` | 启动刷新服务 |
-| POST | `/api/auth/accounts/refresh/stop` | 停止刷新服务 |
+| 方法 | 路径 | 参数 | 说明 |
+|------|------|------|------|
+| GET | `/api/auth/accounts` | - | 获取账号列表 |
+| POST | `/api/auth/accounts/switch` | `?account_id=1` | 切换账号 (query) |
+| DELETE | `/api/auth/accounts/{account_id}` | - | 删除账号 |
+| POST | `/api/auth/accounts/refresh` | `?account_id=1` | 刷新账号 (query) |
+| GET | `/api/auth/accounts/{account_id}/credentials` | - | 获取验证数据 |
+| GET | `/api/auth/accounts/refresh/status` | - | 获取刷新服务状态 |
+| POST | `/api/auth/accounts/refresh/start` | `?interval=3600` | 启动刷新服务 |
+| POST | `/api/auth/accounts/refresh/stop` | - | 停止刷新服务 |
 
 ---
 
