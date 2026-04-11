@@ -88,6 +88,64 @@ class User(Base):
 3. 更新数据库
 ```
 
+### 刷新流程详解
+
+```
+POST /api/auth/accounts/refresh
+    ↓
+1. 查找目标账号 (User)
+    ↓
+2. 初始化 BilibiliService
+    ↓
+3. 设置 SESSDATA 到 HeadersManager
+    ↓
+4. 调用 check_and_refresh_cookies() 刷新
+    ↓
+5. 访问 www.bilibili.com 获取 cookies
+    ↓
+6. 访问 nav 接口获取用户信息
+    ↓
+7. 更新 User 表 (bili_jct, dedeuserid 等)
+    ↓
+8. CookieManager.save_to_db() 保存到 Cookie 表
+    ↓
+9. 返回刷新结果
+```
+
+---
+
+## Cookie 表结构
+
+### 数据库表: cookies
+
+```python
+class Cookie(Base):
+    __tablename__ = "cookies"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String(100))      # Cookie 名称
+    value = Column(Text)          # Cookie 值
+    domain = Column(String(100))   # 域名
+    path = Column(String(100))    # 路径
+    expires = Column(DateTime)   # 过期时间
+```
+
+---
+
+## HeadersManager 结构
+
+```
+HeadersManager
+├── CookieManager          # Cookie 管理
+│   ├── load_from_db()   # 从数据库加载
+│   ├── save_to_db()    # 保存到数据库
+│   └── get_cookies()   # 获取所有 Cookie
+│
+├── get_headers()        # 获取请求头
+└── refresh()           # 刷新请求头
+```
+
 ---
 
 [返回上级](./README.md)

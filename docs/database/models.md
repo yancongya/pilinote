@@ -65,8 +65,31 @@ class Setting(Base):
     updated_at = Column(DateTime)
 ```
 
-**关键文件**：
-- `apps/api/src/models/*.py`
+### Cookie
+
+```python
+class Cookie(Base):
+    __tablename__ = "cookies"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    name = Column(String(100))
+    value = Column(Text)
+    domain = Column(String(100))
+    path = Column(String(100))
+    expires = Column(DateTime)
+```
+
+---
+
+## 关联关系
+
+```
+User (1) ──────< Cookie (N)
+     │
+     └─────< Task (N)
+     └─────< Scheduler (N)
+```
 
 ---
 
