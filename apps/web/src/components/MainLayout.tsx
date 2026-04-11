@@ -21,7 +21,7 @@ const navItems = [
 function MainLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, logout, isAuthenticated } = useAuthStore()
   const { connected } = useNewQueueStore()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
@@ -178,14 +178,14 @@ function MainLayout() {
               <HomeContent />
             </div>
             <div style={{ display: activeTab === 'favorites' ? 'block' : 'none' }}>
-              {user?.sessdata ? (
+              {isAuthenticated ? (
                 <FavoritesContent />
               ) : (
                 <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
               )}
             </div>
             <div style={{ display: activeTab === 'watch-later' ? 'block' : 'none' }}>
-              {user?.sessdata ? (
+              {isAuthenticated ? (
                 <WatchLaterContent />
               ) : (
                 <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
