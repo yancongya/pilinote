@@ -1,0 +1,113 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6">
+  <diagram name="登录认证流程" id="auth-flow">
+    <mxGraphModel dx="1240" dy="670" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=20;fontStyle=1" value="PiliNote 登录认证流程图" vertex="1">
+          <mxGeometry height="40" width="400" x="400" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;fontColor=#000000;" value="用户" vertex="1">
+          <mxGeometry height="50" width="100" x="80" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="loginPage" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontColor=#000000;" value="LoginPage&#xa;(前端登录页)" vertex="1">
+          <mxGeometry height="60" width="130" x="80" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="loginMethods" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontColor=#000000;" value="登录方式&#xa;1. 二维码&#xa;2. SESSDATA&#xa;3. 手机验证码" vertex="1">
+          <mxGeometry height="80" width="130" x="80" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="authAPI" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontColor=#000000;" value="Auth API&#xa;(后端路由)&#xa;/api/auth/*" vertex="1">
+          <mxGeometry height="70" width="140" x="350" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="bilibiliService" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontColor=#000000;" value="BilibiliService&#xa;(业务逻辑)" vertex="1">
+          <mxGeometry height="60" width="140" x="600" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="bilibiliAPI" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontColor=#000000;" value="Bilibili API&#xa;(外部接口)" vertex="1">
+          <mxGeometry height="60" width="130" x="605" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="headersMgr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontColor=#000000;" value="HeadersManager&#xa;(请求头管理)" vertex="1">
+          <mxGeometry height="60" width="140" x="350" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="cookieMgr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontColor=#000000;" value="CookieManager&#xa;(Cookie管理)" vertex="1">
+          <mxGeometry height="60" width="140" x="600" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="userDB" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontColor=#000000;" value="User 数据库&#xa;(users表)" vertex="1">
+          <mxGeometry height="60" width="120" x="260" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="cookieDB" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontColor=#000000;" value="Cookie 数据库&#xa;(cookies表)" vertex="1">
+          <mxGeometry height="60" width="120" x="470" y="690" as="geometry" />
+        </mxCell>
+        <mxCell id="refreshService" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontColor=#000000;" value="AccountRefreshService&#xa;(账号刷新)" vertex="1">
+          <mxGeometry height="60" width="140" x="600" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="authSuccess" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;fontColor=#000000;" value="✅ 认证成功&#xa;返回用户信息" vertex="1">
+          <mxGeometry height="60" width="140" x="820" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="line1" edge="1" parent="1" source="user" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=2;fontColor=#000000;" target="loginPage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line2" edge="1" parent="1" source="loginPage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=2;fontColor=#000000;" target="loginMethods">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line3" edge="1" parent="1" source="loginMethods" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=2;fontColor=#000000;" target="authAPI">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="280" y="340" />
+              <mxPoint x="280" y="285" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="line4" edge="1" parent="1" source="authAPI" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=2;fontColor=#000000;" target="bilibiliService">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line5" edge="1" parent="1" source="bilibiliService" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=2;fontColor=#000000;" target="bilibiliAPI">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line6" edge="1" parent="1" source="authAPI" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=2;fontColor=#000000;" target="headersMgr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="420" y="450" />
+              <mxPoint x="420" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="line7" edge="1" parent="1" source="headersMgr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=1;dashed=1;fontColor=#000000;" target="userDB">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line8" edge="1" parent="1" source="headersMgr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=1;dashed=1;fontColor=#000000;" target="cookieMgr">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line9" edge="1" parent="1" source="cookieMgr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666;strokeWidth=1;dashed=1;fontColor=#000000;" target="cookieDB">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="line10" edge="1" parent="1" source="bilibiliAPI" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#82b366;strokeWidth=2;fontColor=#000000;" target="authSuccess">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="665" y="440" />
+              <mxPoint x="150" y="440" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="line11" edge="1" parent="1" source="refreshService" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9673a6;strokeWidth=1;dashed=1;fontColor=#000000;" target="bilibiliAPI" value="&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;定时刷&lt;/font&gt;新&lt;/font&gt;">
+          <mxGeometry relative="1" y="-120" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="670" y="590" />
+              <mxPoint x="670" y="480" />
+              <mxPoint x="730" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="label1" parent="1" style="text;html=1;align=center;fontSize=10;fillColor=#f5f5f5;strokeColor=#ccc;rounded=1;fontColor=#000000;" value="HTTP 请求" vertex="1">
+          <mxGeometry height="20" width="80" x="230" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="label2" parent="1" style="text;html=1;align=center;fontSize=10;fillColor=#f5f5f5;strokeColor=#ccc;rounded=1;fontColor=#000000;" value="数据流" vertex="1">
+          <mxGeometry height="20" width="60" x="500" y="275" as="geometry" />
+        </mxCell>
+        <mxCell id="label3" parent="1" style="text;html=1;align=center;fontSize=10;fillColor=#f5f5f5;strokeColor=#ccc;rounded=1;fontColor=#000000;" value="存储" vertex="1">
+          <mxGeometry height="20" width="50" x="420" y="620" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
