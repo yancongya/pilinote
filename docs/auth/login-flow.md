@@ -48,21 +48,7 @@
 - 前端: `apps/web/src/services/api.ts` - `loginBySessdata()`
 - 后端: `apps/api/src/routers/auth.py` - `/api/auth/sessdata`
 
-### 3. 密码登录
-
-**流程**：
-```
-1. 获取极验验证码参数
-2. 用户完成验证
-3. 提交账号密码
-4. 后端登录并返回 Cookie
-```
-
-**关键文件**：
-- 前端: `apps/web/src/components/GeetestCaptcha.tsx`
-- 后端: `apps/api/src/services/geetest_service.py`
-
-### 4. 手机验证码登录
+### 3. 手机验证码登录
 
 **流程**：
 ```
@@ -88,7 +74,6 @@
 | GET | `/api/auth/qrcode/status/{qrcode_key}` | 查询二维码状态 |
 | POST | `/api/auth/sessdata` | SESSDATA 登录 |
 | POST | `/api/auth/sms/login` | 手机验证码登录 |
-| POST | `/api/auth/password` | 密码登录 |
 | GET | `/api/auth/user-info` | 获取用户信息 |
 | GET | `/api/auth/proxy/avatar` | 代理获取头像 |
 | POST | `/api/auth/refresh-cookie` | 使用 refresh_token 刷新 Cookie |
