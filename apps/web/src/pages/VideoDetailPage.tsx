@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
 import { useVideoDownload } from '../hooks/useVideoDownload'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, Film, User, ThumbsUp, Star, MessageCircle, MessageSquare, Share2, Coins } from 'lucide-react'
+import { ArrowLeft, Film, User, ThumbsUp, Star, MessageCircle, MessageSquare, Share2, Coins, Eye } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 
 interface VideoDetailPageProps {
@@ -123,7 +123,12 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               cid: 0,
               pages: [],
               opusParagraphs: opusParagraphs,
-              opusImages: opusImages
+              opusImages: opusImages,
+              dimension: null,
+              rights: null,
+              descV2: [],
+              staff: null,
+              ugcSeason: null
             })
             
             
@@ -134,6 +139,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               aid: data.aid,
               title: data.title,
               description: data.desc,
+              isOpus: false,
               uploader: {
                 name: data.owner.name,
                 avatar: data.owner.face,
@@ -350,7 +356,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
     
     setDownloading(true)
     try {
-      const result = await toggleDownload(video, e)
+      const result = await toggleDownload(video as any, e)
       
       if (result.success) {
         // 如果需要跳转到视频库
