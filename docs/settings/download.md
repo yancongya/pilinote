@@ -65,17 +65,74 @@
 GET /api/settings
 ```
 
-### 更新设置
-
-```
-PUT /api/settings
-Body: {
+响应：
+```json
+{
     "download": {
         "video": { "default_quality": 64, "audio_bitrate": 192, "codec": "avc", "output_format": "mp4" },
         "max_concurrent": 3,
         "speed_limit": 0,
         "metadata": { "enable_nfo": true, "enable_subtitle": true, "enable_cover": true, "enable_avatar": false }
+    },
+    "storage": { ... },
+    "general": { ... },
+    "auto_download": { ... }
+}
+```
+
+### 更新设置
+
+```
+PUT /api/settings
+Content-Type: application/json
+Body: {
+    "download": {
+        "video": { "default_quality": 80, "audio_bitrate": 192, "codec": "hevc", "output_format": "mp4" },
+        "max_concurrent": 3,
+        "speed_limit": 5000,
+        "metadata": { "enable_nfo": true, "enable_subtitle": true, "enable_cover": true, "enable_avatar": true }
     }
+}
+```
+
+响应：返回完整设置对象（同获取设置）
+
+错误响应（400）：
+```json
+{ "detail": "Failed to update settings: ..." }
+```
+
+### 重置设置
+
+```
+POST /api/settings/reset?category=download
+```
+
+响应：
+```json
+{
+    "download": {
+        "video": { "default_quality": 64, "audio_bitrate": 192, "codec": "avc", "output_format": "mp4" },
+        "max_concurrent": 3,
+        "speed_limit": 0,
+        "metadata": { "enable_nfo": true, "enable_subtitle": true, "enable_cover": true, "enable_avatar": false }
+    },
+    ...
+}
+```
+
+### 导出设置
+
+```
+GET /api/settings/export
+```
+
+响应：
+```json
+{
+    "export_time": "2026-04-12T10:00:00",
+    "version": "1.0.0",
+    "settings": { "download": { ... }, "storage": { ... }, "general": { ... }, "auto_download": { ... } }
 }
 ```
 

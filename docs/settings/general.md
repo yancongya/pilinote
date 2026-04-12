@@ -38,18 +38,39 @@
 GET /api/settings
 ```
 
-### 更新设置
-
-```
-PUT /api/settings
-Body: {
+响应：
+```json
+{
+    "download": { ... },
+    "storage": { ... },
     "general": {
         "theme": "auto",
         "language": "zh-CN",
         "auto_download": false,
         "clipboard_monitor": false
+    },
+    "auto_download": { ... }
+}
+```
+
+### 更新设置
+
+```
+PUT /api/settings
+Content-Type: application/json
+Body: {
+    "general": {
+        "theme": "dark",
+        "language": "zh-CN",
+        "auto_download": true,
+        "clipboard_monitor": true
     }
 }
+```
+
+错误响应（400）：
+```json
+{ "detail": "Failed to update settings: ..." }
 ```
 
 ---

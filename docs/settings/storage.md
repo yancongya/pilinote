@@ -41,10 +41,28 @@
 GET /api/settings
 ```
 
+响应：
+```json
+{
+    "download": { ... },
+    "storage": {
+        "download_path": "./downloads",
+        "temp_path": "./temp",
+        "auto_cleanup": true,
+        "keep_failed": false,
+        "sidecar": { "ffmpeg": "ffmpeg", "aria2c": "aria2c" },
+        "ftp": { "host": "", "username": "", "password": "", "remote_path": "/pilinote", "use_tls": false }
+    },
+    "general": { ... },
+    "auto_download": { ... }
+}
+```
+
 ### 更新设置
 
 ```
 PUT /api/settings
+Content-Type: application/json
 Body: {
     "storage": {
         "download_path": "/path/to/downloads",
@@ -57,18 +75,88 @@ Body: {
 }
 ```
 
+响应：
+```json
+{
+    "download": { ... },
+    "storage": { ... },
+    "general": { ... },
+    "auto_download": { ... }
+}
+```
+
+错误响应（400）：
+```json
+{ "detail": "Failed to update settings: ..." }
+```
+
 ### 获取工具状态
 
 ```
 GET /api/settings/tool-status
 ```
 
-返回：ffmpeg 和 aria2c 的安装状态
+响应：
+```json
+{
+    "success": true,
+    "data": {
+        "ffmpeg": { "available": true, "version": "6.0" },
+        "aria2c": { "available": true, "version": "1.37.0" }
+    }
+}
+```
 
 ### 查看存储信息
 
 ```
 GET /api/settings/storage-info
+```
+
+响应：
+```json
+{
+    "success": true,
+    "data": {
+        "total_size": 1073741824,
+        "total_size_formatted": "1.0 GB",
+        "file_count": 128,
+        "directory_count": 64,
+        "total_downloads": 100,
+        "completed_downloads": 95
+    }
+}
+```
+
+### 查看缓存信息
+
+```
+GET /api/settings/cache-info
+```
+
+响应：
+```json
+{
+    "success": true,
+    "data": {
+        "log": { "exists": true, "path": "/path/to/logs", "size": 5242880, "size_formatted": "5.0 MB", "file_count": 10 },
+        "temp": { "exists": true, "path": "/path/to/temp", "size": 1048576, "size_formatted": "1.0 MB", "file_count": 5 },
+        "webview": { "exists": true, "path": "/path/to/webview_cache", "size": 2097152, "size_formatted": "2.0 MB", "file_count": 20 }
+    }
+}
+```
+
+### 清理缓存
+
+```
+POST /api/settings/clear-cache/{cache_type}
+```
+
+cache_type: log, temp, webview, all
+
+响应：
+```json
+{ "success": true, "message": "已清理 log 缓存", "deleted_size": 5242880, "deleted_size_formatted": "5.0 MB" }
 ```
 
 ### 打开缓存目录
@@ -78,6 +166,52 @@ POST /api/settings/open-cache/{cache_type}
 ```
 
 cache_type: log, temp, webview, downloads
+
+响应：
+```json
+{ "success": true, "message": "已打开缓存目录", "path": "/path/to/dir" }
+```
+
+### 获取数据库信息
+
+```
+GET /api/settings/database/info
+```
+
+响应：
+```json
+{
+    "success": true,
+    "data": {
+        "exists": true,
+        "path": "/path/to/pilinote.db",
+        "size": 2097152,
+        "size_formatted": "2.0 MB"
+    }
+}
+```
+
+### 测试 FTP 连接
+
+```
+POST /api/settings/ftp/test
+Body: {
+    "host": "ftp.example.com",
+    "username": "user",
+    "password": "password",
+    "use_tls": false
+}
+```
+
+响应：
+```json
+{ "success": true, "message": "连接成功" }
+```
+
+���误响应：
+```json
+{ "detail": "FTP 连接测试失败: ..." }
+```
 
 ---
 

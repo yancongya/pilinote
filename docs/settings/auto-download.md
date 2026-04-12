@@ -70,11 +70,12 @@
 GET /api/settings
 ```
 
-### 更新设置
-
-```
-PUT /api/settings
-Body: {
+响应：
+```json
+{
+    "download": { ... },
+    "storage": { ... },
+    "general": { ... },
     "auto_download": {
         "enabled": false,
         "trigger_type": "interval",
@@ -89,16 +90,69 @@ Body: {
 }
 ```
 
+### 更新设置
+
+```
+PUT /api/settings
+Content-Type: application/json
+Body: {
+    "auto_download": {
+        "enabled": true,
+        "trigger_type": "interval",
+        "scan_interval": 30,
+        "cron_expression": "",
+        "concurrent_limit": { "video": 2, "page": 2 },
+        "custom_scan": {
+            "enabled": true,
+            "folder_list": [
+                { "folder_name": "必看", "max_videos": 50 },
+                { "folder_name": "技术", "max_videos": 20 }
+            ]
+        },
+        "watch_later_max": 10,
+        "auto_start_after_scan": true,
+        "storage_threshold_gb": 10
+    }
+}
+```
+
+错误响应（400）：
+```json
+{ "detail": "Failed to update settings: ..." }
+```
+
 ### 查看清理状态
 
 ```
 GET /api/settings/cleanup/status
 ```
 
+响应：
+```json
+{
+    "temp_path": "/path/to/temp",
+    "exists": true,
+    "total_count": 100,
+    "old_count": 20,
+    "recent_count": 80,
+    "cutoff_time": "2026-04-11 10:00:00"
+}
+```
+
 ### 手动触发清理
 
 ```
 POST /api/settings/cleanup/trigger
+```
+
+响应：
+```json
+{ "success": true, "message": "清理任务已触发" }
+```
+
+错误响应（500）：
+```json
+{ "detail": "清理任务触发失败: ..." }
 ```
 
 ---

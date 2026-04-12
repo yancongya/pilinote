@@ -58,9 +58,33 @@
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/settings` | 获取设置 |
+| GET | `/api/settings` | 获取所有设置 |
 | PUT | `/api/settings` | 更新设置 |
-| POST | `/api/settings/backup/test` | 测试备份连接 |
+| POST | `/api/settings/reset` | 重置设置 |
+| GET | `/api/settings/list` | 获取设置列表 |
+| GET | `/api/settings/export` | 导出设置 |
+| POST | `/api/settings/import` | 导入设置 |
+| GET | `/api/settings/tool-status` | 获取工具状态 |
+| GET | `/api/settings/storage-info` | 获取存储信息 |
+| GET | `/api/settings/cache-info` | 获取缓存信息 |
+| POST | `/api/settings/clear-cache/{type}` | 清理缓存 |
+| POST | `/api/settings/open-cache/{type}` | 打开缓存目录 |
+| GET | `/api/settings/database/info` | 获取数据库信息 |
+| GET | `/api/settings/database/export` | 导出数据库 |
+| POST | `/api/settings/database/import` | 导入数据库 |
+| POST | `/api/settings/ftp/test` | 测试FTP连接 |
+| POST | `/api/settings/backup/download` | 备份下载目录 |
+| POST | `/api/settings/backup/database` | 备份数据库 |
+| POST | `/api/settings/cleanup/trigger` | 手动触发清理 |
+| GET | `/api/settings/cleanup/status` | 获取清理状态 |
+
+---
+
+## WebSocket 接口
+
+| 路径 | 说明 |
+|------|------|
+| `/ws` | WebSocket 连接，用于实时下载进度 |
 
 ---
 
