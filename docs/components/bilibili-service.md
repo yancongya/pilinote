@@ -33,6 +33,18 @@ Bilibili API 封装服务，处理所有与 Bilibili 后端的交互。
 | `get_watch_later()` | 获取稍后再看 |
 | `get_user_info()` | 获取用户信息 |
 
+### API URL 生成
+
+`get_video_info_url()` 方法支持生成正确的 API URL：
+
+| 类型 | 参数 | API URL |
+|------|------|---------|
+| VIDEO | BV号 | `/x/web-interface/view?bvid=` |
+| VIDEO | AV号 | `/x/web-interface/view?aid=` |
+| BANGUMI | ep/ss/md | `/pgc/view/web/season?ep_id=` |
+| OPUS | cv | `/x/article/viewinfo?cv=` |
+| MUSIC | au | `/audio/music-service-c/info?sid=` |
+
 ### 搜索与发现
 
 | 方法 | 说明 |

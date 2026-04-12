@@ -42,6 +42,42 @@
 | GET | `/api/watchlater` | 获取稍后再看 |
 | GET | `/api/video/{id}` | 获取视频详情 |
 
+## 媒体接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/media/{media_type}/{media_id}` | 获取媒体信息（统一接口） |
+| GET | `/api/media/favorites/{fid}` | 获取收藏夹媒体信息 |
+| GET | `/api/media/watchlater` | 获取稍后再看媒体信息 |
+
+### 媒体类型支持
+
+| 类型 | 参数示例 | 说明 |
+|------|----------|------|
+| video | `BV1xx411c7mD` | 普通视频 |
+| opus | `123456789` | 图文专栏 |
+| bangumi | `ep123456` | 番剧（暂未实现） |
+| music | `au123456` | 音乐（暂未实现） |
+
+## 下载解析接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/download/parse` | 解析下载URL（支持视频、图文等） |
+
+### 解析请求示例
+
+```json
+// 图文解析
+{ "url": "cv123456789" }
+
+// 视频解析
+{ "url": "BV1xx411c7mD" }
+
+// 视频URL解析
+{ "url": "https://www.bilibili.com/video/BV1xx411c7mD" }
+```
+
 ## 下载接口
 
 | 方法 | 路径 | 说明 |

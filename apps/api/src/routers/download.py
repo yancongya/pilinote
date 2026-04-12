@@ -519,18 +519,46 @@ async def parse_link(request: ParseLinkRequest):
         
         # 特殊处理：图文
         elif media_type in [MediaType.OPUS, MediaType.OPUS_LIST]:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(api_url, headers=headers)
-                response.raise_for_status()
-                data = response.json()
+            from src.services.bilibili import BilibiliService
+            bilibili_service = BilibiliService()
+            try:
+                opus_id = parsed["id"].replace("cv", "").replace("CV", "")
+                opus_result = await bilibili_service.get_opus_details(opus_id, request.sessdata)
                 
-                if data.get("code") != 0:
+                if not opus_result["success"]:
                     return ParseLinkResponse(
                         success=False,
-                        message=data.get("message", "获取图文信息失败")
+                        message=opus_result.get("message", "获取图文信息失败")
                     )
                 
-                article_data = data.get("data", {})
+                opus_data = opus_result.get("data", {})
+                raw_data = opus_data.get("raw_data", {})
+                basic = raw_data.get("detail", {}).get("basic", {})
+                author = opus_data.get("author", {})
+                raw_stat = opus_data.get("stat", {})
+                
+                # 提取作者头像URL
+                author_avatar = ""
+                avatar_data = author.get("avatar", {})
+                fallback_layers = avatar_data.get("fallback_layers", {})
+                layers = fallback_layers.get("layers", [])
+                for layer in layers:
+                    resource = layer.get("resource", {})
+                    res_image = resource.get("res_image", {})
+                    remote = res_image.get("image_src", {}).get("remote", {})
+                    if remote.get("url"):
+                        author_avatar = remote.get("url")
+                        break
+                
+                # 提取stat计数
+                like_count = raw_stat.get("like", {}).get("count", 0)
+                reply_count = raw_stat.get("comment", {}).get("count", 0)
+                forward_count = raw_stat.get("forward", {}).get("count", 0)
+                favorite_count = raw_stat.get("favorite", {}).get("count", 0)
+                coin_count = raw_stat.get("coin", {}).get("count", 0)
+                
+                first_image = opus_data.get("image_urls", [""])[0] if opus_data.get("image_urls") else ""
+                
                 return ParseLinkResponse(
                     success=True,
                     data={
@@ -541,27 +569,44 @@ async def parse_link(request: ParseLinkRequest):
                         ),
                         "video": VideoInfo(
                             bvid="",
-                            aid=0,
-                            title=article_data.get("title", ""),
-                            desc=article_data.get("desc", ""),
-                            pic=article_data.get("origin_image_urls", [""])[0] if article_data.get("origin_image_urls") else "",
+                            aid=opus_data.get("id", 0),
+                            title=opus_data.get("title", ""),
+                            desc="",
+                            pic=first_image,
                             duration=0,
-                            pubdate=article_data.get("pub_time", 0),
+                            pubdate=basic.get("pub_time", 0) or basic.get("publish_time", 0),
                             cid=0,
                             owner={
-                                "mid": article_data.get("mid", 0),
-                                "name": article_data.get("author", {}).get("name", ""),
-                                "face": article_data.get("author", {}).get("face", "")
+                                "mid": basic.get("author", {}).get("mid", 0) or author.get("mid", 0),
+                                "name": basic.get("author", {}).get("name", "") or author.get("name", ""),
+                                "face": author_avatar
                             },
-                            stat=article_data.get("stats", {})
+                            stat={
+                                "like": like_count,
+                                "reply": reply_count,
+                                "share": forward_count,
+                                "favorite": favorite_count,
+                                "coin": coin_count
+                            }
                         ),
                         "download_options": {
                             "multi_part": False,
                             "pages": []
                         },
-                        "opus_info": article_data
+                        "opus_info": {
+                            "title": opus_data.get("title", ""),
+                            "author": author.get("name", ""),
+                            "author_avatar": author_avatar,
+                            "mid": basic.get("author", {}).get("mid", 0) or author.get("mid", 0),
+                            "stat": raw_stat,
+                            "paragraphs": opus_data.get("paragraphs", []),
+                            "image_urls": opus_data.get("image_urls", []),
+                            "raw_data": raw_data
+                        }
                     }
                 )
+            finally:
+                bilibili_service.close()
         
         # 特殊处理：用户内容（视频/图文/音频）
         elif media_type in [MediaType.USER_VIDEO, MediaType.USER_OPUS, MediaType.USER_AUDIO]:

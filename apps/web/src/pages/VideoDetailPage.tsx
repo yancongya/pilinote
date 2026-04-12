@@ -8,8 +8,15 @@ import AlertModal from '../components/AlertModal'
 import { ArrowLeft, Film, User } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 
-export default function VideoDetailPage() {
-  const { videoId } = useParams<{ videoId: string }>()
+interface VideoDetailPageProps {
+  type?: 'video' | 'opus'
+}
+
+export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps) {
+  const params = useParams<{ videoId?: string; opusId?: string }>()
+  const videoId = params.videoId
+  const opusId = params.opusId
+  const mediaId = type === 'opus' ? opusId : videoId
   const navigate = useNavigate()
   const newQueueStore = useNewQueueStore()
   const { toggleDownload } = useVideoDownload()
@@ -39,47 +46,92 @@ export default function VideoDetailPage() {
   }
 
   useEffect(() => {
-    async function fetchVideoDetail() {
-      if (!videoId) return
+    async function fetchMediaDetail() {
+      if (!mediaId) return
       
       setLoading(true)
       setError('')
       
       try {
-        const response = await apiService.getVideoDetail(videoId, sessdata || undefined)
+        let response
+        
+        if (type === 'opus') {
+          response = await apiService.parseDownloadUrl(`cv${mediaId}`)
+        } else {
+          response = await apiService.getVideoDetail(mediaId, sessdata || undefined)
+        }
         
         if (response.success && response.data) {
           const data = response.data
-          setVideo({
-            bvid: data.bvid,
-            aid: data.aid,
-            title: data.title,
-            description: data.desc,
-            uploader: {
-              name: data.owner.name,
-              avatar: data.owner.face,
-              mid: data.owner.mid
-            },
-            view: data.stat.view,
-            danmaku: data.stat.danmaku,
-            reply: data.stat.reply,
-            favorite: data.stat.favorite,
-            coin: data.stat.coin,
-            share: data.stat.share,
-            like: data.stat.like,
-            pubtime: data.pubdate,
-            duration: data.duration,
-            cover: data.pic,
-            cid: data.cid,
-            pages: data.pages || [],
-            dimension: data.dimension || null,
-            rights: data.rights || {},
-            descV2: data.descV2 || [],
-            staff: data.staff || null,
-            ugcSeason: data.ugcSeason || null
-          })
+          
+          if (type === 'opus') {
+            // 图文数据结构
+            const opusData = data.opus_info || {}
+            const opusStat = data.stat || {}
+            const opusParagraphs = data.opus_info?.paragraphs || []
+            const opusImages = data.opus_info?.image_urls || []
+            
+            setVideo({
+              bvid: '',
+              aid: data.aid || mediaId,
+              title: opusData.title || data.title || 'Untitled',
+              description: '',
+              isOpus: true,
+              uploader: {
+                name: opusData.author || 'Unknown',
+                avatar: opusData.author_avatar || '',
+                mid: opusData.mid || 0
+              },
+              view: 0,
+              danmaku: 0,
+              reply: opusStat.comment?.count || 0,
+              favorite: opusStat.favorite?.count || 0,
+              coin: opusStat.coin?.count || 0,
+              share: opusStat.forward?.count || 0,
+              like: opusStat.like?.count || 0,
+              pubtime: data.pubdate || 0,
+              duration: 0,
+              cover: data.pic || opusImages[0] || '',
+              cid: 0,
+              pages: [],
+              opusParagraphs: opusParagraphs,
+              opusImages: opusImages
+            })
+            
+            
+          } else {
+            // 视频数据结构
+            setVideo({
+              bvid: data.bvid,
+              aid: data.aid,
+              title: data.title,
+              description: data.desc,
+              uploader: {
+                name: data.owner.name,
+                avatar: data.owner.face,
+                mid: data.owner.mid
+              },
+              view: data.stat.view,
+              danmaku: data.stat.danmaku,
+              reply: data.stat.reply,
+              favorite: data.stat.favorite,
+              coin: data.stat.coin,
+              share: data.stat.share,
+              like: data.stat.like,
+              pubtime: data.pubdate,
+              duration: data.duration,
+              cover: data.pic,
+              cid: data.cid,
+              pages: data.pages || [],
+              dimension: data.dimension || null,
+              rights: data.rights || {},
+              descV2: data.descV2 || [],
+              staff: data.staff || null,
+              ugcSeason: data.ugcSeason || null
+            })
+          }
         } else {
-          setError(response.message || '获取视频详情失败')
+          setError(response.message || '获取详情失败')
         }
       } catch (err) {
         setError('网络请求失败')
@@ -88,8 +140,8 @@ export default function VideoDetailPage() {
       }
     }
 
-    fetchVideoDetail()
-  }, [videoId, sessdata])
+    fetchMediaDetail()
+  }, [mediaId, sessdata, type])
 
   // 同步任务数据
   useEffect(() => {
@@ -421,58 +473,85 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         </h1>
       </div>
 
-      {/* 视频封面区域 */}
+      {/* 视频/图文封面区域 */}
       <div style={{
         position: 'relative',
         width: '100%',
-        paddingTop: '56.25%', // 16:9 比例
+        paddingTop: video.isOpus ? '0' : '56.25%',
         background: '#f5f5f5',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        display: video.isOpus ? 'block' : 'relative'
       }}>
-        {video.cover ? (
-          <img 
-            src={getProxyImageUrl(video.cover)} 
-            alt={video.title}
-            style={{
+        {video.isOpus ? (
+          video.cover ? (
+            <img 
+              src={getProxyImageUrl(video.cover)} 
+              alt={video.title}
+              style={{ width: '100%', borderRadius: '0' }}
+            />
+          ) : null
+        ) : (
+          video.cover ? (
+            <img 
+              src={getProxyImageUrl(video.cover)} 
+              alt={video.title}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
+            />
+          ) : (
+            <div style={{
               position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover'
-            }}
-          />
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              color: '#999'
+            }}>
+              <Film />
+            </div>
+          )
+        )}
+
+        {/* 视频时长或图文标记 */}
+        {video.isOpus ? (
+          <div style={{
+            position: 'absolute',
+            bottom: '12px',
+            right: '12px',
+            background: '#fb7299',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600'
+          }}>
+            图文
+          </div>
         ) : (
           <div style={{
             position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            color: '#999'
+            bottom: '12px',
+            right: '12px',
+            background: 'rgba(0, 0, 0, 0.8)',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: '600',
+            textAlign: 'right',
+            lineHeight: '1.3'
           }}>
-            <Film />
+            {formatDuration(video.duration)}
           </div>
         )}
-
-        {/* 时长标签 */}
-        <div style={{
-          position: 'absolute',
-          bottom: '12px',
-          right: '12px',
-          background: 'rgba(0, 0, 0, 0.8)',
-          color: '#fff',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          fontWeight: '600',
-          textAlign: 'right',
-          lineHeight: '1.3'
-        }}>
-          {formatDuration(video.duration)}
-        </div>
       </div>
 
-      {/* 视频信息 */}
+      {/* 图文内容或视频信息 */}
       <div className="video-detail-content" style={{ padding: '16px', maxWidth: '800px', margin: '0 auto' }}>
         {/* 视频标题 */}
         <h2 className="video-detail-title" style={{
@@ -481,6 +560,24 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           margin: '0 0 16px 0',
           lineHeight: '1.4'
         }}>
+          {video.isOpus ? (
+          <a
+            href={`https://www.bilibili.com/opus/${mediaId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: '#1a1a1a',
+              textDecoration: 'none',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            {video.title}
+          </a>
+        ) : (
           <a
             href={`https://www.bilibili.com/video/${video.bvid}`}
             target="_blank"
@@ -507,9 +604,78 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           >
             {video.title}
           </a>
+        )}
         </h2>
 
-        {/* UP主信息 + 统计信息 */}
+        {/* 图文作者信息 - 在图文内容上方 */}
+        {video.isOpus ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '16px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid #f0f0f0'
+          }}>
+            <img
+              src={getProxyImageUrl(video.uploader.avatar)}
+              alt={video.uploader.name}
+              style={{ width: '40px', height: '40px', borderRadius: '50%' }}
+            />
+<div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                  {video.uploader.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#999' }}>
+                  {formatTime(video.pubtime)}
+                </div>
+              </div>
+          </div>
+        ) : null}
+
+        {/* 图文内容渲染 */}
+        {video.isOpus && video.opusParagraphs && video.opusParagraphs.length > 0 && (
+          <div style={{ marginBottom: '16px' }}>
+            {video.opusParagraphs.map((para: any, index: number) => {
+              // 文本段落
+              if (para.para_type === 1) {
+                const textData = para.text?.nodes?.[0]?.word
+                if (textData?.words) {
+                  return (
+                    <p key={index} style={{
+                      fontSize: '15px',
+                      lineHeight: '1.6',
+                      color: '#333',
+                      marginBottom: '12px'
+                    }}>
+                      {textData.words}
+                    </p>
+                  )
+                }
+              }
+              // 图片段落
+              if (para.para_type === 2) {
+                const pics = para.pic?.pics || []
+                return pics.map((pic: any, picIndex: number) => (
+                  <img
+                    key={`${index}-${picIndex}`}
+                    src={getProxyImageUrl(pic.url)}
+                    alt={`${video.title} - ${index + 1}`}
+                    style={{
+                      width: '100%',
+                      borderRadius: '8px',
+                      marginBottom: '8px'
+                    }}
+                  />
+                ))
+              }
+              return null
+            })}
+          </div>
+        )}
+
+        {/* UP主信息 - 仅视频显示 */}
+        {!video.isOpus && (
         <div className="video-detail-uploader" style={{
           display: 'flex',
           alignItems: 'flex-start',
@@ -547,47 +713,54 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
               {video.uploader.name}
             </div>
           </div>
-
-          {/* 统计信息 */}
+        </div>
+        )}
+        
+        {/* 底部统计信息区域 */}
+        <div style={{
+          marginBottom: '16px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid #f0f0f0'
+        }}>
+          {/* 视频发布时间 */}
           <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            marginLeft: 'auto',
-            textAlign: 'right'
+            fontSize: '12px',
+            color: '#999',
+            marginBottom: '12px'
           }}>
-            {/* 统计信息 - 第一行 */}
-            <div className="video-detail-stats" style={{
-              display: 'flex',
-              gap: '16px',
-              fontSize: '12px',
-              color: '#999',
-              justifyContent: 'flex-end',
-              flexWrap: 'wrap'
-            }}>
-              <span>{formatNumber(video.view)}播放</span>
-              <span>{formatNumber(video.danmaku)}弹幕</span>
-              <span>{formatTime(video.pubtime)}</span>
-            </div>
-
-            {/* 统计信息 - 第二行 */}
-            <div className="video-detail-stats" style={{
-              display: 'flex',
-              gap: '16px',
-              fontSize: '12px',
-              color: '#666',
-              justifyContent: 'flex-end',
-              flexWrap: 'wrap'
-            }}>
-              <span>❤️ {formatNumber(video.like)}</span>
-              <span>🪙 {formatNumber(video.coin)}</span>
-              <span>⭐ {formatNumber(video.favorite)}</span>
-              <span>💬 {formatNumber(video.reply)}</span>
-              <span>🔗 {formatNumber(video.share)}</span>
-            </div>
+            {formatTime(video.pubtime)}
           </div>
-        </div>        
-                {/* 分P信息 */}
+
+          {/* 视频/图文统计信息 */}
+          <div className="video-detail-stats" style={{
+            display: 'flex',
+            gap: '16px',
+            fontSize: '12px',
+            color: '#666',
+            flexWrap: 'wrap'
+          }}>
+            {video.isOpus ? (
+              <>
+                <span>❤️ {formatNumber(video.like)}</span>
+                <span>⭐ {formatNumber(video.favorite)}</span>
+                <span>💬 {formatNumber(video.reply)}</span>
+                <span>🔗 {formatNumber(video.share)}</span>
+              </>
+            ) : (
+              <>
+                <span>{formatNumber(video.view)}播放</span>
+                <span>{formatNumber(video.danmaku)}弹幕</span>
+                <span>❤️ {formatNumber(video.like)}</span>
+                <span>🪙 {formatNumber(video.coin)}</span>
+                <span>⭐ {formatNumber(video.favorite)}</span>
+                <span>💬 {formatNumber(video.reply)}</span>
+                <span>🔗 {formatNumber(video.share)}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 分P信息 */}
                 {video.pages && video.pages.length > 1 && (
                   <div style={{
                     marginBottom: '16px',
@@ -598,8 +771,8 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
                   </div>
                 )}
 
-        {/* 视频简介 */}
-        {(video.description && video.description !== '-' && video.description.trim()) ? (
+{/* 视频简介 - 仅视频显示 */}
+        {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
           <div style={{
             background: '#f9f9f9',
             borderRadius: '8px',
@@ -608,14 +781,12 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             color: '#333',
             lineHeight: '1.6',
             marginBottom: '16px',
-            userSelect: 'text',
-            WebkitUserSelect: 'text',
-            MozUserSelect: 'text',
-            msUserSelect: 'text'
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word'
           }}>
             {parseLinks(video.description)}
           </div>
-        ) : null}
+        )}
 
         {/* 下载区域 */}
         <div style={{

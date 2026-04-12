@@ -150,18 +150,24 @@ class LinkParser:
             path = parsed.path
             params = parsed.query
             
-            # b23.tv 短链接需要重定向
-            if host == 'b23.tv':
+            # 短链接重定向 (b23.tv, m.bilibili.com 等)
+            if host in ['b23.tv', 'm.bilibili.com', 'www.bilibili.com']:
                 try:
-                    # 需要通过HTTP请求获取重定向后的URL
                     import httpx
                     response = httpx.get(parsed_url, follow_redirects=True, timeout=10)
                     final_url = str(response.url)
                     
-                    # 防止无限递归：直接返回原始 ID
-                    # 提取 B 站视频 ID
-                    bvid_match = re.search(r'/(BV[\w]+)', final_url)
-                    av_match = re.search(r'/av(\d+)', final_url)
+                    # 解析重定向后的URL
+                    final_parsed = urlparse(final_url)
+                    final_path = final_parsed.path
+                    final_host = final_parsed.hostname.lower()
+                    
+                    # 提取各种ID
+                    bvid_match = re.search(r'/(BV[\w]+)', final_path)
+                    av_match = re.search(r'/av(\d+)', final_path)
+                    opus_match = re.search(r'/opus/(\d+)', final_path)
+                    ep_match = re.search(r'/ep(\d+)', final_path)
+                    ss_match = re.search(r'/ss(\d+)', final_path)
                     
                     if bvid_match:
                         return {
@@ -174,6 +180,27 @@ class LinkParser:
                         return {
                             "id": f"av{av_match.group(1)}",
                             "type": MediaType.VIDEO,
+                            "target": None,
+                            "original": url
+                        }
+                    elif opus_match:
+                        return {
+                            "id": f"cv{opus_match.group(1)}",
+                            "type": MediaType.OPUS,
+                            "target": None,
+                            "original": url
+                        }
+                    elif ep_match:
+                        return {
+                            "id": f"ep{ep_match.group(1)}",
+                            "type": MediaType.BANGUMI,
+                            "target": None,
+                            "original": url
+                        }
+                    elif ss_match:
+                        return {
+                            "id": f"ss{ss_match.group(1)}",
+                            "type": MediaType.BANGUMI,
                             "target": None,
                             "original": url
                         }
@@ -373,11 +400,14 @@ class LinkParser:
             # 课程
             return f"https://api.bilibili.com/pugv/view/web/season?season_id={video_id}"
         elif media_type == MediaType.BANGUMI:
-            # 番剧 - 去掉 ss 前缀
-            season_id = video_id.replace('ss', '').replace('SS', '')
-            return f"https://api.bilibili.com/pgc/view/web/season?season_id={season_id}"
+            # 番剧 - ep/ss/md 都使用 ep_id
+            video_id = video_id.replace('ss', '').replace('SS', '').replace('ep', '').replace('EP', '').replace('md', '').replace('MD', '')
+            return f"https://api.bilibili.com/pgc/view/web/season?ep_id={video_id}"
         elif media_type == MediaType.VIDEO:
-            # 视频
+            # 视频 - 支持 BV 号
+            if video_id.startswith('av'):
+                av_id = video_id.replace('av', '')
+                return f"https://api.bilibili.com/x/web-interface/view?aid={av_id}"
             return f"https://api.bilibili.com/x/web-interface/view?bvid={video_id}"
         elif media_type == MediaType.WATCH_LATER:
             # 稍后再看
@@ -386,14 +416,17 @@ class LinkParser:
             # 收藏夹
             return f"https://api.bilibili.com/x/v3/fav/resource/list?media_id={video_id}"
         elif media_type in [MediaType.OPUS, MediaType.OPUS_LIST]:
-            # 图文
-            return f"https://api.bilibili.com/x/article/viewinfo?cv={video_id}"
+            # 图文 - cv 前缀，使用 polymer API
+            video_id = video_id.replace('cv', '').replace('CV', '')
+            return f"https://api.bilibili.com/x/polymer/web-dynamic/v1/forward/preview?id={video_id}"
         elif media_type == MediaType.MUSIC:
-            # 音乐
-            return f"https://api.bilibili.com/audio/music-service-c/info?sid={video_id}"
+            # 音乐 - 使用 music-service-c/web/song/info
+            video_id = video_id.replace('au', '').replace('AU', '')
+            return f"https://www.bilibili.com/audio/music-service-c/web/song/info?sid={video_id}"
         elif media_type == MediaType.MUSIC_LIST:
-            # 歌单
-            return f"https://api.bilibili.com/audio/music-service-c/playlist/detail?sid={video_id}"
+            # 歌单 - 使用 music-service-c/web/menu/info
+            video_id = video_id.replace('am', '').replace('AM', '')
+            return f"https://www.bilibili.com/audio/music-service-c/web/menu/info?sid={video_id}"
         elif media_type in [MediaType.USER_VIDEO, MediaType.USER_OPUS, MediaType.USER_AUDIO]:
             # 用户内容
             return f"https://api.bilibili.com/x/space/arc/search?mid={video_id}"

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useDownloadStore } from '../../stores/download'
@@ -56,6 +57,7 @@ export default function HomeContent() {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [parseData, setParseData] = useState<ParseResponse | null>(null)
+  const navigate = useNavigate()
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
   const downloadStore = useDownloadStore()
   const settingsStore = useSettingsStore()
@@ -189,17 +191,23 @@ export default function HomeContent() {
     }
   }
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+const formatDuration = (seconds: any) => {
+    if (!seconds || seconds === undefined || seconds === null) return ''
+    const s = typeof seconds === 'object' ? seconds.duration || seconds.value || 0 : Number(seconds)
+    if (isNaN(s) || s <= 0) return ''
+    const mins = Math.floor(s / 60)
+    const secs = s % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const formatNumber = (num: number) => {
-    if (num >= 10000) {
-      return `${(num / 10000).toFixed(1)}万`
+  const formatNumber = (num: any) => {
+    if (num === undefined || num === null) return '0'
+    const n = typeof num === 'object' ? num.count || num.value || 0 : Number(num)
+    if (isNaN(n)) return '0'
+    if (n >= 10000) {
+      return `${(n / 10000).toFixed(1)}万`
     }
-    return num.toString()
+    return n.toString()
   }
 
   const getProxyImageUrl = (url: string): string => {
@@ -209,6 +217,8 @@ export default function HomeContent() {
 
   const videoInfo = parseData?.data?.video
   const downloadOptions = parseData?.data?.download_options
+  const parsedType = (parseData?.data as any)?.parsed_id?.type
+  const isOpus = parsedType === 'opus'
   const isMultiPart = downloadOptions?.multi_part && downloadOptions.pages && downloadOptions.pages.length > 1
 
   return (
@@ -255,14 +265,25 @@ export default function HomeContent() {
       </div>
 
       {videoInfo && (
-        <div className="video-info-card">
+        <div 
+          className="video-info-card"
+          onClick={() => {
+            if (isOpus) {
+              // 图文跳转到应用内图文详情页
+              const opusId = (parseData?.data as any)?.parsed_id?.id?.replace('cv', '') || videoInfo.aid
+              navigate(`/opus/${opusId}`)
+            } else if (videoInfo.bvid) {
+              navigate(`/video/${videoInfo.bvid}`)
+            }
+          }}
+        >
           <div className="video-cover">
             <img
               src={getProxyImageUrl(videoInfo.pic)}
               alt={videoInfo.title}
               className="video-cover-image"
             />
-            <div className="video-duration">{formatDuration(videoInfo.duration)}</div>
+            {!isOpus && <div className="video-duration">{formatDuration(videoInfo.duration)}</div>}
           </div>
           <div className="video-details">
             <h3 className="video-title">{videoInfo.title}</h3>
@@ -274,49 +295,80 @@ export default function HomeContent() {
                   className="uploader-avatar"
                 />
                 <span className="uploader-name">{videoInfo.owner.name}</span>
-                <span className="stat-item" title="播放量">
-                  <Eye />
-                  {formatNumber(videoInfo.stat.view)}
-                </span>
-                {videoInfo.stat.danmaku !== undefined && (
-                  <span className="stat-item" title="弹幕数">
-                    <MessageSquare />
-                    {formatNumber(videoInfo.stat.danmaku)}
-                  </span>
-                )}
-                {videoInfo.stat.reply !== undefined && (
-                  <span className="stat-item" title="评论数">
-                    <MessageCircle />
-                    {formatNumber(videoInfo.stat.reply)}
-                  </span>
-                )}
-                {videoInfo.stat.like !== undefined && (
-                  <span className="stat-item" title="点赞数">
-                    <ThumbsUp />
-                    {formatNumber(videoInfo.stat.like)}
-                  </span>
-                )}
-                {videoInfo.stat.coin !== undefined && (
-                  <span className="stat-item" title="投币数">
-                    <Coins />
-                    {formatNumber(videoInfo.stat.coin)}
-                  </span>
-                )}
-                {videoInfo.stat.favorite !== undefined && (
-                  <span className="stat-item" title="收藏数">
-                    <Star />
-                    {formatNumber(videoInfo.stat.favorite)}
-                  </span>
-                )}
-                {videoInfo.stat.share !== undefined && (
-                  <span className="stat-item" title="转发数">
-                    <Share2 />
-                    {formatNumber(videoInfo.stat.share)}
-                  </span>
+                {isOpus ? (
+                  <>
+                    {videoInfo.stat.like !== undefined && (
+                      <span className="stat-item" title="点赞数">
+                        <ThumbsUp />
+                        {formatNumber(videoInfo.stat.like)}
+                      </span>
+                    )}
+                    {videoInfo.stat.reply !== undefined && (
+                      <span className="stat-item" title="评论数">
+                        <MessageCircle />
+                        {formatNumber(videoInfo.stat.reply)}
+                      </span>
+                    )}
+                    {videoInfo.stat.share !== undefined && (
+                      <span className="stat-item" title="转发数">
+                        <Share2 />
+                        {formatNumber(videoInfo.stat.share)}
+                      </span>
+                    )}
+                    {videoInfo.stat.favorite !== undefined && (
+                      <span className="stat-item" title="收藏数">
+                        <Star />
+                        {formatNumber(videoInfo.stat.favorite)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="stat-item" title="播放量">
+                      <Eye />
+                      {formatNumber(videoInfo.stat.view)}
+                    </span>
+                    {videoInfo.stat.danmaku !== undefined && (
+                      <span className="stat-item" title="弹幕数">
+                        <MessageSquare />
+                        {formatNumber(videoInfo.stat.danmaku)}
+                      </span>
+                    )}
+                    {videoInfo.stat.reply !== undefined && (
+                      <span className="stat-item" title="评论数">
+                        <MessageCircle />
+                        {formatNumber(videoInfo.stat.reply)}
+                      </span>
+                    )}
+                    {videoInfo.stat.like !== undefined && (
+                      <span className="stat-item" title="点赞数">
+                        <ThumbsUp />
+                        {formatNumber(videoInfo.stat.like)}
+                      </span>
+                    )}
+                    {videoInfo.stat.coin !== undefined && (
+                      <span className="stat-item" title="投币数">
+                        <Coins />
+                        {formatNumber(videoInfo.stat.coin)}
+                      </span>
+                    )}
+                    {videoInfo.stat.favorite !== undefined && (
+                      <span className="stat-item" title="收藏数">
+                        <Star />
+                        {formatNumber(videoInfo.stat.favorite)}
+                      </span>
+                    )}
+                    {videoInfo.stat.share !== undefined && (
+                      <span className="stat-item" title="转发数">
+                        <Share2 />
+                        {formatNumber(videoInfo.stat.share)}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
-            <p className="video-description">{videoInfo.desc}</p>
+            {!isOpus && <p className="video-description">{videoInfo.desc}</p>}
 
             {isMultiPart && downloadOptions.pages && (
               <div className="video-pages-section">

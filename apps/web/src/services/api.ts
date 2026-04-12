@@ -398,20 +398,13 @@ class ApiService {
   }
 
   async parseDownloadUrl(url: string): Promise<ApiResponse<any>> {
-    const bvidMatch = url.match(/BV[\w]+/)
-    const avidMatch = url.match(/av(\d+)/)
-    let mediaId = ''
-    let mediaType = 'video'
-
-    if (bvidMatch) {
-      mediaId = bvidMatch[0]
-    } else if (avidMatch) {
-      mediaId = avidMatch[1]
-    } else {
-      return { success: false, message: '无效的链接格式' }
-    }
-
-    return this.getMediaInfo(mediaType, mediaId)
+    return this.request<any>('/api/download/parse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    });
   }
 
   async addToDownloadQueue(data: {

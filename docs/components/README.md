@@ -8,12 +8,13 @@
 
 | 组件 | 说明 | 文档 |
 |------|------|------|
+| VideoDetailPage | 视频/图文详情页 | [video-detail-page.md](video-detail-page.md) |
+| VideoListContainer | 视频列表容器 | [video-list-container.md](video-list-container.md) |
+| BatchActionsBar | 批量操作栏 | [batch-actions-bar.md](batch-actions-bar.md) |
 | Modal | 通用弹窗 | [modal.md](modal.md) |
 | Toast | 提示消息 | [toast.md](toast.md) |
 | AlertModal | 警告弹窗 | [alert-modal.md](alert-modal.md) |
 | ConfirmModal | 确认弹窗 | [confirm-modal.md](confirm-modal.md) |
-| VideoListContainer | 视频列表容器 | [video-list-container.md](video-list-container.md) |
-| BatchActionsBar | 批量操作栏 | [batch-actions-bar.md](batch-actions-bar.md) |
 
 ### 后端服务
 

@@ -1,4 +1,6 @@
 import httpx
+import re
+import json
 from typing import Dict, Optional
 from src.config import settings
 from src.services.headers_manager import get_headers_manager, init_headers
@@ -1078,6 +1080,95 @@ class BilibiliService:
             return {
                 "success": False,
                 "message": f"获取播放器信息异常: {str(e)}"
+            }
+
+    async def get_opus_details(self, opus_id: str, sessdata: str = "") -> Dict:
+        """获取图文详情（使用HTML解析方法）
+
+        Args:
+            opus_id: 图文ID（纯数字）
+            sessdata: SESSDATA（可选）
+
+        Returns:
+            Dict: 图文详情信息
+        """
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        headers = await self.headers_manager.get_headers()
+        headers["Referer"] = "https://www.bilibili.com/"
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(
+                    f"https://www.bilibili.com/opus/{opus_id}",
+                    headers=headers
+                )
+                response.raise_for_status()
+                html = response.text
+
+                # 从HTML中提取__INITIAL_STATE__数据
+                patterns = [
+                    r'__INITIAL_STATE__\s*=\s*({.*?});',
+                    r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
+                ]
+
+                data = None
+                for pattern in patterns:
+                    match = re.search(pattern, html)
+                    if match:
+                        try:
+                            data = json.loads(match.group(1))
+                            break
+                        except json.JSONDecodeError:
+                            continue
+
+                if not data:
+                    return {
+                        "success": False,
+                        "message": "解析图文数据失败"
+                    }
+
+                # 提取图文模块数据
+                modules = data.get("detail", {}).get("modules", []) if "detail" in data else []
+                title_module = next((m for m in modules if m.get("module_type") == "MODULE_TYPE_TITLE"), {})
+                author_module = next((m for m in modules if m.get("module_type") == "MODULE_TYPE_AUTHOR"), {})
+                stat_module = next((m for m in modules if m.get("module_type") == "MODULE_TYPE_STAT"), {})
+                content_module = next((m for m in modules if m.get("module_type") == "MODULE_TYPE_CONTENT"), {})
+
+                title = title_module.get("module_title", {}).get("title", "") or title_module.get("module_title", {}).get("text", "")
+                author = author_module.get("module_author", {})
+                stat = stat_module.get("module_stat", {})
+                
+                # 提取图片列表 - 从 paragraphs 中提取
+                image_urls = []
+                content_data = content_module.get("module_content", {})
+                paragraphs = content_data.get("paragraphs", [])
+                for para in paragraphs:
+                    pic_data = para.get("pic", {})
+                    pics = pic_data.get("pics", [])
+                    for pic in pics:
+                        if pic.get("url"):
+                            image_urls.append(pic.get("url"))
+
+                return {
+                    "success": True,
+                    "data": {
+                        "id": data.get("id"),
+                        "title": title,
+                        "author": author,
+                        "stat": stat,
+                        "paragraphs": paragraphs,
+                        "image_urls": image_urls,
+                        "raw_data": data,
+                        "basic": data.get("detail", {}).get("basic", {}),
+                        "type": "opus"
+                    }
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"获取图文详情异常: {str(e)}"
             }
 
     def close(self):
