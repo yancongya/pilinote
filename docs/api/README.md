@@ -23,6 +23,20 @@
 - 下载接口
 - 设置接口
 
+### 3. 后端服务组件
+**文件**: [components/README.md](../components/README.md)
+
+内容：
+- BilibiliService
+- CookieManager
+- HeadersManager
+- DownloadEngine
+- MediaProcessor
+- DownloadManager
+- DownloadService
+- ScanService
+- SettingsService
+
 ---
 
 ## 关联文档

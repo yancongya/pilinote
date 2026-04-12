@@ -15,6 +15,17 @@
 - 路由
 - WebSocket 连接
 
+### 2. 前端组件
+**文件**: [components/README.md](../components/README.md)
+
+内容：
+- Modal
+- Toast
+- AlertModal
+- ConfirmModal
+- VideoListContainer
+- BatchActionsBar
+
 ---
 
 ## 关联文档
