@@ -2,6 +2,25 @@
 
 ## 2026.04.12
 
+### 文档完善：设置模块
+
+- 更新 settings 模块文档结构，按 4 大类设置组织
+- 更新 `docs/settings/README.md`：索引 4 项设置（download/storage/general/auto_download）+ 完整配置结构
+- 更新 `docs/settings/storage.md`：增加存储设置配置项（路径、清理、sidecar、FTP）
+- 更新 `docs/settings/backup.md`：标注 WebDAV 未实现，仅支持 FTP
+- 新建 `docs/settings/download.md`：下载设置（视频质量、编码、并发、元数据）
+- 新建 `docs/settings/general.md`：通用设置（主题、语言、剪贴板监控）
+- 新建 `docs/settings/auto-download.md`：自动下载设置（扫描配置、收藏夹配置）
+
+### 文档规范
+
+- 修复 doc-workflow skill 添加 YAML 头格式
+- 将 skill 复制到项目 `.agents/skills/` 目录
+
+---
+
+## 2026.04.12
+
 ### 修复：登录状态验证问题
 
 - 修复 MainLayout 登录检查：使用 `isAuthenticated` 代替 `user?.sessdata`
