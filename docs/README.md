@@ -2,9 +2,16 @@
 
 ## 文档索引
 
+### 架构文档
+- [系统架构](architecture/system.md) - 整体架构、技术栈、模块结构
+
 ### 基础文档
 - [技术栈](base/tech-stack.md) - 技术选型
 - [参考项目](base/reference-projects.md) - 参考项目
+
+### 实现文档
+- [前端实现](web/implementation.md) - React 组件、状态管理、API服务
+- [后端实现](api/implementation.md) - FastAPI路由、Services、数据模型
 
 ### 功能模块
 - [认证功能](auth/) - 登录、Cookies、刷新、多账号
@@ -21,6 +28,39 @@
 ### 开发笔记
 - [开发日志](dev/dev-log.md) - 开发记录
 - [文档完善指南](dev/roadmap.md) - 完善文档步骤
+
+---
+
+## 快速开始
+
+### 启动后端
+
+```bash
+cd apps/api
+source venv/bin/activate
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 启动前端
+
+```bash
+cd apps/web
+pnpm install
+pnpm dev
+```
+
+### 登录方式
+
+1. **SESSDATA 登录** - 在 Bilibili 页面F12获取 SESSDATA
+2. **二维码登录** - 扫描二维码
+3. **手机验证码登录** - 需要验证码
+
+### 下载流程
+
+1. 访问收藏夹或稍后再看
+2. 选择视频质量
+3. 添加到下载队列
+4. 开始下载
 
 ---
 
