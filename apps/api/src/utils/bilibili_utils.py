@@ -96,9 +96,16 @@ class LinkParser:
         """
         url = input_str.strip()
         
+        # 检查空链接
+        if not url:
+            raise ValueError('链接不能为空')
+        
+        # 去掉URL参数（?后面的内容），只保留核心部分
+        url_without_params = url.split('?')[0].strip()
+        
         # 1. 处理ID格式 (av\d+, BV\w{10}, ep\d+, ss\d+, md\d+, au\d+, am\d+, cv\d+, rl\d+)
         id_pattern = r'^(av\d+|BV\w{10}|ep\d+|ss\d+|md\d+|au\d+|am\d+|cv\d+|rl\d+)$'
-        id_match = re.match(id_pattern, url, re.IGNORECASE)
+        id_match = re.match(id_pattern, url_without_params, re.IGNORECASE)
         if id_match:
             raw_id = id_match.group(0)
             prefix = raw_id[:2].lower()
@@ -198,12 +205,21 @@ class LinkParser:
                             "original": url
                         }
                     elif ss_match:
-                        return {
-                            "id": f"ss{ss_match.group(1)}",
-                            "type": MediaType.BANGUMI,
-                            "target": None,
-                            "original": url
-                        }
+                        # 根据路径判断是番剧还是课程
+                        if '/cheese/' in final_path:
+                            return {
+                                "id": f"ss{ss_match.group(1)}",
+                                "type": MediaType.LESSON,
+                                "target": None,
+                                "original": url
+                            }
+                        else:
+                            return {
+                                "id": f"ss{ss_match.group(1)}",
+                                "type": MediaType.BANGUMI,
+                                "target": None,
+                                "original": url
+                            }
                     
                     raise ValueError(f'短链接解析失败: {final_url}')
                 except Exception as e:

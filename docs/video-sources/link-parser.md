@@ -20,7 +20,9 @@
 | 纯ID | `BV1xx411c7mD` | 直接识别类型 |
 | 纯ID | `av12345678` | AV号转BV号 |
 | 纯ID | `ep123456` | 番剧ID |
+| 纯ID | `ss123456` | 番剧/课程ID（课程需用完整URL） |
 | 完整URL | `https://www.bilibili.com/video/BVxxx` | 从URL提取ID |
+| 课程URL | `https://www.bilibili.com/cheese/play/ssxxx` | 课程链接 |
 | 短链接 | `https://b23.tv/xxx` | 解析重定向 |
 | 混合输入 | `BVxxx ...` | 自动提取第一个有效ID |
 | 短链接 | `b23.tv/xxx` | 自动解析重定向 |
@@ -37,8 +39,10 @@
 | **视频BV-URL** | `https://www.bilibili.com/video/BV1xx411c7mD` | ✅ | |
 | **视频AV-URL** | `https://www.bilibili.com/video/av12345678` | ✅ | |
 | **番剧EP** | `ep123456` | ✅ | |
-| **番剧SS** | `ss123456` | ✅ | |
+| **番剧SS** | `ss123456` | ✅ | 纯ID默认识别为番剧 |
 | **番剧MD** | `md123456` | ✅ | |
+| **课程** | `https://www.bilibili.com/cheese/play/ss292774372` | ✅ | 需要完整URL |
+| **课程（带参数）** | `https://www.bilibili.com/cheese/play/ss292774372?csource=...` | ✅ | 自动去除参数 |
 | **图文** | `cv123456` | ✅ | 需要登录或Cookie |
 | **图文m站** | `m.bilibili.com/opus/xxx` | ✅ | 智能解析重定向 |
 | 音乐 | `au123456` | ⚠️ | 需要有效音频ID |
@@ -232,11 +236,14 @@ if host == 'b23.tv':
         import httpx
         response = httpx.get(parsed_url, follow_redirects=True, timeout=10)
         final_url = str(response.url)
-        
+
         # 防止无限递归：直接提取 B 站视频 ID
         bvid_match = re.search(r'/(BV[\w]+)', final_url)
         av_match = re.search(r'/av(\d+)', final_url)
-        
+        opus_match = re.search(r'/opus/(\d+)', final_url)
+        ep_match = re.search(r'/ep(\d+)', final_url)
+        ss_match = re.search(r'/ss(\d+)', final_url)
+
         if bvid_match:
             return {
                 "id": bvid_match.group(1),
@@ -251,11 +258,92 @@ if host == 'b23.tv':
                 "target": None,
                 "original": url
             }
-        
+        elif opus_match:
+            return {
+                "id": f"cv{opus_match.group(1)}",
+                "type": MediaType.OPUS,
+                "target": None,
+                "original": url
+            }
+        elif ep_match:
+            return {
+                "id": f"ep{ep_match.group(1)}",
+                "type": MediaType.BANGUMI,
+                "target": None,
+                "original": url
+            }
+        elif ss_match:
+            # 根据路径判断是番剧还是课程
+            if '/cheese/' in final_url:
+                return {
+                    "id": f"ss{ss_match.group(1)}",
+                    "type": MediaType.LESSON,
+                    "target": None,
+                    "original": url
+                }
+            else:
+                return {
+                    "id": f"ss{ss_match.group(1)}",
+                    "type": MediaType.BANGUMI,
+                    "target": None,
+                    "original": url
+                }
+
         raise ValueError(f'短链接解析失败: {final_url}')
     except Exception as e:
         raise ValueError(f'短链接解析失败: {e}')
 ```
+
+### Opus 支持的内容类型
+
+opus 路由支持多种内容类型，不仅仅是图文：
+
+#### 主要类型
+
+| 类型 | 前缀 | 说明 |
+|------|------|------|
+| **单个图文** | `cv` | 标准图文文章 |
+| **图文合集** | `rl` | 多个图文的合集 |
+| **用户图文** | - | 用户发布的图文内容 |
+
+#### 链接卡片类型
+
+opus 内容中可以嵌入链接卡片，指向其他类型的内容：
+
+| 卡片类型 | 说明 |
+|---------|------|
+| `LINK_CARD_TYPE_OPUS` | 引用其他图文信息 |
+| `LINK_CARD_TYPE_UGC` | 引用B站视频 |
+| `LINK_CARD_TYPE_MUSIC` | 引用音乐 |
+| `LINK_CARD_TYPE_LIVE` | 引用直播 |
+| `LINK_CARD_TYPE_GOODS` | 引用商品 |
+| `LINK_CARD_TYPE_VOTE` | 引用投票活动 |
+| `LINK_CARD_TYPE_MATCH` | 引用比赛信息 |
+| `LINK_CARD_TYPE_RESERVE` | 引用预约活动 |
+| `LINK_CARD_TYPE_UPOWER_LOTTERY` | 引用充电抽奖 |
+
+#### 测试注意事项
+
+测试 opus 解析时返回 404 错误是**正常现象**，不是 bug：
+
+```
+# 测试失败的原因
+cv123456  # ❌ 这个ID不存在
+rl123456  # ❌ 这个ID不存在
+
+# 实际成功的测试
+https://www.bilibili.com/opus/1182515074827288583  # ✅ 成功
+```
+
+**原因**：
+- `cv123456` 和 `rl123456` 只是测试用的占位符ID
+- 这些ID在B站数据库中不存在
+- 代码逻辑正确，正确返回了 404 错误
+
+**PiliNote 的支持**：
+- ✅ 下载图文内容
+- ✅ 下载图文中的所有图片
+- ✅ 提取文本段落和元数据
 
 ### 图文 (Opus) 解析实现
 
@@ -423,6 +511,71 @@ Request:
 }
 ```
 
+### 课程解析响应
+
+```
+POST /api/download/parse
+Content-Type: application/json
+
+Request:
+{
+    "url": "https://www.bilibili.com/cheese/play/ss292774372"
+}
+
+Response:
+{
+    "success": true,
+    "data": {
+        "parsed_id": {
+            "id": "ss292774372",
+            "type": "lesson",
+            "original": "https://www.bilibili.com/cheese/play/ss292774372"
+        },
+        "video": {
+            "bvid": "BV1xx411c7mD",
+            "aid": 123456789,
+            "title": "DAZ+Blender角色创作全流程《镀金骑士》",
+            "desc": "快速、简洁、高效、优质的角色创作流程",
+            "pic": "https://archive.biliimg.com/bfs/archive/xxx.jpg",
+            "duration": 12345,
+            "pubdate": 1234567890,
+            "cid": 12345678,
+            "owner": {
+                "mid": 1772813170,
+                "name": "衮刀鱼",
+                "face": "https://i1.hdslb.com/bfs/face/xxx.jpg"
+            },
+            "stat": {
+                "view": 9627,
+                "danmaku": 0
+            }
+        },
+        "download_options": {
+            "multi_part": true,
+            "pages": [
+                {
+                    "page": 1,
+                    "cid": 35920675886,
+                    "part": "0-1 课程介绍",
+                    "duration": 101
+                },
+                {
+                    "page": 2,
+                    "cid": 35918054473,
+                    "part": "1-1 Daz和资产安装",
+                    "duration": 704
+                }
+            ]
+        },
+        "course_info": {
+            "season_id": 292774372,
+            "total_episodes": 18,
+            "episodes": [...]
+        }
+    }
+}
+```
+
 ## 测试
 
 ### 单元测试
@@ -463,6 +616,44 @@ npx playwright test tests/link-parser.spec.ts
 | metadata.enable_nfo | 生成 NFO | true |
 | metadata.enable_cover | 下载封面 | true |
 
+## 课程链接注意事项
+
+### 课程链接类型识别
+
+系统通过URL路径区分番剧和课程：
+
+| 类型 | URL路径 | 识别类型 |
+|------|---------|---------|
+| 番剧 | `/bangumi/play/ss123456` | `BANGUMI` |
+| 课程 | `/cheese/play/ss123456` | `LESSON` |
+
+### 使用建议
+
+**推荐方式**（正确识别）：
+- ✅ 使用完整URL：`https://www.bilibili.com/cheese/play/ss292774372`
+- ✅ 支持带参数：`https://www.bilibili.com/cheese/play/ss292774372?csource=...`
+
+**不推荐方式**（默认识别为番剧）：
+- ⚠️ 纯ID：`ss292774372` → 识别为 `BANGUMI`
+- ⚠️ 纯ID带参数：`ss292774372?csource=...` → 识别为 `BANGUMI`
+
+### 课程下载要求
+
+1. **需要购买**：课程为付费内容，需要购买后才能下载
+2. **登录状态**：需要提供有效的 SESSDATA
+3. **网络环境**：确保网络连接稳定
+
+### 支持的课程链接格式
+
+| 格式 | 示例 | 状态 |
+|------|------|------|
+| 完整URL | `https://www.bilibili.com/cheese/play/ss292774372` | ✅ 正确识别为课程 |
+| 带参数 | `https://www.bilibili.com/cheese/play/ss292774372?csource=...` | ✅ 自动去除参数 |
+| 纯ID | `ss292774372` | ⚠️ 默认识别为番剧 |
+| 纯ID+参数 | `ss292774372?csource=...` | ⚠️ 默认识别为番剧 |
+
+---
+
 ## 常见问题
 
 ### 1. 解析失败
@@ -473,7 +664,7 @@ npx playwright test tests/link-parser.spec.ts
 ### 2. 短链接解析失败
 
 **原因**: 网络超时（超过10秒）或短链接已失效
-**解决**: 
+**解决**:
 - 检查网络连接
 - 使用完整链接
 - 错误信息会显示具体失败原因
@@ -482,6 +673,26 @@ npx playwright test tests/link-parser.spec.ts
 
 **原因**: Cookie 失效或账号未登录
 **解决**: 重新登录获取有效的 SESSDATA
+
+### 4. 课程链接解析为番剧
+
+**原因**: 使用纯ID（如 `ss292774372`）无法区分番剧和课程
+**解决**: 使用完整URL（如 `https://www.bilibili.com/cheese/play/ss292774372`）
+
+### 5. 课程链接带参数解析失败
+
+**原因**: 之前的版本不支持带参数的链接
+**解决**: 已修复，现在支持带参数的链接（如 `ss292774372?csource=...`）
+
+### 6. 解析时提示 "coroutine object is not subscriptable"
+
+**原因**: 异步函数调用时未使用 await
+**解决**: 已修复，所有异步函数调用都已添加 await
+
+### 7. 课程信息获取失败（"啥都木有"）
+
+**原因**: 课程ID不存在或课程已下架
+**解决**: 检查课程ID是否正确，确认课程是否已下架
 
 ---
 

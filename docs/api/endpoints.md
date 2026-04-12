@@ -56,14 +56,15 @@
 |------|----------|------|
 | video | `BV1xx411c7mD` | 普通视频 |
 | opus | `123456789` | 图文专栏 |
-| bangumi | `ep123456` | 番剧（暂未实现） |
+| bangumi | `ep123456` | 番剧 |
+| lesson | `https://www.bilibili.com/cheese/play/ss292774372` | 课程（需完整URL） |
 | music | `au123456` | 音乐（暂未实现） |
 
 ## 下载解析接口
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/download/parse` | 解析下载URL（支持视频、图文等） |
+| POST | `/api/download/parse` | 解析下载URL（支持视频、图文、课程、番剧等） |
 
 ### 解析请求示例
 
@@ -76,7 +77,24 @@
 
 // 视频URL解析
 { "url": "https://www.bilibili.com/video/BV1xx411c7mD" }
+
+// 课程解析（推荐使用完整URL）
+{ "url": "https://www.bilibili.com/cheese/play/ss292774372" }
+
+// 课程解析（支持带参数）
+{ "url": "https://www.bilibili.com/cheese/play/ss292774372?csource=common_myclass_purchasedlecture_null" }
+
+// 番剧解析
+{ "url": "https://www.bilibili.com/bangumi/play/ss42099" }
 ```
+
+### 课程链接注意事项
+
+- **推荐使用完整URL**：`https://www.bilibili.com/cheese/play/ss{id}`
+- **支持带参数的链接**：系统会自动去除 URL 参数
+- **纯ID不推荐**：`ss292774372` 默认识别为番剧，无法区分课程
+- **需要购买**：课程为付费内容，需要购买后才能下载
+- **需要登录**：必须提供有效的 SESSDATA
 
 ## 下载接口
 

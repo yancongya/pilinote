@@ -31,6 +31,8 @@ Bilibili API 封装服务，处理所有与 Bilibili 后端的交互。
 | `get_folder_list()` | 获取收藏夹列表 |
 | `get_folder_detail()` | 获取收藏夹详情 |
 | `get_watch_later()` | 获取稍后再看 |
+| `get_classroom_detail()` | 获取课程详细信息 |
+| `get_classroom_episodes()` | 获取课程分集列表 |
 | `get_user_info()` | 获取用户信息 |
 
 ### API URL 生成
@@ -42,6 +44,8 @@ Bilibili API 封装服务，处理所有与 Bilibili 后端的交互。
 | VIDEO | BV号 | `/x/web-interface/view?bvid=` |
 | VIDEO | AV号 | `/x/web-interface/view?aid=` |
 | BANGUMI | ep/ss/md | `/pgc/view/web/season?ep_id=` |
+| LESSON | season_id | `/pugv/view/web/season?season_id=` |
+| LESSON | season_id | `/pugv/view/web/ep/list?season_id=` |
 | OPUS | cv | `/x/article/viewinfo?cv=` |
 | MUSIC | au | `/audio/music-service-c/info?sid=` |
 
@@ -121,6 +125,86 @@ async def get_video_pages(self, aid: int) -> List[Dict]:
 - [HeadersManager](headers-manager.md) - 请求头管理
 - [CookieManager](cookie-manager.md) - Cookie 管理
 - [MediaProcessor](media-processor.md) - 媒体处理
+
+## 课程相关方法
+
+### get_classroom_detail
+
+```python
+async def get_classroom_detail(self, season_id: int, sessdata: str) -> Dict:
+    """
+    获取课程详细信息
+    
+    Args:
+        season_id: 课程season_id（如 292774372）
+        sessdata: 用户SESSDATA（必须提供，课程为付费内容）
+        
+    Returns:
+        {
+            "success": True,
+            "data": {
+                "title": "课程标题",
+                "subtitle": "副标题",
+                "description": "课程简介",
+                "cover": "封面URL",
+                "pubtime": 1234567890,
+                "release_date": 1234567890
+            }
+        }
+    """
+```
+
+### get_classroom_episodes
+
+```python
+async def get_classroom_episodes(self, season_id: int, sessdata: str, page: int = 1, page_size: int = 20) -> Dict:
+    """
+    获取课程分集列表
+    
+    Args:
+        season_id: 课程season_id
+        sessdata: 用户SESSDATA（必须提供）
+        page: 页码（默认1）
+        page_size: 每页数量（默认20）
+        
+    Returns:
+        {
+            "success": True,
+            "data": {
+                "items": [
+                    {
+                        "id": 分集ID,
+                        "page": 集数,
+                        "cid": 视频CID,
+                        "part": "分集标题",
+                        "duration": 时长（秒）
+                    }
+                ],
+                "page": 页码,
+                "page_size": 每页数量,
+                "total": 总数
+            }
+        }
+    """
+```
+
+### 课程使用示例
+
+```python
+# 获取课程信息
+season_id = 292774372
+sessdata = "your_sessdata"
+
+# 获取课程详情
+course_detail = await service.get_classroom_detail(season_id, sessdata)
+
+# 获取课程分集列表
+episodes = await service.get_classroom_episodes(season_id, sessdata, page=1, page_size=100)
+
+# 遍历分集
+for episode in episodes["data"]["items"]:
+    print(f"第{episode['page']}集: {episode['part']}")
+```
 
 ---
 

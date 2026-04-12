@@ -138,17 +138,19 @@ async def parse_link(request: ParseLinkRequest):
             bilibili_service = BilibiliService()
             
             try:
-                season_id = int(parsed["id"])
-                course_detail_result = bilibili_service.get_classroom_detail(season_id, request.sessdata or "")
-                
+                # 去掉 ss 前缀再转换为整数
+                season_id_str = str(parsed["id"]).replace("ss", "").replace("SS", "")
+                season_id = int(season_id_str)
+                course_detail_result = await bilibili_service.get_classroom_detail(season_id, request.sessdata or "")
+
                 if not course_detail_result["success"]:
                     return ParseLinkResponse(
                         success=False,
                         message=course_detail_result.get("message", "获取课程信息失败")
                     )
-                
+
                 course_detail = course_detail_result["data"]
-                course_episodes_result = bilibili_service.get_classroom_episodes(season_id, request.sessdata or "", 1, 100)
+                course_episodes_result = await bilibili_service.get_classroom_episodes(season_id, request.sessdata or "", 1, 100)
                 
                 if not course_episodes_result["success"]:
                     return ParseLinkResponse(
@@ -474,14 +476,20 @@ async def parse_link(request: ParseLinkRequest):
                 response = await client.get(api_url, headers=headers)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 if data.get("code") != 0:
                     return ParseLinkResponse(
                         success=False,
                         message=data.get("message", "获取音乐信息失败")
                     )
-                
-                music_data = data.get("data", {})
+
+                music_data = data.get("data")
+                if not music_data:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="音乐数据为空"
+                    )
+
                 return ParseLinkResponse(
                     success=True,
                     data={

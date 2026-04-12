@@ -42,6 +42,7 @@
 | AV号 | `av12345678` | ✅ |
 | 视频URL | `bilibili.com/video/BVxxx` | ✅ |
 | 番剧EP/SS/MD | `ep123456` | ✅ |
+| 课程 | `https://www.bilibili.com/cheese/play/ss292774372` | ✅ 需完整URL |
 | 音乐 | `au123456` | ⚠️ API已失效 |
 | 短链接 | `b23.tv/xxxxxx` | ⚠️ 需要有效链接 |
 
@@ -62,6 +63,8 @@
 |------|------|------|------|
 | 视频 | `/video/:videoId` | VideoDetailPage | 显示视频详情、分P、统计数据 |
 | 图文 | `/opus/:opusId` | VideoDetailPage (type="opus") | 显示图文内容、段落、图片 |
+| 课程 | `/lesson/:lessonId` | VideoDetailPage (type="lesson") | 显示课程详情、章节列表 |
+| 番剧 | `/bangumi/:bangumiId` | VideoDetailPage (type="bangumi") | 显示番剧详情、分集列表 |
 
 ---
 
