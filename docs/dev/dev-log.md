@@ -2,6 +2,38 @@
 
 ## 2026.04.12
 
+### 文档完善：技术栈和系统架构
+
+- 更新 `docs/base/tech-stack.md`：更新技术版本号（React 19.1.0, Zustand 5.0.12等）
+- 新建 `docs/architecture/system.md`：系统架构图、模块结构、数据流
+- 新建 `docs/web/implementation.md`：前端实现文档
+- 新建 `docs/api/implementation.md`：后端实现文档
+- 新建 `docs/settings/accounts.md`：账号设置文档
+- 更新 `docs/README.md`：添加使用指南
+- 更新各目录 README 索引
+
+### 代码审查 Skill
+
+- 安装 `requesting-code-review` skill 到项目
+- 复制到 `.agents/skills/` 目录
+
+### 文档目录完整化
+
+- settings/ 7个文档（download/storage/general/accounts/auto-download/backup/README）
+- auth/ 5个文档
+- video-sources/ 3个文档
+- download/ 5个文档
+- database/ 3个文档
+- api/ 3个文档
+- web/ 2个文档
+- dev/ 3个文档
+- architecture/ 1个文档
+- base/ 3个文档
+
+---
+
+## 2026.04.12
+
 ### 文档完善：设置模块
 
 - 更新 settings 模块文档结构，按 4 大类设置组织
