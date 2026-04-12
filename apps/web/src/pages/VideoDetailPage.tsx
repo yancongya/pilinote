@@ -5,11 +5,39 @@ import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
 import { useVideoDownload } from '../hooks/useVideoDownload'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, Film, User } from 'lucide-react'
+import { ArrowLeft, Film, User, ThumbsUp, Star, MessageCircle, MessageSquare, Share2, Coins } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 
 interface VideoDetailPageProps {
   type?: 'video' | 'opus'
+}
+
+interface VideoDetailData {
+  bvid: string;
+  aid: string | number;
+  title: string;
+  description: string;
+  isOpus: boolean;
+  uploader: { name: string; avatar: string; mid: number };
+  view: number;
+  danmaku: number;
+  reply: number;
+  favorite: number;
+  coin: number;
+  share: number;
+  like: number;
+  pubtime: number;
+  duration: number;
+  cover: string;
+  cid: number;
+  pages: any[];
+  opusParagraphs?: any[];
+  opusImages?: string[];
+  dimension?: any;
+  rights?: any;
+  descV2?: any[];
+  staff?: any;
+  ugcSeason?: any;
 }
 
 export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps) {
@@ -20,7 +48,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const navigate = useNavigate()
   const newQueueStore = useNewQueueStore()
   const { toggleDownload } = useVideoDownload()
-  const [video, setVideo] = useState<any>(null)
+  const [video, setVideo] = useState<VideoDetailData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [downloading, setDownloading] = useState(false)
@@ -67,10 +95,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
           if (type === 'opus') {
             // 图文数据结构
             const opusData = data.opus_info || {}
-            const opusStat = data.stat || {}
+            const videoStat = data.video?.stat || {}
             const opusParagraphs = data.opus_info?.paragraphs || []
             const opusImages = data.opus_info?.image_urls || []
-            
+
             setVideo({
               bvid: '',
               aid: data.aid || mediaId,
@@ -84,11 +112,11 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               },
               view: 0,
               danmaku: 0,
-              reply: opusStat.comment?.count || 0,
-              favorite: opusStat.favorite?.count || 0,
-              coin: opusStat.coin?.count || 0,
-              share: opusStat.forward?.count || 0,
-              like: opusStat.like?.count || 0,
+              reply: videoStat.reply || 0,
+              favorite: videoStat.favorite || 0,
+              coin: videoStat.coin || 0,
+              share: videoStat.share || 0,
+              like: videoStat.like || 0,
               pubtime: data.video?.pubdate || 0,
               duration: 0,
               cover: data.pic || opusImages[0] || '',
@@ -612,17 +640,23 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           <div style={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '12px',
             marginBottom: '16px',
             paddingBottom: '16px',
             borderBottom: '1px solid #f0f0f0'
           }}>
-            <img
-              src={getProxyImageUrl(video.uploader.avatar)}
-              alt={video.uploader.name}
-              style={{ width: '40px', height: '40px', borderRadius: '50%' }}
-            />
-<div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <img
+                src={getProxyImageUrl(video.uploader.avatar)}
+                alt={video.uploader.name}
+                style={{ width: '40px', height: '40px', borderRadius: '50%' }}
+              />
+              <div>
                 <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
                   {video.uploader.name}
                 </div>
@@ -630,6 +664,31 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
                   {formatTime(video.pubtime)}
                 </div>
               </div>
+            </div>
+
+            {/* 图文统计信息 - 右对齐 */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              fontSize: '12px',
+              color: '#666',
+              alignItems: 'center',
+              flexShrink: 0,
+              flexWrap: 'wrap'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <ThumbsUp size={12} /> {formatNumber(video.like)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Star size={12} /> {formatNumber(video.favorite)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MessageCircle size={12} /> {formatNumber(video.reply)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Share2 size={12} /> {formatNumber(video.share)}
+              </span>
+            </div>
           </div>
         ) : null}
 
@@ -722,42 +781,39 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           paddingBottom: '16px',
           borderBottom: '1px solid #f0f0f0'
         }}>
-          {/* 视频发布时间 */}
-          <div style={{
-            fontSize: '12px',
-            color: '#999',
-            marginBottom: '12px'
-          }}>
-            {formatTime(video.pubtime)}
-          </div>
-
-          {/* 视频/图文统计信息 */}
-          <div className="video-detail-stats" style={{
-            display: 'flex',
-            gap: '16px',
-            fontSize: '12px',
-            color: '#666',
-            flexWrap: 'wrap'
-          }}>
-            {video.isOpus ? (
-              <>
-                <span>❤️ {formatNumber(video.like)}</span>
-                <span>⭐ {formatNumber(video.favorite)}</span>
-                <span>💬 {formatNumber(video.reply)}</span>
-                <span>🔗 {formatNumber(video.share)}</span>
-              </>
-            ) : (
-              <>
-                <span>{formatNumber(video.view)}播放</span>
-                <span>{formatNumber(video.danmaku)}弹幕</span>
-                <span>❤️ {formatNumber(video.like)}</span>
-                <span>🪙 {formatNumber(video.coin)}</span>
-                <span>⭐ {formatNumber(video.favorite)}</span>
-                <span>💬 {formatNumber(video.reply)}</span>
-                <span>🔗 {formatNumber(video.share)}</span>
-              </>
-            )}
-          </div>
+          {/* 视频统计信息 */}
+          {!video.isOpus && (
+            <div className="video-detail-stats" style={{
+              display: 'flex',
+              gap: '16px',
+              fontSize: '12px',
+              color: '#666',
+              flexWrap: 'wrap',
+              alignItems: 'center'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Eye size={12} /> {formatNumber(video.view)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MessageSquare size={12} /> {formatNumber(video.danmaku)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <ThumbsUp size={12} /> {formatNumber(video.like)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Coins size={12} /> {formatNumber(video.coin)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Star size={12} /> {formatNumber(video.favorite)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MessageCircle size={12} /> {formatNumber(video.reply)}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Share2 size={12} /> {formatNumber(video.share)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 分P信息 */}
