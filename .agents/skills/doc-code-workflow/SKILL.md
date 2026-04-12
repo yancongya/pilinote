@@ -2,6 +2,8 @@
 name: doc-code-workflow
 version: 1.0.0
 description: 文档和代码审查的完整工作流 - 从需求分析到代码审查的闭环流程
+argument-hint: "【文档/代码审查】执行文档新建更新或代码审查流程"
+important: "禁止自动commit！所有提交必须用户确认后执行"
 ---
 
 # 文档代码工作流 Skill
@@ -9,9 +11,35 @@ description: 文档和代码审查的完整工作流 - 从需求分析到代码�
 ## 概述
 
 本 Skill 集成了代码审查、文档更新的完整工作流，结合了：
-- doc-workflow: 文档工作流参考
-- project-documentation-workflow: 项目文档生成
+- project-documentation-workflow: 项目文档生成（波次执行）
 - requesting-code-review: 代码审查
+
+## 协同 Skills
+
+| Skill | 用途 | 调用方式 |
+|-------|------|---------|
+| project-documentation-workflow | 项目文档生成 | 参考其波次执行模式 |
+| requesting-code-review | 代码审查 | 使用其审查模板 |
+
+## 重要规则
+
+### ⚠️ 禁止自动 commit
+
+- **所有 commit 操作必须用户确认后才能执行**
+- 完成修复后询问用户："是否需要 commit？"
+- 等待用户确认后再执行 git commit
+
+### 调用协同 Skills
+
+```
+1. 文档生成 → 参考 project-documentation-workflow 的波次模式
+2. 代码审查 → 参考 requesting-code-review 的审查流程
+3. 生成报告 → 使用其输出格式
+```
+
+---
+
+## 阶段检查点
 
 ## 工作流流程
 
@@ -108,6 +136,10 @@ description: 文档和代码审查的完整工作流 - 从需求分析到代码�
    - 确保文件存在
 ```
 
+### ⚠️ Phase 2 检查点
+
+> 询问用户："实现完成，是否进入代码审查？"
+
 ### Phase 3: 代码审查
 
 ```
@@ -115,9 +147,10 @@ description: 文档和代码审查的完整工作流 - 从需求分析到代码�
    BASE_SHA=$(git rev-parse HEAD~1)
    HEAD_SHA=$(git rev-parse HEAD)
 
-2. 分析变更
-   - 统计文件数量
-   - 检查新增/修改
+2. 参考 requesting-code-review 格式
+   - 分析 Strengths
+   - 列出 Issues (Critical/Important/Minor)
+   - 给出 Assessment
 
 3. 检查问题
    - 代码规范
@@ -130,6 +163,10 @@ description: 文档和代码审查的完整工作流 - 从需求分析到代码�
    - Issues: 问题列表 (Critical/Important/Minor)
    - Assessment: 评估
 ```
+
+### ⚠️ Phase 3 检查点
+
+> 询问用户："代码审查完成，需要修复哪些问题？修复后是否进入提交？"
 
 ### Phase 4: 修复
 
@@ -149,14 +186,24 @@ description: 文档和代码审查的完整工作流 - 从需求分析到代码�
 
 ### Phase 5: 提交
 
-```
-1. 提交变更
-   git add <files>
-   git commit -m "message"
+⚠️ **禁止自动 commit！必须用户确认**
 
-2. 更新日志 (可选)
+```
+1. 展示提交内容
+   - git status
+   - git diff --stat
+   
+2. 询问用户：
+   "是否需要 commit？输入 commit 消息或 'no' 取消"
+
+3. 只有用户确认后才执行：
+   git add <files>
+   git commit -m "用户确认的消息"
+
+4. 更新日志 (可选)
    - docs/dev/dev-log.md
    - CHANGELOG.md
+   - 同样需要确认
 ```
 
 ---
@@ -228,9 +275,8 @@ python -m py_compile apps/api/src/**/*.py
 
 ## 关联 Skills
 
-- doc-workflow (参考) - 旧文档工作流
-- project-documentation-workflow (参考) - 项目文档生成
-- requesting-code-review (参考) - 代码审查
+- project-documentation-workflow (参考) - 项目文档生成波次模式
+- requesting-code-review (参考) - 代码审查模板
 
 ---
 
