@@ -304,10 +304,26 @@ async def get_opus_details(self, opus_id: str, sessdata: str = "") -> Dict:
 | 字段 | 说明 |
 |------|------|
 | `title` | 图文标题 |
-| `author` | 作者信息 {mid, name, avatar} |
+| `author` | 作者信息 {mid, name, avatar, pub_ts, pub_time} |
 | `stat` | 统计数据 {like, reply, forward, favorite, coin} |
 | `paragraphs` | 内容段落（文本/图片） |
 | `image_urls` | 所有图片URL列表 |
+
+#### 发布时间获取
+
+发布时间从 `MODULE_TYPE_AUTHOR` 模块的 `author` 对象中提取：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `pub_ts` | int | 发布时间戳（秒），如 `1759388819` |
+| `pub_time` | string | 格式化时间，如 `"2025年10月02日 15:06"` |
+
+后端回退策略 (`download.py`):
+```python
+pubdate = author.get("pub_ts", 0) or basic.get("pub_time", 0) or basic.get("publish_time", 0)
+```
+
+优先使用 `author.pub_ts`（时间戳），回退到 `basic.pub_time` 或 `basic.publish_time`。
 
 ## API 详情
 

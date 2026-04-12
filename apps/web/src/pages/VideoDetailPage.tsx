@@ -89,7 +89,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               coin: opusStat.coin?.count || 0,
               share: opusStat.forward?.count || 0,
               like: opusStat.like?.count || 0,
-              pubtime: data.pubdate || 0,
+              pubtime: data.video?.pubdate || 0,
               duration: 0,
               cover: data.pic || opusImages[0] || '',
               cid: 0,

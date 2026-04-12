@@ -557,6 +557,9 @@ async def parse_link(request: ParseLinkRequest):
                 favorite_count = raw_stat.get("favorite", {}).get("count", 0)
                 coin_count = raw_stat.get("coin", {}).get("count", 0)
                 
+                # 从 author module 获取发布时间
+                pubdate = author.get("pub_ts", 0) or basic.get("pub_time", 0) or basic.get("publish_time", 0)
+                
                 first_image = opus_data.get("image_urls", [""])[0] if opus_data.get("image_urls") else ""
                 
                 return ParseLinkResponse(
@@ -574,7 +577,7 @@ async def parse_link(request: ParseLinkRequest):
                             desc="",
                             pic=first_image,
                             duration=0,
-                            pubdate=basic.get("pub_time", 0) or basic.get("publish_time", 0),
+                            pubdate=pubdate,
                             cid=0,
                             owner={
                                 "mid": basic.get("author", {}).get("mid", 0) or author.get("mid", 0),

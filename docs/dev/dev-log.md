@@ -2,6 +2,25 @@
 
 ## 2026.04.12
 
+### 修复：图文详情页发布时间为空
+
+- 问题：图文详情页日期显示为空
+- 原因1：后端 `download.py` 从 `basic.pub_time` 获取发布时间，但新版 B 站图文页面 `basic` 对象不包含此字段
+- 原因2：前端 `VideoDetailPage.tsx` 使用 `data.pubdate` 获取数据，但实际数据在 `data.video.pubdate` 中
+- 修复：
+  - 后端：从 `MODULE_TYPE_AUTHOR` 模块的 `author.pub_ts` 获取发布时间戳（`download.py:560-561`）
+  - 前端：修正数据路径为 `data.video?.pubdate`（`VideoDetailPage.tsx:92`）
+- 测试：使用 Playwright 验证 `https://b23.tv/vf8VgBE` 正确获取 `pub_ts: 1759388819`（2025年10月02日 15:06）
+
+### 文档更新
+
+- `docs/video-sources/link-parser.md`: 添加发布时间获取说明和 `pub_ts`/`pub_time` 字段文档
+- `docs/components/video-detail-page.md`: 补充前端数据映射说明
+
+---
+
+## 2026.04.12
+
 ### 文档完善：技术栈和系统架构
 
 - 更新 `docs/base/tech-stack.md`：更新技术版本号（React 19.1.0, Zustand 5.0.12等）
