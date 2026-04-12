@@ -111,6 +111,9 @@ git_diff_backup.txt
 git_status_backup.txt
 pilinote.db.backup.*
 
+# 测试结果
+test-results/
+
 # 临时脚本
 apps/api/update_part_titles.py
 

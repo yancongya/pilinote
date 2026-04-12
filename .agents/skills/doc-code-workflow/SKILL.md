@@ -241,6 +241,36 @@ cd apps/web && npx tsc --noEmit
 python -m py_compile apps/api/src/**/*.py
 ```
 
+### Playwright 测试
+```bash
+# 检查 playwright 是否安装
+npx playwright --version
+
+# 如果无配置，创建
+# 1. 创建 playwright.config.ts
+# 2. 创建 tests/ 目录
+# 3. 创建测试文件
+
+# 运行测试
+npx playwright test --reporter=line
+```
+
+### Playwright 测试最佳实践
+
+1. **选择器优先级**: ID > role > placeholder > text
+2. **等待加载**: 使用 `waitForSelector` 而非 `waitForTimeout`
+3. **中文选择器**: 使用 ID 而非中文 placeholder/label
+
+```typescript
+// ✅ 正确
+page.locator('#url-input')
+page.getByRole('button', { name: '解析' })
+
+// ❌ 避免
+page.getByPlaceholder('输入B站视频链接')
+page.getByLabel('解析链接')
+```
+
 ---
 
 ## 输出格式

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { apiService } from '../../services/api'
+import { useAuthStore } from '../../stores/auth'
 import { useDownloadStore } from '../../stores/download'
 import { useSettingsStore } from '../../stores/settings'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
@@ -121,7 +122,11 @@ export default function HomeContent() {
     
     try {
       const video = parseData.data.video
-      const sessdata = localStorage.getItem('sessdata')
+      const { user } = useAuthStore()
+      const sessdata = user?.sessdata
+      
+      // 从设置中获取默认质量
+      const defaultQuality = settings?.download?.video?.default_quality || 64
       
       let addedCount = 0
       let skippedCount = 0
@@ -142,7 +147,7 @@ export default function HomeContent() {
           title: video.title,
           cid: page.cid,
           aid: video.aid,
-          quality: 64, // 默认720P
+          quality: defaultQuality,
           output_format: 'mp4',
           thumbnail_url: video.pic,
           duration: page.duration,

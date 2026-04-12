@@ -152,11 +152,35 @@ class LinkParser:
             
             # b23.tv 短链接需要重定向
             if host == 'b23.tv':
-                # 需要通过HTTP请求获取重定向后的URL
-                import httpx
-                response = httpx.get(parsed_url, follow_redirects=True)
-                final_url = str(response.url)
-                return self.parse_id(final_url)
+                try:
+                    # 需要通过HTTP请求获取重定向后的URL
+                    import httpx
+                    response = httpx.get(parsed_url, follow_redirects=True, timeout=10)
+                    final_url = str(response.url)
+                    
+                    # 防止无限递归：直接返回原始 ID
+                    # 提取 B 站视频 ID
+                    bvid_match = re.search(r'/(BV[\w]+)', final_url)
+                    av_match = re.search(r'/av(\d+)', final_url)
+                    
+                    if bvid_match:
+                        return {
+                            "id": bvid_match.group(1),
+                            "type": MediaType.VIDEO,
+                            "target": None,
+                            "original": url
+                        }
+                    elif av_match:
+                        return {
+                            "id": f"av{av_match.group(1)}",
+                            "type": MediaType.VIDEO,
+                            "target": None,
+                            "original": url
+                        }
+                    
+                    raise ValueError(f'短链接解析失败: {final_url}')
+                except Exception as e:
+                    raise ValueError(f'短链接解析失败: {e}')
             
             if not host.endswith('bilibili.com'):
                 raise ValueError('不支持的链接格式')
