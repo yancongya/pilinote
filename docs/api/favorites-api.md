@@ -104,7 +104,7 @@ curl -X GET "http://localhost:8000/api/favorites/folders?page=1&page_size=20" \
 | `media_count` | int | 收藏夹内内容数量 |
 | `cover` | string | 收藏夹封面 URL |
 | `intro` | string | 收藏夹简介 |
-| `favorite_state` | bool | 是否订阅此收藏夹 |
+| `favorite_state` | int | 是否订阅此收藏夹（0=未订阅，1=已订阅） |
 
 #### 错误码
 
@@ -491,7 +491,7 @@ class FolderInfo(BaseModel):
     media_count: int
     cover: str | None = None
     intro: str | None = None
-    favorite_state: bool = False
+    favorite_state: int = 0  # 0=未订阅，1=已订阅
     owner: OwnerInfo | None = None
     created_at: int | None = None
     updated_at: int | None = None
