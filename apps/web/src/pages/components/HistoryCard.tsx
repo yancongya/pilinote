@@ -58,15 +58,17 @@ export default function HistoryCard({ item, onDelete }: HistoryCardProps) {
           <span className={`history-card-type ${item.type}`}>
             {item.type === 'video' ? '视频' : '图文'}
           </span>
-          {/* 删除按钮 */}
-          <button
-            className="history-card-delete-btn"
+          {/* 删除图标 */}
+          <div
+            className="history-card-delete-icon"
             onClick={handleDelete}
+            role="button"
+            tabIndex={0}
             aria-label="删除历史记录"
             title="删除"
           >
             <X size={14} />
-          </button>
+          </div>
         </div>
         
         {/* 标题 */}

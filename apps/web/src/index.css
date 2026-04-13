@@ -9479,10 +9479,39 @@ html {
   margin: 0;
 }
 
+.history-list-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .history-list-count {
   font-size: 14px;
   color: #6B7280;
   font-weight: 500;
+}
+
+/* 历史记录清空按钮（小图标） */
+.history-list-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #9CA3AF;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 6px;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.history-list-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+}
+
+.history-list-clear-btn:active {
+  transform: scale(0.95);
 }
 
 /* 历史记录网格布局 */
@@ -9574,63 +9603,19 @@ html {
   margin-top: auto;
 }
 
-/* 历史记录卡片删除按钮 */
-.history-card-delete-btn {
+/* 历史记录卡片删除图标 */
+.history-card-delete-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
   color: #9CA3AF;
-  border: none;
-  border-radius: 6px;
   cursor: pointer;
   padding: 4px;
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.history-card-delete-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
+.history-card-delete-icon:hover {
   color: #EF4444;
-}
-
-.history-card-delete-btn:active {
-  transform: scale(0.95);
-}
-
-/* 历史记录操作区域 */
-.history-list-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #E5E7EB;
-}
-
-.history-list-clear-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: white;
-  color: #EF4444;
-  border: 1px solid #E5E7EB;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.history-list-clear-btn:hover {
-  background: #FEF2F2;
-  border-color: #FCA5A5;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.1);
-}
-
-.history-list-clear-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.1);
 }
 
 /* 历史记录空状态 */
@@ -9697,7 +9682,7 @@ html {
 /* 动画优化 */
 @media (prefers-reduced-motion: reduce) {
   .history-card,
-  .history-card-delete-btn,
+  .history-card-delete-icon,
   .history-list-clear-btn {
     transition: none;
   }

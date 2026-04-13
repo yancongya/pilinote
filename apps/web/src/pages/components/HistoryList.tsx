@@ -29,7 +29,16 @@ export default function HistoryList() {
     <div className="history-list">
       <div className="history-list-header">
         <h2 className="history-list-title">浏览历史</h2>
-        <span className="history-list-count">{history.length} 条记录</span>
+        <div className="history-list-header-actions">
+          <span className="history-list-count">{history.length} 条记录</span>
+          <button
+            className="history-list-clear-btn"
+            onClick={() => setShowClearModal(true)}
+            aria-label="清空所有历史记录"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="history-list-grid">
@@ -41,19 +50,6 @@ export default function HistoryList() {
           />
         ))}
       </div>
-
-      {history.length > 0 && (
-        <div className="history-list-actions">
-          <button
-            className="history-list-clear-btn"
-            onClick={() => setShowClearModal(true)}
-            aria-label="清空所有历史记录"
-          >
-            <Trash2 size={16} />
-            清空历史
-          </button>
-        </div>
-      )}
 
       {/* 清空确认对话框 */}
       <ConfirmModal
