@@ -35,10 +35,39 @@
 
 ## 视频接口
 
+### 收藏夹接口
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/favorites/folders` | 获取收藏夹列表 |
-| GET | `/api/favorites/folders/{id}` | 获取收藏夹详情 |
+| GET | `/api/favorites/folders/{folder_id}` | 获取收藏夹详情 |
+| GET | `/api/favorites/collected` | 获取订阅的收藏夹 |
+
+**收藏夹列表**：`GET /api/favorites/folders`
+- 参数：
+  - `page`: 页码（默认 1）
+  - `page_size`: 每页数量（默认 20，最大 100）
+
+**收藏夹详情**：`GET /api/favorites/folders/{folder_id}`
+- 参数：
+  - `page`: 页码（默认 1）
+  - `page_size`: 每页数量（默认 20，最大 100）
+  - `keyword`: 搜索关键词（默认空）
+  - `order`: 排序方式（mtime=收藏时间, pubtime=发布时间, view=播放量, cweight=收藏权重）
+  - `type`: 类型筛选（0=全部, 2=视频, 21=音频, 12=文章）
+  - `tid`: 分区 ID（默认 0）
+
+**订阅收藏夹**：`GET /api/favorites/collected`
+- 参数：
+  - `sessdata`: 用户 SESSDATA
+  - `up_mid`: 用户 mid
+  - `page`: 页码（默认 1）
+  - `page_size`: 每页数量（默认 20，最大 100）
+
+### 其他视频接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
 | GET | `/api/watchlater` | 获取稍后再看 |
 | GET | `/api/video/{id}` | 获取视频详情 |
 
