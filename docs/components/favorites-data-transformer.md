@@ -328,7 +328,7 @@ async def get_folder_detail(
 
 | 功能 | 收藏夹 | 稍后再看 |
 |------|--------|----------|
-| API 端点 | `/fav/v2/fav/folder/list` | `/x/v2/history/toview/web` |
+| API 端点 | `/fav/v2/fav/folder/list` | `/x/v2/history/toview` |
 | 数据结构 | `cnt_info` | `stat` |
 | UP 主字段 | `upper` | `owner` |
 | 统计字段 | `thumb_up` | `like` |

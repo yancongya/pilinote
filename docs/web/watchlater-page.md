@@ -10,6 +10,35 @@
 apps/web/src/pages/components/WatchLaterContent.tsx
 ```
 
+## 路由配置
+
+### 页面路由
+- **稍后再看页**：`/watch-later`
+- **视频详情页**：`/video/{bvid}`
+
+### 路由配置代码
+
+```typescript
+// apps/web/src/App.tsx
+<Route path="/watch-later" element={<MainLayout />} />
+<Route path="/video/:videoId" element={<VideoDetailPage />} />
+
+// apps/web/src/components/MainLayout.tsx
+const getActiveTabFromPath = () => {
+  const path = location.pathname
+  if (path === '/watch-later') return 'watch-later'
+  if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
+  if (path === '/new-downloads') return 'new-downloads'
+  return 'home'
+}
+```
+
+### 视频卡片点击行为
+
+- 稍后再看页面的视频卡片可点击（`cardClickable={true}`）
+- 点击后跳转到视频详情页：`/video/{bvid}`
+- 详情页显示完整视频信息
+
 ## 功能特性
 
 ### 核心功能
@@ -18,23 +47,29 @@ apps/web/src/pages/components/WatchLaterContent.tsx
    - 显示视频封面、标题、时长、观看进度
    - 支持无限滚动加载
    - 支持分页加载
+   - 支持点击进入视频详情页
 
 2. **观看进度显示**
    - 显示视频已观看的进度
    - 进度条可视化
    - 格式化进度显示（如"已观看 50%"）
 
-3. **下载集成**
+3. **视频详情页**
+   - 点击视频卡片跳转到详情页
+   - 路由：`/video/{bvid}`
+   - 显示完整视频信息
+
+4. **下载集成**
    - 单视频下载
    - 多P视频下载（自动创建调度器）
    - 下载状态实时显示（在队列中、已下载）
    - 下载队列管理
 
-4. **登录验证**
+5. **登录验证**
    - 未登录显示登录提示
    - 登录后自动加载数据
 
-5. **无障碍支持**
+6. **无障碍支持**
    - ARIA 标签
    - 语义化 HTML
 
@@ -442,11 +477,13 @@ function WatchLaterPage() {
 
 | 特性 | 稍后再看 | 收藏夹 |
 |------|----------|--------|
-| 结构 | 单一列表 | 列表 + 详情 |
-| 路由 | 无路由 | /favorites 和 /favorites/{id} |
+| 结构 | 列表 + 详情页（可点击） | 列表 + 详情页（文件夹） |
+| 路由 | `/watch-later` → `/video/{bvid}` | `/favorites` → `/favorites/{id}` |
 | 缓存 | 无缓存 | 收藏夹列表缓存 |
 | 观看进度 | 支持 | 不支持 |
-| 返回功能 | 不需要 | 需要 |
+| 返回功能 | 不需要 | 需要（从详情页返回列表） |
+| 数据来源 | B站API：`/x/v2/history/toview` | B站API：`/fav/v2/fav/folder/list` |
+| 分页 | 支持无限滚动 | 支持无限滚动 |
 
 ## 相关组件
 

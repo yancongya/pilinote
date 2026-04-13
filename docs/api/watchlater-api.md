@@ -6,14 +6,19 @@
 
 ### 认证方式
 
-所有稍后再看 API 都需要用户认证，通过 `SESSDATA` Cookie 进行身份验证。
+所有稍后再看 API 都需要用户认证，通过 Cookie 中的 `SESSDATA` 进行身份验证。
+
+**注意**：
+- 认证方式：仅支持通过 Cookie 传递 SESSDATA
+- 不支持通过查询参数传递 SESSDATA
+- 未登录时返回 401 Unauthorized
 
 **认证依赖**：`get_current_user_with_sessdata`
 
 ```python
 # 从 Cookie 获取 SESSDATA
 user, sessdata = await get_current_user_with_sessdata(
-    cookie: request.cookies
+    db: Session = Depends(get_db)
 )
 ```
 
@@ -76,7 +81,7 @@ curl -X GET "http://localhost:8000/api/watchlater/list?pn=1&ps=20" \
   "data": {
     "list": [
       {
-        "id": "BV1xx411c7mD",
+        "id": 987654321,
         "bvid": "BV1xx411c7mD",
         "title": "视频标题",
         "cover": "https://example.com/cover.jpg",
@@ -87,22 +92,32 @@ curl -X GET "http://localhost:8000/api/watchlater/list?pn=1&ps=20" \
           "mid": 123456789,
           "face": "https://example.com/avatar.jpg"
         },
-        "stat": {
+        "stats": {
           "view": 100000,
           "danmaku": 5000,
           "comment": 2000,
           "like": 5000,
           "coin": 1000,
-          "collect": 2000,
+          "favorite": 2000,
           "share": 500
         },
+        "view": 100000,
+        "danmaku": 5000,
+        "comment": 2000,
+        "like": 5000,
+        "coin": 1000,
+        "favorite": 2000,
+        "share": 500,
         "add_time": 1640000000,
         "pubtime": 1640000000,
         "cid": 123456789,
-        "aid": 987654321
+        "aid": 987654321,
+        "intro": ""
       }
     ],
-    "count": 50
+    "total": 50,
+    "page": 1,
+    "page_size": 20
   },
   "total": 50
 }
@@ -112,7 +127,7 @@ curl -X GET "http://localhost:8000/api/watchlater/list?pn=1&ps=20" \
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | string | 视频 ID（bvid） |
+| `id` | number | 视频 ID（aid） |
 | `bvid` | string | B 站视频 ID |
 | `title` | string | 视频标题 |
 | `cover` | string | 视频封面 URL |
@@ -122,18 +137,29 @@ curl -X GET "http://localhost:8000/api/watchlater/list?pn=1&ps=20" \
 | `uploader.name` | string | UP 主名称 |
 | `uploader.mid` | int | UP 主 ID |
 | `uploader.face` | string | UP 主头像 URL |
-| `stat` | object | 统计数据 |
-| `stat.view` | int | 播放量 |
-| `stat.danmaku` | int | 弹幕数 |
-| `stat.comment` | int | 评论数 |
-| `stat.like` | int | 点赞数 |
-| `stat.coin` | int | 投币数 |
-| `stat.collect` | int | 收藏数 |
-| `stat.share` | int | 分享数 |
+| `stats` | object | 统计数据 |
+| `stats.view` | int | 播放量 |
+| `stats.danmaku` | int | 弹幕数 |
+| `stats.comment` | int | 评论数 |
+| `stats.like` | int | 点赞数 |
+| `stats.coin` | int | 投币数 |
+| `stats.favorite` | int | 收藏数 |
+| `stats.share` | int | 分享数 |
+| `view` | int | 播放量（顶层字段，与 stats.view 重复） |
+| `danmaku` | int | 弹幕数（顶层字段，与 stats.danmaku 重复） |
+| `comment` | int | 评论数（顶层字段，与 stats.comment 重复） |
+| `like` | int | 点赞数（顶层字段，与 stats.like 重复） |
+| `coin` | int | 投币数（顶层字段，与 stats.coin 重复） |
+| `favorite` | int | 收藏数（顶层字段，与 stats.favorite 重复） |
+| `share` | int | 分享数（顶层字段，与 stats.share 重复） |
 | `add_time` | int | 添加到稍后再看的时间戳 |
 | `pubtime` | int | 视频发布时间戳 |
 | `cid` | int | 视频 CID |
 | `aid` | int | 视频 AID |
+| `intro` | string | 视频简介 |
+| `total` | number | 总数 |
+| `page` | number | 当前页码 |
+| `page_size` | number | 每页数量 |
 
 #### 错误码
 
@@ -159,7 +185,8 @@ async def get_watch_later_list(
     
     service = BilibiliService()
     try:
-        result = await service.get_watch_later(sessdata, user.mid, pn, ps)
+        # 调用 B 站 API: /x/v2/history/toview
+        result = await service.get_watch_later(sessdata)  # 只传递 sessdata
         if result["success"]:
             data = result["data"]
             videos = data.get("list", [])
@@ -168,7 +195,7 @@ async def get_watch_later_list(
             video_list = []
             for video in videos:
                 video_list.append({
-                    "id": video.get("bvid", ""),
+                    "id": video.get("aid", 0),
                     "bvid": video.get("bvid", ""),
                     "title": video.get("title", ""),
                     "cover": video.get("pic", ""),
@@ -179,18 +206,21 @@ async def get_watch_later_list(
                         "mid": video.get("owner", {}).get("mid", 0),
                         "face": video.get("owner", {}).get("face", "")
                     },
-                    "stat": video.get("stat", {}),
+                    "stats": video.get("stat", {}),
                     "add_time": video.get("add_time", 0),
                     "pubtime": video.get("pubtime", 0),
                     "cid": video.get("cid", 0),
-                    "aid": video.get("aid", 0)
+                    "aid": video.get("aid", 0),
+                    "intro": video.get("intro", "")
                 })
             
             return {
                 "success": True,
                 "data": {
                     "list": video_list,
-                    "count": data.get("count", 0)
+                    "total": data.get("count", 0),
+                    "page": pn,
+                    "page_size": ps
                 },
                 "total": data.get("count", 0)
             }
@@ -199,13 +229,67 @@ async def get_watch_later_list(
         service.close()
 ```
 
+### B站 API 说明
+
+**API 端点**：`/x/v2/history/toview`
+
+**请求参数**：
+- `ps`: 每页数量（默认 20，最大 1000）
+
+**注意**：当前实现中，后端调用 B 站 API 时固定使用 `ps: 1000` 获取全部数据，然后在前端进行分页切片。前端传递的 `pn` 和 `ps` 参数仅影响后端返回的数据切片，不影响 B 站 API 的实际调用。
+
+**请求示例**：
+```bash
+GET https://api.bilibili.com/x/v2/history/toview?ps=20
+```
+
+**响应示例**：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "bvid": "BV1xx411c7mD",
+        "title": "视频标题",
+        "pic": "https://example.com/cover.jpg",
+        "duration": 630,
+        "progress": 315,
+        "owner": {
+          "name": "UP主名称",
+          "mid": 123456789,
+          "face": "https://example.com/avatar.jpg"
+        },
+        "stat": {
+          "view": 100000,
+          "danmaku": 5000,
+          "comment": 2000,
+          "like": 5000,
+          "coin": 1000,
+          "collect": 2000,
+          "share": 500
+        },
+        "add_time": 1640000000,
+        "pubtime": 1640000000,
+        "cid": 123456789,
+        "aid": 987654321
+      }
+    ],
+    "count": 50
+  }
+}
+```
+
 ---
 
 ### 2. 获取稍后再看媒体信息（统一接口）
 
+> **注意**：此端点当前不可用（返回 404）。请使用 **1. 获取稍后再看列表** 端点。
+
 **端点**：`GET /api/media/watchlater`
 
-**描述**：获取稍后再看列表，返回统一的媒体卡片格式
+**描述**：获取稍后再看列表，返回统一的媒体卡片格式（计划功能）
 
 #### 请求参数
 
@@ -314,17 +398,16 @@ async def get_watch_later_media(
     
     service = BilibiliService()
     try:
-        result = await service.get_watch_later(sessdata, user.mid, pn, ps)
-        
-        if result["success"]:
-            from src.services.media_data_transformer import transformer
+            result = await service.get_watch_later(sessdata)  # 只传递 sessdata
             
-            data = result["data"]
-            videos = data.get("list", [])
-            
-            # 使用统一转换器转换数据
-            video_list = transformer.transform_watchlater_list(videos)
-            
+            if result["success"]:
+                from src.services.media_data_transformer import transformer
+                
+                data = result["data"]
+                videos = data.get("list", [])
+                
+                # 使用统一转换器转换数据
+                video_list = transformer.transform_watchlater_list(videos)            
             # 转换为字典格式（保持向后兼容）
             list_data = [card.model_dump() for card in video_list]
             
@@ -475,7 +558,7 @@ const fetchWatchLater = async () => {
 
 | 特性 | 稍后再看 | 收藏夹 |
 |------|----------|--------|
-| 数据来源 | `/x/v2/history/toview/web` | `/fav/v2/fav/folder/list` |
+| 数据来源 | `/x/v2/history/toview` | `/fav/v2/fav/folder/list` |
 | 结构 | 单一列表 | 列表 + 详情 |
 | 观看进度 | 支持 | 不支持 |
 | 排序 | 按添加时间 | 支持多种排序 |

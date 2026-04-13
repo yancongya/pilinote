@@ -292,13 +292,16 @@ GET /api/media/watchlater?pn=1&ps=20
 1. 前端调用 apiService.getWatchLaterList(pn, ps)
 2. 后端路由 /api/watchlater/list
 3. BilibiliService.get_watch_later()
-   - 调用 B 站 API: /x/v2/history/toview/web
-   - 传递 SESSDATA 和 mid
+   - 调用 B 站 API: /x/v2/history/toview
+   - 传递 SESSDATA
+   - 固定使用 ps: 1000 获取全部数据
 4. MediaDataTransformer.transform_watchlater_list()
    - 转换数据格式
    - 统一字段命名
-5. 返回视频列表
+5. 返回视频列表（后端进行分页切片）
 ```
+
+**注意**：当前实现中，后端调用 B 站 API 时固定使用 `ps: 1000` 获取全部数据，然后根据前端传递的 `pn` 和 `ps` 参数进行分页切片返回。
 
 **关键文件**：
 - 前端: `apps/web/src/services/api.ts` - `getWatchLaterList()`
@@ -439,17 +442,67 @@ const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number)
 4. **错误处理**：所有网络请求都应该有错误处理和用户提示
 5. **无障碍**：确保屏幕阅读器支持
 
+## 故障排查
+
+### 常见问题
+
+#### 1. 稍后再看列表为空
+
+**可能原因**：
+- 未登录或登录失效
+- B 站稍后再看列表确实为空
+
+**解决方法**：
+1. 检查登录状态
+2. 刷新页面
+3. 检查浏览器控制台错误信息
+4. 直接访问 B 站查看稍后再看列表
+
+#### 2. 无法下载视频
+
+**可能原因**：
+- 下载系统未启动
+- 网络问题
+- 视频权限限制
+
+**解决方法**：
+1. 检查下载队列页面
+2. 查看浏览器控制台错误
+3. 尝试重新添加下载任务
+
+#### 3. 观看进度不显示
+
+**可能原因**：
+- 视频尚未观看
+- 数据格式问题
+
+**解决方法**：
+1. 检查 B 站稍后再看列表
+2. 刷新页面
+3. 检查视频详情页的观看进度
+
+#### 4. 点击视频卡片无反应
+
+**可能原因**：
+- `cardClickable` 属性未正确设置
+- 路由配置错误
+
+**解决方法**：
+1. 检查 `VideoListContainer` 组件的 `cardClickable` 属性
+2. 检查 `App.tsx` 中的路由配置
+3. 查看浏览器控制台错误信息
+
 ## 与收藏夹的区别
 
 | 特性 | 稍后再看 | 收藏夹 |
 |------|----------|--------|
-| 数据来源 | `/x/v2/history/toview/web` | `/fav/v2/fav/folder/list` |
-| 结构 | 单一列表 | 列表 + 详情 |
+| 数据来源 | `/x/v2/history/toview` | `/fav/v2/fav/folder/list` |
+| 结构 | 列表 + 详情页（可点击） | 列表 + 详情页（文件夹） |
 | 观看进度 | 支持 | 不支持 |
 | 排序 | 按添加时间 | 支持多种排序 |
 | 搜索 | 不支持 | 支持 |
 | 数量限制 | 最多 1000 个 | 无限制 |
-| 路由 | 无路由 | /favorites 和 /favorites/{id} |
+| 路由 | `/watch-later` → `/video/{bvid}` | `/favorites` → `/favorites/{id}` |
 | 缓存 | 无缓存 | 收藏夹列表缓存 |
 
 ## 相关文档

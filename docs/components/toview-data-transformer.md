@@ -56,16 +56,19 @@ def transform_watchlater_video(self, video: Dict) -> CardData:
         CardData: 转换后的卡片数据
     """
     return CardData(
-        id=video.get('bvid', ''),
+        id=video.get('aid', 0),
         bvid=video.get('bvid', ''),
         title=video.get('title', ''),
         cover=video.get('pic', ''),
-        duration=self._format_duration(video.get('duration', 0)),
+        duration=video.get('duration', 0),
         uploader=self.normalize_uploader(video.get('owner', {})),
         stats=self.normalize_stats(video.get('stat', {})),
         pubtime=video.get('pubtime', 0),
         cid=video.get('cid', 0),
-        aid=video.get('aid', 0)
+        aid=video.get('aid', 0),
+        progress=video.get('progress', 0),
+        add_time=video.get('add_time', 0),
+        intro=video.get('intro', '')
     )
 ```
 
@@ -73,15 +76,19 @@ def transform_watchlater_video(self, video: Dict) -> CardData:
 
 | B站字段 | CardData 字段 | 说明 |
 |---------|---------------|------|
-| `bvid` | `id`, `bvid` | 视频 ID |
+| `aid` | `id`, `aid` | 视频 ID（数字类型） |
+| `bvid` | `bvid` | B 站视频 ID |
 | `title` | `title` | 视频标题 |
 | `pic` | `cover` | 视频封面 |
-| `duration` | `duration` | 视频时长（格式化后） |
+| `duration` | `duration` | 视频时长（秒数） |
 | `owner` | `uploader` | UP 主信息 |
 | `stat` | `stats` | 统计数据 |
 | `pubtime` | `pubtime` | 发布时间戳 |
 | `cid` | `cid` | 视频 CID |
 | `aid` | `aid` | 视频 AID |
+| `progress` | `progress` | 观看进度（秒数） |
+| `add_time` | `add_time` | 添加到稍后再看的时间戳 |
+| `intro` | `intro` | 视频简介 |
 
 ### normalize_stats()
 
@@ -232,25 +239,37 @@ class UploaderInfo(BaseModel):
 
 class CardData(BaseModel):
     """统一卡片数据"""
-    id: str
+    id: int  # aid (数字类型)
     bvid: str
     title: str
     cover: str
-    duration: str
+    duration: int  # 秒数（不是格式化字符串）
     uploader: UploaderInfo
     stats: CardStats
     pubtime: int
     cid: int
     aid: int
+    # 为了前端兼容，将统计字段提升到顶层
+    view: int
+    danmaku: int
+    comment: int
+    like: int
+    coin: int
+    favorite: int
+    share: int
+    # 稍后再看专用字段
+    progress: int  # 观看进度（秒数）
+    add_time: int
+    intro: str  # 视频简介
 ```
 
 ```json
 {
-  "id": "BV1xx411c7mD",
+  "id": 987654321,
   "bvid": "BV1xx411c7mD",
   "title": "视频标题",
   "cover": "https://example.com/cover.jpg",
-  "duration": "10:30",
+  "duration": 630,
   "uploader": {
     "name": "UP主名称",
     "mid": 123456789,
@@ -323,7 +342,7 @@ async def get_watch_later_media(
 
 | 功能 | 稍后再看 | 收藏夹 |
 |------|----------|--------|
-| API 端点 | `/x/v2/history/toview/web` | `/fav/v2/fav/folder/list` |
+| API 端点 | `/x/v2/history/toview` | `/fav/v2/fav/folder/list` |
 | 数据结构 | `stat` | `cnt_info` |
 | UP 主字段 | `owner` | `upper` |
 | 统计字段 | `like` | `thumb_up` |
@@ -359,7 +378,7 @@ def transform_favorite_video(self, media: Dict) -> CardData:
 
 ## 观看进度处理
 
-稍后再看数据包含观看进度（`progress`）字段，但在统一转换为 `CardData` 时不包含此字段。观看进度由前端单独处理。
+稍后再看数据包含观看进度（`progress`）字段，在 `CardData` 中保留了此字段。前端可以同时从 `progress` 字段和格式化后的 `watched` 字段获取观看进度信息。
 
 ### 前端进度处理
 

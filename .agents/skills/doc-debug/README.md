@@ -1,0 +1,248 @@
+# Doc & Debug Skill
+
+Comprehensive documentation generation and debugging workflow for PiliNote.
+
+## Quick Start
+
+### Generate and Test New Feature Documentation
+
+```bash
+$doc-debug "Watch Later API and UI"
+```
+
+This will:
+1. Generate comprehensive documentation
+2. Create Playwright tests
+3. Run tests and detect errors
+4. Automatically fix documentation issues
+5. Re-test until all pass
+6. Generate debug report
+
+### Test Existing Documentation
+
+```bash
+$doc-debug --test-only "Favorites API"
+```
+
+This will:
+1. Skip documentation generation
+2. Create tests from existing docs
+3. Run tests
+4. Fix any issues found
+5. Generate report
+
+## Command Flags
+
+| Flag | Description |
+|------|-------------|
+| `--docs-only` | Only generate documentation, skip testing |
+| `--test-only` | Only test existing documentation |
+| `--auto-fix` | Automatically fix errors without confirmation |
+| `--max-iterations N` | Maximum debugging iterations (default: 3) |
+
+## Examples
+
+### Full Workflow with Auto-fix
+
+```bash
+$doc-debug --auto-fix --max-iterations 5 "Video Download Queue"
+```
+
+### Documentation Only
+
+```bash
+$doc-debug --docs-only "User Authentication System"
+```
+
+### Quick Review
+
+```bash
+$doc-debug --test-only --max-iterations 1 "Search Functionality"
+```
+
+## Output Structure
+
+```
+.workflow/doc-debug/{feature}/
+├── docs/                    # Generated documentation
+│   ├── api/
+│   ├── components/
+│   ├── web/
+│   └── video-sources/
+├── tests/                   # Generated tests
+│   └── {feature}.spec.ts
+├── test-results/            # Test execution results
+│   ├── screenshots/
+│   └── api-responses/
+├── iteration-1.md          # Iteration logs
+├── iteration-2.md
+└── debug-report.md         # Final comprehensive report
+```
+
+## Common Use Cases
+
+### 1. New Feature Development
+
+When you've implemented a new feature:
+
+```bash
+$doc-debug "My New Feature"
+```
+
+This ensures your documentation is accurate from the start.
+
+### 2. Code Review Before Merge
+
+Before merging PRs with documentation changes:
+
+```bash
+$doc-debug --test-only "Modified Feature"
+```
+
+This validates that documentation matches implementation.
+
+### 3. Refactoring Documentation
+
+When refactoring a feature's documentation:
+
+```bash
+$doc-debug --auto-fix "Refactored Feature"
+```
+
+This quickly validates and fixes any issues.
+
+### 4. Quality Assurance
+
+For regular documentation maintenance:
+
+```bash
+$doc-debug --test-only --auto-fix "Core Features"
+```
+
+This catches regressions early.
+
+## What Gets Tested
+
+### API Layer
+- ✅ Endpoint existence
+- ✅ Authentication requirements
+- ✅ Response structure
+- ✅ Field types and names
+- ✅ Error handling
+
+### Data Layer
+- ✅ Data transformation
+- ✅ Field mapping accuracy
+- ✅ Type consistency
+- ✅ Model definitions
+
+### UI Layer
+- ✅ Page accessibility
+- ✅ Component rendering
+- ✅ Navigation routing
+- ✅ Authentication states
+- ✅ User interactions
+
+### Documentation Accuracy
+- ✅ API endpoint URLs
+- ✅ Data type specifications
+- ✅ Field name consistency
+- ✅ Authentication methods
+- ✅ Route configurations
+- ✅ Example code
+
+## Common Fixes Applied
+
+The workflow automatically detects and fixes:
+
+1. **Field name mismatches** (`stat` vs `stats`)
+2. **Data type errors** (string vs number)
+3. **Endpoint URL errors** (wrong paths or versions)
+4. **Authentication method errors** (Cookie vs header vs query)
+5. **Missing fields** in documentation
+6. **Routing configuration errors**
+7. **Response structure mismatches**
+
+## Integration with Development Workflow
+
+### Pre-commit Hook
+
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit
+
+# Run doc-debug on changed documentation
+git diff --name-only --cached | grep '^docs/' | while read file; do
+  feature=$(basename $(dirname "$file"))
+  doc-debug --test-only --auto-fix "$feature"
+done
+```
+
+### CI/CD Pipeline
+
+See SKILL.md for full CI/CD integration example.
+
+## Requirements
+
+- Node.js 18+
+- pnpm
+- Python 3.8+ (for API server)
+- Playwright
+- API server running on localhost:8000
+- Frontend server on localhost:5173 (if testing UI)
+
+## Troubleshooting
+
+### Server Not Running
+
+```bash
+# Start API server
+cd apps/api
+source venv/bin/activate
+python main.py
+
+# Start frontend (if needed)
+cd apps/web
+pnpm dev
+```
+
+### Tests Failing After Max Iterations
+
+1. Review `debug-report.md` for remaining issues
+2. Check if there are implementation bugs (not just docs)
+3. Increase `--max-iterations` if needed
+4. Manually investigate complex issues
+
+### Selectors Not Working
+
+Add `data-testid` attributes to elements:
+
+```html
+<button data-testid="my-button">Click Me</button>
+```
+
+Then use in tests:
+
+```typescript
+page.getByTestId('my-button')
+```
+
+## See Also
+
+- [SKILL.md](./SKILL.md) - Complete technical documentation
+- [project-documentation-workflow](../project-documentation-workflow/) - Documentation generation
+- [requesting-code-review](../requesting-code-review/) - Code review automation
+- [frontend-tester](../frontend-tester/) - Frontend testing
+
+## Support
+
+For issues or questions:
+1. Check the debug report generated by the workflow
+2. Review the iteration logs
+3. Consult the main SKILL.md documentation
+4. Check test results and screenshots in `test-results/`
+
+---
+
+**Version**: 1.0.0  
+**Last Updated**: 2025-04-13
