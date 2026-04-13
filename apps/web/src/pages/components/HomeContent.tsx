@@ -4,8 +4,10 @@ import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useDownloadStore } from '../../stores/download'
 import { useSettingsStore } from '../../stores/settings'
+import { useHistoryStore } from '../../stores/history'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
 import { getAvatarProxyUrl } from '../../config/api'
+import HistoryList from './HistoryList'
 
 interface VideoInfo {
   bvid: string
@@ -64,6 +66,7 @@ export default function HomeContent() {
   const settingsStore = useSettingsStore()
   const { settings } = settingsStore
   const authStore = useAuthStore()
+  const addToHistory = useHistoryStore((state) => state.addToHistory)
 
   const handleParseUrl = async () => {
     if (!urlInput.trim()) return
@@ -82,10 +85,33 @@ export default function HomeContent() {
         if (response.data.download_options.multi_part && response.data.download_options.pages) {
           setSelectedPages(new Set(response.data.download_options.pages.map((p: any) => p.page)))
         }
+
+        // 添加到历史记录
+        const video = response.data.video
+        const parsedId = (response.data as any)?.parsed_id
+        
+        if (parsedId && video) {
+          try {
+            addToHistory({
+              id: parsedId.id,
+              type: parsedId.type === 'opus' ? 'opus' : 'video',
+              title: video.title,
+              cover: video.pic,
+              duration: video.duration || 0,
+              uploader: video.owner.name,
+              uploader_mid: video.owner.mid,
+              timestamp: Date.now()
+            })
+          } catch (historyError) {
+            console.error('添加历史记录失败:', historyError)
+            // 不影响主流程，只记录错误
+          }
+        }
       } else {
         setError(response.message || '解析失败，请检查链接是否正确')
       }
     } catch (err) {
+      console.error('解析请求失败:', err)
       setError('网络请求失败，请稍后重试')
     } finally {
       setLoading(false)
@@ -305,6 +331,9 @@ const formatDuration = (seconds: any) => {
           </div>
         )}
       </div>
+
+      {/* 历史记录区域 */}
+      <HistoryList />
 
       {videoInfo && (
         <div

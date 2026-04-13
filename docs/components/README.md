@@ -11,6 +11,7 @@
 | HomeContent | 首页内容（链接解析/预览卡片） | [home-content.md](home-content.md) |
 | VideoDetailPage | 视频/图文详情页 | [video-detail-page.md](video-detail-page.md) |
 | VideoListContainer | 视频列表容器 | [video-list-container.md](video-list-container.md) |
+| HistoryList | 历史记录列表 | [history-list.md](history-list.md) |
 | BatchActionsBar | 批量操作栏 | [batch-actions-bar.md](batch-actions-bar.md) |
 | Modal | 通用弹窗 | [modal.md](modal.md) |
 | Toast | 提示消息 | [toast.md](toast.md) |
