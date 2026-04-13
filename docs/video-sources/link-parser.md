@@ -418,7 +418,7 @@ pubdate = author.get("pub_ts", 0) or basic.get("pub_time", 0) or basic.get("publ
 ### 解析链接
 
 ```
-POST /api/queue/parse
+POST /api/download/parse
 Content-Type: application/json
 
 Request:
@@ -426,18 +426,26 @@ Request:
     "url": "BV1xx411c7mD"
 }
 
-Response:
+Response (Success):
 {
     "success": true,
     "data": {
+        "parsed_id": {
+            "id": "BV1xx411c7mD",
+            "type": "video",
+            "original": "BV1xx411c7mD"
+        },
         "video": {
             "bvid": "BV1xx411c7mD",
             "aid": 170001,
             "title": "视频标题",
+            "desc": "视频描述",
             "pic": "https://i0.hdslb.com/...",
             "duration": 300,
+            "pubdate": 1234567890,
+            "cid": 123456,
             "owner": { "mid": 123456, "name": "UP主", "face": "..." },
-            "stat": { "view": 10000, "like": 500 }
+            "stat": { "view": 10000, "danmaku": 100, "reply": 50, "favorite": 20, "coin": 10, "share": 5, "like": 200 }
         },
         "download_options": {
             "multi_part": true,
@@ -447,7 +455,39 @@ Response:
         }
     }
 }
+
+Response (Business Logic Error):
+{
+    "success": false,
+    "data": null,
+    "message": "不支持的链接格式"
+}
+
+Response (Validation Error - FastAPI Format):
+{
+    "detail": [
+        {
+            "loc": ["body", "url"],
+            "msg": "Value error, 链接不能为空",
+            "type": "value_error"
+        }
+    ]
+}
 ```
+
+**错误响应类型**:
+
+1. **业务逻辑错误** (`success: false`):
+   - 链接格式不支持
+   - 资源不存在（404）
+   - 网络请求失败
+   - 返回格式: `{success: false, data: null, message: "错误描述"}`
+
+2. **验证错误** (HTTP 422 with FastAPI format):
+   - 请求参数验证失败（如空URL）
+   - 参数类型错误
+   - 返回格式: FastAPI标准验证错误格式
+   - HTTP状态码: 422
 
 ### 图文解析响应
 
