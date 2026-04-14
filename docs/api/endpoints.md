@@ -301,6 +301,209 @@
 3. **用户体验**：提供清晰的字段说明和示例，帮助用户正确填写
 4. **日志记录**：服务器端记录验证失败的详细信息，便于调试
 
+## 并发控制接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/concurrency/stats` | 获取并发统计 |
+| GET | `/api/concurrency/stats/{resource_type}` | 获取特定资源统计 |
+| GET | `/api/concurrency/resource-usage` | 获取系统资源使用 |
+| POST | `/api/concurrency/update-max-concurrent` | 更新最大并发数 |
+| POST | `/api/concurrency/dynamic-adjustment` | 启用/禁用动态调整 |
+| GET | `/api/concurrency/config` | 获取并发配置 |
+| GET | `/api/concurrency/health` | 健康检查 |
+
+### 获取并发统计
+
+获取所有资源类型的并发统计信息。
+
+**响应示例**：
+
+```json
+{
+  "video_download": {
+    "max_concurrent": 3,
+    "current_concurrent": 2,
+    "available_slots": 1,
+    "active_tasks": ["task-1", "task-2"],
+    "total_requests": 150,
+    "successful_acquisitions": 145,
+    "failed_acquisitions": 5,
+    "avg_wait_time": 1.2,
+    "peak_concurrent": 3
+  },
+  "pagination_download": {
+    "max_concurrent": 5,
+    "current_concurrent": 3,
+    "available_slots": 2,
+    "active_tasks": ["task-3", "task-4", "task-5"],
+    "total_requests": 80,
+    "successful_acquisitions": 78,
+    "failed_acquisitions": 2,
+    "avg_wait_time": 0.8,
+    "peak_concurrent": 5
+  }
+}
+```
+
+### 获取特定资源统计
+
+获取指定资源类型的并发统计信息。
+
+**路径参数**：
+- `resource_type`: 资源类型（video_download, pagination_download, api_request, media_processing）
+
+**响应示例**：
+
+```json
+{
+  "max_concurrent": 3,
+  "current_concurrent": 2,
+  "available_slots": 1,
+  "active_tasks": ["task-1", "task-2"],
+  "total_requests": 150,
+  "successful_acquisitions": 145,
+  "failed_acquisitions": 5,
+  "avg_wait_time": 1.2,
+  "peak_concurrent": 3
+}
+```
+
+### 获取系统资源使用
+
+获取当前系统资源使用情况。
+
+**响应示例**：
+
+```json
+{
+  "cpu_percent": 45.2,
+  "memory_percent": 62.8,
+  "disk_io_percent": 12.5,
+  "network_io": {
+    "bytes_sent": 1024000,
+    "bytes_recv": 2048000,
+    "packets_sent": 1000,
+    "packets_recv": 2000
+  },
+  "timestamp": 1776000000
+}
+```
+
+### 更新最大并发数
+
+动态更新指定资源类型的最大并发数。
+
+**请求参数**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `resource_type` | string | 是 | 资源类型 |
+| `max_concurrent` | integer | 是 | 最大并发数 |
+
+**请求示例**：
+
+```json
+{
+  "resource_type": "video_download",
+  "max_concurrent": 5
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "最大并发数已更新",
+  "resource_type": "video_download",
+  "old_max": 3,
+  "new_max": 5
+}
+```
+
+### 启用/禁用动态调整
+
+启用或禁用基于系统资源的动态并发调整功能。
+
+**请求参数**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `enabled` | boolean | 是 | 是否启用动态调整 |
+| `check_interval` | integer | 否 | 检查间隔（秒），默认5 |
+
+**请求示例**：
+
+```json
+{
+  "enabled": true,
+  "check_interval": 5
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "动态调整已启用",
+  "enabled": true,
+  "check_interval": 5
+}
+```
+
+### 获取并发配置
+
+获取所有资源类型的并发配置信息。
+
+**响应示例**：
+
+```json
+{
+  "video_download": {
+    "max_concurrent": 3,
+    "timeout": 3600,
+    "dynamic_adjustment": true
+  },
+  "pagination_download": {
+    "max_concurrent": 5,
+    "timeout": 300,
+    "dynamic_adjustment": true
+  },
+  "api_request": {
+    "max_concurrent": 10,
+    "timeout": 30,
+    "dynamic_adjustment": true
+  },
+  "media_processing": {
+    "max_concurrent": 2,
+    "timeout": 1800,
+    "dynamic_adjustment": true
+  }
+}
+```
+
+### 健康检查
+
+获取并发控制系统的健康状态。
+
+**响应示例**：
+
+```json
+{
+  "status": "healthy",
+  "uptime": 86400,
+  "total_resources": 4,
+  "active_tasks": 5,
+  "system_load": {
+    "cpu_percent": 45.2,
+    "memory_percent": 62.8,
+    "disk_io_percent": 12.5
+  }
+}
+```
+
 ## 设置接口
 
 | 方法 | 路径 | 说明 |
