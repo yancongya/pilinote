@@ -63,7 +63,12 @@ class SingleNfoHandler(BaseHandler):
 
         # 时长
         if meta.get('duration'):
-            lines.append(f'  <runtime>{meta["duration"]}</runtime>')
+            duration = meta['duration']
+            if duration > 0:
+                minutes = int(duration // 60)
+                seconds = int(duration % 60)
+                runtime_str = f"{minutes}:{seconds:02d}"
+                lines.append(f'  <runtime>{runtime_str}</runtime>')
 
         # 封面
         if meta.get('pic'):
@@ -95,21 +100,15 @@ class SingleNfoHandler(BaseHandler):
             if rating > 0:
                 lines.append(f'  <rating>{rating:.1f}</rating>')
         
-        # 视频标签（从统计数据中提取）
-        if meta.get('stat'):
-            tags = []
-            stat = meta['stat']
-            if stat.get('danmaku'):
-                tags.append(f"弹幕:{stat['danmaku']}")
-            if stat.get('reply'):
-                tags.append(f"评论:{stat['reply']}")
-            if stat.get('share'):
-                tags.append(f"分享:{stat['share']}")
-            
-            if tags:
+        # 视频标签（使用真实的视频标签）
+        if meta.get('tags') and len(meta['tags']) > 0:
+            tags = meta['tags']
+            # 只取前3个标签
+            tags_list = tags[:3] if len(tags) > 3 else tags
+            if tags_list:
                 lines.append('  <tags>')
-                for tag in tags:
-                    lines.append(f'    <tag>{tag}</tag>')
+                for tag in tags_list:
+                    lines.append(f'    <tag>{self._escape_xml(str(tag))}</tag>')
                 lines.append('  </tags>')
 
         lines.append('</movie>')
