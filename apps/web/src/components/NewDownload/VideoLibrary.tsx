@@ -48,6 +48,20 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const hasCover = task.cover && task.cover.trim()
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
   
+  // 格式化创建时间
+  const formatDate = (timestamp: number) => {
+    if (!timestamp || isNaN(timestamp) || timestamp <= 0) {
+      return { date: '未知日期', time: '' }
+    }
+    const date = new Date(timestamp)
+    if (isNaN(date.getTime())) {
+      return { date: '未知日期', time: '' }
+    }
+    const dateStr = date.toISOString().split('T')[0] // YYYY-MM-DD
+    const timeStr = date.toTimeString().split(' ')[0].substring(0, 5) // HH:MM
+    return { date: dateStr, time: timeStr }
+  }
+
   // 格式化时长
   const formatDuration = (duration: string | number): string => {
     if (!duration) return '--:--'
@@ -136,7 +150,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
         {/* 文件夹信息 */}
         <div className="library-folder-info">
-          {/* 标题行：标题 */}
+          {/* 标题行：标题 + 创建时间 */}
           <div className="library-folder-title-row">
             <h4 
               className="library-folder-title" 
@@ -144,6 +158,13 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             >
               {task.title}
             </h4>
+            
+            {/* 创建时间 */}
+            <div className="library-folder-created-time">
+              <Calendar size={12} />
+              <span>{formatDate(task.created_at).date}</span>
+              <span>{formatDate(task.created_at).time}</span>
+            </div>
           </div>
 
           {/* 元数据行：统计数据 + 标签 */}
