@@ -180,19 +180,19 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                 <span>{formatNumber(task.meta.statistics.coin)}</span>
                 <Star size={12} />
                 <span>{formatNumber(task.meta.statistics.favorite)}</span>
-                {task.meta.statistics.share && (
+                {task.meta.statistics.share !== undefined && (
                   <>
                     <Share2 size={12} />
                     <span>{formatNumber(task.meta.statistics.share)}</span>
                   </>
                 )}
-                {task.meta.statistics.danmaku && (
+                {task.meta.statistics.danmaku !== undefined && (
                   <>
                     <MessageSquare size={12} />
                     <span>{formatNumber(task.meta.statistics.danmaku)}</span>
                   </>
                 )}
-                {task.meta.statistics.reply && (
+                {task.meta.statistics.reply !== undefined && (
                   <>
                     <MessageCircle size={12} />
                     <span>{formatNumber(task.meta.statistics.reply)}</span>
