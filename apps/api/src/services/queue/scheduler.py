@@ -21,9 +21,13 @@ class SchedulerService:
     def __init__(self, scheduler: Scheduler):
         self.scheduler = scheduler
         self.tasks: Dict[str, Task] = {}
-        self.semaphore = asyncio.Semaphore(3)  # 并发控制
         self.cancel_event = asyncio.Event()
         self._initialized = False
+        
+        # 使用全局并发控制服务
+        from src.services.concurrency_control import concurrency_control, ResourceType
+        self.concurrency_control = concurrency_control
+        self.resource_type = ResourceType.VIDEO_DOWNLOAD
 
     async def initialize(self):
         """初始化调度器"""
@@ -235,8 +239,20 @@ class SchedulerService:
         """执行单个任务"""
         logger.info(f"开始执行任务 {task.id}...")
 
-        # 获取信号量
-        async with self.semaphore:
+        # 使用全局并发控制服务获取资源
+        acquired = await self.concurrency_control.acquire(
+            self.resource_type,
+            task.id,
+            timeout=300  # 5分钟超时
+        )
+        
+        if not acquired:
+            logger.error(f"Failed to acquire resource for task {task.id}")
+            task.state = TaskState.FAILED
+            task.status['error'] = "Failed to acquire download resource (timeout)"
+            return
+
+        try:
             # 检查是否取消
             if self.cancel_event.is_set():
                 task.state = TaskState.CANCELLED
@@ -323,6 +339,11 @@ class SchedulerService:
                 db.commit()
             finally:
                 db.close()
+        
+        finally:
+            # 释放全局并发控制资源
+            await self.concurrency_control.release(self.resource_type, task.id)
+            logger.debug(f"✓ Released resource for task {task.id}")
 
     async def _execute_subtask(self, task: Task, subtask_data: dict, temp_dir: Path, output_dir: Path):
         """执行子任务"""

@@ -48,6 +48,11 @@ class DownloadManager:
         
         # 进度回调函数
         self.progress_callbacks: List[Callable] = []
+        
+        # 全局并发控制服务
+        from src.services.concurrency_control import concurrency_control, ResourceType
+        self.concurrency_control = concurrency_control
+        self.resource_type = ResourceType.VIDEO_DOWNLOAD
     
     def add_progress_callback(self, callback: Callable):
         """添加进度回调函数"""
@@ -62,6 +67,11 @@ class DownloadManager:
         """启动下载管理器"""
         if not self._running:
             self._running = True
+            
+            # 启动全局并发控制服务
+            await self.concurrency_control.start()
+            logger.info("✓ Concurrency control service started")
+            
             self._processor_task = asyncio.create_task(self._process_queue())
             logger.info("DownloadManager started")
     
@@ -79,6 +89,10 @@ class DownloadManager:
             # 取消所有活跃下载
             for task_id, task in list(self.active_downloads.items()):
                 task.cancel()
+            
+            # 停止全局并发控制服务
+            await self.concurrency_control.stop()
+            logger.info("✓ Concurrency control service stopped")
             
             logger.info("DownloadManager stopped")
     
@@ -383,6 +397,18 @@ class DownloadManager:
             logger.error(f"Download {download_id} not found")
             return
         
+        # 使用全局并发控制服务获取资源
+        acquired = await self.concurrency_control.acquire(
+            self.resource_type,
+            download_id,
+            timeout=300  # 5分钟超时
+        )
+        
+        if not acquired:
+            logger.error(f"Failed to acquire resource for download {download_id}")
+            self._update_status(download_id, DownloadStatus.FAILED.value, "Failed to acquire download resource (timeout)")
+            return
+        
         try:
             logger.info(f"Starting download execution for {download_id}, bvid: {download.bvid}, title: {download.title}")
             self._update_status(download_id, DownloadStatus.DOWNLOADING.value)
@@ -501,6 +527,10 @@ class DownloadManager:
             self._update_status(download_id, DownloadStatus.FAILED.value, str(e))
             logger.error(f"Download {download_id} failed: {e}", exc_info=True)
         finally:
+            # 释放全局并发控制资源
+            await self.concurrency_control.release(self.resource_type, download_id)
+            logger.debug(f"✓ Released resource for download {download_id}")
+            
             # 从活跃任务中移除
             if download_id in self.active_downloads:
                 del self.active_downloads[download_id]

@@ -45,11 +45,12 @@ class QueueManager:
             QueueType.COMPLETE: asyncio.Queue()
         }
 
-        # Semaphore for concurrency control
-        self.semaphore = asyncio.Semaphore(3)  # Max concurrent downloads
-
         # Runtime flag
         self._running = False
+        
+        # 全局并发控制服务
+        from src.services.concurrency_control import concurrency_control
+        self.concurrency_control = concurrency_control
 
     async def initialize(self):
         """Initialize manager"""
@@ -57,6 +58,10 @@ class QueueManager:
             return
 
         logger.info("Initializing queue manager...")
+
+        # 启动全局并发控制服务
+        await self.concurrency_control.start()
+        logger.info("✓ Concurrency control service started")
 
         # Load queues from database
         await self._load_queues_from_db()
@@ -532,6 +537,10 @@ class QueueManager:
         # Save all queues to database
         for queue_type in QueueType:
             await self._save_queue_to_db(queue_type)
+
+        # 停止全局并发控制服务
+        await self.concurrency_control.stop()
+        logger.info("✓ Concurrency control service stopped")
 
         self._running = False
         logger.info("Queue manager shutdown")
