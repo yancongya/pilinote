@@ -220,6 +220,11 @@ class LocalLibraryService:
             
             metadata = {}
             
+            # 提取BVID
+            bvid_elem = root.find('bvid')
+            if bvid_elem is not None and bvid_elem.text:
+                metadata['bvid'] = bvid_elem.text
+            
             # 提取基本信息
             title_elem = root.find('title')
             if title_elem is not None and title_elem.text:
@@ -273,8 +278,47 @@ class LocalLibraryService:
                     except ValueError:
                         pass
                 
+                share_elem = stats_elem.find('share')
+                if share_elem is not None and share_elem.text:
+                    try:
+                        stats['share'] = int(share_elem.text)
+                    except ValueError:
+                        pass
+                
+                danmaku_elem = stats_elem.find('danmaku')
+                if danmaku_elem is not None and danmaku_elem.text:
+                    try:
+                        stats['danmaku'] = int(danmaku_elem.text)
+                    except ValueError:
+                        pass
+                
+                reply_elem = stats_elem.find('reply')
+                if reply_elem is not None and reply_elem.text:
+                    try:
+                        stats['reply'] = int(reply_elem.text)
+                    except ValueError:
+                        pass
+                
                 if stats:
                     metadata['statistics'] = stats
+            
+            # 提取评分
+            rating_elem = root.find('rating')
+            if rating_elem is not None and rating_elem.text:
+                try:
+                    metadata['rating'] = float(rating_elem.text)
+                except ValueError:
+                    pass
+            
+            # 提取标签
+            tags_elem = root.find('tags')
+            if tags_elem is not None:
+                tags = []
+                for tag_elem in tags_elem.findall('tag'):
+                    if tag_elem.text and tag_elem.text.strip():
+                        tags.append(tag_elem.text.strip())
+                if tags:
+                    metadata['tags'] = tags
             
             return metadata if metadata else None
             

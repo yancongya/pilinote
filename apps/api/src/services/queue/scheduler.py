@@ -99,7 +99,7 @@ class SchedulerService:
                 logger.info(f"[DEBUG] 检测到分P信息: cid={cid}, page={page}, part_title={part_title}")
 
                 # 用 video_info 更新 meta，但保留分P信息
-                task.meta = {**video_info}
+                task.meta = {**video_info, 'bvid': task.media_id}
 
                 # 恢复分P信息
                 if cid:
@@ -111,7 +111,7 @@ class SchedulerService:
 
                 logger.info(f"[DEBUG] 合并后meta keys: {list(task.meta.keys())}")
             else:
-                task.meta = video_info
+                task.meta = {**video_info, 'bvid': task.media_id}
                 logger.info(f"[DEBUG] meta为空或不是dict，直接使用video_info")
 
         elif task.media_type == "bangumi":

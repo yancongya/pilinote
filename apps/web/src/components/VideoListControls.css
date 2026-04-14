@@ -408,3 +408,20 @@
     font-size: 11px;
   }
 }
+
+/* NFO更新进度显示 */
+.nfo-update-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #0369a1;
+}
+
+.nfo-update-progress span {
+  white-space: nowrap;
+}

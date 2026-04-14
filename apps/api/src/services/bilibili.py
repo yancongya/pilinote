@@ -1006,6 +1006,12 @@ class BilibiliService:
 
                 video_data = data['videoData']
 
+                # 获取时长（从第一个分片）
+                duration = 0
+                pages = video_data.get("pages", [])
+                if pages and len(pages) > 0:
+                    duration = pages[0].get("duration", 0)
+
                 return {
                     "success": True,
                     "data": {
@@ -1014,7 +1020,8 @@ class BilibiliService:
                         "owner": video_data.get("owner", {}),
                         "pic": video_data.get("pic", ""),
                         "title": video_data.get("title", ""),
-                        "pubdate": video_data.get("pubdate", 0)
+                        "pubdate": video_data.get("pubdate", 0),
+                        "duration": duration
                     }
                 }
         except Exception as e:

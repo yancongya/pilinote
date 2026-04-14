@@ -345,6 +345,11 @@ class DownloadService:
             # 创建XML根元素
             movie = ET.Element("movie")
             
+            # 添加BVID字段
+            if download.bvid:
+                bvid_elem = ET.SubElement(movie, "bvid")
+                bvid_elem.text = download.bvid
+            
             # 添加基本信息
             title_elem = ET.SubElement(movie, "title")
             title_elem.text = download.title or "Unknown"

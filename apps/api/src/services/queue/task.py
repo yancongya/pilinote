@@ -160,7 +160,7 @@ class TaskService:
             part_title = self.task.meta.get('part_title')
             
             # 用 video_info 更新 meta，但保留分P信息
-            self.task.meta = {**video_info}
+            self.task.meta = {**video_info, 'bvid': self.task.media_id}
             
             # 恢复分P信息
             if cid:
@@ -170,7 +170,7 @@ class TaskService:
             if part_title:
                 self.task.meta['part_title'] = part_title
         else:
-            self.task.meta = video_info
+            self.task.meta = {**video_info, 'bvid': self.task.media_id}
 
         # 构建准备数据
         self.task.prepare = {
@@ -211,7 +211,7 @@ class TaskService:
             subtasks.append({
                 'type': SubTaskType.THUMB,
                 'url': info['pic'],
-                'filename': f"{info.get('title', 'video')}.jpg"
+                'filename': 'cover.jpg'
             })
 
         # 头像下载（如果UP主信息可用）
@@ -791,6 +791,7 @@ class TaskService:
             uploader = owner.get('name', 'Unknown')
             pic = meta_data.get('pic', '')
             stat = meta_data.get('stat', {})
+            bvid = self.task.media_id  # 获取BVID
             
             # 转换发布时间
             pubdate = meta_data.get('pubdate', 0)
@@ -803,13 +804,53 @@ class TaskService:
             else:
                 pub_date_str = 'Unknown'
             
+            # 计算评分 (基于互动率)
+            rating = 0.0
+            view_count = stat.get('view', 0)
+            if view_count > 0:
+                interaction_score = (stat.get('like', 0) + stat.get('coin', 0) * 2 + stat.get('favorite', 0) * 3) / view_count
+                rating = round(interaction_score * 100, 1)
+                if rating > 10:
+                    rating = 10.0
+
+            # 构建标签 (从统计数据)
+            tags = []
+            if stat.get('danmaku'):
+                tags.append(f"弹幕:{stat['danmaku']}")
+            if stat.get('reply'):
+                tags.append(f"评论:{stat['reply']}")
+            if stat.get('share'):
+                tags.append(f"分享:{stat['share']}")
+
+            # 构建标签XML
+            tags_xml = ""
+            if tags:
+                tags_xml = "\n".join([f'    <tag>{tag}</tag>' for tag in tags])
+                tags_xml = f'  <tags>\n{tags_xml}\n  </tags>'
+
+            # 获取时长 (转换为MM:SS格式)
+            duration = meta_data.get('duration', 0)
+            runtime_xml = ""
+            if duration:
+                minutes = int(duration // 60)
+                seconds = int(duration % 60)
+                runtime_xml = f'  <runtime>{minutes}:{seconds:02d}</runtime>'
+
+            # 构建评分XML
+            rating_xml = ""
+            if rating > 0:
+                rating_xml = f'  <rating>{rating:.1f}</rating>'
+
             content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <movie>
+  <bvid>{bvid}</bvid>
   <title>{title}</title>
   <plot>{desc}</plot>
   <studio>{uploader}</studio>
   <premiered>{pub_date_str}</premiered>
   <thumb>{pic}</thumb>
+{runtime_xml}
+{rating_xml}
   <statistics>
     <play>{stat.get('view', 0)}</play>
     <like>{stat.get('like', 0)}</like>
@@ -819,6 +860,7 @@ class TaskService:
     <danmaku>{stat.get('danmaku', 0)}</danmaku>
     <reply>{stat.get('reply', 0)}</reply>
   </statistics>
+{tags_xml}
 </movie>
 """
             

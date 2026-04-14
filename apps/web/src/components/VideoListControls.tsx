@@ -46,6 +46,12 @@ export interface VideoListControlsProps {
   isRefreshing?: boolean
   /** 格式化文件大小 */
   formatFileSize?: (bytes: number) => string
+  /** 更新NFO回调 */
+  onUpdateNfo?: () => void
+  /** 是否正在更新NFO */
+  isUpdatingNfo?: boolean
+  /** NFO更新进度 */
+  nfoUpdateProgress?: { success: number; failed: number; total: number }
 }
 
 export default function VideoListControls({
@@ -70,7 +76,10 @@ export default function VideoListControls({
   totalSize,
   onRefresh,
   isRefreshing = false,
-  formatFileSize
+  formatFileSize,
+  onUpdateNfo,
+  isUpdatingNfo = false,
+  nfoUpdateProgress
 }: VideoListControlsProps) {
   const [searchInput, setSearchInput] = useState(keyword)
 
@@ -213,6 +222,29 @@ export default function VideoListControls({
                 <span className={`refresh-icon ${isRefreshing ? 'rotating' : ''}`}>🔄</span>
                 <span>{isRefreshing ? '刷新中...' : '刷新'}</span>
               </button>
+            )}
+            
+            {/* NFO更新按钮 */}
+            {onUpdateNfo && (
+              <button
+                className="library-refresh-btn"
+                onClick={onUpdateNfo}
+                disabled={isUpdatingNfo}
+                aria-label="更新NFO"
+                title="更新视频元数据"
+              >
+                <span className={`refresh-icon ${isUpdatingNfo ? 'rotating' : ''}`}>📝</span>
+                <span>{isUpdatingNfo ? '更新中...' : '更新NFO'}</span>
+              </button>
+            )}
+            
+            {/* NFO更新进度显示 */}
+            {isUpdatingNfo && nfoUpdateProgress && nfoUpdateProgress.total > 0 && (
+              <div className="nfo-update-progress">
+                <span>成功: {nfoUpdateProgress.success}</span>
+                <span>失败: {nfoUpdateProgress.failed}</span>
+                <span>总计: {nfoUpdateProgress.total}</span>
+              </div>
             )}
           </div>
         )}

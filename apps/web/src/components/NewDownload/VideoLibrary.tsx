@@ -1,7 +1,8 @@
 // components/NewDownload/VideoLibrary.tsx
 import { useNewQueueStore, Task } from '../../stores/newQueue'
+import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
-import { Inbox as EmptyIcon, RefreshCw, Calendar, Film } from 'lucide-react'
+import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import VideoListControls from '../VideoListControls'
 
@@ -61,42 +62,87 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
     return { date: dateStr, time: timeStr }
   }
 
+  // 格式化时长
+  const formatDuration = (seconds: number): string => {
+    if (!seconds || seconds === 0) return '--:--'
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:00`
+    }
+    return `${minutes}:00`
+  }
+
+  // 格式化数字
+  const formatNumber = (num: number): string => {
+    if (!num || num === 0) return '0'
+    if (num >= 100000000) {
+      return `${(num / 100000000).toFixed(1)}亿`
+    } else if (num >= 10000) {
+      return `${(num / 10000).toFixed(1)}万`
+    } else if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}千`
+    }
+    return num.toString()
+  }
+
   return (
     <div className="library-folder-card">
-      {/* 文件夹头部 */}
-      <div className="library-folder-header">
-        {/* 封面 */}
-        <div className="library-folder-cover">
-          {hasCover ? (
-            <img
-              src={coverUrl}
-              alt={task.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-                const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
-                if (placeholder) {
-                  (placeholder as HTMLElement).style.display = 'flex'
-                }
-              }}
-            />
-          ) : (
-            <div className="cover-placeholder">
-              <Film size={32} color="#42a5f5" />
-            </div>
-          )}
-          {hasMultipleVideos && (
-            <div className="library-folder-expand-icon" onClick={onToggle}>
-              <span className="library-folder-video-count">{task.meta?.file_count || 0}</span>
-              <Film size={20} color="white" />
-            </div>
-          )}
-        </div>
+{/* 文件夹头部 */}
+        <div className="library-folder-header">
+          {/* 封面 */}
+          <div className="library-folder-cover">
+            {hasCover ? (
+              <img
+                src={coverUrl}
+                alt={task.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                  const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
+                  if (placeholder) {
+                    (placeholder as HTMLElement).style.display = 'flex'
+                  }
+                }}
+              />
+            ) : (
+              <div className="cover-placeholder">
+                <Film size={32} color="#42a5f5" />
+              </div>
+            )}
+            
+            {/* 时长显示 */}
+            {task.meta?.runtime && (
+              <div className="library-folder-duration">
+                {formatDuration(task.meta.runtime)}
+              </div>
+            )}
+            
+            {/* 评分显示 */}
+            {task.meta?.rating && (
+              <div className="library-folder-rating">
+                <Star size={12} color="#fbbf24" fill="#fbbf24" />
+                <span>{task.meta.rating}</span>
+              </div>
+            )}
+            
+            {hasMultipleVideos && (
+              <div className="library-folder-expand-icon" onClick={onToggle}>
+                <span className="library-folder-video-count">{task.meta?.file_count || 0}</span>
+                <Film size={20} color="white" />
+              </div>
+            )}
+          </div>
 
         {/* 文件夹信息 */}
         <div className="library-folder-info">
           <div className="library-folder-header-row">
-            <h4 className="library-folder-title">{task.title}</h4>
+            <h4 
+              className="library-folder-title" 
+              title={task.meta?.nfo_data?.plot ? `${task.meta.nfo_data.plot.substring(0, 200)}${task.meta.nfo_data.plot.length > 200 ? '...' : ''}` : task.title}
+            >
+              {task.title}
+            </h4>
             
             {/* 创建时间 - 分开显示 */}
             <div className="library-folder-timestamp">
@@ -111,28 +157,79 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           </div>
 
           <div className="library-folder-meta">
-            {/* UP主信息 */}
-            {task.meta?.studio && (
-              <div className="library-folder-studio">
-                {task.meta.avatar_path && (
-                  <img
-                    src={getLocalImageUrl(task.meta.avatar_path)}
-                    alt={task.meta.studio}
-                    className="studio-avatar"
-                  />
+            {/* UP主信息 + 发布日期 */}
+            <div className="library-folder-studio-row">
+              {task.meta?.studio && (
+                <div className="library-folder-studio">
+                  {task.meta.avatar_path && (
+                    <img
+                      src={getLocalImageUrl(task.meta.avatar_path)}
+                      alt={task.meta.studio}
+                      className="studio-avatar"
+                    />
+                  )}
+                  <span>{task.meta.studio}</span>
+                </div>
+              )}
+              {task.meta?.premiered && (
+                <div className="library-folder-premiered-inline">
+                  <Calendar size={12} />
+                  <span>{task.meta.premiered}</span>
+                </div>
+              )}
+            </div>
+
+            {/* 统计数据 */}
+            {task.meta?.statistics && (
+              <div className="library-folder-stats">
+                <Eye size={12} />
+                <span>{formatNumber(task.meta.statistics.play)}</span>
+                <ThumbsUp size={12} />
+                <span>{formatNumber(task.meta.statistics.like)}</span>
+                <Coins size={12} />
+                <span>{formatNumber(task.meta.statistics.coin)}</span>
+                <Star size={12} />
+                <span>{formatNumber(task.meta.statistics.favorite)}</span>
+                {task.meta.statistics.share && (
+                  <>
+                    <Share2 size={12} />
+                    <span>{formatNumber(task.meta.statistics.share)}</span>
+                  </>
                 )}
-                <span>{task.meta.studio}</span>
+                {task.meta.statistics.danmaku && (
+                  <>
+                    <MessageSquare size={12} />
+                    <span>{formatNumber(task.meta.statistics.danmaku)}</span>
+                  </>
+                )}
+                {task.meta.statistics.reply && (
+                  <>
+                    <MessageCircle size={12} />
+                    <span>{formatNumber(task.meta.statistics.reply)}</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* 视频标签 */}
+            {task.meta?.tags && task.meta.tags.length > 0 && (
+              <div className="library-folder-tags">
+                <Hash size={12} />
+                {task.meta.tags.slice(0, 3).map((tag: string, index: number) => (
+                  <span key={index} className="library-folder-tag">{tag}</span>
+                ))}
+                {task.meta.tags.length > 3 && (
+                  <span className="library-folder-tag-more">+{task.meta.tags.length - 3}</span>
+                )}
               </div>
             )}
 
             {/* 文件统计 */}
-            <div className="library-folder-stats">
-              <span className="library-folder-size">
-                {formatFileSize(task.meta.total_size + task.meta.metadata_size)}
-                {task.meta.metadata_size > 0 && task.meta.total_size > 0 && ' | '}
-                {task.meta.total_size > 0 && `视频: ${formatFileSize(task.meta.total_size)}`}
-                {task.meta.metadata_size > 0 && ` | 元数据: ${formatFileSize(task.meta.metadata_size)}`}
-              </span>
+            <div className="library-folder-size">
+              {formatFileSize(task.meta.total_size + task.meta.metadata_size)}
+              {task.meta.metadata_size > 0 && task.meta.total_size > 0 && ' | '}
+              {task.meta.total_size > 0 && `视频: ${formatFileSize(task.meta.total_size)}`}
+              {task.meta.metadata_size > 0 && ` | 元数据: ${formatFileSize(task.meta.metadata_size)}`}
             </div>
           </div>
         </div>
@@ -161,6 +258,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
 export default function VideoLibrary() {
   const { connected } = useNewQueueStore()
+  const { settings } = useSettingsStore()
   const { showToast } = useToast()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [scanResult, setScanResult] = useState<any>(null)
@@ -169,6 +267,8 @@ export default function VideoLibrary() {
   const [keyword, setKeyword] = useState('')
   const [order, setOrder] = useState('created')
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
+  const [isUpdatingNfo, setIsUpdatingNfo] = useState(false)
+  const [nfoUpdateProgress, setNfoUpdateProgress] = useState({ success: 0, failed: 0, total: 0 })
 
   // 格式化文件大小
   const formatFileSize = (bytes: number): string => {
@@ -214,6 +314,16 @@ export default function VideoLibrary() {
           const timeA = a.created_at || 0
           const timeB = b.created_at || 0
           return sortDirection === 'desc' ? timeB - timeA : timeA - timeB
+        })
+        break
+      case 'author':
+        // 按作者名排序
+        sorted.sort((a, b) => {
+          const authorA = a.meta?.studio?.toLowerCase() || ''
+          const authorB = b.meta?.studio?.toLowerCase() || ''
+          return sortDirection === 'desc' 
+            ? authorB.localeCompare(authorA, 'zh')
+            : authorA.localeCompare(authorB, 'zh')
         })
         break
       default:
@@ -291,7 +401,13 @@ export default function VideoLibrary() {
           cover_path: folder.cover_path,
           avatar_path: folder.avatar_path,
           nfo_data: folder.nfo_data,
-          files: folderVideos
+          files: folderVideos,
+          // 从NFO提取额外信息
+          statistics: folder.nfo_data?.statistics,
+          tags: folder.nfo_data?.tags || [],
+          runtime: folder.nfo_data?.runtime ? parseInt(folder.nfo_data.runtime) : undefined,
+          rating: folder.nfo_data?.rating,
+          premiered: folder.nfo_data?.premiered
         },
         prepare: {},
         subtasks: [],
@@ -356,6 +472,57 @@ export default function VideoLibrary() {
       showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  // 批量更新NFO文件
+  const handleBatchUpdateNfo = async () => {
+    if (isUpdatingNfo) return
+    
+    const downloadPath = settings?.storage?.download_path || './downloads'
+    
+    setIsUpdatingNfo(true)
+    setNfoUpdateProgress({ success: 0, failed: 0, total: 0 })
+    
+    try {
+      const response = await fetch('http://localhost:8000/api/library/nfo/batch-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          directory: downloadPath,
+          limit: 20  // 每次最多更新20个
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        
+        if (result.success) {
+          setNfoUpdateProgress({
+            success: result.success_count,
+            failed: result.failed_count,
+            total: result.total
+          })
+          
+          showToast(`NFO更新完成：成功${result.success_count}个，失败${result.failed_count}个`, 'success')
+          
+          // 延迟刷新视频库以显示更新后的信息
+          setTimeout(() => {
+            scanLibrary()
+          }, 1000)
+        } else {
+          showToast(`NFO更新失败: ${result.message}`, 'error')
+        }
+      } else {
+        showToast('NFO更新请求失败', 'error')
+      }
+    } catch (error) {
+      console.error('批量更新NFO失败:', error)
+      showToast(`批量更新NFO失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    } finally {
+      setIsUpdatingNfo(false)
     }
   }
 
@@ -455,7 +622,9 @@ export default function VideoLibrary() {
 
               { value: 'size', label: '按大小' },
 
-              { value: 'name', label: '按命名首字母' }
+              { value: 'name', label: '按命名首字母' },
+
+              { value: 'author', label: '按作者' }
 
             ]}
 
@@ -467,11 +636,17 @@ export default function VideoLibrary() {
 
             onRefresh={handleRefreshLibrary}
 
-            isRefreshing={isRefreshing}
+                        isRefreshing={isRefreshing}
 
-            formatFileSize={formatFileSize}
+                        formatFileSize={formatFileSize}
 
-          />
+                        onUpdateNfo={handleBatchUpdateNfo}
+
+                        isUpdatingNfo={isUpdatingNfo}
+
+                        nfoUpdateProgress={nfoUpdateProgress}
+
+                      />
 
         )}
 

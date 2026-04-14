@@ -40,6 +40,10 @@ class SingleNfoHandler(BaseHandler):
         lines.append('<?xml version="1.0" encoding="UTF-8"?>')
         lines.append('<movie>')
 
+        # BVID字段
+        if meta.get('bvid'):
+            lines.append(f'  <bvid>{self._escape_xml(meta["bvid"])}</bvid>')
+
         # 标题
         if meta.get('title'):
             lines.append(f'  <title>{self._escape_xml(meta["title"])}</title>')
@@ -84,11 +88,34 @@ class SingleNfoHandler(BaseHandler):
             if stat.get('reply'):
                 lines.append(f'    <reply>{stat["reply"]}</reply>')
             lines.append('  </statistics>')
+        
+        # 评分（基于互动率计算）
+        if meta.get('stat'):
+            rating = self._calculate_rating(meta['stat'])
+            if rating > 0:
+                lines.append(f'  <rating>{rating:.1f}</rating>')
+        
+        # 视频标签（从统计数据中提取）
+        if meta.get('stat'):
+            tags = []
+            stat = meta['stat']
+            if stat.get('danmaku'):
+                tags.append(f"弹幕:{stat['danmaku']}")
+            if stat.get('reply'):
+                tags.append(f"评论:{stat['reply']}")
+            if stat.get('share'):
+                tags.append(f"分享:{stat['share']}")
+            
+            if tags:
+                lines.append('  <tags>')
+                for tag in tags:
+                    lines.append(f'    <tag>{tag}</tag>')
+                lines.append('  </tags>')
 
         lines.append('</movie>')
 
         return '\n'.join(lines)
-
+    
     def _escape_xml(self, text: str) -> str:
         """转义XML特殊字符"""
         if not text:
@@ -99,6 +126,31 @@ class SingleNfoHandler(BaseHandler):
         text = text.replace('"', '&quot;')
         text = text.replace("'", '&apos;')
         return text
+    
+    def _calculate_rating(self, stats: Dict[str, Any]) -> float:
+        """计算B站视频评分（基于互动率）"""
+        try:
+            play = stats.get('view', 0) or 0
+            if play == 0:
+                return 0.0
+            
+            like = stats.get('like', 0) or 0
+            coin = stats.get('coin', 0) or 0
+            favorite = stats.get('favorite', 0) or 0
+            
+            # 计算互动得分
+            interaction_score = (like * 0.4 + coin * 0.3 + favorite * 0.3)
+            
+            # 计算互动率
+            interaction_rate = interaction_score / play
+            
+            # 互动率转换评分（10分制，最高不超过10分）
+            rating = min(interaction_rate * 500, 10)
+            
+            return round(rating, 1)
+        except Exception as e:
+            logger.warning(f"计算评分失败: {e}")
+            return 0.0
 
 
 class AlbumNfoHandler(BaseHandler):

@@ -4120,6 +4120,45 @@
   color: white;
 }
 
+/* 时长显示 */
+.library-folder-duration {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+/* 评分显示 */
+.library-folder-rating {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.library-folder-rating span {
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+}
+
 .library-folder-info {
   flex: 1;
   min-width: 0;
@@ -4147,6 +4186,26 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: help;
+}
+
+.library-folder-studio-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.library-folder-premiered-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.library-folder-premiered-inline span {
+  line-height: 1.4;
 }
 
 .library-folder-timestamp {
@@ -4206,15 +4265,58 @@
   object-fit: cover;
 }
 
+.library-folder-size {
+  display: inline-block;
+}
+
+/* 统计数据样式 */
 .library-folder-stats {
   display: flex;
   align-items: center;
+  gap: 12px;
   font-size: 12px;
   color: #64748b;
 }
 
-.library-folder-size {
-  display: inline-block;
+.library-folder-stats svg {
+  flex-shrink: 0;
+}
+
+.library-folder-stats span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 标签样式 */
+.library-folder-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.library-folder-tags svg {
+  flex-shrink: 0;
+}
+
+.library-folder-tag {
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.library-folder-tag-more {
+  padding: 2px 6px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .library-folder-videos {

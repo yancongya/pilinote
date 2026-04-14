@@ -269,3 +269,63 @@ async def get_local_image(file_path: str = Query(..., description="本地图片�
             status_code=500,
             detail=f"获取图片失败: {str(e)}"
         )
+
+
+@router.post("/nfo/update")
+async def update_nfo_file(
+    nfo_path: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    更新单个NFO文件的元数据
+    
+    Args:
+        nfo_path: NFO文件路径
+        
+    Returns:
+        更新结果
+    """
+    try:
+        from src.services.nfo_update_service import NFOUpdateService
+        
+        nfo_service = NFOUpdateService()
+        result = await nfo_service.update_single_nfo(nfo_path)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"更新NFO文件失败: {str(e)}"
+        )
+
+
+@router.post("/nfo/batch-update")
+async def batch_update_nfo_files(
+    directory: str = Body(..., embed=True),
+    limit: int = Body(10, embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    批量更新目录下的NFO文件
+    
+    Args:
+        directory: 目录路径
+        limit: 最大更新数量（默认10）
+        
+    Returns:
+        批量更新结果
+    """
+    try:
+        from src.services.nfo_update_service import NFOUpdateService
+        
+        nfo_service = NFOUpdateService()
+        result = await nfo_service.batch_update_nfos(directory, limit)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"批量更新NFO文件失败: {str(e)}"
+        )

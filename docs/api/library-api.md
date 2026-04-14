@@ -723,6 +723,248 @@ async def get_local_image(file_path: str = Query(..., description="本地图片�
 
 ---
 
+### 7. 更新单个NFO文件
+
+**端点**：`POST /api/library/nfo/update`
+
+**描述**：更新单个NFO文件的元数据，从B站API获取最新的统计数据并更新到NFO文件中
+
+#### 请求体
+
+```json
+{
+  "nfo_path": "/path/to/video.nfo"
+}
+```
+
+#### 请求示例
+
+```bash
+curl -X POST "http://localhost:8000/api/library/nfo/update" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video.nfo"
+  }'
+```
+
+#### 响应示例
+
+**成功响应**（200 OK）：
+```json
+{
+  "success": true,
+  "data": {
+    "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video.nfo",
+    "updated": true,
+    "changes": {
+      "statistics": {
+        "play": 10000,
+        "like": 500,
+        "coin": 200,
+        "favorite": 100,
+        "share": 50,
+        "danmaku": 100,
+        "reply": 80
+      },
+      "rating": 8.5,
+      "tags": ["弹幕:100", "评论:80", "分享:50"]
+    }
+  },
+  "message": "NFO文件更新成功"
+}
+```
+
+#### 响应字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `success` | bool | 是否成功 |
+| `data.nfo_path` | string | NFO文件路径 |
+| `data.updated` | bool | 是否有更新 |
+| `data.changes` | object | 更新的内容 |
+| `message` | string | 结果消息 |
+
+#### 错误码
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 400 | 请求参数错误 |
+| 404 | NFO文件不存在 |
+| 500 | 服务器内部错误 |
+
+#### 后端实现
+
+**文件**：`apps/api/src/routers/library.py`
+
+```python
+@router.post("/nfo/update")
+async def update_nfo_file(
+    nfo_path: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    更新单个NFO文件的元数据
+    
+    Args:
+        nfo_path: NFO文件路径
+        
+    Returns:
+        更新结果
+    """
+    try:
+        from src.services.nfo_update_service import NFOUpdateService
+        
+        nfo_service = NFOUpdateService()
+        result = await nfo_service.update_single_nfo(nfo_path)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"更新NFO文件失败: {str(e)}"
+        )
+```
+
+---
+
+### 8. 批量更新NFO文件
+
+**端点**：`POST /api/library/nfo/batch-update`
+
+**描述**：批量更新指定目录下的NFO文件，从B站API获取最新的统计数据并更新到NFO文件中
+
+#### 请求体
+
+```json
+{
+  "directory": "/path/to/downloads",
+  "limit": 10
+}
+```
+
+#### 请求参数
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `directory` | string | 是 | - | 要扫描的目录路径 |
+| `limit` | int | 否 | 10 | 最大更新数量 |
+
+#### 请求示例
+
+```bash
+# 更新下载目录下的NFO文件（最多10个）
+curl -X POST "http://localhost:8000/api/library/nfo/batch-update" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "directory": "/Users/tanyancong/工作/开发/pilinote/downloads",
+    "limit": 10
+  }'
+```
+
+#### 响应示例
+
+**成功响应**（200 OK）：
+```json
+{
+  "success": true,
+  "data": {
+    "total": 10,
+    "success_count": 8,
+    "failed_count": 2,
+    "results": [
+      {
+        "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video1.nfo",
+        "success": true,
+        "updated": true,
+        "changes": {
+          "statistics": {
+            "play": 10000,
+            "like": 500,
+            "coin": 200,
+            "favorite": 100,
+            "share": 50,
+            "danmaku": 100,
+            "reply": 80
+          },
+          "rating": 8.5,
+          "tags": ["弹幕:100", "评论:80", "分享:50"]
+        }
+      },
+      {
+        "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video2.nfo",
+        "success": false,
+        "error": "BVID解析失败"
+      }
+    ]
+  },
+  "message": "批量更新完成：成功8个，失败2个"
+}
+```
+
+#### 响应字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `success` | bool | 是否成功 |
+| `data.total` | int | 总尝试数 |
+| `data.success_count` | int | 成功数 |
+| `data.failed_count` | int | 失败数 |
+| `data.results` | array | 每个NFO文件的更新结果 |
+| `message` | string | 结果消息 |
+
+#### 错误码
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 400 | 请求参数错误 |
+| 404 | 目录不存在 |
+| 500 | 服务器内部错误 |
+
+#### 后端实现
+
+**文件**：`apps/api/src/routers/library.py`
+
+```python
+@router.post("/nfo/batch-update")
+async def batch_update_nfo_files(
+    directory: str = Body(..., embed=True),
+    limit: int = Body(10, embed=True),
+    db: Session = Depends(get_db)
+):
+    """
+    批量更新目录下的NFO文件
+    
+    Args:
+        directory: 目录路径
+        limit: 最大更新数量（默认10）
+        
+    Returns:
+        批量更新结果
+    """
+    try:
+        from src.services.nfo_update_service import NFOUpdateService
+        
+        nfo_service = NFOUpdateService()
+        result = await nfo_service.batch_update_nfos(directory, limit)
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"批量更新NFO文件失败: {str(e)}"
+        )
+```
+
+#### 使用场景
+
+1. **批量更新统计数据**：定期批量更新所有视频的播放量、点赞数等统计数据
+2. **同步最新数据**：从B站API获取最新的互动数据，保持NFO文件的时效性
+3. **数据补全**：为缺少统计数据的老视频补全NFO信息
+
+---
+
 ## 数据模型
 
 ### VideoFile（视频文件信息）
