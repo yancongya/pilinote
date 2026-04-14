@@ -4243,31 +4243,6 @@
 .library-folder-created-time span {
   line-height: 1.4;
 }
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: #f1f5f9;
-  border-radius: 6px;
-}
-
-.library-folder-created-date span {
-  font-size: 11px;
-  color: #64748b;
-}
-
-.library-folder-created-time {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  background: #f1f5f9;
-  border-radius: 6px;
-}
-
-.library-folder-created-time span {
-  font-size: 11px;
-  color: #64748b;
-}
 
 .library-folder-size {
   display: flex;
