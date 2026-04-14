@@ -68,6 +68,9 @@ class Task(Base):
     status = Column(JSON, nullable=False, default=lambda: {})  # 进度状态
     state = Column(Integer, nullable=False, default=TaskState.BACKLOG, index=True)  # TaskState
 
+    # 错误详情（细粒度错误分类）
+    error_detail = Column(JSON, nullable=True)  # ErrorDetail JSON
+
     # 调度器关联
     scheduler_id = Column(String(50), nullable=True, index=True)  # 所属调度器ID
 

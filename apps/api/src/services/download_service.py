@@ -13,6 +13,7 @@ import yt_dlp
 from src.database import SessionLocal
 from src.models.download import Download
 from src.services.download_engine import DownloadEngine
+from src.utils.error_handler import ErrorHandler, handle_error
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,47 @@ class DownloadService:
         """更新下载引擎的设置（当设置改变时调用）"""
         self.download_engine = self._create_download_engine()
         logger.info("Download engine settings updated")
-    
+
+    def _handle_download_error(
+        self,
+        download_id: str,
+        error: Exception,
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        处理下载错误
+
+        Args:
+            download_id: 下载任务ID
+            error: 异常对象
+            context: 上下文信息
+
+        Returns:
+            错误详情字典
+        """
+        # 使用错误处理器分类错误
+        error_detail = handle_error(
+            error,
+            context=context or {'download_id': download_id},
+            log_level="error",
+            raise_error=False
+        )
+
+        # 更新下载状态
+        self.update_download_status(
+            download_id,
+            status="failed",
+            error_message=error_detail.message,  # 向后兼容
+            error_detail=error_detail.to_dict()  # 新增错误详情
+        )
+
+        logger.error(
+            f"下载失败 [{download_id}]: {error_detail.message} "
+            f"(类型: {error_detail.error_type}, 代码: {error_detail.error_code})"
+        )
+
+        return error_detail.to_dict()
+
     def _create_temp_download_dir(self, download_id: str) -> Path:
         """创建临时下载目录"""
         temp_download_dir = self.temp_dir / download_id
@@ -158,7 +199,8 @@ class DownloadService:
         self,
         download_id: str,
         status: str,
-        error_message: Optional[str] = None
+        error_message: Optional[str] = None,
+        error_detail: Optional[dict] = None
     ):
         """更新下载状态并推送到WebSocket"""
         # 更新数据库
@@ -167,16 +209,19 @@ class DownloadService:
             if download:
                 download.status = status
                 download.updated_at = datetime.utcnow()
-                
+
                 if status == "downloading" and not download.started_at:
                     download.started_at = datetime.utcnow()
                 elif status == "completed":
                     download.completed_at = datetime.utcnow()
                     download.progress = 100.0
-                elif status == "failed" and error_message:
-                    download.error_message = error_message
+                elif status == "failed":
+                    if error_message:
+                        download.error_message = error_message  # 向后兼容
+                    if error_detail:
+                        download.error_detail = error_detail  # 新增错误详情
                     download.retry_count += 1
-                
+
                 db.commit()
     
     def get_all_downloads(self, status: Optional[str] = None) -> list[Download]:

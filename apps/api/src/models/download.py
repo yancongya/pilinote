@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, Enum
+from sqlalchemy import Column, String, Integer, Float, DateTime, Text, Enum, JSON
 from src.database import Base
 
 class Download(Base):
@@ -107,9 +107,8 @@ class Download(Base):
     
 
     # 错误处理
-
-    error_message = Column(Text)  # 错误信息
-
+    error_message = Column(Text)  # 错误信息（向后兼容）
+    error_detail = Column(JSON, nullable=True)  # 错误详情（细粒度分类）
     retry_count = Column(Integer, default=0)  # 重试次数
 
     

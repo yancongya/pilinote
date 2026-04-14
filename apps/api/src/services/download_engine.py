@@ -9,6 +9,8 @@ from typing import Optional, Callable
 
 import yt_dlp
 
+from src.utils.error_handler import ErrorHandler, handle_error
+
 logger = logging.getLogger(__name__)
 
 
@@ -289,23 +291,29 @@ class DownloadEngine:
                 logger.info(f"Download completed: {bvid}")
                 
             except Exception as download_error:
+                # 使用错误处理器分类错误
+                error_detail = ErrorHandler.classify_error(
+                    download_error,
+                    context={'bvid': bvid, 'use_aria2c': use_aria2c}
+                )
+
                 # 检查是否是aria2c错误
                 error_str = str(download_error)
                 if use_aria2c and ('aria2c' in error_str.lower() or 'exited with code' in error_str):
-                    logger.warning(f"⚠️ Aria2c download failed for {bvid}")
-                    logger.warning(f"Error details: {error_str}")
-                    logger.warning(f"Possible causes: Network interruption, B站反爬机制, or connection timeout")
+                    logger.warning(f"⚠️ Aria2c download failed for {bvid}: {error_detail.message}")
+                    logger.warning(f"Error type: {error_detail.error_type}, Code: {error_detail.error_code}")
+                    logger.warning(f"Possible causes: Network interruption, B站反爬 mechanism, or connection timeout")
                     logger.info(f"🔄 Falling back to yt-dlp built-in downloader (slower but more stable)")
-                    
+
                     # 移除aria2c配置，使用内置下载器重试
                     ydl_opts.pop('external_downloader', None)
                     ydl_opts.pop('external_downloader_args', None)
-                    
+
                     try:
                         logger.info(f"Retrying with built-in downloader: {bvid}")
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                             await asyncio.to_thread(ydl.download, [f'https://www.bilibili.com/video/{bvid}'])
-                        
+
                         logger.info(f"✅ Download completed successfully with built-in downloader: {bvid}")
                     except Exception as fallback_error:
                         logger.error(f"❌ Built-in downloader also failed: {fallback_error}")
@@ -314,8 +322,10 @@ class DownloadEngine:
                         raise Exception(f"Download failed with both aria2c and built-in downloader. Aria2c error: {error_str}, Built-in error: {fallback_error}")
                 else:
                     # 非aria2c错误，直接抛出
-                    logger.error(f"❌ Download failed (non-aria2c): {error_str}")
-                    raise
+                    logger.error(f"❌ Download failed (non-aria2c): {error_detail.message}")
+                    logger.error(f"Error type: {error_detail.error_type}, Code: {error_detail.error_code}")
+                    logger.error(f"Recoverable: {error_detail.recoverable}, Suggestion: {error_detail.suggestion}")
+                    raise download_error
             
         except asyncio.CancelledError:
             logger.info(f"Download cancelled: {bvid}")

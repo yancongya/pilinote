@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pathlib import Path
 from datetime import datetime
 import logging
@@ -8,6 +8,7 @@ from src.models.task import Task, TaskState
 from src.schemas.task import SubTask, SubTaskType
 from src.services.bilibili import BilibiliService
 from src.database import SessionLocal
+from src.utils.error_handler import ErrorHandler, handle_error
 
 logger = logging.getLogger(__name__)
 
@@ -411,24 +412,38 @@ class TaskService:
                 
         except Exception as e:
             logger.error(f"✗ 任务 {self.task.id} 执行失败: {e}")
-            
+
+            # 使用错误处理器分类错误
+            error_detail = handle_error(
+                e,
+                context={
+                    'task_id': self.task.id,
+                    'media_type': self.task.media_type,
+                    'media_id': self.task.media_id,
+                    'title': self.task.title
+                },
+                log_level="error",
+                raise_error=False
+            )
+
             # 标记任务为失败
             self.task.state = TaskState.FAILED
             self.task.status['stage'] = 'failed'
-            self.task.status['error'] = str(e)
+            self.task.status['error'] = error_detail.message  # 保留向后兼容
+            self.task.error_detail = error_detail.to_dict()  # 新增详细错误信息
             self.task.updated_at = int(datetime.now().timestamp())
-            
+
             # 持久化失败状态
             db = SessionLocal()
             try:
                 db.commit()
             finally:
                 db.close()
-            
+
             # 广播任务失败状态
             from src.routers.websocket import broadcast_task_updated
             broadcast_task_updated(self.task.id, str(TaskState.FAILED), cancelled=False)
-            
+
             raise
         finally:
             # 停止进度广播
