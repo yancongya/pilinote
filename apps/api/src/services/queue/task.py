@@ -813,21 +813,6 @@ class TaskService:
                 if rating > 10:
                     rating = 10.0
 
-            # 构建标签 (从统计数据)
-            tags = []
-            if stat.get('danmaku'):
-                tags.append(f"弹幕:{stat['danmaku']}")
-            if stat.get('reply'):
-                tags.append(f"评论:{stat['reply']}")
-            if stat.get('share'):
-                tags.append(f"分享:{stat['share']}")
-
-            # 构建标签XML
-            tags_xml = ""
-            if tags:
-                tags_xml = "\n".join([f'    <tag>{tag}</tag>' for tag in tags])
-                tags_xml = f'  <tags>\n{tags_xml}\n  </tags>'
-
             # 获取时长 (转换为MM:SS格式)
             duration = meta_data.get('duration', 0)
             runtime_xml = ""
@@ -840,6 +825,16 @@ class TaskService:
             rating_xml = ""
             if rating > 0:
                 rating_xml = f'  <rating>{rating:.1f}</rating>'
+            
+            # 构建tags XML (从meta_data中获取真正的标签)
+            tags_xml = ""
+            if meta_data.get('tags') and len(meta_data['tags']) > 0:
+                tags = meta_data['tags']
+                # 只取前3个标签
+                tags_list = tags[:3] if len(tags) > 3 else tags
+                if tags_list:
+                    tags_xml = "\n".join([f'    <tag>{tag}</tag>' for tag in tags_list])
+                    tags_xml = f'  <tags>\n{tags_xml}\n  </tags>'
 
             content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <movie>

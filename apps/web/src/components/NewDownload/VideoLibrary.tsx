@@ -157,29 +157,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           </div>
 
           <div className="library-folder-meta">
-            {/* UP主信息 + 发布日期 */}
-            <div className="library-folder-studio-row">
-              {task.meta?.studio && (
-                <div className="library-folder-studio">
-                  {task.meta.avatar_path && (
-                    <img
-                      src={getLocalImageUrl(task.meta.avatar_path)}
-                      alt={task.meta.studio}
-                      className="studio-avatar"
-                    />
-                  )}
-                  <span>{task.meta.studio}</span>
-                </div>
-              )}
-              {task.meta?.premiered && (
-                <div className="library-folder-premiered-inline">
-                  <Calendar size={12} />
-                  <span>{task.meta.premiered}</span>
-                </div>
-              )}
-            </div>
-
-            {/* 统计数据 */}
+            {/* 统计数据 - 在标题下面 */}
             {task.meta?.statistics && (
               <div className="library-folder-stats">
                 <Eye size={12} />
@@ -210,6 +188,28 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                 )}
               </div>
             )}
+
+            {/* UP主信息 + 发布日期 */}
+            <div className="library-folder-studio-row">
+              {task.meta?.studio && (
+                <div className="library-folder-studio">
+                  {task.meta.avatar_path && (
+                    <img
+                      src={getLocalImageUrl(task.meta.avatar_path)}
+                      alt={task.meta.studio}
+                      className="studio-avatar"
+                    />
+                  )}
+                  <span>{task.meta.studio}</span>
+                </div>
+              )}
+              {task.meta?.premiered && (
+                <div className="library-folder-premiered-inline">
+                  <Calendar size={12} />
+                  <span>{task.meta.premiered}</span>
+                </div>
+              )}
+            </div>
 
             {/* 视频标签 */}
             {task.meta?.tags && task.meta.tags.length > 0 && (
@@ -458,29 +458,12 @@ export default function VideoLibrary() {
     }
   }
 
-  // 刷新视频库
+  // 刷新视频库（优先NFO更新，然后扫描）
   const handleRefreshLibrary = async () => {
-    if (isRefreshing) return
-    setIsRefreshing(true)
-    try {
-      const result = await scanLibrary()
-      
-      if (result) {
-        showToast(`视频库刷新完成！${result.folder_count} 个系列，${result.total_files} 个视频`, 'success')
-      }
-    } catch (error) {
-      showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
-  // 批量更新NFO文件
-  const handleBatchUpdateNfo = async () => {
-    if (isUpdatingNfo) return
+    if (isRefreshing || isUpdatingNfo) return
     
+    // 先执行NFO更新
     const downloadPath = settings?.storage?.download_path || './downloads'
-    
     setIsUpdatingNfo(true)
     setNfoUpdateProgress({ success: 0, failed: 0, total: 0 })
     
@@ -492,7 +475,7 @@ export default function VideoLibrary() {
         },
         body: JSON.stringify({
           directory: downloadPath,
-          limit: 20  // 每次最多更新20个
+          limit: 20
         })
       })
       
@@ -507,22 +490,27 @@ export default function VideoLibrary() {
           })
           
           showToast(`NFO更新完成：成功${result.success_count}个，失败${result.failed_count}个`, 'success')
-          
-          // 延迟刷新视频库以显示更新后的信息
-          setTimeout(() => {
-            scanLibrary()
-          }, 1000)
-        } else {
-          showToast(`NFO更新失败: ${result.message}`, 'error')
         }
-      } else {
-        showToast('NFO更新请求失败', 'error')
       }
     } catch (error) {
-      console.error('批量更新NFO失败:', error)
-      showToast(`批量更新NFO失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+      console.error('NFO更新失败:', error)
+      // NFO更新失败不影响后续扫描
     } finally {
       setIsUpdatingNfo(false)
+    }
+    
+    // 然后执行扫描
+    setIsRefreshing(true)
+    try {
+      const result = await scanLibrary()
+      
+      if (result) {
+        showToast(`视频库刷新完成！${result.folder_count} 个系列，${result.total_files} 个视频`, 'success')
+      }
+    } catch (error) {
+      showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -636,17 +624,15 @@ export default function VideoLibrary() {
 
             onRefresh={handleRefreshLibrary}
 
-                        isRefreshing={isRefreshing}
+            isRefreshing={isRefreshing}
 
-                        formatFileSize={formatFileSize}
+            isUpdatingNfo={isUpdatingNfo}
 
-                        onUpdateNfo={handleBatchUpdateNfo}
+            nfoUpdateProgress={nfoUpdateProgress}
 
-                        isUpdatingNfo={isUpdatingNfo}
+            formatFileSize={formatFileSize}
 
-                        nfoUpdateProgress={nfoUpdateProgress}
-
-                      />
+          />
 
         )}
 

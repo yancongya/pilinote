@@ -107,6 +107,19 @@ export default function VideoListControls({
     }
   }
 
+  const handleRefresh = () => {
+    // 优先调用NFO更新功能，如果存在的话
+    if (onUpdateNfo && !isUpdatingNfo) {
+      onUpdateNfo()
+    } else if (onRefresh && !isRefreshing) {
+      onRefresh()
+    }
+  }
+
+  const isOperating = isRefreshing || isUpdatingNfo
+  const refreshLabel = isUpdatingNfo ? '更新中...' : (isRefreshing ? '刷新中...' : '刷新')
+  const refreshTitle = onUpdateNfo ? '刷新列表并更新NFO' : '刷新列表'
+
   return (
     <div className={`video-list-controls ${className}`}>
       <div className="controls-wrapper">
@@ -187,7 +200,7 @@ export default function VideoListControls({
         )}
 
         {/* 统计信息和刷新按钮 */}
-        {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined || onRefresh) && (
+        {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined || onRefresh || onUpdateNfo) && (
           <div className="info-refresh-box">
             {/* 统计信息 */}
             {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined) && (
@@ -210,31 +223,17 @@ export default function VideoListControls({
               </div>
             )}
             
-            {/* 刷新按钮 */}
-            {onRefresh && (
+            {/* 统一刷新按钮 */}
+            {(onRefresh || onUpdateNfo) && (
               <button
                 className="library-refresh-btn"
-                onClick={onRefresh}
-                disabled={isRefreshing}
+                onClick={handleRefresh}
+                disabled={isOperating}
                 aria-label="刷新"
-                title="刷新列表"
+                title={refreshTitle}
               >
-                <span className={`refresh-icon ${isRefreshing ? 'rotating' : ''}`}>🔄</span>
-                <span>{isRefreshing ? '刷新中...' : '刷新'}</span>
-              </button>
-            )}
-            
-            {/* NFO更新按钮 */}
-            {onUpdateNfo && (
-              <button
-                className="library-refresh-btn"
-                onClick={onUpdateNfo}
-                disabled={isUpdatingNfo}
-                aria-label="更新NFO"
-                title="更新视频元数据"
-              >
-                <span className={`refresh-icon ${isUpdatingNfo ? 'rotating' : ''}`}>📝</span>
-                <span>{isUpdatingNfo ? '更新中...' : '更新NFO'}</span>
+                <span className={`refresh-icon ${isOperating ? 'rotating' : ''}`}>🔄</span>
+                <span>{refreshLabel}</span>
               </button>
             )}
             

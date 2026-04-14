@@ -310,6 +310,14 @@ class LocalLibraryService:
                 except ValueError:
                     pass
             
+            # 提取时长
+            runtime_elem = root.find('runtime')
+            if runtime_elem is not None and runtime_elem.text:
+                try:
+                    metadata['runtime'] = runtime_elem.text
+                except ValueError:
+                    pass
+            
             # 提取标签
             tags_elem = root.find('tags')
             if tags_elem is not None:
