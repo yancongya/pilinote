@@ -547,7 +547,7 @@ export default function VideoLibrary() {
         },
         body: JSON.stringify({
           directory: downloadPath,
-          limit: 20
+          limit: 100
         })
       })
       
