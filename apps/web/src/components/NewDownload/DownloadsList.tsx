@@ -1,15 +1,21 @@
 // components/NewDownload/DownloadsList.tsx
-import { useState } from 'react'
-import { RefreshCw, Trash2, Square, Play } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { RefreshCw, Trash2, Square, Play, Database, FolderOpen, ChevronDown } from 'lucide-react'
 import { useNewQueueStore } from '../../stores/newQueue'
+import { useToast } from '../../components/Toast'
 import TaskCard from './TaskCard'
 import SchedulerCard from './SchedulerCard'
+import './DownloadsList.css'
 
 export default function DownloadsList() {
   const { filterStatus, setFilterStatus, getFilteredTasks, fetchTasks, fetchSchedulers, schedulers, batchDeleteTasks, deleteAllTasks, batchStartTasks } = useNewQueueStore()
+  const { showToast } = useToast()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isBatchMode, setIsBatchMode] = useState(false)
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
+  const [showRefreshMenu, setShowRefreshMenu] = useState(false)
+  const [libraryStats, setLibraryStats] = useState<any>(null)
+  const refreshMenuRef = useRef<HTMLDivElement>(null)
 
   const filteredTasks = getFilteredTasks()
 
@@ -35,6 +41,66 @@ export default function DownloadsList() {
       ])
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  // 处理点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (refreshMenuRef.current && !refreshMenuRef.current.contains(event.target as Node)) {
+        setShowRefreshMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // 获取视频库统计信息
+  const fetchLibraryStats = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/library/statistics')
+      if (response.ok) {
+        const result = await response.json()
+        setLibraryStats(result.data)
+      }
+    } catch (error) {
+      console.error('获取视频库统计信息失败:', error)
+    }
+  }
+
+  // 刷新本地视频库
+  const handleRefreshLibrary = async () => {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    setShowRefreshMenu(false)
+    try {
+      const response = await fetch('http://localhost:8000/api/library/sync?auto_import=true&auto_cleanup=false', {
+        method: 'POST'
+      })
+      if (response.ok) {
+        const result = await response.json()
+        showToast(`视频库刷新完成！${result.data.scan_result.total_files} 个文件，${result.data.imported_count} 个新文件`, 'success')
+        // 刷新任务列表
+        await fetchTasks()
+        // 更新统计信息
+        await fetchLibraryStats()
+      } else {
+        const errorResult = await response.json()
+        throw new Error(errorResult.detail || '刷新失败')
+      }
+    } catch (error) {
+      console.error('刷新视频库失败:', error)
+      showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // 显示刷新菜单
+  const toggleRefreshMenu = () => {
+    setShowRefreshMenu(!showRefreshMenu)
+    if (!showRefreshMenu) {
+      fetchLibraryStats()
     }
   }
 
@@ -79,7 +145,7 @@ export default function DownloadsList() {
       setIsBatchMode(false)
     } catch (error) {
       console.error('批量删除失败:', error)
-      alert('批量删除失败，请重试')
+      showToast('批量删除失败，请重试', 'error')
     }
   }
 
@@ -92,7 +158,7 @@ export default function DownloadsList() {
       setIsBatchMode(false)
     } catch (error) {
       console.error('批量开始下载失败:', error)
-      alert('批量开始下载失败，请重试')
+      showToast('批量开始下载失败，请重试', 'error')
     }
   }
 
@@ -108,7 +174,7 @@ export default function DownloadsList() {
       setIsBatchMode(false)
     } catch (error) {
       console.error('删除所有任务失败:', error)
-      alert('删除所有任务失败，请重试')
+      showToast('删除所有任务失败，请重试', 'error')
     }
   }
 
@@ -130,16 +196,55 @@ export default function DownloadsList() {
         </select>
 
         {/* 刷新按钮 */}
-        <button
-          className="refresh-button"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          aria-label="刷新任务列表"
-          title="刷新任务列表"
-        >
-          <RefreshCw size={16} className={isRefreshing ? 'rotating' : ''} />
-          <span>刷新</span>
-        </button>
+        <div className="refresh-dropdown" ref={refreshMenuRef}>
+          <button
+            className="refresh-button"
+            onClick={toggleRefreshMenu}
+            disabled={isRefreshing}
+            aria-label="刷新选项"
+            title="刷新选项"
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'rotating' : ''} />
+            <span>刷新</span>
+            <ChevronDown size={14} style={{ marginLeft: '4px' }} />
+          </button>
+
+          {/* 刷新菜单 */}
+          {showRefreshMenu && (
+            <div className="refresh-menu">
+              <div className="refresh-menu-header">
+                <Database size={14} />
+                <span>刷新选项</span>
+              </div>
+              
+              <button
+                className="refresh-menu-item"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw size={16} />
+                <div className="refresh-menu-item-content">
+                  <span>刷新任务列表</span>
+                  <span className="refresh-menu-item-desc">更新下载任务状态和进度</span>
+                </div>
+              </button>
+
+              <button
+                className="refresh-menu-item"
+                onClick={handleRefreshLibrary}
+                disabled={isRefreshing}
+              >
+                <FolderOpen size={16} />
+                <div className="refresh-menu-item-content">
+                  <span>刷新本地视频库</span>
+                  <span className="refresh-menu-item-desc">
+                    {libraryStats ? `扫描 ${libraryStats.file_count} 个文件，${(libraryStats.total_size_gb).toFixed(2)} GB` : '扫描下载目录并同步'}
+                  </span>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* 清除缓存按钮 */}
         <button

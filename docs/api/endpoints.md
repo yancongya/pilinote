@@ -530,11 +530,251 @@
 
 ---
 
+## 本地视频库接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/library/statistics` | 获取视频库统计信息 |
+| POST | `/api/library/scan` | 扫描视频库 |
+| POST | `/api/library/import` | 导入新文件 |
+| POST | `/api/library/cleanup` | 清理丢失文件 |
+| POST | `/api/library/sync` | 完整同步 |
+| GET | `/api/library/image` | 获取本地图片 |
+
+### 获取视频库统计信息
+
+获取本地视频库的统计信息，包括文件数量、总大小、数据库记录等。
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "exists": true,
+    "path": "/Users/tanyancong/工作/开发/pilinote/downloads",
+    "file_count": 112,
+    "total_size": 5368709120,
+    "total_size_mb": 5120.0,
+    "total_size_gb": 5.0,
+    "video_files_by_type": {
+      ".mp4": 100,
+      ".flv": 10,
+      ".mkv": 2
+    },
+    "database_stats": {
+      "total_downloads": 120,
+      "completed_downloads": 110
+    }
+  }
+}
+```
+
+### 扫描视频库
+
+扫描本地视频库并同步状态，返回新文件、已存在文件和文件丢失的记录。
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "total_files": 112,
+    "folder_count": 45,
+    "new_files_count": 2,
+    "existing_files_count": 108,
+    "missing_count": 2,
+    "total_size": 5368709120,
+    "folders": [
+      {"name": "【Blender教程】", "title": "Blender教程系列", "path": "/Users/tanyancong/工作/开发/pilinote/downloads/【Blender教程】", "file_count": 10, "size": 1073741824, "metadata_size": 1048576, "total_size": 1074790400, "cover": "cover.jpg", "cover_path": "/Users/tanyancong/工作/开发/pilinote/downloads/【Blender教程】/cover.jpg", "avatar": "avatar.jpg", "avatar_path": "/Users/tanyancong/工作/开发/pilinote/downloads/【Blender教程】/avatar.jpg", "studio": "UP主名称", "nfo_data": {"title": "Blender教程系列", "plot": "详细的Blender教程", "studio": "UP主名称", "premiered": "2024-01-01", "statistics": {"play": 10000, "like": 500, "coin": 200}}, "created_time": 1704067200}
+    ],
+    "folder_videos": {
+      "【Blender教程】": {
+        "files": [
+          {
+            "path": "/Users/tanyancong/工作/开发/pilinote/downloads/【Blender教程】/01_基础操作.mp4",
+            "title": "01_基础操作",
+            "size": 107374182,
+            "size_mb": 102.4,
+            "modified_time": 1704067200,
+            "modified_date": "2024-01-01 00:00:00"
+          }
+        ],
+        "total_size": 1073741824,
+        "metadata_size": 1048576
+      }
+    },
+    "new_files": [
+      {
+        "path": "/Users/tanyancong/工作/开发/pilinote/downloads/new_video.mp4",
+        "title": "新视频",
+        "size": 104857600,
+        "size_mb": 100.0,
+        "modified_time": 1704067200,
+        "modified_date": "2024-01-01 00:00:00"
+      }
+    ],
+    "missing_files": [
+      {
+        "id": "task-123",
+        "bvid": "BV1xx411c7mD",
+        "title": "已删除的视频",
+        "file_path": "/Users/tanyancong/工作/开发/pilinote/downloads/已删除的视频.mp4",
+        "file_size": 104857600,
+        "status": "completed"
+      }
+    ]
+  },
+  "message": "扫描完成：发现 112 个文件，其中 2 个新文件，2 个文件丢失"
+}
+```
+
+### 导入新文件
+
+将新发现的视频文件导入到数据库。
+
+**查询参数**：
+- `import_all`: 是否导入所有新文件（默认 false）
+
+**请求体**：
+
+```json
+{
+  "file_paths": [
+    "/path/to/video1.mp4",
+    "/path/to/video2.mp4"
+  ]
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "成功导入 2 个视频文件",
+  "imported_count": 2,
+  "imported_files": [
+    "/Users/tanyancong/工作/开发/pilinote/downloads/new_video1.mp4",
+    "/Users/tanyancong/工作/开发/pilinote/downloads/new_video2.mp4"
+  ]
+}
+```
+
+### 清理丢失文件
+
+清理文件丢失的下载记录。
+
+**查询参数**：
+- `auto_cleanup`: 是否自动清理所有文件丢失的记录（默认 false）
+
+**请求体**：
+
+```json
+{
+  "download_ids": [
+    "task-123",
+    "task-456"
+  ]
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "成功清理 2 个文件丢失的记录",
+  "cleaned_count": 2
+}
+```
+
+### 完整同步
+
+完整同步本地视频库，包括扫描、导入新文件和清理丢失记录。
+
+**查询参数**：
+- `auto_import`: 是否自动导入新文件（默认 false）
+- `auto_cleanup`: 是否自动清理文件丢失的记录（默认 false）
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "同步完成：扫描 112 个文件",
+  "data": {
+    "scan_result": {
+      "total_files": 112,
+      "folder_count": 45,
+      "new_files_count": 2,
+      "existing_files_count": 108,
+      "missing_count": 2
+    },
+    "imported_count": 2,
+    "cleaned_count": 2,
+    "auto_import": true,
+    "auto_cleanup": true
+  }
+}
+```
+
+### 获取本地图片
+
+获取本地图片文件（封面、头像等），通过API代理避免浏览器的file://协议限制。
+
+**查询参数**：
+- `file_path`: 本地图片文件的绝对路径（必填）
+
+**响应**：
+- 成功：返回图片文件的二进制数据，Content-Type为图片类型
+- 失败：返回错误消息
+
+**支持的文件类型**：.jpg, .jpeg, .png, .gif, .webp
+
+### 文件命名规范
+
+视频库采用统一的文件命名规范，确保跨系统兼容性和易于管理：
+
+**封面图片**：
+- 统一命名为 `cover.jpg`
+- 存放在视频文件夹根目录
+- 自动从 NFO 文件或下载时获取
+
+**UP主头像**：
+- 优先使用 `avatar.jpg`
+- 如果不存在则查找 `avatar.png`
+- 存放在视频文件夹根目录
+
+**NFO文件**：
+- 使用文件夹名称命名
+- 格式：`{文件夹名}.nfo`
+- 包含视频元数据和统计信息
+
+**视频文件**：
+- 保持原始下载文件名
+- 支持多种格式：mp4, flv, mkv, webm, avi, mov, wmv, m4v
+
+### 时间管理
+
+**创建时间**：
+- 来源：文件夹的创建时间（`st_ctime`）
+- 用于系列视频的创建时间显示
+- 用于排序和过滤
+
+**修改时间**：
+- 来源：视频文件的修改时间（`st_mtime`）
+- 格式：ISO 8601 标准格式（`YYYY-MM-DD HH:MM:SS`）
+- 用于文件同步和版本控制
+
+---
+
 ## WebSocket 接口
 
 | 路径 | 说明 |
 |------|------|
-| `/ws` | WebSocket 连接，用于实时下载进度 |
+| `/ws/queue` | WebSocket 连接，用于实时下载进度 |
 
 ---
 

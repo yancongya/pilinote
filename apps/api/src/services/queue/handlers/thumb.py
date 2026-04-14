@@ -12,7 +12,7 @@ class ThumbHandler(BaseHandler):
     async def handle(self, params: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
         """处理封面下载"""
         bvid = params.get('bvid', '')
-        filename = params.get('filename', f"{bvid}.jpg")
+        filename = params.get('filename', 'cover.jpg')
 
         logger.info(f"开始处理封面下载: {filename}")
 

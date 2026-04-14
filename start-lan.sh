@@ -21,21 +21,27 @@ echo ""
 SCRIPT_DIR="$(dirname "$0")"
 
 # 检查服务是否已运行
-if pgrep -x "uvicorn" > /dev/null; then
-    echo "后端服务已在运行"
-else
-    # 启动后端
-    (cd "$SCRIPT_DIR/apps/api" && source venv/bin/activate && nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/pilinote-api.log 2>&1 &) &
-    echo "后端服务已启动"
+if lsof -ti:8000 > /dev/null; then
+    echo "端口 8000 已被占用，正在关闭..."
+    lsof -ti:8000 | xargs kill -9
+    sleep 1
+    echo "旧的后端服务已关闭"
 fi
 
-if pgrep -x "pnpm" > /dev/null; then
-    echo "前端服务已在运行"
-else
-    # 启动前端
-    (cd "$SCRIPT_DIR/apps/web" && nohup pnpm dev > /tmp/pilinote-web.log 2>&1 &) &
-    echo "前端服务已启动"
+# 启动后端
+(cd "$SCRIPT_DIR/apps/api" && source venv/bin/activate && nohup uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/pilinote-api.log 2>&1 &) &
+echo "后端服务已启动"
+
+if lsof -ti:5173 > /dev/null; then
+    echo "端口 5173 已被占用，正在关闭..."
+    lsof -ti:5173 | xargs kill -9
+    sleep 1
+    echo "旧的前端服务已关闭"
 fi
+
+# 启动前端
+(cd "$SCRIPT_DIR/apps/web" && nohup pnpm dev > /tmp/pilinote-web.log 2>&1 &) &
+echo "前端服务已启动"
 
 echo ""
 echo "========================================"

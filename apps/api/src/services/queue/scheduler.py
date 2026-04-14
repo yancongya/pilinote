@@ -167,7 +167,7 @@ class SchedulerService:
             subtasks.append({
                 'type': SubTaskType.THUMB,
                 'url': info['pic'],
-                'filename': f"{info.get('title', 'video')}.jpg"
+                'filename': 'cover.jpg'
             })
 
         # NFO文件

@@ -6,9 +6,10 @@
 
 .controls-wrapper {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .search-box {
@@ -164,68 +165,66 @@
   box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.1);
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .video-list-controls {
-    padding: 12px 0;
-  }
-  
-  .controls-wrapper {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .search-box {
-    max-width: 100%;
-    min-width: auto;
-  }
-  
-  .sort-box {
-    flex-direction: row;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  
-  .sort-select {
-    flex: 1;
-    min-width: auto;
-  }
-  
-  .sort-label {
-    font-size: 13px;
-  }
+/* 统计信息和刷新按钮容器 */
+.info-refresh-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-@media (max-width: 480px) {
-  .search-input {
-    padding: 8px 32px 8px 10px;
-    font-size: 13px;
-  }
-  
-  .sort-select {
-    padding: 7px 28px 7px 10px;
-    font-size: 13px;
-    min-width: 120px;
-  }
-  
-  .sort-direction-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-  }
-  
-  .clear-search-btn {
-    width: 18px;
-    height: 18px;
-    font-size: 11px;
-  }
-  
-  .search-btn {
-    font-size: 14px;
-  }
+/* 统计信息 */
+.library-stats-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
 }
 
+.library-stats-info .stat-item {
+  display: inline-block;
+}
+
+.library-stats-info .stats-divider {
+  color: #cbd5e1;
+}
+
+/* 刷新按钮 */
+.library-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.library-refresh-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.library-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.library-refresh-btn .refresh-icon {
+  display: inline-block;
+}
+
+/* 加载信息框 */
 .load-info-box {
   display: flex;
   align-items: center;
@@ -274,10 +273,89 @@
   color: #999;
 }
 
+/* 旋转动画 */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.rotating {
+  animation: rotate 1s linear infinite;
+}
+
+/* 响应式设计 */
 @media (max-width: 768px) {
+  .video-list-controls {
+    padding: 12px 0;
+  }
+  
+  .controls-wrapper {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .search-box {
+    max-width: 200px;
+    min-width: 150px;
+    order: 1;
+  }
+  
+  .sort-box {
+    gap: 6px;
+    order: 2;
+  }
+  
+  .sort-select {
+    min-width: 120px;
+    font-size: 13px;
+    padding: 7px 28px 7px 10px;
+  }
+  
+  .sort-label {
+    display: none; /* 移动端隐藏"排序:"标签 */
+  }
+  
+  .sort-direction-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .info-refresh-box {
+    flex: 1;
+    gap: 6px;
+    order: 3;
+    min-width: 0;
+  }
+  
+  .library-stats-info {
+    font-size: 11px;
+    gap: 4px;
+  }
+  
+  .library-stats-info .stats-divider {
+    font-size: 10px;
+  }
+  
+  .library-refresh-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .library-refresh-btn span:last-child {
+    display: none; /* 移动端隐藏"刷新"文字 */
+  }
+  
   .load-info-box {
     width: 100%;
     justify-content: space-between;
+    order: 4;
   }
   
   .load-info-text {
@@ -287,5 +365,46 @@
   .load-more-btn {
     font-size: 12px;
     padding: 5px 10px;
+  }
+  
+  .search-input {
+    padding: 8px 32px 8px 10px;
+    font-size: 13px;
+  }
+  
+  .clear-search-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+  
+  .search-btn {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-box {
+    min-width: 120px;
+    max-width: 150px;
+  }
+  
+  .sort-select {
+    min-width: 100px;
+    font-size: 12px;
+  }
+  
+  .library-stats-info {
+    font-size: 10px;
+    gap: 3px;
+  }
+  
+  .library-stats-info .stats-divider {
+    font-size: 9px;
+  }
+  
+  .library-refresh-btn {
+    padding: 5px 8px;
+    font-size: 11px;
   }
 }

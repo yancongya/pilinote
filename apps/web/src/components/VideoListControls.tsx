@@ -34,6 +34,18 @@ export interface VideoListControlsProps {
   onLoadMore?: () => void
   /** 是否正在加载 */
   isLoading?: boolean
+  /** 系列数量 */
+  seriesCount?: number
+  /** 视频数量 */
+  videoCount?: number
+  /** 总大小（字节） */
+  totalSize?: number
+  /** 刷新回调 */
+  onRefresh?: () => void
+  /** 是否正在刷新 */
+  isRefreshing?: boolean
+  /** 格式化文件大小 */
+  formatFileSize?: (bytes: number) => string
 }
 
 export default function VideoListControls({
@@ -52,7 +64,13 @@ export default function VideoListControls({
   totalCount,
   canLoadMore = false,
   onLoadMore,
-  isLoading = false
+  isLoading = false,
+  seriesCount,
+  videoCount,
+  totalSize,
+  onRefresh,
+  isRefreshing = false,
+  formatFileSize
 }: VideoListControlsProps) {
   const [searchInput, setSearchInput] = useState(keyword)
 
@@ -154,6 +172,46 @@ export default function VideoListControls({
                 title="加载更多视频"
               >
                 {isLoading ? '加载中...' : '加载更多'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 统计信息和刷新按钮 */}
+        {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined || onRefresh) && (
+          <div className="info-refresh-box">
+            {/* 统计信息 */}
+            {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined) && (
+              <div className="library-stats-info">
+                {seriesCount !== undefined && (
+                  <>
+                    <span className="stat-item">{seriesCount} 个系列</span>
+                    <span className="stats-divider">·</span>
+                  </>
+                )}
+                {videoCount !== undefined && (
+                  <>
+                    <span className="stat-item">{videoCount} 个视频</span>
+                    <span className="stats-divider">·</span>
+                  </>
+                )}
+                {totalSize !== undefined && totalSize > 0 && formatFileSize && (
+                  <span className="stat-item">{formatFileSize(totalSize)}</span>
+                )}
+              </div>
+            )}
+            
+            {/* 刷新按钮 */}
+            {onRefresh && (
+              <button
+                className="library-refresh-btn"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                aria-label="刷新"
+                title="刷新列表"
+              >
+                <span className={`refresh-icon ${isRefreshing ? 'rotating' : ''}`}>🔄</span>
+                <span>{isRefreshing ? '刷新中...' : '刷新'}</span>
               </button>
             )}
           </div>

@@ -13,6 +13,15 @@ interface Props {
 // 代理图片URL，避免403错误
 const getProxyImageUrl = (url: string | null | undefined): string => {
   if (!url) return ''
+  
+  // 检查是否为本地文件路径（绝对路径）
+  if (url.startsWith('/') || url.startsWith('file://')) {
+    // 使用视频库图片代理
+    const cleanPath = url.replace('file://', '')
+    return `http://localhost:8000/api/library/image?file_path=${encodeURIComponent(cleanPath)}`
+  }
+  
+  // 使用头像代理
   return getAvatarProxyUrl(url)
 }
 
@@ -241,8 +250,16 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
               </span>
             )}
 
-            {/* 文件大小 */}
-            {fileSizeInfo && (
+            {/* 文件夹信息（仅视频库中的文件夹任务显示） */}
+            {task.meta?.file_count && (
+              <span className="video-card-file-size">
+                {task.meta.file_count} 个视频
+                {fileSizeInfo && fileSizeInfo.total && ` | 总计: ${fileSizeInfo.total}`}
+              </span>
+            )}
+
+            {/* 文件大小（非文件夹任务） */}
+            {!task.meta?.file_count && fileSizeInfo && (
               <span className="video-card-file-size">
                 {fileSizeInfo.total && (
                   <>

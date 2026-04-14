@@ -23,6 +23,35 @@
 - 下载接口
 - 设置接口
 
+### 3. 收藏夹 API
+**文件**: [favorites-api.md](favorites-api.md)
+
+内容：
+- 获取收藏夹列表
+- 获取收藏夹详情
+- 获取订阅的收藏夹
+
+### 4. 稍后再看 API
+**文件**: [watchlater-api.md](watchlater-api.md)
+
+内容：
+- 获取稍后再看列表
+- 添加到稍后再看
+- 从稍后再看移除
+
+### 5. 本地视频库 API
+**文件**: [library-api.md](library-api.md)
+
+内容：
+- 获取视频库统计信息
+- 扫描视频库
+- 导入新文件
+- 清理丢失文件
+- 完整同步
+- 获取本地图片
+- 文件命名规范（cover.jpg、avatar.jpg/png）
+- 时间管理（文件夹创建时间）
+
 ### 3. 后端服务组件
 **文件**: [components/README.md](../components/README.md)
 

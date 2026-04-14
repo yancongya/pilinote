@@ -543,11 +543,10 @@ class DownloadService:
                 logger.warning("No video file found in output directory")
                 return False
             
-            video_filename = video_files[0].stem
             logger.info(f"Video filename: {video_filename}")
             
-            # 下载封面（使用视频文件名，扩展名为.jpg）
-            thumbnail_path = output_dir / f"{video_filename}.jpg"
+            # 下载封面（统一命名为cover.jpg）
+            thumbnail_path = output_dir / "cover.jpg"
             logger.info(f"Thumbnail path: {thumbnail_path}")
             
             # 将http:替换为https:（参考BiliTools）

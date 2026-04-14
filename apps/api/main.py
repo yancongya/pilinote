@@ -19,6 +19,7 @@ from src.routers.media import router as media_router
 from src.routers.websocket import manager as ws_manager
 from src.routers.auto_download import router as auto_download_router
 from src.routers.concurrency import router as concurrency_router
+from src.routers.library import router as library_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
 from src.services.cache.video_cache import video_cache
@@ -191,6 +192,7 @@ app.include_router(download_router)
 app.include_router(settings_router)
 app.include_router(auto_download_router)
 app.include_router(concurrency_router)
+app.include_router(library_router)
 
 
 @app.websocket("/ws/queue")
