@@ -56,6 +56,13 @@ async def test_comments_api():
                 print(f"   置顶评论: {'有' if comments_data.get('top_comment') else '无'}")
                 print(f"   热门评论数: {len(comments_data.get('hot_comments', []))}")
                 
+                # 显示原始API数据结构（用于调试）
+                if comments_data.get('hot_comments'):
+                    print(f"\n🔍 原始热门评论数据结构（第一条）:")
+                    import json
+                    first_hot_comment = comments_data['hot_comments'][0]
+                    print(json.dumps(first_hot_comment.get('member', {}), ensure_ascii=False, indent=2))
+                
                 # 显示评论详情
                 print(f"\n📝 评论详情:")
                 for i, comment in enumerate(comments[:5]):  # 最多显示5条

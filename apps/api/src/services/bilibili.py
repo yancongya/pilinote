@@ -1,11 +1,14 @@
 import httpx
 import re
 import json
+import logging
 from typing import Dict, Optional
 from src.config import settings
 from src.services.headers_manager import get_headers_manager, init_headers
 from src.utils.crypto import CryptoUtils
 from src.utils.rsa_utils import RSAUtils
+
+logger = logging.getLogger(__name__)
 
 
 class BilibiliService:
@@ -1217,6 +1220,11 @@ class BilibiliService:
         url = f"{self.api_base}/x/v2/reply/main"
         headers = await self.headers_manager.get_headers()
         headers["Referer"] = f"https://www.bilibili.com/video/av{aid}"
+        # 禁用Brotli压缩，使用更真实的浏览器头
+        headers["Accept-Encoding"] = "gzip, deflate"
+        headers["Accept"] = "application/json, text/plain, */*"
+        headers["Accept-Language"] = "zh-CN,zh;q=0.9,en;q=0.8"
+        headers["Origin"] = "https://www.bilibili.com"
 
         try:
             # 请求评论数据
@@ -1226,6 +1234,10 @@ class BilibiliService:
                 "mode": 3,  # 热门排序
                 "pagination_str": "{\"offset\":\"\"}"
             }
+
+            # 添加延迟避免频率限制
+            import asyncio
+            await asyncio.sleep(1)
 
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(url, headers=headers, params=params)
@@ -1237,21 +1249,37 @@ class BilibiliService:
                     try:
                         import brotli
                         content = brotli.decompress(content)
+                        logger.info("成功解压Brotli压缩内容")
                     except ImportError:
                         logger.warning("brotli库未安装，无法解压Brotli压缩的内容")
                         return {
                             "success": False,
                             "message": "需要安装brotli库: pip install brotli"
                         }
+                    except Exception as e:
+                        logger.error(f"Brotli解码失败: {e}")
+                        # 尝试不解压直接解析
+                        logger.info("尝试直接解析原始内容")
+                        pass
                 
                 # 解码JSON
                 content_text = content.decode('utf-8', errors='ignore')
                 data = json.loads(content_text)
 
                 if data.get("code") != 0:
+                    error_code = data.get("code")
+                    error_msg = data.get("message", "未知错误")
+                    logger.warning(f"评论API返回错误: {error_code} - {error_msg}")
+                    
+                    # 如果API失败，返回空评论数据但不影响NFO更新
                     return {
-                        "success": False,
-                        "message": f"获取评论失败: {data.get('message', '未知错误')}"
+                        "success": True,
+                        "data": {
+                            "top_comment": None,
+                            "hot_comments": [],
+                            "comments": [],
+                            "total": 0
+                        }
                     }
 
                 replies_data = data.get("data", {})
@@ -1279,7 +1307,7 @@ class BilibiliService:
                         "content": top_comment.get("content", {}).get("message", ""),
                         "like": top_comment.get("like", 0),
                         "reply": top_comment.get("rcount", 0),
-                        "author": top_comment.get("member", {}).get("name", ""),
+                        "author": top_comment.get("member", {}).get("uname", ""),  # 使用uname字段
                         "time": top_comment.get("ctime", 0)
                     })
 
@@ -1291,7 +1319,7 @@ class BilibiliService:
                             "content": comment.get("content", {}).get("message", ""),
                             "like": comment.get("like", 0),
                             "reply": comment.get("rcount", 0),
-                            "author": comment.get("member", {}).get("name", ""),
+                            "author": comment.get("member", {}).get("uname", ""),  # 使用uname字段
                             "time": comment.get("ctime", 0)
                         })
 
