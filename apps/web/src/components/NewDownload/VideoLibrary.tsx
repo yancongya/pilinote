@@ -150,7 +150,8 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
         {/* 文件夹信息 */}
         <div className="library-folder-info">
-          <div className="library-folder-header-row">
+          {/* 标题行：标题 + 发布日期 */}
+          <div className="library-folder-title-row">
             <h4 
               className="library-folder-title" 
               title={task.meta?.nfo_data?.plot ? `${task.meta.nfo_data.plot.substring(0, 200)}${task.meta.nfo_data.plot.length > 200 ? '...' : ''}` : task.title}
@@ -158,20 +159,17 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               {task.title}
             </h4>
             
-            {/* 创建时间 - 分开显示 */}
-            <div className="library-folder-timestamp">
-              <div className="library-folder-created-date">
+            {task.meta?.premiered && (
+              <div className="library-folder-premiered-inline">
                 <Calendar size={12} />
-                <span>{formatDate(task.created_at).date}</span>
+                <span>{task.meta.premiered}</span>
               </div>
-              <div className="library-folder-created-time">
-                <span>{formatDate(task.created_at).time}</span>
-              </div>
-            </div>
+            )}
           </div>
 
-          <div className="library-folder-meta">
-            {/* 统计数据 - 在标题下面 */}
+          {/* 元数据行：统计数据、作者、标签 */}
+          <div className="library-folder-meta-row">
+            {/* 统计数据 */}
             {task.meta?.statistics && (
               <div className="library-folder-stats">
                 <Eye size={12} />
@@ -203,27 +201,19 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               </div>
             )}
 
-            {/* UP主信息 + 发布日期 */}
-            <div className="library-folder-studio-row">
-              {task.meta?.studio && (
-                <div className="library-folder-studio">
-                  {task.meta.avatar_path && (
-                    <img
-                      src={getLocalImageUrl(task.meta.avatar_path)}
-                      alt={task.meta.studio}
-                      className="studio-avatar"
-                    />
-                  )}
-                  <span>{task.meta.studio}</span>
-                </div>
-              )}
-              {task.meta?.premiered && (
-                <div className="library-folder-premiered-inline">
-                  <Calendar size={12} />
-                  <span>{task.meta.premiered}</span>
-                </div>
-              )}
-            </div>
+            {/* UP主信息 */}
+            {task.meta?.studio && (
+              <div className="library-folder-studio">
+                {task.meta.avatar_path && (
+                  <img
+                    src={getLocalImageUrl(task.meta.avatar_path)}
+                    alt={task.meta.studio}
+                    className="studio-avatar"
+                  />
+                )}
+                <span>{task.meta.studio}</span>
+              </div>
+            )}
 
             {/* 视频标签 */}
             {task.meta?.tags && task.meta.tags.length > 0 && (
@@ -237,6 +227,16 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                 )}
               </div>
             )}
+          </div>
+
+          {/* 时间行：创建时间 + 文件大小 */}
+          <div className="library-folder-time-row">
+            {/* 创建时间 */}
+            <div className="library-folder-created-time">
+              <Calendar size={12} />
+              <span>{formatDate(task.created_at).date}</span>
+              <span>{formatDate(task.created_at).time}</span>
+            </div>
 
             {/* 文件统计 */}
             <div className="library-folder-size">
