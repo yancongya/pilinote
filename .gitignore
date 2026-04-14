@@ -125,3 +125,6 @@ apps/api/tools/windows/
 !apps/api/tools/setup_tools.py
 .qwen/settings.json.orig
 .qwen/settings.json
+
+# 临时工作流文件
+.workflow/
