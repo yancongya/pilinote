@@ -304,14 +304,16 @@ async def update_nfo_file(
 async def batch_update_nfo_files(
     directory: str = Body(..., embed=True),
     limit: int = Body(10, embed=True),
+    offset: int = Body(0, embed=True),
     db: Session = Depends(get_db)
 ):
     """
-    批量更新目录下的NFO文件
+    批量更新目录下的NFO文件（支持分页）
     
     Args:
         directory: 目录路径
         limit: 最大更新数量（默认10）
+        offset: 跳过的文件数量（默认0，用于分页）
         
     Returns:
         批量更新结果
@@ -320,7 +322,7 @@ async def batch_update_nfo_files(
         from src.services.nfo_update_service import NFOUpdateService
         
         nfo_service = NFOUpdateService()
-        result = await nfo_service.batch_update_nfos(directory, limit)
+        result = await nfo_service.batch_update_nfos(directory, limit, offset)
         
         return result
         

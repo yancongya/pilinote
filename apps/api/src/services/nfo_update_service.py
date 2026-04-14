@@ -97,13 +97,14 @@ class NFOUpdateService:
                 "nfo_path": nfo_path
             }
 
-    async def batch_update_nfos(self, directory: str, limit: int = 10) -> Dict[str, Any]:
+    async def batch_update_nfos(self, directory: str, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
         """
-        批量更新目录下的NFO文件
+        批量更新目录下的NFO文件（支持分页）
 
         Args:
             directory: 目录路径
             limit: 最大更新数量
+            offset: 跳过的文件数量（用于分页）
 
         Returns:
             Dict: 批量更新结果
@@ -125,8 +126,19 @@ class NFOUpdateService:
                     "message": f"目录中没有找到NFO文件: {directory}"
                 }
 
-            # 限制更新数量
-            nfo_files = nfo_files[:limit]
+            # 支持分页：跳过offset个文件，取limit个
+            nfo_files = nfo_files[offset:offset + limit]
+            
+            # 如果没有文件需要处理
+            if not nfo_files:
+                return {
+                    "success": True,
+                    "message": "没有更多文件需要更新",
+                    "total": 0,
+                    "success_count": 0,
+                    "failed_count": 0,
+                    "results": []
+                }
 
             logger.info(f"开始批量更新NFO文件，共{len(nfo_files)}个文件")
 

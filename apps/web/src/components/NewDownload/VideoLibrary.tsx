@@ -532,42 +532,79 @@ export default function VideoLibrary() {
     if (isRefreshing || isUpdatingNfo) return
     
     const downloadPath = settings?.storage?.download_path || './downloads'
+    const batchSize = 20 // 每批处理20个文件
     
-    // 第一阶段：先执行NFO更新
+    // 第一阶段：分批轮询执行NFO更新
     setIsUpdatingNfo(true)
     setNfoUpdateProgress({ success: 0, failed: 0, total: 0 })
     
     try {
       showToast('开始更新NFO元数据...', 'info')
       
-      const response = await fetch('http://localhost:8000/api/library/nfo/batch-update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          directory: downloadPath,
-          limit: 100
-        })
-      })
+      let totalSuccess = 0
+      let totalFailed = 0
+      let totalProcessed = 0
+      let hasMore = true
+      let batchIndex = 0
       
-      if (response.ok) {
-        const result = await response.json()
-        
-        if (result.success) {
-          setNfoUpdateProgress({
-            success: result.success_count,
-            failed: result.failed_count,
-            total: result.total
+      // 轮询处理，直到所有文件都被处理
+      while (hasMore) {
+        batchIndex++
+        const response = await fetch('http://localhost:8000/api/library/nfo/batch-update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            directory: downloadPath,
+            limit: batchSize,
+            offset: totalProcessed // 添加偏移量，跳过已处理的文件
           })
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
           
-          // 延迟1秒后显示NFO更新结果
-          setTimeout(() => {
-            showToast(`NFO更新完成：成功${result.success_count}个，失败${result.failed_count}个`, 
-                      result.failed_count > 0 ? 'warning' : 'success')
-          }, 1000)
+          if (result.success) {
+            totalSuccess += result.success_count
+            totalFailed += result.failed_count
+            totalProcessed += result.total
+            
+            // 更新进度
+            setNfoUpdateProgress({
+              success: totalSuccess,
+              failed: totalFailed,
+              total: totalProcessed
+            })
+            
+            // 检查是否还有更多文件需要处理
+            hasMore = result.total === batchSize
+            
+            // 如果这批处理的文件少于批次大小，说明已经处理完了
+            if (result.total < batchSize) {
+              hasMore = false
+            }
+          } else {
+            // API返回失败，停止处理
+            hasMore = false
+          }
+        } else {
+          // 请求失败，停止处理
+          hasMore = false
+        }
+        
+        // 如果还有更多文件，短暂延迟后继续下一批
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 100)) // 100ms延迟
         }
       }
+      
+      // 所有批次处理完成，显示最终结果
+      setTimeout(() => {
+        showToast(`NFO更新完成：成功${totalSuccess}个，失败${totalFailed}个`, 
+                  totalFailed > 0 ? 'warning' : 'success')
+      }, 500)
+      
     } catch (error) {
       console.error('NFO更新失败:', error)
       showToast('NFO更新失败，继续扫描视频库...', 'warning')
