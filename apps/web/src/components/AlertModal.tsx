@@ -16,10 +16,10 @@ export default function AlertModal({
   type = 'info',
 }: AlertModalProps) {
   const colors = {
-    info: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1E40AF' },
-    success: { bg: '#F0FDF4', border: '#BBF7D0', text: '#166534' },
-    warning: { bg: '#FFFBEB', border: '#FDE68A', text: '#92400E' },
-    error: { bg: '#FEF2F2', border: '#FECACA', text: '#991B1B' },
+    info: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800' },
+    success: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800' },
+    warning: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800' },
+    error: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800' },
   }
 
   const color = colors[type]
@@ -31,68 +31,16 @@ export default function AlertModal({
       title={title}
       footer={
         <button
-          className="alert-modal-btn"
+          className="px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation bg-blue-600 text-white shadow-[0_2px_8px_rgba(37,99,235,0.2)] hover:bg-blue-700 hover:shadow-[0_4px_12px_rgba(37,99,235,0.3)] focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
           onClick={onClose}
         >
           确定
         </button>
       }
     >
-      <div 
-        className="alert-modal-content"
-        style={{
-          background: color.bg,
-          border: `1px solid ${color.border}`,
-          color: color.text,
-        }}
-      >
-        <p className="alert-modal-message" dangerouslySetInnerHTML={{ __html: message.replace(/\n/g, '<br/>') }}></p>
+      <div className={`p-4 rounded-lg border ${color.bg} ${color.border} ${color.text}`}>
+        <p className="m-0 text-sm leading-[1.8]" dangerouslySetInnerHTML={{ __html: message.replace(/\n/g, '<br/>') }}></p>
       </div>
-
-      <style>{`
-        .alert-modal-content {
-          padding: 16px;
-          border-radius: 8px;
-        }
-
-        .alert-modal-message {
-          margin: 0;
-          font-size: 14px;
-          line-height: 1.8;
-        }
-
-        .alert-modal-btn {
-          padding: 12px 20px;
-          border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          min-height: 44px;
-          min-width: 44px;
-          touch-action: manipulation;
-          background: #2563EB;
-          color: white;
-          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-        }
-
-        .alert-modal-btn:hover {
-          background: #1D4ED8;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-
-        .alert-modal-btn:focus-visible {
-          outline: 2px solid #2563EB;
-          outline-offset: 2px;
-        }
-
-        @media (max-width: 640px) {
-          .alert-modal-btn {
-            width: 100%;
-          }
-        }
-      `}</style>
     </Modal>
   )
 }

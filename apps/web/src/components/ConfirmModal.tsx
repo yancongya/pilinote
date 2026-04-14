@@ -29,6 +29,19 @@ export default function ConfirmModal({
     }
   }
 
+  const getButtonClass = (variant: string, disabled: boolean) => {
+    const baseClass = "px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation"
+    const disabledClass = disabled ? "opacity-50 cursor-not-allowed" : ""
+    
+    if (variant === 'primary') {
+      return `${baseClass} bg-blue-600 text-white shadow-[0_2px_8px_rgba(37,99,235,0.2)] ${!disabled ? 'hover:bg-blue-700 hover:shadow-[0_4px_12px_rgba(37,99,235,0.3)]' : ''} ${disabledClass}`
+    } else if (variant === 'danger') {
+      return `${baseClass} bg-red-600 text-white shadow-[0_2px_8px_rgba(220,38,38,0.2)] ${!disabled ? 'hover:bg-red-700 hover:shadow-[0_4px_12px_rgba(220,38,38,0.3)]' : ''} ${disabledClass}`
+    } else {
+      return `${baseClass} bg-slate-100 text-slate-600 ${!disabled ? 'hover:bg-slate-200 hover:text-slate-800' : ''} ${disabledClass}`
+    }
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -37,14 +50,14 @@ export default function ConfirmModal({
       footer={
         <>
           <button
-            className="confirm-modal-btn confirm-modal-btn-cancel"
+            className={getButtonClass('cancel', loading)}
             onClick={onClose}
             disabled={loading}
           >
             {cancelText}
           </button>
           <button
-            className={`confirm-modal-btn confirm-modal-btn-${confirmVariant}`}
+            className={getButtonClass(confirmVariant, loading)}
             onClick={handleConfirm}
             disabled={loading}
           >
@@ -53,77 +66,7 @@ export default function ConfirmModal({
         </>
       }
     >
-      <p className="confirm-modal-message">{message}</p>
-
-      <style>{`
-        .confirm-modal-message {
-          margin: 0;
-          font-size: 15px;
-          color: #475569;
-          line-height: 1.6;
-        }
-
-        .confirm-modal-btn {
-          padding: 12px 20px;
-          border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          min-height: 44px;
-          min-width: 44px;
-          touch-action: manipulation;
-        }
-
-        .confirm-modal-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .confirm-modal-btn-cancel {
-          background: #F1F5F9;
-          color: #64748B;
-        }
-
-        .confirm-modal-btn-cancel:hover:not(:disabled) {
-          background: #E2E8F0;
-          color: #475569;
-        }
-
-        .confirm-modal-btn-primary {
-          background: #2563EB;
-          color: white;
-          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-        }
-
-        .confirm-modal-btn-primary:hover:not(:disabled) {
-          background: #1D4ED8;
-          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-        }
-
-        .confirm-modal-btn-danger {
-          background: #DC2626;
-          color: white;
-          box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
-        }
-
-        .confirm-modal-btn-danger:hover:not(:disabled) {
-          background: #B91C1C;
-          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-        }
-
-        .confirm-modal-btn:focus-visible {
-          outline: 2px solid #2563EB;
-          outline-offset: 2px;
-        }
-
-        @media (max-width: 640px) {
-          .confirm-modal-btn {
-            width: 100%;
-          }
-        }
-      `}</style>
+      <p className="m-0 text-base text-slate-600 leading-relaxed">{message}</p>
     </Modal>
   )
 }

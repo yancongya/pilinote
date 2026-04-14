@@ -2,6 +2,7 @@
 import { useNewQueueStore, Task, DownloadStage } from '../../stores/newQueue'
 import { Play, Pause, Trash2, RefreshCw, Film, Square } from 'lucide-react'
 import { getAvatarProxyUrl } from '../../config/api'
+import { useToast } from '../Toast'
 
 interface Props {
   task: Task
@@ -56,6 +57,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
   const { controlTask, getTaskProgress } = useNewQueueStore()
   const progress = getTaskProgress(task.id)
   const coverUrl = getProxyImageUrl(task.cover)
+  const { showToast } = useToast()
 
   const handleCardClick = () => {
     if (isBatchMode && onSelect) {
@@ -82,7 +84,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
     } catch (error) {
       console.error('Control failed:', error)
       const errorMessage = error instanceof Error ? error.message : '操作失败，请重试'
-      alert(errorMessage)
+      showToast(errorMessage, 'error')
     }
   }
 

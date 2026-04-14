@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { RefreshCw, Trash2, Square, Play, Database, FolderOpen, ChevronDown } from 'lucide-react'
 import { useNewQueueStore } from '../../stores/newQueue'
 import { useToast } from '../../components/Toast'
+import ConfirmModal from '../../components/ConfirmModal'
 import TaskCard from './TaskCard'
 import SchedulerCard from './SchedulerCard'
 import './DownloadsList.css'
@@ -16,6 +17,11 @@ export default function DownloadsList() {
   const [showRefreshMenu, setShowRefreshMenu] = useState(false)
   const [libraryStats, setLibraryStats] = useState<any>(null)
   const refreshMenuRef = useRef<HTMLDivElement>(null)
+  
+  // 确认对话框状态
+  const [showClearCacheConfirm, setShowClearCacheConfirm] = useState(false)
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false)
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
 
   const filteredTasks = getFilteredTasks()
 
@@ -106,9 +112,6 @@ export default function DownloadsList() {
 
   // 清除缓存
   const handleClearCache = () => {
-    if (!confirm('确定要清除本地缓存吗？这将重新从服务器加载所有数据。')) {
-      return
-    }
     localStorage.removeItem('new-queue-storage')
     window.location.reload()
   }
@@ -136,9 +139,6 @@ export default function DownloadsList() {
   // 批量删除
   const handleBatchDelete = async () => {
     if (selectedTasks.size === 0) return
-    if (!confirm(`确定要删除选中的 ${selectedTasks.size} 个任务吗？`)) {
-      return
-    }
     try {
       await batchDeleteTasks(Array.from(selectedTasks))
       setSelectedTasks(new Set())
@@ -165,9 +165,6 @@ export default function DownloadsList() {
   // 删除所有任务
   const handleDeleteAll = async () => {
     if (filteredTasks.length === 0) return
-    if (!confirm(`确定要删除所有 ${filteredTasks.length} 个任务吗？此操作不可恢复！`)) {
-      return
-    }
     try {
       await deleteAllTasks()
       setSelectedTasks(new Set())
@@ -249,7 +246,7 @@ export default function DownloadsList() {
         {/* 清除缓存按钮 */}
         <button
           className="refresh-button"
-          onClick={handleClearCache}
+          onClick={() => setShowClearCacheConfirm(true)}
           aria-label="清除本地缓存"
           title="清除本地缓存数据"
           style={{ marginLeft: '8px' }}
@@ -274,7 +271,7 @@ export default function DownloadsList() {
         {isBatchMode && selectedTasks.size > 0 && (
           <button
             className="refresh-button"
-            onClick={handleBatchDelete}
+            onClick={() => setShowBatchDeleteConfirm(true)}
             aria-label="批量删除"
             title={`删除选中的 ${selectedTasks.size} 个任务`}
             style={{ marginLeft: '8px', color: '#ef4444' }}
@@ -302,7 +299,7 @@ export default function DownloadsList() {
         {isBatchMode && (
           <button
             className="refresh-button"
-            onClick={handleDeleteAll}
+            onClick={() => setShowDeleteAllConfirm(true)}
             aria-label="删除所有"
             title={`删除所有 ${filteredTasks.length} 个任务`}
             style={{ marginLeft: '8px', color: '#ef4444' }}
@@ -374,6 +371,37 @@ export default function DownloadsList() {
           <p>暂无下载任务</p>
         </div>
       )}
+
+      {/* 确认对话框 */}
+      <ConfirmModal
+        isOpen={showClearCacheConfirm}
+        onClose={() => setShowClearCacheConfirm(false)}
+        onConfirm={handleClearCache}
+        title="确认清除缓存"
+        message="确定要清除本地缓存吗？这将重新从服务器加载所有数据。"
+        confirmText="清除"
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showBatchDeleteConfirm}
+        onClose={() => setShowBatchDeleteConfirm(false)}
+        onConfirm={handleBatchDelete}
+        title="确认批量删除"
+        message={`确定要删除选中的 ${selectedTasks.size} 个任务吗？`}
+        confirmText="删除"
+        confirmVariant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteAllConfirm}
+        onClose={() => setShowDeleteAllConfirm(false)}
+        onConfirm={handleDeleteAll}
+        title="确认删除所有"
+        message={`确定要删除所有 ${filteredTasks.length} 个任务吗？此操作不可恢复！`}
+        confirmText="删除"
+        confirmVariant="danger"
+      />
     </div>
   )
 }

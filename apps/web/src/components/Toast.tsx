@@ -37,121 +37,28 @@ function Toast({ message, type, duration = 3000, onClose }: ToastData & { onClos
   }, [duration, onClose])
 
   const themes = {
-    success: { bg: '#16A34A', icon: '#16A34A' },
-    error: { bg: '#DC2626', icon: '#DC2626' },
-    warning: { bg: '#D97706', icon: '#D97706' },
-    info: { bg: '#2563EB', icon: '#2563EB' },
+    success: { bg: 'bg-green-500', icon: 'bg-green-500' },
+    error: { bg: 'bg-red-600', icon: 'bg-red-600' },
+    warning: { bg: 'bg-amber-600', icon: 'bg-amber-600' },
+    info: { bg: 'bg-blue-600', icon: 'bg-blue-600' },
   }
 
   const theme = themes[type]
 
   return (
     <div
-      className={`toast-wrap ${isVisible ? 'toast-in' : 'toast-out'}`}
+      className={`fixed top-5 left-1/2 -translate-x-1/2 -translate-y-4 z-[10000] transition-all duration-300 ease-out ${
+        isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95'
+      }`}
       role="alert"
       aria-live="polite"
     >
-      <div className="toast-pill">
-        <span className="toast-dot" style={{ backgroundColor: theme.icon }} />
-        <span className="toast-msg">{message}</span>
+      <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-white rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.08)] pointer-events-auto max-w-[calc(100vw-32px)]">
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${theme.icon}`} />
+        <span className="text-sm font-medium text-slate-800 leading-[1.3] tracking-tight">
+          {message}
+        </span>
       </div>
-
-      <style>{`
-        .toast-wrap {
-          position: fixed;
-          top: 20px;
-          left: 50%;
-          transform: translateX(-50%) translateY(-16px);
-          z-index: 10000;
-          pointer-events: none;
-        }
-
-        .toast-in {
-          animation: tIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1) forwards;
-        }
-
-        .toast-out {
-          animation: tOut 0.2s ease-in forwards;
-        }
-
-        @keyframes tIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(-12px) scale(0.92); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-        }
-
-        @keyframes tOut {
-          from { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-          to { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.96); }
-        }
-
-        .toast-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 14px 8px 10px;
-          background: #fff;
-          border-radius: 100px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 6px 16px rgba(0,0,0,0.08);
-          pointer-events: auto;
-          max-width: calc(100vw - 32px);
-          white-space: nowrap;
-        }
-
-        .toast-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .toast-msg {
-          font-size: 13px;
-          font-weight: 500;
-          color: #1E293B;
-          line-height: 1.3;
-          letter-spacing: -0.01em;
-        }
-
-        @media (max-width: 640px) {
-          .toast-wrap {
-            top: auto;
-            bottom: calc(env(safe-area-inset-bottom, 8px) + 24px);
-            left: 16px;
-            right: 16px;
-            transform: translateY(16px);
-          }
-
-          .toast-in {
-            animation: tInM 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1) forwards;
-          }
-
-          .toast-out {
-            animation: tOutM 0.2s ease-in forwards;
-          }
-
-          @keyframes tInM {
-            from { opacity: 0; transform: translateY(12px) scale(0.96); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-          }
-
-          @keyframes tOutM {
-            from { opacity: 1; transform: translateY(0) scale(1); }
-            to { opacity: 0; transform: translateY(8px) scale(0.96); }
-          }
-
-          .toast-pill {
-            width: 100%;
-            justify-content: center;
-            padding: 10px 16px;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .toast-in, .toast-out {
-            animation-duration: 0.01ms;
-          }
-        }
-      `}</style>
     </div>
   )
 }

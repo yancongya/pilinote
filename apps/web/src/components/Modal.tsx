@@ -60,14 +60,14 @@ export default function Modal({
   }
 
   const sizeClasses = {
-    sm: 'modal-panel-sm',
-    md: 'modal-panel-md',
-    lg: 'modal-panel-lg',
+    sm: 'max-w-[360px]',
+    md: 'max-w-[440px]',
+    lg: 'max-w-[800px]',
   }
 
   return (
     <div 
-      className="modal-overlay"
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
@@ -75,19 +75,19 @@ export default function Modal({
     >
       <div 
         ref={modalRef}
-        className={`modal-panel ${sizeClasses[size]} ${className}`}
+        className={`bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] w-full overflow-hidden animate-in zoom-in-95 duration-200 ease-out max-h-[calc(100vh-40px)] flex flex-col ${sizeClasses[size]} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
         {(title || showCloseButton) && (
-          <div className="modal-header">
+          <div className="flex items-center justify-between p-5 border-b border-slate-200 flex-shrink-0">
             {title && (
-              <h3 id="modal-title" className="modal-title">{title}</h3>
+              <h3 id="modal-title" className="text-lg font-bold text-slate-800 leading-tight">{title}</h3>
             )}
             {showCloseButton && (
               <button
                 ref={firstFocusableRef}
-                className="modal-close-btn"
+                className="w-8 h-8 min-w-[32px] min-h-[32px] border-none bg-slate-100 rounded-lg cursor-pointer flex items-center justify-center text-slate-500 transition-all duration-150 ease-out hover:bg-slate-200 hover:text-slate-800 active:scale-95 focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                 onClick={onClose}
                 aria-label="关闭"
                 tabIndex={0}
@@ -99,206 +99,17 @@ export default function Modal({
         )}
 
         {/* 内容 */}
-        <div className="modal-body">
+        <div className="p-6 overflow-y-auto flex-1">
           {children}
         </div>
 
         {/* 底部 */}
         {footer && (
-          <div className="modal-footer">
+          <div className="flex gap-3 p-4 border-t border-slate-200 justify-end flex-shrink-0">
             {footer}
           </div>
         )}
       </div>
-
-      <style>{`
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          z-index: 1000;
-          backdrop-filter: blur(4px);
-          animation: fadeIn 150ms cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .modal-panel {
-          background: white;
-          border-radius: 16px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-          width: 100%;
-          overflow: hidden;
-          animation: scaleIn 200ms cubic-bezier(0.4, 0, 0.2, 1);
-          max-height: calc(100vh - 40px);
-          display: flex;
-          flex-direction: column;
-        }
-
-        .modal-panel-sm {
-          max-width: 360px;
-        }
-
-        .modal-panel-md {
-          max-width: 440px;
-        }
-
-        .modal-panel-lg {
-          max-width: 800px;
-        }
-
-        @keyframes scaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        .modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 20px 24px;
-          border-bottom: 1px solid #E2E8F0;
-          flex-shrink: 0;
-        }
-
-        .modal-title {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 700;
-          color: #1E293B;
-          line-height: 1.4;
-        }
-
-        .modal-close-btn {
-          width: 32px;
-          height: 32px;
-          min-width: 32px;
-          min-height: 32px;
-          border: none;
-          background: #F1F5F9;
-          border-radius: 8px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #64748B;
-          transition: all 0.15s ease;
-          touch-action: manipulation;
-        }
-
-        .modal-close-btn:hover {
-          background: #E2E8F0;
-          color: #1E293B;
-        }
-
-        .modal-close-btn:active {
-          transform: scale(0.95);
-        }
-
-        .modal-close-btn:focus-visible {
-          outline: 2px solid #2563EB;
-          outline-offset: 2px;
-        }
-
-        .modal-body {
-          padding: 24px;
-          overflow-y: auto;
-          flex: 1;
-        }
-
-        .modal-footer {
-          display: flex;
-          gap: 12px;
-          padding: 16px 24px;
-          border-top: 1px solid #E2E8F0;
-          justify-content: flex-end;
-          flex-shrink: 0;
-        }
-
-        /* 移动端适配 */
-        @media (max-width: 640px) {
-          .modal-overlay {
-            padding: 16px;
-            align-items: flex-end;
-          }
-
-          .modal-panel {
-            border-radius: 16px 16px 0 0;
-            max-height: calc(100vh - 32px);
-            margin-bottom: 0;
-            animation: slideUp 200ms cubic-bezier(0.4, 0, 0.2, 1);
-          }
-
-          @keyframes slideUp {
-            from {
-              opacity: 0;
-              transform: translateY(100%);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-
-          .modal-header {
-            padding: 16px 20px;
-            text-align: center;
-            position: relative;
-          }
-
-          .modal-title {
-            font-size: 16px;
-            width: 100%;
-            text-align: center;
-          }
-
-          .modal-close-btn {
-            position: absolute;
-            left: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-          }
-
-          .modal-body {
-            padding: 20px;
-          }
-
-          .modal-footer {
-            padding: 12px 20px;
-            flex-direction: column-reverse;
-          }
-
-          .modal-footer button {
-            width: 100%;
-          }
-        }
-
-        /* 减少动画偏好支持 */
-        @media (prefers-reduced-motion: reduce) {
-          .modal-overlay,
-          .modal-panel,
-          .modal-close-btn {
-            animation: none;
-            transition: none;
-          }
-        }
-      `}</style>
     </div>
   )
 }
