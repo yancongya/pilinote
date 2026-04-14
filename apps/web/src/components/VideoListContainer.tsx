@@ -96,7 +96,15 @@ export default function VideoListContainer({
       {/* 错误状态 */}
       {error && (
         <div style={{ textAlign: 'center', padding: '40px', color: '#ff4444' }}>
-          {error}
+          {error.includes('请求频率过高') || error.includes('API暂时限制') ? (
+            <>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+              <div style={{ fontSize: '16px', marginBottom: '8px' }}>请求频率过高</div>
+              <div style={{ fontSize: '14px', color: '#666' }}>请稍后再试</div>
+            </>
+          ) : (
+            error
+          )}
         </div>
       )}
 
@@ -134,13 +142,13 @@ export default function VideoListContainer({
                   renderVideoCard(video)
                 ) : (
                   <VideoListCard
-                    key={video.id}
+                    key={video.bvid || video.id}  // 使用bvid作为key，确保唯一性
                     {...video}
                     onDownloadToggle={onDownloadToggle}
                     downloadStatus={getDownloadStatus?.(video.bvid)}
                     batchMode={batchMode}
-                    selected={selectedVideos.has(video.id)}
-                    onToggleSelect={onToggleSelect ? () => onToggleSelect(video.id) : undefined}
+                    selected={selectedVideos.has(video.bvid || video.id)}
+                    onToggleSelect={onToggleSelect ? () => onToggleSelect(video.bvid || video.id) : undefined}
                     clickable={!batchMode && cardClickable}
                   />
                 )

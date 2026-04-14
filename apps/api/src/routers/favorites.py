@@ -54,6 +54,7 @@ async def get_folder_detail(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     keyword: str = Query("", description="搜索关键词"),
     order: str = Query("mtime", description="排序方式: mtime=收藏时间, pubtime=发布时间, view=播放量"),
+    sort_direction: str = Query("desc", description="排序方向: desc=降序, asc=升序"),
     type: str = Query("0", description="类型: 0=全部, 2=视频, 21=音频, 12=文章"),
     tid: int = Query(0, description="分区ID")
 ):
@@ -70,31 +71,53 @@ async def get_folder_detail(
     try:
         service = BilibiliService()
         try:
-            result = await service.get_folder_detail(sessdata, folder_id, page, page_size, keyword, order, type, tid)
+            # 直接获取请求的页面数据（简单分页）
+            result = await service.get_folder_detail(
+                sessdata, 
+                folder_id, 
+                page=page, 
+                page_size=page_size,
+                keyword=keyword, 
+                order=order, 
+                type=type,
+                tid=tid,
+                sort_direction=sort_direction
+            )
             
-            if result["success"]:
-                from src.services.media_data_transformer import transformer
-                
-                data = result["data"]
-                medias = data.get("medias", [])
-                
-                # 使用统一转换器转换数据
-                video_list = transformer.transform_favorite_list(medias)
-                
-                # 转换为字典格式（保持向后兼容）
-                list_data = [card.model_dump() for card in video_list]
-                
-                return CardListResponse(
-                    success=True,
-                    data={
-                        "medias": list_data,
-                        "page_size": page_size,
-                        "info": data.get("info", {})
-                    },
-                    total=data.get("info", {}).get("media_count", 0)
-                )
-            else:
-                raise HTTPException(status_code=400, detail=result.get("message", "获取收藏夹详情失败"))
+            if not result["success"]:
+                # 优化错误提示，特别是针对B站API限制
+                error_msg = result.get("message", "获取收藏夹详情失败")
+                if "request was banned" in error_msg or "412" in error_msg:
+                    error_msg = "请求频率过高，请稍后再试"
+                elif "400" in error_msg:
+                    error_msg = "B站API暂时限制访问，请稍后再试"
+                raise HTTPException(status_code=200, detail={
+                    "success": False,
+                    "message": error_msg
+                })
+            
+            data = result["data"]
+            medias = data.get("medias", [])
+            info = data.get("info", {})
+            
+            from src.services.media_data_transformer import transformer
+            
+            # 使用统一转换器转换当前页数据
+            video_list = transformer.transform_favorite_list(medias)
+            
+            # 转换为字典格式（保持向后兼容）
+            list_data = [card.model_dump() for card in video_list]
+            
+            return CardListResponse(
+                success=True,
+                data={
+                    "medias": list_data,
+                    "page": page,
+                    "page_size": page_size,
+                    "info": info
+                },
+                total=info.get("media_count", 0)
+            )
         finally:
             service.close()
     except Exception as e:

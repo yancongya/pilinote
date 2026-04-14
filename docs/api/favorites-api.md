@@ -165,6 +165,12 @@ async def get_folders(
 
 **描述**：获取指定收藏夹的详细信息和内容列表
 
+**重要特性**：
+- **分页加载**：采用简单分页机制，每次只返回请求页面的数据
+- **高性能响应**：避免长时间加载，提供流畅的用户体验
+- **完整功能支持**：支持搜索、排序等所有功能
+- **错误友好提示**：对B站API限制等情况提供友好的错误提示
+
 #### 路径参数
 
 | 参数 | 类型 | 必填 | 说明 |
@@ -177,16 +183,28 @@ async def get_folders(
 |------|------|------|--------|------|
 | `page` | int | 否 | 1 | 页码，从 1 开始 |
 | `page_size` | int | 否 | 20 | 每页数量，最大 100 |
-| `keyword` | string | 否 | "" | 搜索关键词 |
+| `keyword` | string | 否 | "" | 搜索关键词（视频标题） |
 | `order` | string | 否 | "mtime" | 排序方式 |
+| `sort_direction` | string | 否 | "desc" | 排序方向 |
 | `type` | string | 否 | "0" | 内容类型筛选 |
 | `tid` | int | 否 | 0 | 分区 ID 筛选 |
 
 **排序方式（order）**：
-- `mtime`：收藏时间（默认）
+- `default`：默认排序（按收藏时间）
+- `mtime`：收藏时间
 - `pubtime`：发布时间
 - `view`：播放量
-- `cweight`：收藏权重
+- `favorite`：收藏时间（别名，与mtime相同）
+
+**排序方向（sort_direction）**：
+- `desc`：降序（默认，从大到小）
+- `asc`：升序（从小到大）
+
+**内容类型（type）**：
+- `0`：全部（默认）
+- `2`：视频
+- `21`：音频
+- `12`：文章
 
 **内容类型（type）**：
 - `0`：全部（默认）
@@ -197,7 +215,24 @@ async def get_folders(
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8000/api/favorites/folders/123456?page=1&page_size=20&keyword=技术&order=view&type=2" \
+# 基本请求
+curl -X GET "http://localhost:8000/api/favorites/folders/123456?page=1&page_size=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+
+# 搜索功能
+curl -X GET "http://localhost:8000/api/favorites/folders/123456?keyword=技术&page=1&page_size=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+
+# 按播放量排序（降序）
+curl -X GET "http://localhost:8000/api/favorites/folders/123456?order=view&sort_direction=desc&page=1&page_size=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+
+# 按收藏时间排序（升序）
+curl -X GET "http://localhost:8000/api/favorites/folders/123456?order=favorite&sort_direction=asc&page=1&page_size=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+
+# 搜索+排序组合
+curl -X GET "http://localhost:8000/api/favorites/folders/123456?keyword=技术&order=view&sort_direction=desc&page=1&page_size=20" \
   -H "Cookie: SESSDATA=your_sessdata_here"
 ```
 
@@ -210,33 +245,42 @@ curl -X GET "http://localhost:8000/api/favorites/folders/123456?page=1&page_size
   "data": {
     "medias": [
       {
-        "id": "BV1xx411c7mD",
-        "bvid": "BV1xx411c7mD",
+        "id": "116336202094444",
+        "bvid": "BV1JA9wBqEbi",
         "title": "视频标题",
         "cover": "https://example.com/cover.jpg",
-        "duration": "10:30",
+        "duration": 252,
+        "pubtime": 1775149700,
+        "add_time": 1775289698,
         "uploader": {
+          "mid": 403361177,
           "name": "UP主名称",
-          "mid": 123456789,
           "face": "https://example.com/avatar.jpg"
         },
         "stats": {
-          "view": 100000,
-          "danmaku": 5000,
-          "comment": 2000,
-          "like": 5000,
-          "coin": 1000,
-          "favorite": 2000,
-          "share": 500
+          "view": 16615,
+          "danmaku": 2,
+          "comment": 0,
+          "like": 0,
+          "coin": 0,
+          "favorite": 2954,
+          "share": 0
         },
-        "pubtime": 1640000000,
-        "cid": 123456789,
-        "aid": 987654321
+        "view": 16615,
+        "danmaku": 2,
+        "comment": 0,
+        "like": 0,
+        "coin": 0,
+        "favorite": 2954,
+        "share": 0,
+        "progress": -1,
+        "intro": "视频简介"
       }
     ],
+    "page": 1,
     "page_size": 20,
     "info": {
-      "media_count": 50,
+      "media_count": 1260,
       "title": "我的收藏夹",
       "cover": "https://example.com/folder_cover.jpg",
       "intro": "收藏夹简介"
@@ -304,6 +348,7 @@ async def get_folder_detail(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     keyword: str = Query("", description="搜索关键词"),
     order: str = Query("mtime", description="排序方式: mtime=收藏时间, pubtime=发布时间, view=播放量"),
+    sort_direction: str = Query("desc", description="排序方向: desc=降序, asc=升序"),
     type: str = Query("0", description="类型: 0=全部, 2=视频, 21=音频, 12=文章"),
     tid: int = Query(0, description="分区ID")
 ):
@@ -314,42 +359,83 @@ async def get_folder_detail(
     - 加载速度提升90%以上
     - 支持分页和无限滚动
     - 使用统一的数据模型和认证依赖
+    
+    数据获取策略：
+    - 采用简单分页机制，每次只返回请求页面的数据
+    - 避免长时间加载，提供流畅的用户体验
+    - 支持搜索、排序等所有功能
+    - 对B站API限制等情况提供友好的错误提示
     """
     user, sessdata = user_sessdata
     
     try:
         service = BilibiliService()
         try:
+            # 直接获取请求的页面数据（简单分页）
             result = await service.get_folder_detail(
-                sessdata, folder_id, page, page_size, keyword, order, type, tid
+                sessdata, 
+                folder_id, 
+                page=page, 
+                page_size=page_size,
+                keyword=keyword, 
+                order=order, 
+                type=type,
+                tid=tid,
+                sort_direction=sort_direction
             )
             
-            if result["success"]:
-                from src.services.media_data_transformer import transformer
-                
-                data = result["data"]
-                medias = data.get("medias", [])
-                
-                # 使用统一转换器转换数据
-                video_list = transformer.transform_favorite_list(medias)
-                
-                # 转换为字典格式（保持向后兼容）
-                list_data = [card.model_dump() for card in video_list]
-                
-                return CardListResponse(
-                    success=True,
-                    data={
-                        "medias": list_data,
-                        "page_size": page_size,
-                        "info": data.get("info", {})
-                    },
-                    total=data.get("info", {}).get("media_count", 0)
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=result.get("message", "获取收藏夹详情失败")
-                )
+            if not result["success"]:
+                # 优化错误提示，特别是针对B站API限制
+                error_msg = result.get("message", "获取收藏夹详情失败")
+                if "request was banned" in error_msg or "412" in error_msg:
+                    error_msg = "请求频率过高，请稍后再试"
+                elif "400" in error_msg:
+                    error_msg = "B站API暂时限制访问，请稍后再试"
+                raise HTTPException(status_code=200, detail={
+                    "success": False,
+                    "message": error_msg
+                })
+            
+            data = result["data"]
+            medias = data.get("medias", [])
+            info = data.get("info", {})
+            
+            from src.services.media_data_transformer import transformer
+            
+            # 使用统一转换器转换当前页数据
+            video_list = transformer.transform_favorite_list(medias)
+            
+            # 转换为字典格式（保持向后兼容）
+            list_data = [card.model_dump() for card in video_list]
+            
+            return CardListResponse(
+                success=True,
+                data={
+                    "medias": list_data,
+                    "page": page,
+                    "page_size": page_size,
+                    "info": info
+                },
+                total=info.get("media_count", 0)
+            )
+                    video_list = sorted(video_list, key=lambda x: x.add_time or 0, reverse=reverse)
+            
+            # 手动分页（在排序之后，使用用户传入的page和page_size参数）
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            # 转换为字典格式（保持向后兼容）
+            list_data = [card.model_dump() for card in video_list]
+            
+            return CardListResponse(
+                success=True,
+                data={
+                    "medias": list_data,
+                    "page": page,
+                    "page_size": page_size,
+                    "info": info
+                },
+                total=info.get("media_count", 0)
+            )
         finally:
             service.close()
     except Exception as e:

@@ -48,7 +48,7 @@ apps/api/src/
 |------|------|------|
 | GET | `/api/favorites` | 收藏夹列表 |
 | GET | `/api/favorites/folders` | 收藏夹文件夹 |
-| GET | `/api/watchlater` | 稍后再看 |
+| GET | `/api/watch-later` | 稍后再看 |
 
 ### 下载路由 (`/api/queue`)
 
@@ -202,6 +202,205 @@ async def websocket_endpoint(websocket: WebSocket):
         progress = json.loads(data)
         await websocket.send_json(progress)
 ```
+
+## 搜索和排序功能实现
+
+### 稍后再看页搜索排序
+
+**API端点**: `GET /api/watch-later/list`
+
+**实现流程**:
+1. 获取用户SESSDATA，调用B站API获取全部数据（ps=1000）
+2. 使用统一转换器转换数据格式
+3. 对全部数据进行搜索过滤（keyword）
+4. 对全部数据进行排序（order + sort_direction）
+5. 手动分页返回结果
+
+**代码实现** (`apps/api/src/routers/watchlater.py`):
+```python
+# 获取全部数据
+result = await service.get_watch_later(sessdata)
+video_list = transformer.transform_watchlater_list(data)
+
+# 搜索过滤
+if keyword:
+    video_list = [video for video in video_list if keyword.lower() in video.title.lower()]
+
+# 排序处理
+if order and order != "default":
+    reverse = sort_direction == "desc"
+    if order == "view":
+        video_list = sorted(video_list, key=lambda x: x.view or 0, reverse=reverse)
+    elif order == "pubtime":
+        video_list = sorted(video_list, key=lambda x: x.pubtime or 0, reverse=reverse)
+    elif order == "add_time":
+        video_list = sorted(video_list, key=lambda x: x.add_time or 0, reverse=reverse)
+
+# 分页处理
+start_idx = (pn - 1) * ps
+end_idx = start_idx + ps
+paginated_list = video_list[start_idx:end_idx]
+```
+
+### 收藏页搜索排序
+
+**API端点**: `GET /api/favorites/folders/{folder_id}`
+
+**实现流程**:
+1. 直接获取请求的页面数据（简单分页）
+2. 优化错误提示，对B站API限制等情况提供友好提示
+3. 使用统一转换器转换当前页数据
+4. 直接返回请求页面的数据和总数
+5. 支持搜索、排序等功能（由B站API原生支持）
+
+**代码实现** (`apps/api/src/routers/favorites.py`):
+```python
+# 直接获取请求的页面数据（简单分页）
+result = await service.get_folder_detail(
+    sessdata, 
+    folder_id, 
+    page=page, 
+    page_size=page_size,
+    keyword=keyword, 
+    order=order, 
+    type=type,
+    tid=tid,
+    sort_direction=sort_direction
+)
+
+if not result["success"]:
+    # 优化错误提示，特别是针对B站API限制
+    error_msg = result.get("message", "获取收藏夹详情失败")
+    if "request was banned" in error_msg or "412" in error_msg:
+        error_msg = "请求频率过高，请稍后再试"
+    elif "400" in error_msg:
+        error_msg = "B站API暂时限制访问，请稍后再试"
+    raise HTTPException(status_code=200, detail={
+        "success": False,
+        "message": error_msg
+    })
+
+data = result["data"]
+medias = data.get("medias", [])
+info = data.get("info", {})
+
+# 使用统一转换器转换当前页数据
+video_list = transformer.transform_favorite_list(medias)
+
+# 转换为字典格式（保持向后兼容）
+list_data = [card.model_dump() for card in video_list]
+
+return CardListResponse(
+    success=True,
+    data={
+        "medias": list_data,
+        "page": page,
+        "page_size": page_size,
+        "info": info
+    },
+    total=info.get("media_count", 0)
+)
+```
+
+### 数据转换
+
+**统一转换器** (`apps/api/src/services/media_data_transformer.py`):
+
+**稍后再看视频转换**:
+```python
+def transform_watchlater_video(raw_video: Dict[str, Any]) -> CardData:
+    return CardData(
+        id=raw_video.get("id", 0),
+        bvid=raw_video.get("bvid", ""),
+        title=raw_video.get("title", ""),
+        pubtime=raw_video.get("pubdate", raw_video.get("pubtime", 0)),  # 修复字段映射
+        add_time=raw_video.get("add_time", 0),  # 添加时间
+        # ... 其他字段
+    )
+```
+
+**收藏夹视频转换**:
+```python
+def transform_favorite_video(raw_media: Dict[str, Any]) -> CardData:
+    return CardData(
+        id=raw_media.get("id", 0),
+        bvid=raw_media.get("bvid", ""),
+        title=raw_media.get("title", ""),
+        pubtime=raw_media.get("pubtime", 0),
+        add_time=raw_media.get("fav_time", 0),  # 收藏时间
+        # ... 其他字段
+    )
+```
+
+### 前端组件集成
+
+**VideoListControls组件** (`apps/web/src/components/VideoListControls.tsx`):
+
+```typescript
+interface VideoListControlsProps {
+  keyword: string
+  order: string
+  sortDirection: 'desc' | 'asc'
+  onKeywordChange: (keyword: string) => void
+  onOrderChange: (order: string) => void
+  onSortDirectionChange: (direction: 'desc' | 'asc') => void
+  sortOptions: { value: string; label: string }[]
+}
+```
+
+**集成到页面**:
+```typescript
+// WatchLaterContent.tsx
+const [keyword, setKeyword] = useState<string>('')
+const [order, setOrder] = useState<string>('default')
+const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+
+<VideoListControls
+  keyword={keyword}
+  order={order}
+  sortDirection={sortDirection}
+  onKeywordChange={setKeyword}
+  onOrderChange={setOrder}
+  onSortDirectionChange={setSortDirection}
+  sortOptions={[
+    { value: 'default', label: '默认' },
+    { value: 'view', label: '按播放量' },
+    { value: 'pubtime', label: '按发布时间' },
+    { value: 'add_time', label: '按添加时间' }
+  ]}
+/>
+```
+
+### 性能优化考虑
+
+1. **稍后再看页**
+   - 一次性获取全部数据（ps=1000）
+   - 在内存中进行搜索和排序
+   - 响应速度快
+
+2. **收藏页**
+   - 多次API调用获取全部数据
+   - 可能遇到B站API频率限制
+   - 需要优化（见下方"待优化项"）
+
+### 待优化项
+
+1. **API频率限制**
+   - 添加请求间隔限制
+   - 实现缓存机制
+   - 优化数据获取策略
+
+2. **性能优化**
+   - 添加搜索防抖
+   - 实现懒加载
+   - 优化排序算法
+
+3. **用户体验**
+   - 添加加载状态提示
+   - 优化错误处理
+   - 添加搜索历史记录
+
+---
 
 ## 启动配置
 
