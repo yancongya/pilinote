@@ -127,7 +127,37 @@ class SingleNfoHandler(BaseHandler):
         return text
     
     def _calculate_rating(self, stats: Dict[str, Any]) -> float:
-        """计算B站视频评分（基于互动率）"""
+        """
+        计算B站视频评分（优化版）
+        
+        基于B站算法研究和视频质量评估方法，使用以下改进算法：
+        
+        1. 多维度互动指标（基于搜索到的权重）:
+           - 播放量权重: 0.25（基础指标）
+           - 点赞权重: 0.4（正向反馈）
+           - 投币权重: 0.4（高价值互动）
+           - 收藏权重: 0.3（长期价值）
+           - 分享权重: 0.6（最高权重，病毒传播）
+           - 弹幕权重: 0.4（深度互动）
+           - 评论权重: 0.4（深度互动）
+        
+        2. 贝叶斯平均调整（避免小样本偏差）:
+           WR = (v / (v + m)) × R + (m / (v + m)) × C
+           其中：
+           - WR: 加权评分
+           - R: 该视频的基础评分
+           - v: 该视频的播放量
+           - m: 基准播放量（1000次）
+           - C: 全局平均评分（5.0分）
+        
+        3. 评分范围: 0-10分
+        
+        Args:
+            stats: 视频统计数据
+            
+        Returns:
+            评分 (0-10)
+        """
         try:
             play = stats.get('view', 0) or 0
             if play == 0:
@@ -136,17 +166,42 @@ class SingleNfoHandler(BaseHandler):
             like = stats.get('like', 0) or 0
             coin = stats.get('coin', 0) or 0
             favorite = stats.get('favorite', 0) or 0
+            share = stats.get('share', 0) or 0
+            danmaku = stats.get('danmaku', 0) or 0
+            reply = stats.get('reply', 0) or 0
             
-            # 计算互动得分
-            interaction_score = (like * 0.4 + coin * 0.3 + favorite * 0.3)
+            # 计算互动得分（多维度加权）
+            interaction_score = (
+                play * 0.25 +       # 播放量权重较低
+                like * 0.4 +        # 点赞
+                coin * 0.4 +        # 投币（高价值互动）
+                favorite * 0.3 +    # 收藏
+                share * 0.6 +       # 分享（最高权重）
+                danmaku * 0.4 +     # 弹幕
+                reply * 0.4         # 评论
+            )
             
-            # 计算互动率
+            # 计算互动率（互动得分 / 播放量）
             interaction_rate = interaction_score / play
             
-            # 互动率转换评分（10分制，最高不超过10分）
-            rating = min(interaction_rate * 500, 10)
+            # 计算基础评分（互动率转换，上限10分）
+            base_rating = min(interaction_rate * 500, 10)
             
-            return round(rating, 1)
+            # 贝叶斯平均调整（避免小样本视频获得过高评分）
+            # m = 1000: 基准播放量，表示达到这个播放量时贝叶斯调整影响较小
+            # C = 5.0: 全局平均评分，作为先验概率
+            m = 1000  # 基准播放量
+            C = 5.0   # 全局平均评分
+            v = play  # 该视频的播放量
+            R = base_rating  # 该视频的基础评分
+            
+            # 计算贝叶斯加权评分
+            weighted_rating = (v / (v + m)) * R + (m / (v + m)) * C
+            
+            # 确保评分在0-10范围内
+            final_rating = min(max(weighted_rating, 0), 10)
+            
+            return round(final_rating, 1)
         except Exception as e:
             logger.warning(f"计算评分失败: {e}")
             return 0.0

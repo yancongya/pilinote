@@ -343,6 +343,58 @@ export default function VideoLibrary() {
             : authorA.localeCompare(authorB, 'zh')
         })
         break
+      case 'premiered':
+        // 按上传时间排序
+        sorted.sort((a, b) => {
+          const premieredA = a.meta?.premiered || ''
+          const premieredB = b.meta?.premiered || ''
+          // 如果上传时间相同或缺失，则按创建时间排序
+          if (!premieredA || !premieredB) {
+            const timeA = a.created_at || 0
+            const timeB = b.created_at || 0
+            return sortDirection === 'desc' ? timeB - timeA : timeA - timeB
+          }
+          const result = premieredA.localeCompare(premieredB)
+          return sortDirection === 'desc' ? -result : result
+        })
+        break
+      case 'duration':
+        // 按时长排序
+        sorted.sort((a, b) => {
+          const getDurationSeconds = (task: Task): number => {
+            if (!task.meta?.runtime) return 0
+            const runtime = task.meta.runtime
+            if (typeof runtime === 'number') return runtime
+            // 如果是字符串格式 "MM:SS"，转换为秒数
+            if (typeof runtime === 'string') {
+              const parts = runtime.split(':')
+              if (parts.length === 2) {
+                return parseInt(parts[0]) * 60 + parseInt(parts[1])
+              }
+            }
+            return 0
+          }
+          const durationA = getDurationSeconds(a)
+          const durationB = getDurationSeconds(b)
+          return sortDirection === 'desc' ? durationB - durationA : durationA - durationB
+        })
+        break
+      case 'views':
+        // 按播放量排序
+        sorted.sort((a, b) => {
+          const viewsA = a.meta?.statistics?.play || 0
+          const viewsB = b.meta?.statistics?.play || 0
+          return sortDirection === 'desc' ? viewsB - viewsA : viewsA - viewsB
+        })
+        break
+      case 'likes':
+        // 按点赞量排序
+        sorted.sort((a, b) => {
+          const likesA = a.meta?.statistics?.like || 0
+          const likesB = b.meta?.statistics?.like || 0
+          return sortDirection === 'desc' ? likesB - likesA : likesA - likesB
+        })
+        break
       default:
         break
     }
@@ -479,12 +531,15 @@ export default function VideoLibrary() {
   const handleRefreshLibrary = async () => {
     if (isRefreshing || isUpdatingNfo) return
     
-    // 先执行NFO更新
     const downloadPath = settings?.storage?.download_path || './downloads'
+    
+    // 第一阶段：先执行NFO更新
     setIsUpdatingNfo(true)
     setNfoUpdateProgress({ success: 0, failed: 0, total: 0 })
     
     try {
+      showToast('开始更新NFO元数据...', 'info')
+      
       const response = await fetch('http://localhost:8000/api/library/nfo/batch-update', {
         method: 'POST',
         headers: {
@@ -506,23 +561,32 @@ export default function VideoLibrary() {
             total: result.total
           })
           
-          showToast(`NFO更新完成：成功${result.success_count}个，失败${result.failed_count}个`, 'success')
+          // 延迟1秒后显示NFO更新结果
+          setTimeout(() => {
+            showToast(`NFO更新完成：成功${result.success_count}个，失败${result.failed_count}个`, 
+                      result.failed_count > 0 ? 'warning' : 'success')
+          }, 1000)
         }
       }
     } catch (error) {
       console.error('NFO更新失败:', error)
-      // NFO更新失败不影响后续扫描
+      showToast('NFO更新失败，继续扫描视频库...', 'warning')
     } finally {
       setIsUpdatingNfo(false)
     }
     
-    // 然后执行扫描
+    // 第二阶段：执行扫描
     setIsRefreshing(true)
     try {
+      showToast('开始扫描视频库...', 'info')
+      
       const result = await scanLibrary()
       
       if (result) {
-        showToast(`视频库刷新完成！${result.folder_count} 个系列，${result.total_files} 个视频`, 'success')
+        // 延迟2秒后显示扫描结果
+        setTimeout(() => {
+          showToast(`视频库刷新完成！${result.folder_count} 个系列，${result.total_files} 个视频`, 'success')
+        }, 2000)
       }
     } catch (error) {
       showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
@@ -625,11 +689,19 @@ export default function VideoLibrary() {
 
               { value: 'created', label: '按创建时间' },
 
+              { value: 'premiered', label: '按上传时间' },
+
               { value: 'size', label: '按大小' },
 
               { value: 'name', label: '按命名首字母' },
 
-              { value: 'author', label: '按作者' }
+              { value: 'author', label: '按作者' },
+
+              { value: 'duration', label: '按时长' },
+
+              { value: 'views', label: '按播放量' },
+
+              { value: 'likes', label: '按点赞量' }
 
             ]}
 
