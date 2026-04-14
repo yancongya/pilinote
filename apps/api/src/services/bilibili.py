@@ -1021,7 +1021,8 @@ class BilibiliService:
                         "pic": video_data.get("pic", ""),
                         "title": video_data.get("title", ""),
                         "pubdate": video_data.get("pubdate", 0),
-                        "duration": duration
+                        "duration": duration,
+                        "tags": video_data.get("tags", [])
                     }
                 }
         except Exception as e:

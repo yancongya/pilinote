@@ -225,7 +225,8 @@ class NFOUpdateService:
             "pubdate": video_info.get("pubdate", 0),
             "pic": video_info.get("pic", ""),
             "stat": video_info.get("stat", {}),
-            "duration": 0  # 时长信息暂不获取
+            "duration": video_info.get("duration", 0),
+            "tags": video_info.get("tags", [])
         }
 
     def _backup_nfo_file(self, nfo_path: str) -> Optional[str]:

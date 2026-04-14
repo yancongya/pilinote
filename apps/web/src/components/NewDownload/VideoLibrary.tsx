@@ -63,14 +63,28 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   }
 
   // 格式化时长
-  const formatDuration = (seconds: number): string => {
-    if (!seconds || seconds === 0) return '--:--'
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:00`
+  const formatDuration = (duration: string | number): string => {
+    if (!duration) return '--:--'
+    
+    // 如果是字符串格式（MM:SS），直接返回
+    if (typeof duration === 'string') {
+      return duration
     }
-    return `${minutes}:00`
+    
+    // 如果是数字格式（秒数），转换为MM:SS格式
+    if (typeof duration === 'number') {
+      if (duration === 0) return '--:--'
+      const hours = Math.floor(duration / 3600)
+      const minutes = Math.floor((duration % 3600) / 60)
+      const seconds = Math.floor(duration % 60)
+      
+      if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      }
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`
+    }
+    
+    return '--:--'
   }
 
   // 格式化数字
@@ -405,7 +419,7 @@ export default function VideoLibrary() {
           // 从NFO提取额外信息
           statistics: folder.nfo_data?.statistics,
           tags: folder.nfo_data?.tags || [],
-          runtime: folder.nfo_data?.runtime ? parseInt(folder.nfo_data.runtime) : undefined,
+          runtime: folder.nfo_data?.runtime ? folder.nfo_data.runtime : undefined,
           rating: folder.nfo_data?.rating,
           premiered: folder.nfo_data?.premiered
         },
