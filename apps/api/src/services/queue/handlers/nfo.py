@@ -128,7 +128,7 @@ class SingleNfoHandler(BaseHandler):
     
     def _calculate_rating(self, stats: Dict[str, Any]) -> float:
         """
-        计算B站视频评分（优化版 v2）
+        计算B站视频评分（五分制）
         
         基于B站算法研究和视频质量评估方法，使用以下改进算法：
         
@@ -153,15 +153,15 @@ class SingleNfoHandler(BaseHandler):
            - R: 该视频的基础评分
            - v: 该视频的播放量
            - m: 基准播放量（5000次）
-           - C: 全局平均评分（4.0分）
+           - C: 全局平均评分（2.0分）
         
-        5. 评分范围: 0-10分
+        5. 评分范围: 0-5分
         
         Args:
             stats: 视频统计数据
             
         Returns:
-            评分 (0-10)
+            评分 (0-5)
         """
         try:
             play = stats.get('view', 0) or 0
@@ -189,28 +189,28 @@ class SingleNfoHandler(BaseHandler):
             interaction_rate = interaction_score / play
             
             # 对数平滑（避免极端值，让分布更合理）
-            # 互动率4% = 0.04 → log(41)/log(1001) ≈ 0.6 → 6分
-            # 互动率2% = 0.02 → log(21)/log(1001) ≈ 0.5 → 5分
-            # 互动率1% = 0.01 → log(11)/log(1001) ≈ 0.4 → 4分
+            # 互动率4% = 0.04 → log(41)/log(1001) ≈ 0.6 → 3.0分
+            # 互动率2% = 0.02 → log(21)/log(1001) ≈ 0.5 → 2.5分
+            # 互动率1% = 0.01 → log(11)/log(1001) ≈ 0.4 → 2.0分
             import math
             smoothed_rate = math.log(1 + interaction_rate * 1000) / math.log(1001)
             
-            # 计算基础评分（平滑后的互动率转换为评分）
-            base_rating = smoothed_rate * 10  # 直接转换为10分制
+            # 计算基础评分（平滑后的互动率转换为5分制）
+            base_rating = smoothed_rate * 5  # 转换为5分制
             
             # 贝叶斯平均调整（更严格的调整，避免小样本高评分）
             # m = 5000: 基准播放量，表示达到这个播放量时贝叶斯调整影响较小
-            # C = 4.0: 全局平均评分，作为先验概率（更保守）
+            # C = 2.0: 全局平均评分，作为先验概率（5分制的中位数）
             m = 5000  # 基准播放量
-            C = 4.0   # 全局平均评分
+            C = 2.0   # 全局平均评分
             v = play  # 该视频的播放量
             R = base_rating  # 该视频的基础评分
             
             # 计算贝叶斯加权评分
             weighted_rating = (v / (v + m)) * R + (m / (v + m)) * C
             
-            # 确保评分在0-10范围内
-            final_rating = min(max(weighted_rating, 0), 10)
+            # 确保评分在0-5范围内
+            final_rating = min(max(weighted_rating, 0), 5)
             
             return round(final_rating, 1)
         except Exception as e:
