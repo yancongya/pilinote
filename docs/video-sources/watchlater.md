@@ -232,12 +232,20 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
 #### 1. 获取稍后再看列表
 
 ```
-GET /api/watchlater/list?pn=1&ps=20
+GET /api/watch-later/list?pn=1&ps=20
 ```
 
 **参数**：
 - `pn`: 页码（默认 1）
 - `ps`: 每页数量（默认 20，最大 100）
+- `keyword`: 搜索关键词，匹配视频标题（可选）
+- `order`: 排序方式，可选值：
+  - `view`: 按播放量排序
+  - `pubtime`: 按发布时间排序
+  - `add_time`: 按添加时间排序
+- `sort_direction`: 排序方向，可选值：
+  - `desc`: 降序（默认）
+  - `asc`: 升序
 
 **响应**：
 ```json
@@ -289,8 +297,8 @@ GET /api/media/watchlater?pn=1&ps=20
 ### 后端流程
 
 ```
-1. 前端调用 apiService.getWatchLaterList(pn, ps)
-2. 后端路由 /api/watchlater/list
+1. 前端调用 apiService.getWatchLaterList(pn, ps, keyword, order, sort_direction)
+2. 后端路由 /api/watch-later/list
 3. BilibiliService.get_watch_later()
    - 调用 B 站 API: /x/v2/history/toview
    - 传递 SESSDATA
@@ -298,14 +306,25 @@ GET /api/media/watchlater?pn=1&ps=20
 4. MediaDataTransformer.transform_watchlater_list()
    - 转换数据格式
    - 统一字段命名
-5. 返回视频列表（后端进行分页切片）
+   - 提取发布时间（pubdate 字段）
+5. 搜索过滤（如果提供 keyword）
+   - 按视频标题关键词匹配
+6. 排序处理（如果提供 order 和 sort_direction）
+   - 按指定字段和方向排序
+7. 返回视频列表（后端进行分页切片）
 ```
 
 **注意**：当前实现中，后端调用 B 站 API 时固定使用 `ps: 1000` 获取全部数据，然后根据前端传递的 `pn` 和 `ps` 参数进行分页切片返回。
 
+**搜索和排序功能**：
+- 支持按关键词搜索视频标题
+- 支持按播放量、发布时间、添加时间排序
+- 支持升序/降序方向切换
+- 搜索和排序可以组合使用
+
 **关键文件**：
 - 前端: `apps/web/src/services/api.ts` - `getWatchLaterList()`
-- 后端: `apps/api/src/routers/watchlater.py` - `/api/watchlater/list`
+- 后端: `apps/api/src/routers/watchlater.py` - `/api/watch-later/list`
 - 后端: `apps/api/src/routers/media.py` - `/api/media/watchlater`
 - 数据转换: `apps/api/src/services/media_data_transformer.py` - `transform_watchlater_list()`
 

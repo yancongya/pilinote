@@ -10,6 +10,7 @@ import { useVideoList } from '../../hooks/useVideoList'
 import { getAvatarProxyUrl } from '../../config/api'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
 import VideoListContainer from '../../components/VideoListContainer'
+import VideoListControls from '../../components/VideoListControls'
 import AlertModal from '../../components/AlertModal'
 import ConfirmModal from '../../components/ConfirmModal'
 
@@ -30,6 +31,11 @@ export default function FavoritesContent() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [order, setOrder] = useState<string>('default')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [loadedCount, setLoadedCount] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
   const [alertModal, setAlertModal] = useState<{ show: boolean; title: string; message: string; type: 'success' | 'error' }>({
     show: false,
     title: '',
@@ -114,11 +120,11 @@ export default function FavoritesContent() {
       return { success: true, data: { list: [], total: 0 } }
     }
     // 调用getFolderDetail时不需要传递sessdata，后端会从cookie中获取
-    return apiService.getFolderDetail(selectedFolder.id, page, pageSize)
-  }, [selectedFolder?.id, user?.mid])
+    return apiService.getFolderDetail(selectedFolder.id, page, pageSize, keyword, order, sortDirection)
+  }, [selectedFolder?.id, user?.mid, keyword, order, sortDirection])
 
   // 使用 useVideoList Hook 管理视频列表
-  const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
+  const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, total, loadMoreRef, fetchVideos } = useVideoList({
     fetchFn: fetchFavoriteVideos,
     pageSize: 10,
     deps: [],  // ✅ 不需要deps，因为fetchFn已经用useCallback处理了依赖
@@ -146,6 +152,19 @@ export default function FavoritesContent() {
       pubtime: video.pubtime
     })
   })
+
+  // 加载更多函数
+  const handleLoadMore = useCallback(async () => {
+    if (hasMore && !loadingMore) {
+      await fetchVideos(undefined, true)
+    }
+  }, [hasMore, loadingMore, fetchVideos])
+
+  // 更新loadedCount和totalCount状态
+  useEffect(() => {
+    setLoadedCount(videos.length)
+    setTotalCount(total)
+  }, [videos.length, total])
 
   // 使用 useVideoDownload Hook 处理单个视频下载（使用新的下载系统）
   const { toggleDownload: baseToggleDownload } = useVideoDownload()
@@ -280,6 +299,28 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
           </span>
         </div>
       </div>
+
+      {selectedFolder && (
+        <VideoListControls
+          keyword={keyword}
+          order={order}
+          sortDirection={sortDirection}
+          onKeywordChange={setKeyword}
+          onOrderChange={setOrder}
+          onSortDirectionChange={setSortDirection}
+          sortOptions={[
+            { value: 'default', label: '默认' },
+            { value: 'view', label: '按播放量' },
+            { value: 'pubtime', label: '按发布时间' },
+            { value: 'favorite', label: '按收藏时间' }  // 收藏页专用
+          ]}
+          loadedCount={loadedCount}
+          totalCount={totalCount}
+          canLoadMore={hasMore}
+          onLoadMore={handleLoadMore}
+          isLoading={loadingMore}
+        />
+      )}
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>加载中...</div>

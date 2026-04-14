@@ -55,7 +55,7 @@ Cookies 管理模块负责用户认证信息的持久化存储，支持多账号
     ▼
 ┌────────────────────────────┐
 │ GET /api/favorites        │
-│ GET /api/watchlater      │
+│ GET /api/watch-later      │
 └───────────┬──────────────┘
             │
             ▼
@@ -327,6 +327,59 @@ async def get_login_status(db: Session = Depends(get_db)):
 
 ---
 
+## 账号刷新端点
+
+### POST /api/auth/accounts/refresh
+
+刷新指定账号的 Cookie、SESSDATA、WBI 等数据，并更新用户信息。
+
+**支持的参数格式**：
+
+1. **查询参数**（推荐）：
+```bash
+POST /api/auth/accounts/refresh?account_id=1
+```
+
+2. **路径参数**（兼容）：
+```bash
+POST /api/auth/accounts/1/refresh
+```
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `account_id` | int | 是 | 账号 ID（查询参数或路径参数） |
+
+**响应**：
+```json
+{
+  "success": true,
+  "message": "账号刷新成功: 用户名",
+  "data": {
+    "mid": 100881808,
+    "username": "用户名",
+    "avatar": "https://...",
+    "last_refresh_time": "2026-04-14T14:24:36.389728",
+    "user_info": {
+      "isLogin": true,
+      "level_info": {...},
+      ...
+    }
+  }
+}
+```
+
+**功能说明**：
+- 刷新账号的 cookie（包括 SESSDATA、bili_jct 等）
+- 刷新 SESSDATA
+- 刷新 WBI 签名
+- 更新用户信息（用户名、头像等）
+- 保存到数据库
+- 更新刷新时间
+
+---
+
 ## 自动刷新机制
 
 ### AccountRefreshService
@@ -373,7 +426,7 @@ POST /api/auth/accounts/refresh/start?interval=3600
 | POST | `/api/auth/logout` | 登出 |
 | GET | `/api/auth/accounts` | 获取账号列表 |
 | POST | `/api/auth/accounts/switch` | 切换账号 |
-| POST | `/api/auth/accounts/refresh` | 刷新账号 |
+| POST | `/api/auth/accounts/refresh` | 刷新账号（支持查询参数和路径参数） |
 | POST | `/api/auth/accounts/refresh/start` | 启动刷新服务 |
 | POST | `/api/auth/accounts/refresh/stop` | 停止刷新服务 |
 | GET | `/api/auth/accounts/refresh/status` | 获取刷新服务状态 |

@@ -128,11 +128,19 @@ DELETE /api/auth/accounts/{account_id}
 
 ### 刷新账号
 
+**支持两种参数格式**：
+
+1. **查询参数**（推荐）：
 ```
 POST /api/auth/accounts/refresh?account_id=1
 ```
 
-> 注意：路径参数在 auth.py 中实际是 query 参数：`async def refresh_account(account_id: int, ...)`
+2. **路径参数**（兼容）：
+```
+POST /api/auth/accounts/1/refresh
+```
+
+> 说明：后端同时支持查询参数和路径参数两种格式，前端可以根据需要选择使用哪种方式。
 
 ---
 

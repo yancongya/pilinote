@@ -33,6 +33,7 @@ export interface VideoListResponse {
     page_size?: number
     [key: string]: any
   }
+  total?: number
   message?: string
 }
 
@@ -130,6 +131,11 @@ export interface UseVideoListReturn {
   hasMore: boolean
 
   /**
+   * 总数据量
+   */
+  total: number
+
+  /**
    * 加载更多元素引用
    */
   loadMoreRef: React.RefObject<HTMLDivElement | null>
@@ -184,6 +190,7 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
   const [error, setError] = useState('')
   const [currentPage, setCurrentPage] = useState(initialPage)
   const [hasMore, setHasMore] = useState(true)
+  const [total, setTotal] = useState(0)
 
   // 引用
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -249,23 +256,52 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
         // 格式化视频数据
         const formattedVideos = videoList.map(formatVideoItem)
 
+        // 更新total状态
+        const totalVideos = response.total || response.data?.total || 0
+        if (typeof totalVideos === 'number') {
+          setTotal(totalVideos)
+        }
+
         // 更新视频列表
         if (isLoadMore) {
           setVideos(prevVideos => {
-            const newVideos = [...prevVideos, ...formattedVideos]
-            // 检查是否还有更多数据
-            const newHasMore = checkHasMore
-              ? checkHasMore(response.data, newVideos)
-              : defaultCheckHasMore(response.data, newVideos)
+            // 使用Map去重，以bvid为唯一标识
+            const videoMap = new Map()
+            prevVideos.forEach(video => videoMap.set(video.bvid, video))
+            formattedVideos.forEach(video => videoMap.set(video.bvid, video))
+            
+            const newVideos = Array.from(videoMap.values())
+            
+            // 手动计算hasMore
+            const returnedList = response.data?.list || response.data?.medias || []
+            const pageSize = response.data?.page_size || customPageSize
+            const totalVideos = response.total || response.data?.total || 0
+            
+            let newHasMore = true
+            if (typeof totalVideos === 'number' && totalVideos > 0) {
+              newHasMore = newVideos.length < totalVideos
+            } else if (returnedList.length < pageSize) {
+              newHasMore = false
+            }
+            
             setHasMore(newHasMore)
             return newVideos
           })
         } else {
           setVideos(formattedVideos)
-          // 检查是否还有更多数据
-          const newHasMore = checkHasMore
-            ? checkHasMore(response.data, formattedVideos)
-            : defaultCheckHasMore(response.data, formattedVideos)
+          
+          // 手动计算hasMore
+          const returnedList = response.data?.list || response.data?.medias || []
+          const pageSize = response.data?.page_size || customPageSize
+          const totalVideos = response.total || response.data?.total || 0
+          
+          let newHasMore = true
+          if (typeof totalVideos === 'number' && totalVideos > 0) {
+            newHasMore = formattedVideos.length < totalVideos
+          } else if (returnedList.length < pageSize) {
+            newHasMore = false
+          }
+          
           setHasMore(newHasMore)
         }
       } catch (err) {
@@ -339,6 +375,7 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
     error,
     currentPage,
     hasMore,
+    total,
     loadMoreRef,
     fetchVideos,
     refresh

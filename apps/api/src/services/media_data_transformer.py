@@ -81,13 +81,16 @@ class MediaDataTransformer:
         # 归一化统计数据
         stats = MediaDataTransformer.normalize_stats(stat_data, cnt_info)
         
+        # 获取发布时间：优先使用 pubdate，如果没有则使用 pubtime
+        pubtime = raw_video.get("pubdate", raw_video.get("pubtime", 0))
+        
         return CardData(
             id=raw_video.get("aid", 0),
             bvid=raw_video.get("bvid", ""),
             title=raw_video.get("title", ""),
             cover=raw_video.get("pic", ""),
             duration=raw_video.get("duration", 0),
-            pubtime=raw_video.get("pubtime", 0),
+            pubtime=pubtime,
             uploader=MediaDataTransformer.normalize_uploader(owner),
             stats=stats,
             progress=raw_video.get("progress", -1),
@@ -141,6 +144,7 @@ class MediaDataTransformer:
             cover=raw_media.get("cover", ""),
             duration=raw_media.get("duration", 0),
             pubtime=raw_media.get("pubtime", 0),
+            add_time=raw_media.get("fav_time", 0),  # 收藏时间
             uploader=MediaDataTransformer.normalize_uploader({}, upper),
             stats=stats,
             intro=raw_media.get("intro", ""),

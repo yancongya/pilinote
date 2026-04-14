@@ -103,7 +103,7 @@ async def get_favorite_media(fid: str, mid: Optional[str] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/watchlater", response_model=MediaInfo)
+@router.get("/watch-later", response_model=MediaInfo)
 async def get_watchlater_media():
     """获取稍后再看媒体信息"""
     logger.info("获取稍后再看媒体信息")

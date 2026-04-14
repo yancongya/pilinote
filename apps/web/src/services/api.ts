@@ -164,10 +164,11 @@ class ApiService {
     page: number = 1,
     pageSize: number = 20,
     keyword: string = '',
-    order: string = 'mtime'
+    order: string = 'mtime',
+    sortDirection: string = 'desc'
   ): Promise<ApiResponse<any>> {
     return this.request<any>(
-      `/api/favorites/folders/${folderId}?page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}`,
+      `/api/favorites/folders/${folderId}?page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}&sort_direction=${sortDirection}`,
       { method: 'GET' }
     );
   }
@@ -186,10 +187,27 @@ class ApiService {
   // 稍后再看相关API
   async getWatchLaterList(
     pn: number = 1,
-    ps: number = 20
+    ps: number = 20,
+    keyword: string = '',
+    order: string = 'default',
+    sortDirection: 'desc' | 'asc' = 'desc'
   ): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams({
+      pn: pn.toString(),
+      ps: ps.toString()
+    })
+    
+    if (keyword) {
+      params.append('keyword', keyword)
+    }
+    
+    if (order && order !== 'default') {
+      params.append('order', order)
+      params.append('sort_direction', sortDirection)
+    }
+    
     return this.request<any>(
-      `/api/watchlater/list?pn=${pn}&ps=${ps}`,
+      `/api/watch-later/list?${params.toString()}`,
       { method: 'GET' }
     );
   }

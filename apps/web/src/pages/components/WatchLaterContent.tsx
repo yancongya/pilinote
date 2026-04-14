@@ -7,11 +7,15 @@ import { formatDuration, formatNumber, formatProgress, formatTime } from '../../
 import { useVideoList } from '../../hooks/useVideoList'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
 import VideoListContainer from '../../components/VideoListContainer'
+import VideoListControls from '../../components/VideoListControls'
 import AlertModal from '../../components/AlertModal'
 import ConfirmModal from '../../components/ConfirmModal'
 
 export default function WatchLaterContent() {
   const [totalCount, setTotalCount] = useState(0)
+  const [keyword, setKeyword] = useState('')
+  const [order, setOrder] = useState<string>('default')
+  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
   const [alertModal, setAlertModal] = useState<{ show: boolean; title: string; message: string; type: 'success' | 'error' }>({
     show: false,
     title: '',
@@ -88,9 +92,9 @@ export default function WatchLaterContent() {
       return { success: false, message: '缺少必要参数' }
     }
     // 调用getWatchLaterList时不需要传递sessdata，后端会从cookie中获取
-    const response = await apiService.getWatchLaterList(page, pageSize)
+    const response = await apiService.getWatchLaterList(page, pageSize, keyword, order, sortDirection)
     return response
-  }, [user?.mid])
+  }, [user?.mid, keyword, order, sortDirection])
 
   // 使用 useVideoList Hook 管理视频列表
   const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
@@ -190,6 +194,21 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
           <span className="video-count">共{totalCount || videos.length}个视频</span>
         </div>
       </div>
+
+<VideoListControls
+          keyword={keyword}
+          order={order}
+          sortDirection={sortDirection}
+          onKeywordChange={setKeyword}
+          onOrderChange={setOrder}
+          onSortDirectionChange={setSortDirection}
+          sortOptions={[
+            { value: 'default', label: '默认' },
+            { value: 'view', label: '按播放量' },
+            { value: 'pubtime', label: '按发布时间' },
+            { value: 'add_time', label: '按添加时间' }
+          ]}
+        />
 
       <VideoListContainer
         videos={videos}

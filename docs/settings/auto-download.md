@@ -324,7 +324,7 @@ def _check_storage_threshold(self) -> bool:
 
 ```
 1. 获取稍后再看列表
-   GET /api/watchlater?pn=1&ps={watch_later_max}
+   GET /api/watch-later/list?pn=1&ps={watch_later_max}
    ↓
 2. 与数据库比对，过滤已下载的视频
    ↓

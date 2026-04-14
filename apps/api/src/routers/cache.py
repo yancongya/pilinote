@@ -36,8 +36,8 @@ async def invalidate_favorites_cache(fid: str, mid: str):
     await video_cache.invalidate('favorites', fid=fid, mid=mid)
     return {"message": f"收藏夹 {fid} 缓存已失效"}
 
-@router.post("/invalidate/watchlater")
+@router.post("/invalidate/watch-later")
 async def invalidate_watchlater_cache():
     """使稍后再看缓存失效"""
-    await video_cache.invalidate('watchlater')
+    await video_cache.invalidate('watch_later')
     return {"message": "稍后再看缓存已失效"}

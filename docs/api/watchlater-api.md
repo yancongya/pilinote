@@ -52,23 +52,49 @@ http://localhost:8000
 
 ## 端点列表
 
-### 1. 获取稍后再看列表
-
-**端点**：`GET /api/watchlater/list`
-
-**描述**：获取当前用户的稍后再看视频列表
-
 #### 请求参数
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `pn` | int | 否 | 1 | 页码，从 1 开始 |
 | `ps` | int | 否 | 20 | 每页数量，最大 100 |
+| `keyword` | string | 否 | - | 搜索关键词，匹配视频标题 |
+| `order` | string | 否 | - | 排序方式：`view`（按播放量）、`pubtime`（按发布时间）、`add_time`（按添加时间） |
+| `sort_direction` | string | 否 | `desc` | 排序方向：`desc`（降序）、`asc`（升序） |
 
 #### 请求示例
 
 ```bash
-curl -X GET "http://localhost:8000/api/watchlater/list?pn=1&ps=20" \
+curl -X GET "http://localhost:8000/api/watch-later/list?pn=1&ps=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+```
+
+**搜索示例**：
+```bash
+# 搜索包含"技术"关键词的视频
+curl -X GET "http://localhost:8000/api/watch-later/list?keyword=技术&pn=1&ps=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+```
+
+**排序示例**：
+```bash
+# 按播放量降序排列
+curl -X GET "http://localhost:8000/api/watch-later/list?order=view&sort_direction=desc&pn=1&ps=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+
+# 按发布时间升序排列
+curl -X GET "http://localhost:8000/api/watch-later/list?order=pubtime&sort_direction=asc&pn=1&ps=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+
+# 按添加时间降序排列
+curl -X GET "http://localhost:8000/api/watch-later/list?order=add_time&sort_direction=desc&pn=1&ps=20" \
+  -H "Cookie: SESSDATA=your_sessdata_here"
+```
+
+**组合示例**：
+```bash
+# 搜索并按播放量降序排列
+curl -X GET "http://localhost:8000/api/watch-later/list?keyword=技术&order=view&sort_direction=desc&pn=1&ps=20" \
   -H "Cookie: SESSDATA=your_sessdata_here"
 ```
 

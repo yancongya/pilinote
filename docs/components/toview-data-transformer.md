@@ -55,6 +55,9 @@ def transform_watchlater_video(self, video: Dict) -> CardData:
     Returns:
         CardData: 转换后的卡片数据
     """
+    # 获取发布时间：优先使用 pubdate，如果没有则使用 pubtime
+    pubtime = video.get("pubdate", video.get("pubtime", 0))
+    
     return CardData(
         id=video.get('aid', 0),
         bvid=video.get('bvid', ''),
@@ -63,11 +66,11 @@ def transform_watchlater_video(self, video: Dict) -> CardData:
         duration=video.get('duration', 0),
         uploader=self.normalize_uploader(video.get('owner', {})),
         stats=self.normalize_stats(video.get('stat', {})),
-        pubtime=video.get('pubtime', 0),
+        pubtime=pubtime,
         cid=video.get('cid', 0),
         aid=video.get('aid', 0),
         progress=video.get('progress', 0),
-        add_time=video.get('add_time', 0),
+        add_time=video.get('add_at', 0),
         intro=video.get('intro', '')
     )
 ```
@@ -83,11 +86,11 @@ def transform_watchlater_video(self, video: Dict) -> CardData:
 | `duration` | `duration` | 视频时长（秒数） |
 | `owner` | `uploader` | UP 主信息 |
 | `stat` | `stats` | 统计数据 |
-| `pubtime` | `pubtime` | 发布时间戳 |
+| `pubdate` 或 `pubtime` | `pubtime` | 发布时间戳（优先使用 pubdate） |
 | `cid` | `cid` | 视频 CID |
 | `aid` | `aid` | 视频 AID |
 | `progress` | `progress` | 观看进度（秒数） |
-| `add_time` | `add_time` | 添加到稍后再看的时间戳 |
+| `add_at` | `add_time` | 添加到稍后再看的时间戳 |
 | `intro` | `intro` | 视频简介 |
 
 ### normalize_stats()

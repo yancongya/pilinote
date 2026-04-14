@@ -513,7 +513,7 @@ class BilibiliService:
             }
 
     async def get_folder_detail(self, sessdata: str, media_id: int, page: int = 1, page_size: int = 20,
-                         keyword: str = "", order: str = "mtime", type: str = "0", tid: int = 0) -> Dict:
+                         keyword: str = "", order: str = "mtime", type: str = "0", tid: int = 0, sort_direction: str = "desc") -> Dict:
         """获取收藏夹详情（使用HeadersManager获取headers）"""
         # 确保SESSDATA在headers中（如果 HeadersManager 中没有 SESSDATA，才更新）
         current_sessdata = self.headers_manager.get_cookie("SESSDATA")
@@ -528,6 +528,10 @@ class BilibiliService:
             "media_id": media_id,
             "pn": page,
             "ps": page_size,
+            "keyword": keyword,
+            "order": order,
+            "type": type,
+            "tid": tid,
             "platform": "web"
         }
 
@@ -564,6 +568,15 @@ class BilibiliService:
 
     async def get_watch_later(self, sessdata: str) -> Dict:
         """获取稍后再看列表（全部，使用HeadersManager获取headers）"""
+        # 尝试从缓存获取
+        from src.services.cache.video_cache import video_cache
+        
+        # 使用用户MID作为缓存键
+        cached_data = video_cache.get('watch_later', user_id=sessdata[:20])  # 使用sessdata前20位作为用户标识
+        if cached_data:
+            print(f"[Cache] 稍后再看列表命中缓存")
+            return cached_data
+
         # 确保SESSDATA在headers中
         await self.headers_manager.update_cookie("SESSDATA", sessdata)
         
@@ -582,10 +595,13 @@ class BilibiliService:
             print(f"稍后再看列表响应: {data}")
             
             if data.get("code") == 0:
-                return {
+                result = {
                     "success": True,
                     "data": data.get("data", {})
                 }
+                # 缓存结果（5分钟）
+                video_cache.set('watch_later', result, user_id=sessdata[:20])
+                return result
             return {
                 "success": False,
                 "message": data.get("message", "获取稍后再看列表失败"),

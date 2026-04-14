@@ -807,9 +807,9 @@ async def delete_account(account_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/accounts/refresh", response_model=dict)
-async def refresh_account(account_id: int, db: Session = Depends(get_db)):
+async def refresh_account_query(account_id: int, db: Session = Depends(get_db)):
     """
-    刷新账号数据（Cookie/SESSDATA/WBI等）
+    刷新账号数据（Cookie/SESSDATA/WBI等）- Query参数版本
     
     功能：
     - 刷新账号的cookie
@@ -821,6 +821,50 @@ async def refresh_account(account_id: int, db: Session = Depends(get_db)):
     
     Args:
         account_id: 账号ID
+        
+    Returns:
+        Dict: 刷新结果
+    """
+    return await _refresh_account_impl(account_id, db)
+
+
+@router.post("/accounts/{account_id}/refresh", response_model=dict)
+async def refresh_account_path(account_id: int, db: Session = Depends(get_db)):
+    """
+    刷新账号数据（Cookie/SESSDATA/WBI等）- 路径参数版本
+    
+    功能：
+    - 刷新账号的cookie
+    - 刷新SESSDATA
+    - 刷新WBI签名
+    - 更新用户信息
+    - 保存到数据库
+    - 更新刷新时间
+    
+    Args:
+        account_id: 账号ID
+        
+    Returns:
+        Dict: 刷新结果
+    """
+    return await _refresh_account_impl(account_id, db)
+
+
+async def _refresh_account_impl(account_id: int, db: Session):
+    """
+    刷新账号数据的实现函数
+    
+    功能：
+    - 刷新账号的cookie
+    - 刷新SESSDATA
+    - 刷新WBI签名
+    - 更新用户信息
+    - 保存到数据库
+    - 更新刷新时间
+    
+    Args:
+        account_id: 账号ID
+        db: 数据库会话
         
     Returns:
         Dict: 刷新结果

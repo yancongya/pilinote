@@ -65,7 +65,7 @@ def calculate_wbi_sign(params: Dict, wbi_img: Dict) -> Dict:
 ### 使用场景
 
 - 收藏夹 API (`/api/favorites/*`)
-- 稍后再看 API (`/api/watchlater`)
+- 稍后再看 API (`/api/watch-later`)
 - 用户信息 API (`/api/auth/user-info`)
 
 ### 注意事项
