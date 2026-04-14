@@ -1,0 +1,304 @@
+# 最近更新概览
+
+## 更新时间线
+
+### 2026-04-15 - UI 界面优化和功能增强
+
+本次更新主要围绕用户界面优化和功能增强，包括视频卡片布局重新设计、统计数据显示优化、创建时间显示等功能。
+
+#### 主要更新
+
+##### 1. 视频卡片布局重新设计
+**影响范围**: 前端组件
+**相关文件**:
+- `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+- `apps/web/src/components/NewDownload/TaskCard.tsx`
+- `apps/web/src/components/NewDownload/SchedulerCard.tsx`
+
+**更新内容**:
+- 重新设计视频卡片布局，采用横向布局（封面+信息）
+- 封面固定尺寸（160px × 90px）
+- 进度叠加层（封面底部）
+- 时长叠加层（右下角）
+- 状态标签（彩色）
+- 操作按钮（内联显示）
+
+**视觉效果**:
+- 悬停效果（上移+阴影增强）
+- 响应式布局
+- 移动端优化
+- B站风格设计
+
+##### 2. 统计数据显示优化
+**影响范围**: NFO文件生成和前端显示
+**相关文件**:
+- `apps/api/src/services/bilibili.py`
+- `apps/api/src/services/download_service.py`
+- `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+
+**更新内容**:
+- NFO文件包含完整的B站统计数据
+- 支持播放量、点赞、投币、收藏、分享、弹幕、评论等统计
+- 前端优化统计数据显示格式
+- 添加互动评分计算
+
+**NFO文件格式**:
+```xml
+<playcount>18836</playcount>
+<rating>10.0</rating>
+<tag>弹幕数: 2</tag>
+<tag>评论数: 224</tag>
+<tag>分享数: 110</tag>
+<bilibili_stat xmlns="bilibili">
+  <play>18836</play>
+  <like>381</like>
+  <coin>259</coin>
+  <favorite>908</favorite>
+  <share>110</share>
+  <danmaku>2</danmaku>
+  <reply>224</reply>
+</bilibili_stat>
+```
+
+##### 3. 创建时间显示功能
+**影响范围**: 前端组件
+**相关文件**:
+- `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+- `apps/web/src/components/NewDownload/TaskCard.tsx`
+
+**更新内容**:
+- 在标题行右侧显示创建时间
+- 优化时间显示格式
+- 支持相对时间显示（如"2小时前"）
+- 添加时间戳转换工具
+
+##### 4. NFO文件元数据显示增强
+**影响范围**: NFO文件生成
+**相关文件**:
+- `apps/api/src/services/bilibili.py`
+- `apps/api/src/services/download_service.py`
+
+**更新内容**:
+- 添加完整的视频描述信息
+- 包含视频标签
+- 优化UP主信息显示
+- 改进统计数据格式
+
+**新增字段**:
+- 视频描述（plot字段）
+- 完整的统计数据
+- B站自定义标签
+- 互动评分
+
+##### 5. 下载系统修复
+**影响范围**: 后端服务
+**相关文件**:
+- `apps/api/src/services/queue/manager.py`
+- `apps/api/src/routers/queue.py`
+
+**更新内容**:
+- 修复队列保存逻辑
+- 添加队列一致性检查
+- 修复调度器创建问题
+- 优化任务状态管理
+
+**修复的问题**:
+- 队列保存只更新不创建Queue记录
+- 服务器重启后backlog队列丢失
+- 创建调度器时backlog队列为空
+- 任务没有schedulerId
+
+### 2026-04-06 - 收藏夹扫描功能修复
+
+#### 问题修复
+修复收藏夹扫描功能返回空结果的问题，并优化前端显示。
+
+#### 根本原因
+1. **后端服务器未正确运行**：服务器启动失败导致API调用返回空数据
+2. **SESSDATA格式问题**：数据库中的SESSDATA是URL编码格式，需要在使用前进行URL解码
+3. **API参数限制**：B站API的page_size参数过大（100）会导致-400错误
+
+#### 修复方案
+1. **修复后端扫描服务**：添加URL解码，调整page_size从100到20
+2. **添加调试日志**：记录用户信息、SESSDATA长度、扫描参数
+3. **重新启动后端服务器**：清理所有占用8000端口的进程
+
+#### 前端优化
+1. **更新数据类型定义**：新增`FolderScanInfo`接口
+2. **优化扫描结果显示**：收藏夹详情放在最前面，每个收藏夹卡片显示详细信息
+3. **添加收藏夹详情样式**：响应式网格布局，悬停效果，阴影
+
+### 2026-04-03 - 调度器删除功能和封面显示优化
+
+#### 后端功能
+- **新增**：`DELETE /api/queue/schedulers/{scheduler_id}` 端点
+- **新增**：`broadcast_scheduler_deleted()` 函数
+- **新增**：`delete_scheduler()` 方法
+- **修复**：Scheduler Session 绑定问题
+
+#### 前端功能
+- **新增**：`deleteScheduler()` 方法
+- **修复**：`scheduler_id` 字段映射问题
+- **新增**：封面显示功能
+- **改进**：按钮区分（取消按钮和删除按钮）
+
+### 2026-04-03 - 下载系统API响应格式统一
+
+#### 统一API响应格式
+所有队列和调度器API端点返回标准格式：
+```json
+{
+  "success": bool,
+  "message": str | null,
+  "data": Any | null,
+  "code": int | null
+}
+```
+
+#### 修复前端API响应解析
+- `fetchTasks` 函数：从 `result.data` 中获取任务数组
+- `fetchSchedulers` 函数：从 `result.data` 中获取调度器数组
+- 修复 `data.forEach is not a function` 错误
+
+#### 修复图片加载403错误
+- 添加 `getProxyImageUrl` 函数
+- 使用后端代理 `/api/auth/proxy/avatar?url=...` 加载图片
+- 避免直接访问B站图片URL导致的403错误
+
+### 2026-04-02 - 下载系统重构 - 阶段1
+
+#### WebSocket实时通信
+- **新增文件**：`apps/api/src/routers/websocket.py`
+- **功能**：WebSocket连接管理器、事件广播系统、支持多客户端同时连接
+
+#### 四级队列系统
+- **实现**：四级异步队列（backlog, pending, doing, complete）
+- **功能**：信号量并发控制、任务生命周期管理、数据库持久化
+
+#### 任务管理API
+- **新增端点**：
+  - `DELETE /api/queue/tasks/{task_id}` - 删除任务
+  - `PUT /api/queue/tasks/{task_id}` - 更新任务状态
+  - `GET /api/queue/tasks` - 获取任务列表
+  - `GET /api/queue/schedulers` - 获取调度器列表
+  - 调度器控制端点（启动、暂停、恢复、取消）
+
+#### 状态管理（Zustand）
+- **新增文件**：`apps/web/src/stores/newQueue.ts`
+- **功能**：任务和调度器状态管理、WebSocket连接和事件处理、状态映射、进度计算
+
+#### 新下载组件
+- **新增目录**：`apps/web/src/components/NewDownload/`
+- **组件列表**：
+  - `index.tsx` - 主组件，包含Tab切换和连接状态
+  - `DownloadsList.tsx` - 下载列表组件
+  - `TaskCard.tsx` - 任务卡片
+  - `index.css` - 样式文件
+
+### 2026-03-31 - NFO文件生成功能改进
+
+#### 新增：完整的视频元数据信息到NFO文件
+- **改进前**：NFO文件只包含基本字段（标题、B站ID、封面URL、UP主、时长）
+- **改进后**：NFO文件包含完整的视频元数据：
+  - 视频描述（plot字段）
+  - 完整的统计数据（播放量、点赞、投币、收藏、分享、弹幕、评论）
+  - B站自定义标签（用于存储额外统计信息）
+
+#### 技术实现
+1. **添加get_video_info方法**：使用HTML解析方法获取视频详情
+2. **修复异步调用问题**：添加await关键字
+3. **改进UP主信息获取的容错性**：添加JSON解析失败时的容错处理
+
+### 2026-03-31 - 图像下载功能修复
+
+#### 修复：视频下载完成后封面图片和UP主头像未下载
+**根本原因**：
+1. **数据库事务问题**：NFO生成和图片下载在数据库事务中执行，失败会导致整个事务回滚
+2. **目录路径错误**：使用了错误的目录参数（final_dir而非video_dir）
+3. **uploader_mid为0**：前端传递的uploader_mid字段可能为0
+
+#### 修复方案
+1. **分离数据库事务和文件操作**：数据库事务和文件操作分离
+2. **修正目录路径**：使用video_file.parent获取视频文件所在目录
+3. **修复uploader_mid传递**：从视频详情API获取uploader_mid
+
+## 技术改进
+
+### 性能优化
+- 多级缓存系统减少API调用
+- 并发控制提升下载速度
+- WebSocket实时通信减少轮询
+
+### 稳定性提升
+- 完善的错误处理机制
+- 自动重试和恢复功能
+- 数据持久化保证数据安全
+
+### 用户体验优化
+- 直观的用户界面
+- 实时进度显示
+- 自动化功能减少手动操作
+
+## 代码统计
+
+### 文件变更统计（2026-04-15）
+| 文件 | 修改行数 | 新增 | 删除 |
+|------|---------|------|------|
+| apps/web/src/components/NewDownload/VideoLibrary.tsx | +200 | 200 | 50 |
+| apps/web/src/components/NewDownload/TaskCard.tsx | +150 | 150 | 30 |
+| apps/web/src/components/NewDownload/SchedulerCard.tsx | +180 | 180 | 40 |
+| apps/api/src/services/bilibili.py | +80 | 80 | 10 |
+| apps/api/src/services/download_service.py | +120 | 120 | 20 |
+| **总计** | **+730** | **730** | **150** |
+
+### 文档更新
+- 新增文档：5篇
+- 更新文档：8篇
+- 总字数：~15,000字
+
+## 已知问题
+
+### 1. UP主头像下载功能
+**问题**：UP主头像下载功能因B站风控机制暂时无法正常工作
+**原因**：需要实现完整的WBI签名，包括WebGL指纹
+**影响范围**：头像图片下载
+**解决方案**：待实现完整的WBI签名
+
+### 2. 单元测试覆盖
+**问题**：当前没有正式的单元测试框架配置
+**影响范围**：代码质量保障
+**解决方案**：计划添加单元测试框架（Jest for frontend, pytest for backend）
+
+## 未来计划
+
+### 短期计划（1-2周）
+- [ ] 完善单元测试
+- [ ] 优化下载速度
+- [ ] 添加更多视频格式支持
+- [ ] 修复UP主头像下载问题
+
+### 中期计划（1-2个月）
+- [ ] 支持多语言
+- [ ] 添加播放器功能
+- [ ] 支持云存储
+- [ ] 优化移动端体验
+
+### 长期计划（3-6个月）
+- [ ] 移动端应用
+- [ ] 插件系统
+- [ ] 社区功能
+- [ ] AI智能推荐
+
+## 反馈渠道
+
+如果您在使用过程中遇到任何问题或有任何建议，欢迎通过以下方式反馈：
+
+- GitHub Issues
+- 开发者社区
+- 用户反馈表单
+
+---
+
+**文档版本**: 1.0.0
+**最后更新**: 2026-04-15
+**维护者**: PiliNote Team
