@@ -11,6 +11,7 @@
 | HomeContent | 首页内容（链接解析/预览卡片） | [home-content.md](home-content.md) |
 | VideoDetailPage | 视频/图文详情页 | [video-detail-page.md](video-detail-page.md) |
 | VideoListContainer | 视频列表容器 | [video-list-container.md](video-list-container.md) |
+| VideoListControls | 视频列表搜索和排序控件 | [video-list-controls.md](video-list-controls.md) |
 | HistoryList | 历史记录列表 | [history-list.md](history-list.md) |
 | BatchActionsBar | 批量操作栏 | [batch-actions-bar.md](batch-actions-bar.md) |
 | Modal | 通用弹窗 | [modal.md](modal.md) |
@@ -25,6 +26,7 @@
 | BilibiliService | Bilibili API 服务 | [bilibili-service.md](bilibili-service.md) |
 | CookieManager | Cookie 管理 | [cookie-manager.md](cookie-manager.md) |
 | HeadersManager | 请求头管理 | [headers-manager.md](headers-manager.md) |
+| VideoCacheService | 视频缓存服务 | [video-cache-service.md](video-cache-service.md) |
 | DownloadEngine | 下载引擎 | [download-engine.md](download-engine.md) |
 | MediaProcessor | 媒体处理 | [media-processor.md](media-processor.md) |
 | MediaDataTransformer | 数据转换 | [media-data-transformer.md](media-data-transformer.md) |
@@ -42,6 +44,7 @@
 - CookieManager
 - HeadersManager
 - SettingsService
+- VideoCacheService
 
 ### 媒体处理
 

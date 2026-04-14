@@ -30,6 +30,7 @@
 - BilibiliService
 - CookieManager
 - HeadersManager
+- VideoCacheService
 - DownloadEngine
 - MediaProcessor
 - DownloadManager
@@ -43,6 +44,7 @@
 
 - [web/implementation.md](../web/implementation.md) - 前端实现
 - [database/models.md](../database/models.md) - 数据模型
+- [components/video-cache-service.md](../components/video-cache-service.md) - 视频缓存服务
 
 ---
 

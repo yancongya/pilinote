@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
 from src.schemas.favorites import FolderListResponse, FolderDetailResponse
 from src.schemas.card import CardListResponse
 from src.services.bilibili import BilibiliService
 from src.dependencies.auth import get_current_user_with_sessdata
 from src.services.headers_manager import get_headers_manager
+from src.services.cache.video_cache import VideoCacheService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/favorites", tags=["收藏夹"])
 
@@ -107,6 +111,50 @@ async def get_folder_detail(
             
             # 转换为字典格式（保持向后兼容）
             list_data = [card.model_dump() for card in video_list]
+            
+            # 异步获取视频详情，限制并发数为3以提高响应速度
+            import asyncio
+            cache_service = VideoCacheService()
+            
+            async def enrich_video_data(video):
+                """为单个视频补充评论数和分享数"""
+                bvid = video.get("bvid", "")
+                if not bvid:
+                    return video
+                
+                try:
+                    # 从缓存或API获取视频详情
+                    video_info = await cache_service.get_video_info(bvid, sessdata)
+                    if video_info.get("success") and video_info.get("data"):
+                        stat = video_info["data"].get("stat", {})
+                        # 补充评论数和分享数
+                        if stat.get("reply", 0) > 0:
+                            video["comment"] = stat["reply"]
+                            video["stats"]["comment"] = stat["reply"]
+                        if stat.get("share", 0) > 0:
+                            video["share"] = stat["share"]
+                            video["stats"]["share"] = stat["share"]
+                except Exception as e:
+                    # 如果获取视频信息失败，使用默认值0，不影响其他视频
+                    logger.warning(f"获取视频详情失败: {bvid}, 错误: {e}")
+                
+                return video
+            
+            # 使用并发限制，最多同时获取3个视频的详细信息
+            semaphore = asyncio.Semaphore(3)
+            
+            async def enrich_with_semaphore(video):
+                async with semaphore:
+                    return await enrich_video_data(video)
+            
+            # 并发获取所有视频的详细信息
+            enriched_list = await asyncio.gather(
+                *[enrich_with_semaphore(video) for video in list_data],
+                return_exceptions=True
+            )
+            
+            # 过滤掉异常结果
+            list_data = [video for video in enriched_list if isinstance(video, dict)]
             
             return CardListResponse(
                 success=True,
