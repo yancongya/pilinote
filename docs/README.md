@@ -17,10 +17,12 @@
 - [认证功能](auth/) - 登录、Cookies、刷新、多账号
 - [视频源](video-sources/) - 收藏夹、稍后再看
 - [下载系统](download/) - 队列、任务、调度器
+- [评论数据提取](download/comment-extraction.md) - B站评论数据提取和NFO存储
 - [设置管理](settings/) - 存储、备份
 
 ### 数据层
 - [数据库设计](database/) - 数据模型、API Schema
+- [元数据系统](metadata/) - NFO文件格式、评分算法、标签系统
 
 ### 接口文档
 - [API 端点](api/) - 后端接口列表

@@ -63,12 +63,20 @@ http://localhost:8000
 - **封面管理**：统一使用 `cover.jpg` 作为封面文件名，支持从NFO或本地封面文件读取
 - **头像管理**：支持读取 `avatar.jpg/png` 作为UP主头像
 - **统计信息**：显示播放量、点赞数、投币数等B站统计数据
+- **评论数据**：提取和存储B站视频评论数据，包括置顶评论和热门评论
 
 ### 4. 数据同步
 
 - **自动导入**：将新发现的文件自动导入到数据库
 - **清理丢失**：删除数据库中文件不存在的记录
 - **完整同步**：一次性完成扫描、导入和清理
+
+### 5. 评论数据提取
+
+- **置顶评论**：提取B站视频的置顶评论
+- **热门评论**：提取点赞数最高的3条热门评论
+- **NFO存储**：将评论数据保存到NFO文件中，支持离线查看
+- **API集成**：通过B站评论API获取实时评论数据
 
 ---
 
@@ -962,6 +970,590 @@ async def batch_update_nfo_files(
 1. **批量更新统计数据**：定期批量更新所有视频的播放量、点赞数等统计数据
 2. **同步最新数据**：从B站API获取最新的互动数据，保持NFO文件的时效性
 3. **数据补全**：为缺少统计数据的老视频补全NFO信息
+4. **评论数据更新**：同步最新的评论数据到NFO文件中
+
+---
+
+## 评论数据提取功能
+
+### 功能概述
+
+PiliNote 支持从B站提取视频评论数据并保存到NFO文件中，包括：
+
+- **置顶评论**：B站官方置顶的评论
+- **热门评论**：点赞数最高的3条评论
+- **评论元数据**：作者、点赞数、回复数、发布时间等
+
+### B站评论API
+
+**端点**：`https://api.bilibili.com/x/v2/reply/main`
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `type` | int | 是 | 1=视频评论 |
+| `oid` | int | 是 | 视频AID |
+| `mode` | int | 否 | 3=热门排序，2=时间排序 |
+| `pagination_str` | string | 否 | 分页参数 |
+
+**响应示例**：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "replies": [
+      {
+        "rpid": 123456,
+        "oid": 115569248503531,
+        "type": 1,
+        "mid": 456789,
+        "root": 0,
+        "parent": 0,
+        "dialog": 0,
+        "count": 0,
+        "rcount": 5,
+        "state": 0,
+        "fansgrade": 0,
+        "attr": 0,
+        "ctime": 1672531200,
+        "rpid_str": "123456",
+        "root_str": "0",
+        "parent_str": "0",
+        "like": 1000,
+        "action": 0,
+        "member": {
+          "mid": "456789",
+          "uname": "用户名",
+          "sex": "未知",
+          "sign": "个性签名",
+          "avatar": "头像URL",
+          "rank": 10000,
+          "level": 6,
+          "jointime": 1500000000,
+          "moral": 0,
+          "silence": 0,
+          "email_status": 0,
+          "coin": 0,
+          "birthday": 0,
+          "fans": 10000,
+          "friend": 0,
+          "attention": 0,
+          "vip": {
+            "type": 1,
+            "status": 1,
+            "due_date": 1704067200,
+            "vip_pay_type": 0,
+            "theme_type": 0,
+            "label": {
+              "path": "",
+              "text": "年度大会员",
+              "label_theme": "annual_vip",
+              "text_color": "#FFFFFF",
+              "bg_style": 1,
+              "bg_color": "#FB7299",
+              "border_color": ""
+            },
+            "avatar_subscript": 1,
+            "nickname_color": "#FB7299",
+            "role": 3,
+            "avatar_subscript_url": "https://i0.hdslb.com/bfs/face/d1c6ac2b4f5b8a8e8e8e8e8e8e8e8e8e8e8e8e8.png"
+          },
+          "pendant": {
+            "pid": 0,
+            "name": "",
+            "image": "",
+            "expire": 0,
+            "image_enhance": "",
+            "image_enhance_frame": ""
+          },
+          "nameplate": {
+            "nid": 0,
+            "name": "",
+            "image": "",
+            "image_small": "",
+            "level": "",
+            "condition": ""
+          },
+          "official": {
+            "role": 0,
+            "title": "",
+            "desc": "",
+            "type": 0
+          },
+          "digital_spec": {
+            "img_url": ""
+          },
+          "contract": {
+            "is_display": false,
+            "contract_url": ""
+          },
+          "avatar_size": 0,
+          "senior_member": {
+            "status": 0
+          },
+          "level_exp": {
+            "current": 28800,
+            "next": 28800,
+            "total": 28800
+          },
+          "honor": {
+            "mid": 0,
+            "color": "",
+            "tags": [],
+            "honor": []
+          }
+        },
+        "content": {
+          "message": "评论内容",
+          "plat": 1,
+          "device": "",
+          "members": [],
+          "emote": {},
+          "jump_url": {},
+          "picture": {},
+          "reply_control": {
+            "location": "回复区"
+          },
+          "at_name_to_mid": {},
+          "at_relations": {}
+        },
+        "replies": [],
+        "assist": 0,
+        "folder": {
+          "has_folded": false,
+          "is_folded": false,
+          "rule": "folding_rule_1"
+        },
+        "up_action": {
+          "like": false,
+          "reply": false
+        },
+        "show_follow": false,
+        "current_user": {
+          "mid": 0,
+          "following": false,
+          "liked": false,
+          "liked_time": 0
+        },
+        "invisible": false,
+        "reply_text": "回复内容预览",
+        "sub_reply_entry_text": "",
+        "label": {
+          "rcount": 0,
+          "text": ""
+        },
+        "config": {
+          "is_dust": false
+        },
+        "dialog": 0,
+        "is_hot": true,
+        "is_top": false,
+        "like_icon": {
+          "animation_url": ""
+        },
+        "ip_info": {
+          "text": "IP属地：北京"
+        },
+        "card_label": {
+          "text": ""
+        },
+        "note_text": "笔记文本"
+      }
+    ],
+    "page": {
+      "num": 1,
+      "size": 20,
+      "count": 100
+    },
+    "control": {
+      "input_disable": false,
+      "input_text": "发送评论",
+      "upload_text": "上传图片",
+      "oss_config": {}
+    }
+  }
+}
+```
+
+### NFO评论数据结构
+
+**XML格式**：
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<movie>
+  <title>视频标题</title>
+  <plot>视频简介</plot>
+  
+  <!-- 评论数据 -->
+  <comments>
+    <comment type="top" like="5000" reply="100" author="置顶用户" time="1672531200">
+      <content>这是置顶评论的内容</content>
+    </comment>
+    
+    <comment type="hot" like="3000" reply="50" author="热门用户1" time="1672531300">
+      <content>这是第一条热门评论的内容</content>
+    </comment>
+    
+    <comment type="hot" like="2000" reply="30" author="热门用户2" time="1672531400">
+      <content>这是第二条热门评论的内容</content>
+    </comment>
+    
+    <comment type="hot" like="1000" reply="20" author="热门用户3" time="1672531500">
+      <content>这是第三条热门评论的内容</content>
+    </comment>
+  </comments>
+</movie>
+```
+
+**字段说明**：
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `type` | string | 评论类型：`top`=置顶评论，`hot`=热门评论 |
+| `like` | int | 点赞数 |
+| `reply` | int | 回复数 |
+| `author` | string | 评论作者 |
+| `time` | int | 发布时间戳 |
+
+### 后端实现
+
+#### B站服务扩展
+
+**文件**：`apps/api/src/services/bilibili.py`
+
+```python
+async def get_video_comments(self, aid: int, sessdata: str = "") -> Dict:
+    """
+    获取视频评论数据
+    
+    Args:
+        aid: 视频AID
+        sessdata: B站SESSDATA
+        
+    Returns:
+        包含评论数据的字典
+    """
+    try:
+        url = f"{self.api_base}/x/v2/reply/main"
+        params = {
+            "type": 1,  # 视频评论
+            "oid": aid,
+            "mode": 3,  # 热门排序
+            "pagination_str": "{\"offset\":\"\"}"
+        }
+        
+        headers = await self.headers_manager.get_headers()
+        if sessdata:
+            headers["Cookie"] = f"SESSDATA={sessdata}"
+        
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(url, headers=headers, params=params)
+            
+            # 处理Brotli压缩
+            content = response.content
+            if response.headers.get('content-encoding') == 'br':
+                import brotli
+                content = brotli.decompress(content)
+            
+            content_text = content.decode('utf-8', errors='ignore')
+            data = json.loads(content_text)
+            
+            if data.get("code") == 0:
+                replies_data = data.get("data", {})
+                replies = replies_data.get("replies", [])
+                
+                # 提取置顶评论
+                top_comment = None
+                if replies and replies[0].get("is_top", False):
+                    top_comment = replies[0]
+                
+                # 提取热门评论（排除置顶）
+                hot_comments = [
+                    r for r in replies 
+                    if not r.get("is_top", False)
+                ]
+                hot_comments = sorted(hot_comments, key=lambda x: x.get("like", 0), reverse=True)[:3]
+                
+                # 格式化评论数据
+                comments = []
+                
+                if top_comment:
+                    comments.append({
+                        "type": "top",
+                        "author": top_comment.get("member", {}).get("name", "Unknown"),
+                        "content": top_comment.get("content", {}).get("message", ""),
+                        "like": top_comment.get("like", 0),
+                        "reply": top_comment.get("rcount", 0),
+                        "time": top_comment.get("ctime", 0)
+                    })
+                
+                for comment in hot_comments:
+                    comments.append({
+                        "type": "hot",
+                        "author": comment.get("member", {}).get("name", "Unknown"),
+                        "content": comment.get("content", {}).get("message", ""),
+                        "like": comment.get("like", 0),
+                        "reply": comment.get("rcount", 0),
+                        "time": comment.get("ctime", 0)
+                    })
+                
+                return {
+                    "success": True,
+                    "data": {
+                        "total": replies_data.get("page", {}).get("count", 0),
+                        "top_comment": comments[0] if comments and comments[0]["type"] == "top" else None,
+                        "hot_comments": [c for c in comments if c["type"] == "hot"],
+                        "comments": comments
+                    }
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"API返回错误: {data.get('message', '未知错误')}"
+                }
+                
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"获取评论异常: {str(e)}"
+        }
+```
+
+#### NFO更新服务扩展
+
+**文件**：`apps/api/src/services/nfo_update_service.py`
+
+```python
+async def _build_meta_from_video_info(self, bvid: str, video_info: Dict) -> Dict:
+    """从视频信息构建元数据"""
+    # ... 现有代码 ...
+    
+    # 获取评论数据
+    if video_info.get("aid"):
+        comments_result = await self.bilibili_service.get_video_comments(
+            video_info["aid"], 
+            ""
+        )
+        
+        if comments_result.get("success"):
+            meta["comments"] = comments_result["data"]["comments"]
+    
+    return meta
+```
+
+#### NFO生成扩展
+
+**文件**：`apps/api/src/services/queue/handlers/nfo.py`
+
+```python
+def _generate_nfo_content(self, meta: Dict, video_data: Dict) -> str:
+    """生成NFO文件内容"""
+    lines = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<movie>'
+    ]
+    
+    # 基本信息
+    # ... 现有代码 ...
+    
+    # 评论数据
+    if meta.get('comments') and len(meta['comments']) > 0:
+        lines.append('  <comments>')
+        for comment in meta['comments']:
+            lines.append(f'    <comment type="{comment.get("type", "unknown")}" like="{comment.get("like", 0)}" reply="{comment.get("reply", 0)}" author="{comment.get("author", "")}" time="{comment.get("time", 0)}">')
+            lines.append(f'      <content>{self._escape_xml(comment.get("content", ""))}</content>')
+            lines.append('    </comment>')
+        lines.append('  </comments>')
+    
+    lines.append('</movie>')
+    return '\n'.join(lines)
+
+def _escape_xml(self, text: str) -> str:
+    """转义XML特殊字符"""
+    if not text:
+        return ""
+    return (text
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+        .replace("'", '&apos;'))
+```
+
+#### NFO解析扩展
+
+**文件**：`apps/api/src/services/local_library_service.py`
+
+```python
+def _parse_nfo_file(self, nfo_path: str) -> Dict:
+    """解析NFO文件"""
+    try:
+        tree = ET.parse(nfo_path)
+        root = tree.getroot()
+        
+        nfo_data = {
+            "title": root.findtext("title", ""),
+            "plot": root.findtext("plot", ""),
+            # ... 现有字段 ...
+        }
+        
+        # 解析评论数据
+        comments_elem = root.find('comments')
+        if comments_elem is not None:
+            comments = []
+            for comment_elem in comments_elem.findall('comment'):
+                comment = {
+                    "type": comment_elem.get('type', 'unknown'),
+                    "author": comment_elem.get('author', ''),
+                    "like": int(comment_elem.get('like', 0)),
+                    "reply": int(comment_elem.get('reply', 0)),
+                    "time": int(comment_elem.get('time', 0)),
+                    "content": comment_elem.findtext('content', '')
+                }
+                comments.append(comment)
+            
+            nfo_data["comments"] = comments
+        
+        return nfo_data
+        
+    except Exception as e:
+        logger.error(f"解析NFO文件失败: {e}")
+        return {}
+```
+
+### 测试脚本
+
+**文件**：`apps/api/test_comments_api.py`
+
+```python
+import asyncio
+import sys
+import os
+
+# 添加src到路径
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+from src.services.bilibili import BilibiliService
+
+async def test_comments_api():
+    """测试评论API"""
+    
+    # 创建BilibiliService实例
+    bilibili_service = BilibiliService()
+    
+    # 测试视频BV号
+    test_bvid = "BV1EyygBuEpn"
+    
+    print(f"开始测试评论API，视频BV号: {test_bvid}")
+    
+    try:
+        # 获取视频信息
+        print("步骤1: 获取视频信息...")
+        video_result = await bilibili_service.get_video_info(test_bvid, "")
+        
+        if not video_result.get("success"):
+            print(f"❌ 获取视频信息失败")
+            return
+        
+        video_data = video_result.get("data", {})
+        print(f"✅ 视频信息获取成功！AID: {video_data.get('aid', '无')}")
+        
+        # 获取评论数据
+        print("\n步骤2: 获取评论数据...")
+        if video_data.get("aid"):
+            comments_result = await bilibili_service.get_video_comments(
+                video_data["aid"], 
+                ""
+            )
+            
+            if comments_result.get("success"):
+                comments_data = comments_result.get("data", {})
+                print(f"✅ 评论API调用成功！")
+                print(f"   总评论数: {comments_data.get('total', 0)}")
+                print(f"   置顶评论: {'有' if comments_data.get('top_comment') else '无'}")
+                print(f"   热门评论数: {len(comments_data.get('hot_comments', []))}")
+            else:
+                print(f"❌ 评论API调用失败")
+        
+        # 测试NFO更新
+        print("\n步骤3: 测试NFO更新...")
+        # ... NFO更新测试代码 ...
+        
+    except Exception as e:
+        print(f"❌ 测试异常: {e}")
+    
+    finally:
+        bilibili_service.close()
+
+if __name__ == "__main__":
+    asyncio.run(test_comments_api())
+```
+
+### 前端集成
+
+**文件**：`apps/web/src/components/NewDownload/VideoLibrary.tsx`
+
+**评论显示功能**：
+
+```typescript
+interface Comment {
+  type: 'top' | 'hot';
+  author: string;
+  content: string;
+  like: number;
+  reply: number;
+  time: number;
+}
+
+interface FolderMetadata {
+  // ... 现有字段 ...
+  comments?: Comment[];
+}
+
+// 显示评论信息
+const renderComments = (comments: Comment[]) => {
+  if (!comments || comments.length === 0) return null;
+  
+  return (
+    <div className="comments-section">
+      <h4>热门评论</h4>
+      {comments.map((comment, index) => (
+        <div key={index} className={`comment-item comment-${comment.type}`}>
+          <div className="comment-header">
+            <span className="comment-author">{comment.author}</span>
+            <span className="comment-type">
+              {comment.type === 'top' ? '置顶' : '热门'}
+            </span>
+          </div>
+          <p className="comment-content">{comment.content}</p>
+          <div className="comment-stats">
+            <span>👍 {comment.like}</span>
+            <span>💬 {comment.reply}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+### 性能优化
+
+1. **缓存评论数据**：减少重复API调用
+2. **批量获取**：一次请求获取多个视频的评论
+3. **增量更新**：只更新变化的数据
+4. **异步处理**：后台更新，不阻塞主流程
+
+### 注意事项
+
+1. **API限制**：B站评论API有调用频率限制
+2. **数据量控制**：只获取置顶和热门评论，避免数据过多
+3. **隐私保护**：不存储用户敏感信息
+4. **错误处理**：API失败时使用默认值
+5. **编码处理**：正确处理中文和特殊字符
 
 ---
 

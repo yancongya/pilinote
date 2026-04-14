@@ -1006,7 +1006,8 @@ class BilibiliService:
 
                 video_data = data['videoData']
 
-                # 获取时长（从第一个分片）
+                # 获取aid和时长（从第一个分片）
+                aid = video_data.get("aid", 0)
                 duration = 0
                 pages = video_data.get("pages", [])
                 if pages and len(pages) > 0:
@@ -1015,6 +1016,8 @@ class BilibiliService:
                 return {
                     "success": True,
                     "data": {
+                        "aid": aid,  # 添加aid字段
+                        "bvid": bvid,
                         "desc": video_data.get("desc", ""),
                         "stat": video_data.get("stat", {}),
                         "owner": video_data.get("owner", {}),
@@ -1193,6 +1196,124 @@ class BilibiliService:
             return {
                 "success": False,
                 "message": f"获取图文详情异常: {str(e)}"
+            }
+
+    async def get_video_comments(self, aid: int, sessdata: str = "") -> Dict:
+        """
+        获取视频评论（置顶评论和热门评论）
+
+        Args:
+            aid: 视频AID
+            sessdata: SESSDATA（可选）
+
+        Returns:
+            Dict: 评论数据，包含置顶评论和热门评论
+        """
+        # 确保SESSDATA在headers中
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        # 使用B站评论API
+        url = f"{self.api_base}/x/v2/reply/main"
+        headers = await self.headers_manager.get_headers()
+        headers["Referer"] = f"https://www.bilibili.com/video/av{aid}"
+
+        try:
+            # 请求评论数据
+            params = {
+                "type": 1,  # 视频评论
+                "oid": aid,  # 视频AID
+                "mode": 3,  # 热门排序
+                "pagination_str": "{\"offset\":\"\"}"
+            }
+
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(url, headers=headers, params=params)
+                response.raise_for_status()
+                
+                # 处理Brotli压缩
+                content = response.content
+                if response.headers.get('content-encoding') == 'br':
+                    try:
+                        import brotli
+                        content = brotli.decompress(content)
+                    except ImportError:
+                        logger.warning("brotli库未安装，无法解压Brotli压缩的内容")
+                        return {
+                            "success": False,
+                            "message": "需要安装brotli库: pip install brotli"
+                        }
+                
+                # 解码JSON
+                content_text = content.decode('utf-8', errors='ignore')
+                data = json.loads(content_text)
+
+                if data.get("code") != 0:
+                    return {
+                        "success": False,
+                        "message": f"获取评论失败: {data.get('message', '未知错误')}"
+                    }
+
+                replies_data = data.get("data", {})
+                replies = replies_data.get("replies", [])
+
+                # 提取置顶评论
+                top_comment = None
+                if replies and replies[0].get("is_top", False):
+                    top_comment = replies[0]
+
+                # 提取热门评论（按点赞数排序的前3条）
+                hot_comments = sorted(
+                    replies,
+                    key=lambda x: x.get("like", 0),
+                    reverse=True
+                )[:3]
+
+                # 格式化评论数据
+                formatted_comments = []
+
+                # 添加置顶评论
+                if top_comment:
+                    formatted_comments.append({
+                        "type": "top",
+                        "content": top_comment.get("content", {}).get("message", ""),
+                        "like": top_comment.get("like", 0),
+                        "reply": top_comment.get("rcount", 0),
+                        "author": top_comment.get("member", {}).get("name", ""),
+                        "time": top_comment.get("ctime", 0)
+                    })
+
+                # 添加热门评论
+                for comment in hot_comments:
+                    if not comment.get("is_top", False):  # 跳过置顶评论
+                        formatted_comments.append({
+                            "type": "hot",
+                            "content": comment.get("content", {}).get("message", ""),
+                            "like": comment.get("like", 0),
+                            "reply": comment.get("rcount", 0),
+                            "author": comment.get("member", {}).get("name", ""),
+                            "time": comment.get("ctime", 0)
+                        })
+
+                return {
+                    "success": True,
+                    "data": {
+                        "top_comment": top_comment,
+                        "hot_comments": hot_comments,
+                        "comments": formatted_comments,
+                        "total": replies_data.get("page", {}).get("count", 0)
+                    }
+                }
+
+        except json.JSONDecodeError as e:
+            return {
+                "success": False,
+                "message": f"JSON解析失败: {str(e)}"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"获取评论异常: {str(e)}"
             }
 
     def close(self):

@@ -187,6 +187,7 @@ async def get_video_info(self, bvid: str, sessdata: str = "") -> Dict:
         video_data = initial_state.get('videoData', {})
         
         return {
+            'aid': video_data.get('aid'),  # 视频AID，用于评论API
             'title': video_data.get('title'),
             'desc': video_data.get('desc'),
             'pic': video_data.get('pic'),
@@ -194,6 +195,32 @@ async def get_video_info(self, bvid: str, sessdata: str = "") -> Dict:
             'stat': video_data.get('stat'),
             'pubdate': video_data.get('pubdate')
         }
+```
+
+#### 评论数据获取
+```python
+async def get_video_comments(self, aid: int, sessdata: str = "") -> Dict:
+    """
+    获取视频评论数据
+    
+    Args:
+        aid: 视频AID
+        sessdata: B站SESSDATA
+        
+    Returns:
+        包含置顶评论和热门评论的字典
+    """
+    url = f"{self.api_base}/x/v2/reply/main"
+    params = {
+        "type": 1,  # 视频评论
+        "oid": aid,
+        "mode": 3,  # 热门排序
+        "pagination_str": "{\"offset\":\"\"}"
+    }
+    
+    # 请求API并解析响应
+    # 提取置顶评论和热门评论
+    # 返回格式化的评论数据
 ```
 
 ## 数据库交互

@@ -325,7 +325,7 @@ class DownloadService:
                 next_id = self.download_queue.pop(0)
                 asyncio.create_task(self._process_download(next_id))
     
-    def _generate_nfo_file(self, video_file_path: Path, download: Download, description: str = None, video_stats: dict = None, video_tags: list = None) -> None:
+    def _generate_nfo_file(self, video_file_path: Path, download: Download, description: str = None, video_stats: dict = None, video_tags: list = None, video_comments: list = None) -> None:
         """
         生成NFO元数据文件
         
@@ -335,6 +335,7 @@ class DownloadService:
             description: 视频描述（可选）
             video_stats: 视频统计数据（可选）
             video_tags: 视频标签列表（可选）
+            video_comments: 视频评论列表（可选）
         """
         try:
             # 从视频文件路径中提取目录和文件名

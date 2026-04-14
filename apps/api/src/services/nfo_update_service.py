@@ -67,6 +67,25 @@ class NFOUpdateService:
 
             # 3. 构建用于生成NFO的meta数据
             meta = self._build_meta_from_video_info(video_info, bvid)
+            
+            # 3.5. 获取评论数据（如果有aid）
+            if meta.get('aid'):
+                try:
+                    comments_result = await self.bilibili_service.get_video_comments(
+                        meta['aid'], 
+                        ""  # 不需要sessdata获取公开评论
+                    )
+                    
+                    if comments_result.get("success"):
+                        comments_data = comments_result.get("data", {})
+                        comments = comments_data.get("comments", [])
+                        if comments:
+                            meta['comments'] = comments
+                            logger.info(f"获取到{len(comments)}条评论")
+                except Exception as e:
+                    logger.warning(f"获取评论数据失败: {e}")
+                    # 评论获取失败不影响NFO更新
+                    pass
 
             # 4. 重新生成NFO内容
             nfo_content = self.nfo_handler._generate_nfo(meta)
@@ -231,6 +250,7 @@ class NFOUpdateService:
         """从视频信息构建NFO生成所需的meta数据"""
         return {
             "bvid": bvid,
+            "aid": video_info.get("aid", 0),  # 添加aid用于获取评论
             "title": video_info.get("title", ""),
             "desc": video_info.get("desc", ""),
             "owner": video_info.get("owner", {}),

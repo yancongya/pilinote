@@ -733,6 +733,140 @@
 
 **支持的文件类型**：.jpg, .jpeg, .png, .gif, .webp
 
+### 更新单个NFO文件
+
+更新单个NFO文件的元数据，从B站API获取最新的统计数据和评论数据并更新到NFO文件中。
+
+**请求体**：
+
+```json
+{
+  "nfo_path": "/path/to/video.nfo"
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video.nfo",
+    "updated": true,
+    "changes": {
+      "statistics": {
+        "play": 10000,
+        "like": 500,
+        "coin": 200,
+        "favorite": 100,
+        "share": 50,
+        "danmaku": 100,
+        "reply": 80
+      },
+      "rating": 8.5,
+      "tags": ["弹幕:100", "评论:80", "分享:50"],
+      "comments": [
+        {
+          "type": "top",
+          "author": "置顶用户",
+          "content": "这是置顶评论的内容",
+          "like": 5000,
+          "reply": 100,
+          "time": 1672531200
+        },
+        {
+          "type": "hot",
+          "author": "热门用户1",
+          "content": "这是第一条热门评论的内容",
+          "like": 3000,
+          "reply": 50,
+          "time": 1672531300
+        }
+      ]
+    }
+  },
+  "message": "NFO文件更新成功"
+}
+```
+
+### 批量更新NFO文件
+
+批量更新指定目录下的NFO文件，从B站API获取最新的统计数据和评论数据并更新到NFO文件中。
+
+**请求体**：
+
+```json
+{
+  "directory": "/path/to/downloads",
+  "limit": 10,
+  "offset": 0
+}
+```
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `directory` | string | 是 | - | 要扫描的目录路径 |
+| `limit` | int | 否 | 10 | 最大更新数量 |
+| `offset` | int | 否 | 0 | 偏移量（用于分批处理） |
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "total": 10,
+    "success_count": 8,
+    "failed_count": 2,
+    "results": [
+      {
+        "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video1.nfo",
+        "success": true,
+        "updated": true,
+        "changes": {
+          "statistics": {
+            "play": 10000,
+            "like": 500,
+            "coin": 200,
+            "favorite": 100,
+            "share": 50,
+            "danmaku": 100,
+            "reply": 80
+          },
+          "rating": 8.5,
+          "tags": ["弹幕:100", "评论:80", "分享:50"],
+          "comments": [
+            {
+              "type": "top",
+              "author": "置顶用户",
+              "content": "这是置顶评论的内容",
+              "like": 5000,
+              "reply": 100,
+              "time": 1672531200
+            }
+          ]
+        }
+      },
+      {
+        "nfo_path": "/Users/tanyancong/工作/开发/pilinote/downloads/video2.nfo",
+        "success": false,
+        "error": "BVID解析失败"
+      }
+    ]
+  },
+  "message": "批量更新完成：成功8个，失败2个"
+}
+```
+
+**使用场景**：
+
+1. **批量更新统计数据**：定期批量更新所有视频的播放量、点赞数等统计数据
+2. **同步最新数据**：从B站API获取最新的互动数据，保持NFO文件的时效性
+3. **数据补全**：为缺少统计数据的老视频补全NFO信息
+4. **评论数据更新**：同步最新的评论数据到NFO文件中
+
 ### 文件命名规范
 
 视频库采用统一的文件命名规范，确保跨系统兼容性和易于管理：

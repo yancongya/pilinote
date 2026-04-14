@@ -111,6 +111,15 @@ class SingleNfoHandler(BaseHandler):
                     lines.append(f'    <tag>{self._escape_xml(str(tag))}</tag>')
                 lines.append('  </tags>')
 
+        # 评论数据（置顶评论和热门评论）
+        if meta.get('comments') and len(meta['comments']) > 0:
+            lines.append('  <comments>')
+            for comment in meta['comments']:
+                lines.append(f'    <comment type="{comment.get("type", "unknown")}" like="{comment.get("like", 0)}" reply="{comment.get("reply", 0)}" author="{comment.get("author", "")}" time="{comment.get("time", 0)}">')
+                lines.append(f'      <content>{self._escape_xml(comment.get("content", ""))}</content>')
+                lines.append('    </comment>')
+            lines.append('  </comments>')
+
         lines.append('</movie>')
 
         return '\n'.join(lines)

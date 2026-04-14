@@ -328,6 +328,59 @@ class LocalLibraryService:
                 if tags:
                     metadata['tags'] = tags
             
+            # 提取评论数据
+            comments_elem = root.find('comments')
+            if comments_elem is not None:
+                comments = []
+                for comment_elem in comments_elem.findall('comment'):
+                    comment_data = {
+                        'type': comment_elem.get('type', 'unknown'),
+                        'content': '',
+                        'like': 0,
+                        'reply': 0,
+                        'author': '',
+                        'time': 0
+                    }
+                    
+                    # 提取评论内容
+                    content_elem = comment_elem.find('content')
+                    if content_elem is not None and content_elem.text:
+                        comment_data['content'] = content_elem.text
+                    
+                    # 提取点赞数
+                    like_attr = comment_elem.get('like')
+                    if like_attr:
+                        try:
+                            comment_data['like'] = int(like_attr)
+                        except ValueError:
+                            pass
+                    
+                    # 提取回复数
+                    reply_attr = comment_elem.get('reply')
+                    if reply_attr:
+                        try:
+                            comment_data['reply'] = int(reply_attr)
+                        except ValueError:
+                            pass
+                    
+                    # 提取作者
+                    author_attr = comment_elem.get('author')
+                    if author_attr:
+                        comment_data['author'] = author_attr
+                    
+                    # 提取时间
+                    time_attr = comment_elem.get('time')
+                    if time_attr:
+                        try:
+                            comment_data['time'] = int(time_attr)
+                        except ValueError:
+                            pass
+                    
+                    comments.append(comment_data)
+                
+                if comments:
+                    metadata['comments'] = comments
+            
             return metadata if metadata else None
             
         except Exception as e:
