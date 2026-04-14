@@ -107,7 +107,7 @@ async def get_video_comments(self, aid: int, sessdata: str = "") -> Dict:
                 if top_comment:
                     comments.append({
                         "type": "top",
-                        "author": top_comment.get("member", {}).get("name", "Unknown"),
+                        "author": top_comment.get("member", {}).get("uname", ""),
                         "content": top_comment.get("content", {}).get("message", ""),
                         "like": top_comment.get("like", 0),
                         "reply": top_comment.get("rcount", 0),
@@ -117,7 +117,7 @@ async def get_video_comments(self, aid: int, sessdata: str = "") -> Dict:
                 for comment in hot_comments:
                     comments.append({
                         "type": "hot",
-                        "author": comment.get("member", {}).get("name", "Unknown"),
+                        "author": comment.get("member", {}).get("uname", ""),
                         "content": comment.get("content", {}).get("message", ""),
                         "like": comment.get("like", 0),
                         "reply": comment.get("rcount", 0),
