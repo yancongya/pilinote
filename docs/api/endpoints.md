@@ -27,7 +27,7 @@
 | GET | `/api/auth/accounts` | - | 获取账号列表 |
 | GET | `/api/auth/accounts/{id}/credentials` | - | 获取验证数据 |
 | POST | `/api/auth/accounts/switch` | `?account_id=1` | 切换账号 |
-| POST | `/api/auth/accounts/refresh` | `?account_id=1` | 刷新账号 |
+| POST | `/api/auth/accounts/refresh` | `?account_id=1` | 刷新账号（支持路径参数：`/api/auth/accounts/{account_id}/refresh`） |
 | DELETE | `/api/auth/accounts/{id}` | - | 删除账号 |
 | GET | `/api/auth/accounts/refresh/status` | - | 获取刷新服务状态 |
 | POST | `/api/auth/accounts/refresh/start` | `?interval=3600` | 启动刷新服务 |
@@ -68,7 +68,7 @@
 
 | 方法 | 路径 | 参数 | 说明 |
 |------|------|------|------|
-| GET | `/api/watchlater/list` | `?pn=1&ps=20` | 获取稍后再看列表（支持分页） |
+| GET | `/api/watch-later/list` | `?pn=1&ps=20` | 获取稍后再看列表（支持分页） |
 | GET | `/api/video/{id}` | - | 获取视频详情 |
 
 ## 媒体接口
@@ -77,7 +77,7 @@
 |------|------|------|
 | GET | `/api/media/{media_type}/{media_id}` | 获取媒体信息（统一接口） |
 | GET | `/api/media/favorites/{fid}` | 获取收藏夹媒体信息 |
-| GET | `/api/media/watchlater` | 获取稍后再看媒体信息 |
+| GET | `/api/media/watch-later` | 获取稍后再看媒体信息 |
 
 ### 媒体类型支持
 
@@ -136,6 +136,170 @@
 | GET | `/api/queue/schedulers` | 获取调度器 |
 | POST | `/api/queue/schedulers` | 创建调度器 |
 | POST | `/api/queue/schedulers/{id}/start` | 启动调度器 |
+
+### 任务创建（POST /api/queue/tasks）
+
+创建新的下载任务。
+
+**请求参数**：
+
+| 字段 | 类型 | 必填 | 说明 | 约束 |
+|------|------|------|------|------|
+| `media_type` | string | 是 | 媒体类型 | 枚举值：`video`, `bangumi`, `music`, `music_list`, `lesson`, `watch_later`, `favorite`, `opus`, `opus_list`, `user_video`, `user_opus`, `user_audio` |
+| `media_id` | string | 是 | 媒体ID（如视频BV号、番剧ID等） | 长度：1-50字符 |
+| `title` | string | 否 | 任务标题 | 长度：最多200字符 |
+| `cover` | string | 否 | 封面图片URL | 长度：最多500字符 |
+| `desc` | string | 否 | 任务描述 | 长度：最多2000字符 |
+| `meta` | object | 否 | 元数据（包含cid、page等额外信息） | 必须是字典类型 |
+
+**请求示例**：
+
+```json
+{
+  "media_type": "video",
+  "media_id": "BV1xx411c7mD",
+  "title": "示例视频",
+  "cover": "https://example.com/cover.jpg",
+  "desc": "这是一个示例视频",
+  "meta": {
+    "cid": 123456,
+    "page": 1,
+    "part_title": "第1集"
+  }
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "任务提交成功",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "media_type": "video",
+    "media_id": "BV1xx411c7mD",
+    "title": "示例视频",
+    "state": 0,
+    "status": {},
+    "created_at": 1234567890
+  }
+}
+```
+
+**错误响应**：
+
+- `400`：参数验证失败
+  - `media_id 不能为空`
+  - `不支持的 media_type: xxx`
+  - `meta 必须是字典类型`
+- `422`：Pydantic 验证错误
+  - `Field required`（缺少必填字段）
+  - `String should have at least 1 character`（字符串太短）
+  - `String should have at most X characters`（字符串太长）
+
+### 调度器创建（POST /api/queue/schedulers）
+
+创建新的调度器（用于合集下载）。
+
+**请求参数**：
+
+| 字段 | 类型 | 必填 | 说明 | 约束 |
+|------|------|------|------|------|
+| `title` | string | 是 | 调度器标题（用于合集下载时的文件夹名称） | 长度：1-200字符，不能为空 |
+| `folder` | string | 是 | 输出文件夹路径（绝对路径或相对路径） | 长度：1-500字符，不能为空 |
+| `task_ids` | array | 否 | 任务ID列表（可选，如果不提供则从backlog队列获取） | 如果提供，必须是非空数组，每个ID必须是有效的UUID格式 |
+
+**请求示例**：
+
+```json
+{
+  "title": "我的视频合集",
+  "folder": "/downloads/my_videos",
+  "task_ids": [
+    "550e8400-e29b-41d4-a716-446655440000",
+    "660e8400-e29b-41d4-a716-446655440001"
+  ]
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "调度器创建成功",
+  "data": {
+    "id": "770e8400-e29b-41d4-a716-446655440002",
+    "title": "我的视频合集",
+    "list": ["550e8400-e29b-41d4-a716-446655440000"],
+    "count": 1,
+    "queue_type": 0,
+    "state": 0,
+    "folder": "/downloads/my_videos",
+    "created_at": 1234567890,
+    "updated_at": 1234567890
+  }
+}
+```
+
+**错误响应**：
+
+- `400`：参数验证失败
+  - `title 不能为空`
+  - `folder 不能为空`
+  - `task_ids 不能为空列表`
+  - `以下任务ID不存在: xxx`
+  - `task_id must be a valid UUID format: xxx`
+- `422`：Pydantic 验证错误
+  - `Field required`（缺少必填字段）
+  - `String should have at least 1 character`（字符串太短）
+  - `String should have at most X characters`（字符串太长）
+  - `Value error, task_ids cannot be an empty list`（task_ids为空数组）
+  - `Value error, task_id must be a valid UUID format: xxx`（UUID格式错误）
+
+### 参数验证规则总结
+
+#### 通用验证规则
+
+1. **字符串长度限制**：
+   - `media_id`：1-50 字符
+   - `title`：最多 200 字符
+   - `cover`：最多 500 字符
+   - `desc`：最多 2000 字符
+   - `folder`：1-500 字符
+
+2. **必填字段验证**：
+   - `media_type` 和 `media_id` 在任务创建时必填
+   - `title` 和 `folder` 在调度器创建时必填
+
+3. **枚举值验证**：
+   - `media_type` 必须是预定义的媒体类型之一
+   - `state` 必须是有效的任务状态值（0-6）
+
+4. **UUID 格式验证**：
+   - `task_ids` 中的每个ID必须是有效的UUID格式（8-4-4-4-12格式）
+
+5. **类型验证**：
+   - `meta` 必须是字典类型（object）
+   - `task_ids` 必须是数组类型
+
+#### 错误码说明
+
+| HTTP状态码 | 说明 | 处理建议 |
+|------------|------|----------|
+| 200 | 成功 | 正常处理 |
+| 400 | 参数验证失败 | 检查请求参数格式和值 |
+| 404 | 资源不存在 | 检查任务ID或调度器ID |
+| 422 | Pydantic验证错误 | 检查字段类型、长度、必填性 |
+| 500 | 服务器内部错误 | 检查服务器日志，联系管理员 |
+
+#### 最佳实践
+
+1. **前端验证**：在发送请求前，在前端进行基本验证（如必填字段、长度限制）
+2. **错误处理**：捕获并显示具体的错误消息，避免暴露服务器细节
+3. **用户体验**：提供清晰的字段说明和示例，帮助用户正确填写
+4. **日志记录**：服务器端记录验证失败的详细信息，便于调试
 
 ## 设置接口
 

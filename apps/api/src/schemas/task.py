@@ -57,12 +57,46 @@ class SubTask(BaseModel):
 
 class TaskCreate(BaseModel):
     """创建任务请求"""
-    media_type: MediaType
-    media_id: str
-    title: Optional[str] = None
-    cover: Optional[str] = None
-    desc: Optional[str] = None
-    meta: Optional[Dict[str, Any]] = None
+    media_type: MediaType = Field(
+        ...,
+        description="媒体类型（video/bangumi/music/lesson/watch_later/favorite/opus/user_video/user_opus/user_audio）"
+    )
+    media_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="媒体ID（如视频BV号、番剧ID等）",
+        examples=["BV1xx411c7mD"]
+    )
+    title: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="任务标题"
+    )
+    cover: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="封面图片URL"
+    )
+    desc: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="任务描述"
+    )
+    meta: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="元数据（包含cid、page等额外信息）"
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "media_type": "video",
+                "media_id": "BV1xx411c7mD",
+                "title": "示例视频",
+                "meta": {"cid": 123456, "page": 1}
+            }
+        }
 
 
 class TaskUpdate(BaseModel):

@@ -548,3 +548,201 @@ test.describe('添加到下载列表 - WebSocket验证', () => {
     test.skip();
   });
 });
+
+test.describe('添加到下载列表 - 参数验证测试', () => {
+  let apiContext: APIRequestContext;
+
+  test.beforeAll(async ({ playwright }) => {
+    apiContext = await playwright.request.newContext({
+      baseURL: BASE_URL,
+      extraHTTPHeaders: {
+        'Content-Type': 'application/json',
+      },
+    });
+  });
+
+  test.afterAll(async () => {
+    await apiContext.dispose();
+  });
+
+  test('创建任务 - media_id 为空应该失败', async () => {
+    const response = await apiContext.post('/api/queue/tasks', {
+      data: {
+        title: '测试视频',
+        media_type: 'video',
+        media_id: '',
+        meta: { cid: 123456 }
+      }
+    });
+
+    expect(response.status()).toBe(400);
+    const data = await response.json();
+    expect(data.detail).toContain('media_id');
+  });
+
+  test('创建任务 - media_id 缺失应该失败', async () => {
+    const response = await apiContext.post('/api/queue/tasks', {
+      data: {
+        title: '测试视频',
+        media_type: 'video',
+        meta: { cid: 123456 }
+      }
+    });
+
+    expect(response.status()).toBe(422); // 422 Unprocessable Entity (Pydantic validation error)
+  });
+
+  test('创建任务 - media_type 无效应该失败', async () => {
+    const response = await apiContext.post('/api/queue/tasks', {
+      data: {
+        title: '测试视频',
+        media_type: 'invalid_type',
+        media_id: 'BV1xx411c7mD',
+        meta: { cid: 123456 }
+      }
+    });
+
+    expect(response.status()).toBe(422); // 422 Unprocessable Entity (Pydantic validation error)
+  });
+
+  test('创建任务 - meta 不是字典类型应该失败', async () => {
+    const response = await apiContext.post('/api/queue/tasks', {
+      data: {
+        title: '测试视频',
+        media_type: 'video',
+        media_id: 'BV1xx411c7mD',
+        meta: "invalid_meta"
+      }
+    });
+
+    expect(response.status()).toBe(422); // 422 Unprocessable Entity (Pydantic validation error)
+  });
+
+  test('创建任务 - title 超过长度限制应该失败', async () => {
+    const longTitle = 'A'.repeat(201); // 超过200字符限制
+
+    const response = await apiContext.post('/api/queue/tasks', {
+      data: {
+        title: longTitle,
+        media_type: 'video',
+        media_id: 'BV1xx411c7mD',
+        meta: { cid: 123456 }
+      }
+    });
+
+    expect(response.status()).toBe(422); // 422 Unprocessable Entity (Pydantic validation error)
+  });
+
+  test('创建调度器 - title 为空应该失败', async () => {
+    const response = await apiContext.post('/api/queue/schedulers', {
+      data: {
+        title: '',
+        folder: '/path/to/folder'
+      }
+    });
+
+    expect(response.status()).toBe(400);
+    const data = await response.json();
+    expect(data.detail).toContain('title');
+  });
+
+  test('创建调度器 - title 缺失应该失败', async () => {
+    const response = await apiContext.post('/api/queue/schedulers', {
+      data: {
+        folder: '/path/to/folder'
+      }
+    });
+
+    expect(response.status()).toBe(422); // 422 Unprocessable Entity (Pydantic validation error)
+  });
+
+  test('创建调度器 - folder 为空应该失败', async () => {
+    const response = await apiContext.post('/api/queue/schedulers', {
+      data: {
+        title: '测试系列',
+        folder: ''
+      }
+    });
+
+    expect(response.status()).toBe(400);
+    const data = await response.json();
+    expect(data.detail).toContain('folder');
+  });
+
+  test('创建调度器 - folder 缺失应该失败', async () => {
+    const response = await apiContext.post('/api/queue/schedulers', {
+      data: {
+        title: '测试系列'
+      }
+    });
+
+    expect(response.status()).toBe(422); // 422 Unprocessable Entity (Pydantic validation error)
+  });
+
+  test('创建调度器 - task_ids 为空列表应该失败', async () => {
+    const response = await apiContext.post('/api/queue/schedulers', {
+      data: {
+        title: '测试系列',
+        task_ids: [],
+        folder: '/path/to/folder'
+      }
+    });
+
+    expect(response.status()).toBe(400);
+    const data = await response.json();
+    expect(data.detail).toContain('task_ids');
+  });
+
+  test('创建调度器 - task_ids 无效格式应该失败', async () => {
+    const response = await apiContext.post('/api/queue/schedulers', {
+      data: {
+        title: '测试系列',
+        task_ids: ['invalid-uuid-format'],
+        folder: '/path/to/folder'
+      }
+    });
+
+    expect(response.status()).toBe(400);
+    const data = await response.json();
+    expect(data.detail).toContain('UUID');
+  });
+
+  test('创建任务 - 有效的media_type枚举值应该成功', async () => {
+    const validTypes = ['video', 'bangumi', 'music', 'lesson', 'watch_later', 'favorite', 'opus', 'user_video'];
+
+    for (const mediaType of validTypes) {
+      const response = await apiContext.post('/api/queue/tasks', {
+        data: {
+          title: `测试${mediaType}`,
+          media_type: mediaType,
+          media_id: 'BV1xx411c7mD',
+          meta: { cid: 123456 }
+        }
+      });
+
+      expect([200, 400, 500]).toContain(response.status());
+      // 注意：这里允许400或500，因为可能其他验证失败（如视频不存在）
+      // 但至少media_type枚举验证应该通过（不会返回422）
+    }
+  });
+
+  test('创建任务 - 所有必需字段都应该有验证', async () => {
+    const response = await apiContext.post('/api/queue/tasks', {
+      data: {}
+    });
+
+    expect(response.status()).toBe(422); // Pydantic验证错误
+
+    const data = await response.json();
+    expect(data.detail).toBeInstanceOf(Array);
+
+    // 检查是否验证了必需字段
+    const requiredFields = ['media_type', 'media_id'];
+    const detail = data.detail as Array<{loc: string[], msg: string, type: string}>;
+
+    for (const field of requiredFields) {
+      const fieldError = detail.find(err => err.loc.includes(field));
+      expect(fieldError).toBeDefined();
+    }
+  });
+});

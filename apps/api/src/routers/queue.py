@@ -65,16 +65,43 @@ async def submit_task(task_create: TaskCreate):
     print(f"[DEBUG] submit_task called with: {task_create}")
     print(f"[DEBUG] task_create.meta: {task_create.meta}")
     logger.info(f"submit_task called with meta: {task_create.meta}")
+
     try:
+        # 验证必填字段
+        if not task_create.media_id or not task_create.media_id.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="media_id 不能为空"
+            )
+
+        # 验证media_type
+        if task_create.media_type not in ["video", "bangumi", "music", "music_list", "lesson", "watch_later", "favorite", "opus", "opus_list", "user_video", "user_opus", "user_audio"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的 media_type: {task_create.media_type}"
+            )
+
+        # 验证meta字段（如果提供）
+        if task_create.meta is not None and not isinstance(task_create.meta, dict):
+            raise HTTPException(
+                status_code=400,
+                detail="meta 必须是字典类型"
+            )
+
         task = await queue_manager.submit_backlog(task_create)
         return ApiResponse(
             success=True,
             message="任务提交成功",
             data=task
         )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"参数验证失败: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to submit task: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to submit task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"任务提交失败: {str(e)}")
 
 
 @router.get("/tasks/{task_id}", response_model=ApiResponse)
@@ -397,17 +424,57 @@ async def _execute_single_task(task_id: str):
 async def create_scheduler(scheduler_create: SchedulerCreate):
     """Create scheduler"""
     try:
+        # 验证必填字段
+        if not scheduler_create.title or not scheduler_create.title.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="title 不能为空"
+            )
+
+        if not scheduler_create.folder or not scheduler_create.folder.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="folder 不能为空"
+            )
+
+        # 验证task_ids（如果提供）
+        if scheduler_create.task_ids is not None:
+            if len(scheduler_create.task_ids) == 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="task_ids 不能为空列表"
+                )
+
+            # 验证每个任务ID是否存在
+            valid_task_ids = []
+            invalid_task_ids = []
+            for task_id in scheduler_create.task_ids:
+                task = await queue_manager.get_task(task_id)
+                if task:
+                    valid_task_ids.append(task_id)
+                else:
+                    invalid_task_ids.append(task_id)
+
+            if invalid_task_ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"以下任务ID不存在: {', '.join(invalid_task_ids)}"
+                )
+
         scheduler = await queue_manager.plan_scheduler(scheduler_create)
         return ApiResponse(
             success=True,
             message="调度器创建成功",
             data=scheduler
         )
+    except HTTPException:
+        raise
     except ValueError as e:
+        logger.error(f"参数验证失败: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to create scheduler: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to create scheduler: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"调度器创建失败: {str(e)}")
 
 
 @router.delete("/tasks/batch", response_model=ApiResponse)
