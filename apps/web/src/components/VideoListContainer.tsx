@@ -1,5 +1,5 @@
 import { ReactNode, RefObject } from 'react'
-import VideoListCard from '../pages/components/VideoListCard'
+import VideoListCard from '../pages/components/VideoListCard.refactored'
 
 export interface Video {
   id: string
