@@ -1345,11 +1345,31 @@ body {
   outline-offset: 2px;
 }
 
-/* 视频网格样式 */
-.video-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+/* 视频网格样式 - 响应式布局 */
+.video-list.video-grid {
+  display: grid !important;
   gap: 16px;
+  
+  /* 移动端：单列布局 */
+  grid-template-columns: 1fr;
+  
+  /* 平板及以上：2列布局 */
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  
+  /* 桌面端：3列布局 */
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  
+  /* 大屏幕：4列布局 */
+  @media (min-width: 1280px) {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+  }
 }
 
 /* 桌面模式布局优化 */
@@ -1370,10 +1390,6 @@ body {
   .content-inner {
     width: 100%;
     padding: 24px;
-  }
-
-  .video-grid {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   }
 }
 
@@ -1459,6 +1475,35 @@ body {
   font-size: 12px;
   color: var(--color-text-secondary);
   font-weight: 600;
+}
+
+/* 桌面端视频卡片优化 */
+@media (min-width: 1024px) {
+  .video-card {
+    border-radius: 12px;
+  }
+
+  .video-info {
+    padding: 12px;
+  }
+
+  .video-info h3 {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .video-meta p {
+    font-size: 12px;
+  }
+
+  .video-meta span {
+    font-size: 11px;
+  }
+
+  .video-duration-overlay {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
 }
 
 /* 视频列表样式 */
@@ -4074,7 +4119,7 @@ body {
 .group-date {
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4903,7 +4948,7 @@ body {
   flex: 1;
   font-size: 16px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -4938,7 +4983,7 @@ body {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--color-text-primary);
 }
 
 .stat-value.completed {
@@ -5644,7 +5689,7 @@ body {
 #downloads-panel .section-header {
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--color-bg-primary);
   backdrop-filter: blur(10px);
   padding: 16px 20px;
   border-radius: 0;
@@ -9233,6 +9278,14 @@ body {
   flex-wrap: nowrap !important;
   gap: 12px !important;
   flex-direction: row !important;
+}
+
+/* section-header内的h2标题特别处理 */
+#favorites-panel .section-header h2,
+#watchlater-panel .section-header h2,
+.dark #favorites-panel .section-header h2,
+.dark #watchlater-panel .section-header h2 {
+  color: var(--color-text-primary) !important;
 }
 
 #favorites-panel .section-title,

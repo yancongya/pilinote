@@ -110,7 +110,7 @@ export default function VideoListContainer({
 
       {/* 视频列表 */}
       {!loading && !error && (
-        <div className="video-list" role="list" aria-label="视频列表">
+        <div className="video-list video-grid" role="list" aria-label="视频列表">
           {/* 批量选择头部 */}
           {batchMode && batchSelectHeader && onSelectAll && (
             <div className="batch-select-header">

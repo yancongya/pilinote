@@ -42,6 +42,65 @@ export const Header = styled.header`
 `;
 
 /**
+ * 移动端菜单切换按钮
+ */
+export const MobileMenuToggle = styled.button`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  ${SmoothTransition}
+  
+  &:hover {
+    background: var(--color-bg-tertiary);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (min-width: 768px) {
+    display: none;
+  }
+`;
+
+/**
+ * 导航模式切换按钮
+ */
+export const NavModeToggle = styled.button`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  ${SmoothTransition}
+  
+  &:hover {
+    background: var(--color-bg-tertiary);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (min-width: 768px) {
+    width: 40px;
+    height: 40px;
+  }
+`;
+
+/**
  * 标题区域
  */
 export const HeaderLeft = styled.div`
@@ -240,14 +299,58 @@ export const MainContent = styled.div`
 /**
  * 侧边栏（桌面端）
  */
-export const Sidebar = styled.aside`
+export const Sidebar = styled.aside<{ $mobileOpen?: boolean; $mode?: 'sidebar' | 'bottom' }>`
   display: none;
   width: 240px;
   padding: 16px 0;
   border-right: 1px solid var(--color-border);
+  position: relative;
+  z-index: 50;
+  
+  ${(props) => props.$mode === 'bottom' && css`
+    @media (min-width: 768px) {
+      display: none;
+    }
+  `}
+  
+  ${(props) => props.$mode === 'sidebar' && css`
+    @media (min-width: 768px) {
+      display: block;
+    }
+  `}
+  
+  /* 移动端侧边栏 */
+  @media (max-width: 767px) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    background: var(--color-bg-primary);
+    border-right: 1px solid var(--color-border);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1001;
+    padding: 80px 0 20px 0;
+    
+    ${(props) => props.$mobileOpen && css`
+      transform: translateX(0);
+    `}
+  }
+`;
+
+/**
+ * 移动端侧边栏遮罩
+ */
+export const MobileSidebarOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: ${fadeIn} 0.2s ease;
   
   @media (min-width: 768px) {
-    display: block;
+    display: none;
   }
 `;
 
@@ -330,7 +433,7 @@ export const ContentWrapper = styled.div`
 /**
  * 底部导航栏（移动端）
  */
-export const BottomNav = styled.nav`
+export const BottomNav = styled.nav<{ $visible?: boolean }>`
   position: fixed;
   bottom: 0;
   left: 0;
@@ -343,9 +446,19 @@ export const BottomNav = styled.nav`
   align-items: center;
   z-index: 1000;
   padding-bottom: env(safe-area-inset-bottom);
+  ${SmoothTransition}
+  
+  ${(props) => !props.$visible && css`
+    display: none;
+  `}
   
   @media (min-width: 768px) {
-    display: none;
+    ${(props) => props.$visible && css`
+      display: flex;
+    `}
+    ${(props) => !props.$visible && css`
+      display: none;
+    `}
   }
 `;
 

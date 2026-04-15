@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
-import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn } from 'lucide-react'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 import { useTheme } from '../theme/context/ThemeContext'
@@ -27,6 +27,8 @@ function MainLayout() {
   const { mode, toggleTheme } = useTheme()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
+  const [navMode, setNavMode] = useState<'sidebar' | 'bottom'>('sidebar')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -94,15 +96,38 @@ function MainLayout() {
     navigate('/settings')
   }
 
+  const toggleNavMode = () => {
+    setNavMode(prev => prev === 'sidebar' ? 'bottom' : 'sidebar')
+    setMobileMenuOpen(false)
+  }
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
+
   return (
     <S.MainContainer $activeTab={activeTab}>
       <S.Header>
         <S.HeaderLeft>
+          <S.MobileMenuToggle
+            onClick={toggleMobileMenu}
+            title="菜单"
+            aria-label="菜单"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </S.MobileMenuToggle>
           <S.Logo>PiliNote</S.Logo>
         </S.HeaderLeft>
         <S.HeaderRight>
           {user ? (
             <>
+              <S.NavModeToggle
+                onClick={toggleNavMode}
+                title={navMode === 'sidebar' ? '切换到底部导航' : '切换到侧边栏'}
+                aria-label="切换导航模式"
+              >
+                {navMode === 'sidebar' ? <Download size={18} /> : <Menu size={18} />}
+              </S.NavModeToggle>
               <S.DarkModeToggle
                 onClick={toggleTheme}
                 title={mode === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
@@ -158,7 +183,13 @@ function MainLayout() {
       </S.Header>
 
       <S.MainContent>
-        <S.Sidebar>
+        {/* 移动端侧边栏遮罩 */}
+        {mobileMenuOpen && (
+          <S.MobileSidebarOverlay onClick={() => setMobileMenuOpen(false)} />
+        )}
+
+        {/* 桌面端侧边栏或移动端侧边栏 */}
+        <S.Sidebar $mobileOpen={mobileMenuOpen} $mode={navMode}>
           <S.SidebarNav role="tablist" aria-label="功能导航">
             {navItems.map((item) => (
               <S.SidebarTab
@@ -167,7 +198,10 @@ function MainLayout() {
                 aria-selected={activeTab === item.id}
                 aria-controls={`${item.id}-panel`}
                 $active={activeTab === item.id}
-                onClick={() => handleTabChange(item.path)}
+                onClick={() => {
+                  handleTabChange(item.path)
+                  setMobileMenuOpen(false)
+                }}
                 tabIndex={activeTab === item.id ? 0 : -1}
               >
                 <item.icon className="sidebar-icon" />
@@ -203,7 +237,12 @@ function MainLayout() {
         </S.ContentArea>
       </S.MainContent>
 
-      <S.BottomNav role="navigation" aria-label="底部导航">
+      {/* 底部导航栏 */}
+      <S.BottomNav 
+        role="navigation" 
+        aria-label="底部导航"
+        $visible={navMode === 'bottom'}
+      >
         {navItems.map((item) => (
           <S.NavItem
             key={item.id}

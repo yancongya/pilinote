@@ -12,12 +12,99 @@
 
 ### 1. 布局管理
 
-- **顶部导航栏**：应用标题、WiFi图标、暗色模式切换按钮
-- **侧边栏**：桌面端导航菜单
+- **顶部导航栏**：应用标题、WiFi图标、导航模式切换按钮、暗色模式切换按钮
+- **侧边栏**：桌面端导航菜单，支持侧边栏/底部导航模式切换
 - **内容区域**：主要业务内容显示
-- **底部导航**：移动端导航栏
+- **底部导航**：移动端导航栏，支持侧边栏/底部导航模式切换
+- **移动端菜单**：移动端侧边栏菜单，支持从左侧滑出
 
-### 2. 主题切换
+### 2. 导航模式切换
+
+#### 导航模式切换功能
+
+**切换按钮位置**：顶部导航栏WiFi图标右侧
+
+**图标**：
+- 侧边栏模式：下载图标（`Download`）
+- 底部导航模式：菜单图标（`Menu`）
+
+**功能特性**：
+- 点击切换侧边栏/底部导航模式
+- 桌面端和移动端都支持模式切换
+- 切换后自动关闭移动端菜单
+- 模式状态在组件内管理，不持久化
+
+#### 实现方式
+
+```typescript
+const [navMode, setNavMode] = useState<'sidebar' | 'bottom'>('sidebar')
+
+const toggleNavMode = () => {
+  setNavMode(prev => prev === 'sidebar' ? 'bottom' : 'sidebar')
+  setMobileMenuOpen(false)
+}
+```
+
+#### 模式说明
+
+**侧边栏模式**：
+- 桌面端：显示左侧侧边栏导航
+- 移动端：隐藏底部导航，通过菜单按钮打开侧边栏
+
+**底部导航模式**：
+- 桌面端：隐藏侧边栏，显示底部导航栏
+- 移动端：显示底部导航栏，隐藏侧边栏
+
+### 3. 移动端菜单
+
+#### 移动端菜单功能
+
+**菜单按钮位置**：顶部导航栏左侧（仅移动端显示）
+
+**图标**：
+- 菜单关闭：菜单图标（`Menu`）
+- 菜单打开：关闭图标（`X`）
+
+**功能特性**：
+- 点击打开/关闭移动端侧边栏
+- 侧边栏从左侧滑出，带动画效果
+- 半透明遮罩背景，点击遮罩关闭菜单
+- 选择菜单项后自动关闭菜单
+- 切换导航模式时自动关闭菜单
+
+#### 实现方式
+
+```typescript
+const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+const toggleMobileMenu = () => {
+  setMobileMenuOpen(!mobileMenuOpen)
+}
+
+// 侧边栏点击事件
+onClick={() => {
+  handleTabChange(item.path)
+  setMobileMenuOpen(false) // 选择菜单项后关闭
+}}
+```
+
+#### 移动端侧边栏样式
+
+**侧边栏**：
+- 固定定位，从左侧滑出
+- 宽度280px，高度100%
+- 背景色使用主题变量
+- 带平滑过渡动画
+- z-index: 1001，确保在最上层
+
+**遮罩层**：
+- 固定定位，覆盖全屏
+- 半透明黑色背景（rgba(0, 0, 0, 0.5)）
+- z-index: 1000，在侧边栏下方
+- 点击关闭侧边栏
+- 带淡入动画效果
+
+### 4. 主题切换
 
 #### 主题切换功能
 
@@ -69,13 +156,13 @@ useEffect(() => {
 }, [])
 ```
 
-### 3. 认证状态管理
+### 5. 认证状态管理
 
 - 检查用户登录状态
 - 显示登录提示界面
 - 管理用户会话
 
-### 4. 路由管理
+### 6. 路由管理
 
 - 使用 React Router 管理页面路由
 - 支持嵌套路由
@@ -127,6 +214,8 @@ useEffect(() => {
 function MainLayout() {
   const { isAuthenticated, user } = useAuthStore()
   const [darkMode, setDarkMode] = useState(false)
+  const [navMode, setNavMode] = useState<'sidebar' | 'bottom'>('sidebar')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   return (
     <div className="app">
@@ -134,18 +223,30 @@ function MainLayout() {
       <Header 
         darkMode={darkMode}
         onToggleDarkMode={toggleDarkMode}
+        navMode={navMode}
+        onToggleNavMode={toggleNavMode}
+        mobileMenuOpen={mobileMenuOpen}
+        onToggleMobileMenu={toggleMobileMenu}
       />
       
       {/* 主体内容 */}
       <main className="app-main">
-        {/* 桌面端侧边栏 */}
-        <Sidebar />
+        {/* 移动端侧边栏遮罩 */}
+        {mobileMenuOpen && (
+          <MobileSidebarOverlay onClick={() => setMobileMenuOpen(false)} />
+        )}
+        
+        {/* 侧边栏（支持桌面端和移动端） */}
+        <Sidebar 
+          mobileOpen={mobileMenuOpen}
+          mode={navMode}
+        />
         
         {/* 内容区域 */}
         <Content />
         
-        {/* 移动端底部导航 */}
-        <BottomNav />
+        {/* 底部导航（根据模式显示/隐藏） */}
+        <BottomNav visible={navMode === 'bottom'} />
       </main>
     </div>
   )
@@ -244,23 +345,82 @@ function LoginPrompt({ message }: { message: string }) {
 
 | 断点 | 说明 |
 |------|------|
-| ≤ 768px | 移动端 - 显示底部导航，隐藏侧边栏 |
-| ≥ 769px | 桌面端 - 显示侧边栏，隐藏底部导航 |
+| ≤ 767px | 移动端 - 显示菜单按钮，根据导航模式显示侧边栏或底部导航 |
+| ≥ 768px | 桌面端 - 根据导航模式显示侧边栏或底部导航 |
 
-### 布局切换
+### 导航模式响应式行为
+
+**侧边栏模式**：
+- 桌面端（≥768px）：显示左侧固定侧边栏
+- 移动端（≤767px）：隐藏侧边栏，显示菜单按钮，点击后从左侧滑出侧边栏
+
+**底部导航模式**：
+- 桌面端（≥768px）：隐藏侧边栏，显示底部导航栏
+- 移动端（≤767px）：显示底部导航栏，隐藏侧边栏
+
+### 布局切换实现
 
 ```tsx
-// 移动端
-@media (max-width: 768px) {
-  .home-sidebar { display: none; }
-  .bottom-nav { display: flex; }
-}
+// 侧边栏响应式显示
+const Sidebar = styled.aside<{ $mobileOpen?: boolean; $mode?: 'sidebar' | 'bottom' }>`
+  display: none;
+  width: 240px;
+  
+  /* 根据导航模式控制桌面端显示 */
+  ${(props) => props.$mode === 'bottom' && css`
+    @media (min-width: 768px) {
+      display: none;
+    }
+  `}
+  
+  ${(props) => props.$mode === 'sidebar' && css`
+    @media (min-width: 768px) {
+      display: block;
+    }
+  `}
+  
+  /* 移动端侧边栏 */
+  @media (max-width: 767px) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1001;
+    
+    ${(props) => props.$mobileOpen && css`
+      transform: translateX(0);
+    `}
+  }
+`;
 
-// 桌面端
-@media (min-width: 769px) {
-  .home-sidebar { display: flex; }
-  .bottom-nav { display: none; }
-}
+// 底部导航响应式显示
+const BottomNav = styled.nav<{ $visible?: boolean }>`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  
+  /* 根据可见性控制 */
+  ${(props) => !props.$visible && css`
+    display: none;
+  `}
+  
+  /* 桌面端根据导航模式显示 */
+  @media (min-width: 768px) {
+    ${(props) => props.$visible && css`
+      display: flex;
+    `}
+  }
+`;
+
+// 移动端菜单按钮
+const MobileMenuToggle = styled.button`
+  @media (min-width: 768px) {
+    display: none;  /* 桌面端隐藏 */
+  }
+`;
 ```
 
 ## 性能优化
@@ -284,6 +444,25 @@ function LoginPrompt({ message }: { message: string }) {
 - [侧边栏组件](../components/sidebar.md) - 侧边栏导航组件
 
 ## 更新日志
+
+### 2026-04-15 - 导航模式和移动端菜单增强
+
+#### 新增
+- **导航模式切换**：支持侧边栏/底部导航模式切换，桌面端和移动端都可用
+- **移动端菜单按钮**：在移动端添加汉堡菜单按钮，用于打开侧边栏
+- **移动端侧边栏**：移动端侧边栏从左侧滑出，带动画效果和遮罩层
+- **导航模式切换按钮**：在顶部导航栏添加导航模式切换按钮
+
+#### 更新
+- **响应式布局优化**：根据导航模式和设备类型动态调整布局
+- **移动端交互优化**：选择菜单项后自动关闭侧边栏，切换导航模式时自动关闭菜单
+- **样式组件增强**：使用styled-components实现响应式布局和动画效果
+
+#### 技术亮点
+- **模式状态管理**：使用React状态管理导航模式和移动端菜单状态
+- **平滑动画**：侧边栏滑出/收起使用CSS transition实现平滑动画
+- **遮罩层交互**：半透明遮罩层，点击即可关闭侧边栏
+- **响应式断点**：768px断点区分移动端和桌面端行为
 
 ### 2026-04-15 - 暗色模式全面实现
 
