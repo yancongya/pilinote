@@ -8,6 +8,7 @@
 
 | 组件 | 说明 | 文档 |
 |------|------|------|
+| MainLayout | 主布局组件（智能响应式侧边栏） | [main-layout.md](main-layout.md) |
 | HomeContent | 首页内容（链接解析/预览卡片） | [home-content.md](home-content.md) |
 | VideoDetailPage | 视频/图文详情页 | [video-detail-page.md](video-detail-page.md) |
 | VideoListContainer | 视频列表容器 | [video-list-container.md](video-list-container.md) |

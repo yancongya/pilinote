@@ -14,6 +14,9 @@
 - API 服务
 - 路由
 - WebSocket 连接
+- 智能响应式侧边栏系统
+- 拖拽调整宽度功能
+- 自动收缩机制
 
 ### 2. 主题系统
 **文件**: [theme-system.md](theme-system.md)
@@ -26,19 +29,21 @@
 - 已适配的组件列表
 - 颜色使用规范
 - 暗色模式设计原则
+- 主题切换修复记录
 
 ### 3. 前端组件
-**文件**: [components/README.md](../components/README.md)
+**文件**: [../components/README.md](../components/README.md)
 
 内容：
-- Modal
-- Toast
-- AlertModal
-- ConfirmModal
-- VideoListContainer
-- BatchActionsBar
+- MainLayout - 主布局组件（智能响应式侧边栏）
+- Modal - 模态框组件
+- Toast - 消息提示组件
+- AlertModal - 警告模态框
+- ConfirmModal - 确认模态框
+- VideoListContainer - 视频列表容器
+- BatchActionsBar - 批量操作栏
 
-### 3. 下载列表组件
+### 4. 下载列表组件
 **文件**: [downloads-list.md](downloads-list.md)
 
 内容：
@@ -53,7 +58,7 @@
 - 文件命名规范
 - 时间显示格式
 
-### 4. 视频库组件
+### 5. 视频库组件
 **组件位置**: `apps/web/src/components/NewDownload/VideoLibrary.tsx`
 
 内容：
@@ -72,6 +77,25 @@
 - 支持按大小、名称、创建时间排序
 - 统计显示（系列数、视频数、总大小）
 - 下载完成后自动刷新（5秒延迟）
+
+### 6. 智能响应式侧边栏系统
+**组件位置**: `apps/web/src/components/MainLayout.refactored.tsx`
+
+内容：
+- 自动响应式切换（基于屏幕尺寸）
+- 拖拽调整宽度功能（180px-400px）
+- 智能收缩机制（200px阈值）
+- 双重折叠触发方式
+- 固定高度独立滚动
+- 自定义滚动条样式
+
+**核心功能**：
+- 移动端（< 768px）：自动显示底部导航
+- 桌面端（≥ 768px）：自动显示左侧固定侧边栏
+- 拖拽侧边栏右侧边界调整宽度
+- 点击底部折叠按钮切换展开/收缩
+- 侧边栏和内容区域独立滚动
+- 实时响应窗口尺寸变化
 
 ---
 
