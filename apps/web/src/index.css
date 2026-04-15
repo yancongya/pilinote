@@ -37,12 +37,12 @@ body {
 
 .dark .home-header {
   background: #1a1a1a;
-  border-bottom-color: #2a2a2a;
+  border-bottom-color: var(--color-border);
 }
 
 .dark .home-sidebar {
   background: #1a1a1a;
-  border-right-color: #2a2a2a;
+  border-right-color: var(--color-border);
 }
 
 .dark .home-content {
@@ -55,12 +55,12 @@ body {
 
 .dark .sidebar-tab:hover {
   background: rgba(37, 99, 235, 0.15);
-  color: #60A5FA;
+  color: var(--color-primary-400);
 }
 
 .dark .sidebar-tab.active {
   background: rgba(37, 99, 235, 0.2);
-  color: #60A5FA;
+  color: var(--color-primary-400);
 }
 
 .dark .section-title h2 {
@@ -151,7 +151,7 @@ body {
   align-items: center;
   justify-content: center;
   background: var(--color-bg-secondary);
-  border: 2px dashed #CBD5E1;
+  border: 2px dashed var(--color-border);
   border-radius: 10px;
   cursor: pointer;
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -160,7 +160,7 @@ body {
 
 .guest-mode-icon-btn:hover {
   background: var(--color-bg-secondary);
-  border-color: #94A3B8;
+  border-color: var(--color-text-tertiary);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -389,7 +389,7 @@ body {
   left: 0;
   width: 100%;
   background: #dcfce7;
-  color: #16a34a;
+  color: var(--color-success-600);
   padding: 12px 16px;
   font-size: 14px;
   border-radius: 0 0 8px 8px;
@@ -2194,7 +2194,7 @@ body {
   width: 48px;
   height: 48px;
   border: 4px solid rgba(102, 126, 234, 0.2);
-  border-top-color: #667eea;
+  border-top-color: var(--color-primary-600);
   margin-bottom: 16px;
 }
 
@@ -2306,7 +2306,7 @@ body {
   width: 64px;
   height: 64px;
   margin-bottom: 16px;
-  color: #cbd5e0;
+  color: var(--color-text-secondary);
 }
 
 .empty-text {
@@ -2573,12 +2573,12 @@ body {
 
 /* 暗色模式下的样式 */
 .dark .dark-mode-toggle {
-  color: #94A3B8;
+  color: var(--color-text-tertiary);
 }
 
 .dark .dark-mode-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #60A5FA;
+  color: var(--color-primary-400);
 }
 
 /* WebSocket 状态图标 - 纯图标带悬浮提示 */
@@ -2601,7 +2601,7 @@ body {
 }
 
 .ws-status-icon.ws-connected {
-  color: #22c55e;
+  color: var(--color-success-600);
 }
 
 .ws-status-icon.ws-disconnected {
@@ -2639,7 +2639,7 @@ body {
 
 .guest-avatar {
   background: var(--color-bg-secondary);
-  border: 2px dashed #CBD5E1;
+  border: 2px dashed var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2648,11 +2648,11 @@ body {
 .guest-avatar-icon {
   width: 18px;
   height: 18px;
-  color: #94A3B8;
+  color: var(--color-text-tertiary);
 }
 
 .guest-info:hover .guest-avatar {
-  border-color: #94A3B8;
+  border-color: var(--color-text-tertiary);
   background: var(--color-bg-secondary);
 }
 
@@ -3315,7 +3315,7 @@ body {
 }
 
 .download-btn.primary {
-  background: #fb7299;
+  background: var(--color-primary-600);
   color: white;
 }
 
@@ -4052,7 +4052,7 @@ body {
 }
 
 .tab-btn.active {
-  background: #fb7299;
+  background: var(--color-primary-600);
   color: white;
   box-shadow: 0 2px 8px rgba(251, 114, 153, 0.3);
 }
@@ -4277,7 +4277,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: #fb7299;
+  background: var(--color-primary-600);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -4414,7 +4414,7 @@ body {
 
 .state-btn {
   padding: 10px 24px;
-  background: #fb7299;
+  background: var(--color-primary-600);
   color: white;
   border: none;
   border-radius: 20px;
@@ -4432,7 +4432,7 @@ body {
   width: 32px;
   height: 32px;
   border: 3px solid var(--color-text-secondary);
-  border-top-color: #fb7299;
+  border-top-color: var(--color-primary-600);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -4569,8 +4569,8 @@ body {
   position: relative;
 }
 
-.tab-item.active { background: var(--color-bg-secondary); color: #fb7299; border: 2px solid #fb7299;
-  background: #fb7299;
+.tab-item.active { background: var(--color-bg-secondary); color: var(--color-primary-600); border: 2px solid var(--color-primary-600);
+  background: var(--color-primary-600);
   color: white;
 }
 
@@ -4594,12 +4594,12 @@ body {
 
 .tab-badge.downloading {
   background: #fff5f8;
-  color: #fb7299;
+  color: var(--color-primary-600);
 }
 
 .tab-badge.completed {
   background: #e8f5e9;
-  color: #4CAF50;
+  color: var(--color-success-600);
 }
 
 /* 内容区域 */
@@ -4736,7 +4736,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #fb7299;
+  color: var(--color-primary-600);
   font-weight: 600;
 }
 
@@ -4744,7 +4744,7 @@ body {
   content: '';
   width: 8px;
   height: 8px;
-  background: #fb7299;
+  background: var(--color-primary-600);
   border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -4771,7 +4771,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #fb7299 0%, #ff8fab 100%);
+  background: linear-gradient(90deg, var(--color-primary-600) 0%, #ff8fab 100%);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -4779,7 +4779,7 @@ body {
 .progress-text {
   font-size: 12px;
   font-weight: 700;
-  color: #fb7299;
+  color: var(--color-primary-600);
   min-width: 36px;
   text-align: right;
 }
@@ -4810,7 +4810,7 @@ body {
   width: 40px;
   height: 40px;
   border: 3px solid var(--color-text-secondary);
-  border-top-color: #fb7299;
+  border-top-color: var(--color-primary-600);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -4843,7 +4843,7 @@ body {
 
 .retry-btn {
   padding: 10px 24px;
-  background: #fb7299;
+  background: var(--color-primary-600);
   color: white;
   border: none;
   border-radius: 20px;
@@ -4987,7 +4987,7 @@ body {
 }
 
 .stat-value.completed {
-  color: #4CAF50;
+  color: var(--color-success-600);
 }
 
 /* 任务列表 */
@@ -5102,7 +5102,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #fb7299 0%, #ff8fab 100%);
+  background: linear-gradient(90deg, var(--color-primary-600) 0%, #ff8fab 100%);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -5119,7 +5119,7 @@ body {
 
 .progress-percent {
   font-weight: 700;
-  color: #fb7299;
+  color: var(--color-primary-600);
 }
 
 .progress-size,
@@ -5232,7 +5232,7 @@ body {
   width: 40px;
   height: 40px;
   border: 3px solid var(--color-text-secondary);
-  border-top-color: #fb7299;
+  border-top-color: var(--color-primary-600);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -5255,12 +5255,12 @@ body {
 
 .empty-icon {
   font-size: 64px;
-  color: #ccc;
+  color: var(--color-text-tertiary);
 }
 
 .retry-btn {
   padding: 10px 24px;
-  background: #fb7299;
+  background: var(--color-primary-600);
   color: white;
   border: none;
   border-radius: 20px;
@@ -5434,7 +5434,7 @@ body {
 
 .video-progress-bar {
   height: 100%;
-  background: #fb7299;
+  background: var(--color-primary-600);
   transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -5602,7 +5602,7 @@ body {
 
 .video-card-download-btn:hover {
   background: var(--color-bg-primary);
-  color: #fb7299;
+  color: var(--color-primary-600);
   transform: scale(1.15);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -6530,7 +6530,7 @@ body {
 }
 
 .modal-input::placeholder {
-  color: #94a3b8;
+  color: var(--color-text-tertiary);
 }
 
 .hint-text {
@@ -7820,7 +7820,7 @@ body {
   right: 38px;
   max-width: 240px;
   font-size: 11px;
-  color: #94A3B8;
+  color: var(--color-text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8040,12 +8040,12 @@ body {
 .modal-btn-danger {
   background: var(--color-error-600);
   color: white;
-  border-color: #DC2626;
+  border-color: var(--color-error-600);
 }
 
 .modal-btn-danger:hover:not(:disabled) {
-  background: #B91C1C;
-  border-color: #B91C1C;
+  background: var(--color-error-700);
+  border-color: var(--color-error-700);
 }
 
 .accounts-card:not(.active) {
@@ -8090,11 +8090,11 @@ body {
 
 .accounts-card-guest {
   background: var(--color-bg-secondary);
-  border: 2px dashed #CBD5E1;
+  border: 2px dashed var(--color-border);
 }
 
 .accounts-card-guest:hover {
-  border-color: #94A3B8;
+  border-color: var(--color-text-tertiary);
   background: var(--color-bg-secondary);
 }
 
@@ -8115,7 +8115,7 @@ body {
 .accounts-card-guest-icon {
   width: 24px;
   height: 24px;
-  color: #94A3B8;
+  color: var(--color-text-tertiary);
 }
 
 .accounts-card-info {
@@ -8196,12 +8196,12 @@ body {
 
 .accounts-card-delete-btn {
   background: transparent;
-  color: #DC2626;
+  color: var(--color-error-600);
 }
 
 .accounts-card-delete-btn:hover:not(:disabled) {
   background: transparent;
-  color: #B91C1C;
+  color: var(--color-error-700);
 }
 
 .accounts-card-action-icon {
@@ -8215,7 +8215,7 @@ body {
 
 .accounts-card-refresh-time {
   font-size: 12px;
-  color: #94A3B8;
+  color: var(--color-text-tertiary);
 }
 
 .accounts-card-actions-wrapper {
@@ -8403,7 +8403,7 @@ body {
   gap: 8px;
   padding: 12px 20px;
   background: #FEE2E2;
-  color: #DC2626;
+  color: var(--color-error-600);
   border: none;
   border-radius: 10px;
   font-size: 14px;
@@ -8426,7 +8426,7 @@ body {
 }
 
 .download-reset-btn:focus-visible {
-  outline: 2px solid #DC2626;
+  outline: 2px solid var(--color-error-600);
   outline-offset: 2px;
 }
 
@@ -8726,23 +8726,23 @@ body {
 
 .storage-action-btn-warning {
   background: #FEF3C7;
-  color: #D97706;
+  color: var(--color-warning-600);
 }
 
 .storage-action-btn-warning:hover:not(:disabled) {
   background: #FDE68A;
-  color: #B45309;
+  color: var(--color-warning-700);
   transform: translateY(-1px);
 }
 
 .storage-action-btn-danger {
   background: #FEE2E2;
-  color: #DC2626;
+  color: var(--color-error-600);
 }
 
 .storage-action-btn-danger:hover:not(:disabled) {
   background: #FECACA;
-  color: #B91C1C;
+  color: var(--color-error-700);
   transform: translateY(-1px);
 }
 
@@ -8891,12 +8891,12 @@ body {
 
 .cache-item-btn-warning {
   background: #FEF3C7;
-  color: #D97706;
+  color: var(--color-warning-600);
 }
 
 .cache-item-btn-warning:hover:not(:disabled) {
   background: #FDE68A;
-  color: #B45309;
+  color: var(--color-warning-700);
 }
 
 .cache-item-btn:disabled {
@@ -9200,13 +9200,13 @@ body {
 }
 
 .save-message-success {
-  border-left: 4px solid #10B981;
-  color: #10B981;
+  border-left: 4px solid var(--color-success-600);
+  color: var(--color-success-600);
 }
 
 .save-message-error {
-  border-left: 4px solid #EF4444;
-  color: #EF4444;
+  border-left: 4px solid var(--color-error-500);
+  color: var(--color-error-500);
 }
 
 .save-message-icon {
@@ -9250,8 +9250,8 @@ body {
 
 .storage-form-input-saving {
   padding-right: 40px;
-  border-color: #667eea;
-  background-color: #F8FAFC;
+  border-color: var(--color-primary-600);
+  background-color: var(--color-bg-secondary);
 }
 
 @keyframes spin {
@@ -9490,7 +9490,7 @@ body {
 
 /* 视频卡片选中状态 */
 .video-card.selected {
-  border: 2px solid #fb7299 !important;
+  border: 2px solid var(--color-primary-600) !important;
 }
 
 /* 手机模式优化 - 强制使用row布局 */
@@ -9693,7 +9693,7 @@ html {
 
 .progress-speed {
   font-size: 12px;
-  color: #42a5f5;
+  color: var(--color-primary-500);
   font-weight: 600;
 }
 
@@ -9782,7 +9782,7 @@ html {
 }
 
 .settings-fab-save-btn.saving {
-  background: #64748B;
+  background: var(--color-text-secondary);
   box-shadow: 0 4px 12px rgba(100, 116, 139, 0.4);
 }
 
@@ -9819,7 +9819,7 @@ html {
   background: var(--color-bg-primary);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--color-text-primary);
 }
 
 /* 历史记录列表头部 */
@@ -10223,7 +10223,7 @@ html {
 /* NewDownload 相关组件暗色模式 */
 .dark .download-menu {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
 }
 
 .dark .download-menu-item {
@@ -10231,17 +10231,17 @@ html {
 }
 
 .dark .download-menu-item:hover {
-  background: #2a2a2a;
+  background: var(--color-border);
 }
 
 .dark .filter-bar {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
 }
 
 .dark .filter-input {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -10260,12 +10260,12 @@ html {
 
 .dark .task-card {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
 }
 
 .dark .task-card:hover {
-  background: #2a2a2a;
-  border-color: #3a3a3a;
+  background: var(--color-border);
+  border-color: var(--color-divider);
 }
 
 .dark .task-card.selected {
@@ -10292,7 +10292,7 @@ html {
 
 .dark .settings-section {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
 }
 
 .dark .settings-section-title {
@@ -10304,11 +10304,11 @@ html {
 }
 
 .dark .settings-item {
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
 }
 
 .dark .settings-item:hover {
-  background: #2a2a2a;
+  background: var(--color-border);
 }
 
 .dark .settings-item-title {
@@ -10321,7 +10321,7 @@ html {
 
 .dark .settings-input {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -10332,7 +10332,7 @@ html {
 
 .dark .settings-select {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -10350,23 +10350,23 @@ html {
 }
 
 .dark .settings-button.secondary {
-  background: #2a2a2a;
+  background: var(--color-border);
   color: var(--color-text-primary);
 }
 
 .dark .settings-button.secondary:hover {
-  background: #3a3a3a;
+  background: var(--color-divider);
 }
 
 /* VideoListControls 暗色模式 */
 .dark .video-list-controls {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
 }
 
 .dark .control-input {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -10377,7 +10377,7 @@ html {
 
 .dark .control-select {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
@@ -10387,12 +10387,12 @@ html {
 
 .dark .control-button {
   background: var(--color-bg-secondary);
-  border-color: #2a2a2a;
+  border-color: var(--color-border);
   color: var(--color-text-primary);
 }
 
 .dark .control-button:hover {
-  background: #2a2a2a;
+  background: var(--color-border);
 }
 
 .dark .control-button:focus {
