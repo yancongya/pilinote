@@ -76,32 +76,29 @@ export const MobileMenuToggle = styled.button`
 `;
 
 /**
- * 侧边栏收缩切换按钮
+ * 侧边栏内部折叠按钮
  */
-export const SidebarCollapseToggle = styled.button`
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+export const SidebarCollapseButton = styled.button`
+  width: 100%;
+  height: 40px;
   border: none;
+  border-top: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   ${SmoothTransition}
+  margin-top: auto;
   
   &:hover {
     background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
   }
   
   &:active {
-    transform: scale(0.95);
-  }
-  
-  @media (min-width: 768px) {
-    width: 40px;
-    height: 40px;
+    background: var(--color-bg-hover);
   }
 `;
 

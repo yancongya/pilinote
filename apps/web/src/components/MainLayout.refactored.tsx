@@ -183,15 +183,6 @@ function MainLayout() {
         <S.HeaderRight>
           {user ? (
             <>
-              {!isMobile && (
-                <S.SidebarCollapseToggle
-                  onClick={toggleSidebarCollapsed}
-                  title={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
-                  aria-label={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
-                >
-                  {sidebarCollapsed ? <ArrowRightToLine size={18} /> : <ArrowLeftToLine size={18} />}
-                </S.SidebarCollapseToggle>
-              )}
               <S.DarkModeToggle
                 onClick={toggleTheme}
                 title={mode === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
@@ -278,6 +269,15 @@ function MainLayout() {
                   </S.SidebarTab>
                 ))}
               </S.SidebarNav>
+              
+              {/* 侧边栏折叠按钮 */}
+              <S.SidebarCollapseButton
+                onClick={toggleSidebarCollapsed}
+                title={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+                aria-label={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+              >
+                {sidebarCollapsed ? <ArrowRightToLine size={16} /> : <ArrowLeftToLine size={16} />}
+              </S.SidebarCollapseButton>
             </S.Sidebar>
             
             {/* 拖拽手柄 */}
