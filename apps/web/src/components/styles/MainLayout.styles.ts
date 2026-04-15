@@ -10,7 +10,7 @@ import { SmoothTransition } from '../../styles/animations/transitions';
 /**
  * 主容器
  */
-export const MainContainer = styled.div<{ activeTab?: string }>`
+export const MainContainer = styled.div<{ $activeTab?: string }>`
   min-height: 100vh;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
@@ -108,13 +108,13 @@ export const DarkModeToggle = styled.button`
 /**
  * WebSocket状态图标
  */
-export const WsStatusIcon = styled.div<{ connected?: boolean }>`
+export const WsStatusIcon = styled.div<{ $connected?: boolean }>`
   width: 36px;
   height: 36px;
   border-radius: 50%;
   border: none;
   background: var(--color-bg-secondary);
-  color: ${(props) => (props.connected ? '#10b981' : '#ef4444')};
+  color: ${(props) => (props.$connected ? '#10b981' : '#ef4444')};
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -203,7 +203,7 @@ export const UserName = styled.span`
 /**
  * 认证状态指示器
  */
-export const AuthStatus = styled.div<{ status?: 'initialized' | 'pending' | 'error' }>`
+export const AuthStatus = styled.div<{ $status?: 'initialized' | 'pending' | 'error' }>`
   width: 20px;
   height: 20px;
   border-radius: 50%;
@@ -214,7 +214,7 @@ export const AuthStatus = styled.div<{ status?: 'initialized' | 'pending' | 'err
   font-weight: bold;
   color: white;
   background: ${(props) => {
-    switch (props.status) {
+    switch (props.$status) {
       case 'initialized':
         return '#10b981';
       case 'error':
@@ -222,7 +222,7 @@ export const AuthStatus = styled.div<{ status?: 'initialized' | 'pending' | 'err
       default:
         return '#f59e0b';
     }
-  }};
+  }}
 `;
 
 /**
@@ -263,7 +263,7 @@ export const SidebarNav = styled.nav`
 /**
  * 侧边栏标签
  */
-export const SidebarTab = styled.button<{ active?: boolean }>`
+export const SidebarTab = styled.button<{ $active?: boolean }>`
   display: flex;
   align-items: center;
   gap: 12px;
@@ -278,7 +278,7 @@ export const SidebarTab = styled.button<{ active?: boolean }>`
   ${SmoothTransition}
   
   ${(props) =>
-    props.active &&
+    props.$active &&
     css`
       background: var(--color-primary-50);
       color: var(--color-primary-600);
@@ -301,10 +301,10 @@ export const SidebarTab = styled.button<{ active?: boolean }>`
 /**
  * 侧边栏图标
  */
-export const SidebarIcon = styled.svg<{ active?: boolean }>`
+export const SidebarIcon = styled.svg<{ $active?: boolean }>`
   width: 20px;
   height: 20px;
-  color: ${(props) => (props.active ? 'var(--color-primary-600)' : 'currentColor')};
+  color: ${(props) => (props.$active ? 'var(--color-primary-600)' : 'currentColor')};
 `;
 
 /**
@@ -352,7 +352,7 @@ export const BottomNav = styled.nav`
 /**
  * 底部导航项
  */
-export const NavItem = styled.button<{ active?: boolean }>`
+export const NavItem = styled.button<{ $active?: boolean }>`
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -370,7 +370,7 @@ export const NavItem = styled.button<{ active?: boolean }>`
   min-height: 56px; /* 移动端最小触控目标 */
   
   ${(props) =>
-    props.active &&
+    props.$active &&
     css`
       color: var(--color-primary-600);
     `}
@@ -383,18 +383,18 @@ export const NavItem = styled.button<{ active?: boolean }>`
 /**
  * 底部导航图标
  */
-export const NavIcon = styled.svg<{ active?: boolean }>`
+export const NavIcon = styled.svg<{ $active?: boolean }>`
   width: 24px;
   height: 24px;
-  color: ${(props) => (props.active ? 'var(--color-primary-600)' : 'currentColor')};
+  color: ${(props) => (props.$active ? 'var(--color-primary-600)' : 'currentColor')};
 `;
 
 /**
  * 底部导航标签
  */
-export const NavLabel = styled.span<{ active?: boolean }>`
+export const NavLabel = styled.span<{ $active?: boolean }>`
   font-size: 11px;
-  font-weight: ${(props) => (props.active ? '600' : '500')};
+  font-weight: ${(props) => (props.$active ? '600' : '500')};
 `;
 
 /**

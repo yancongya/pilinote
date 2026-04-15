@@ -11,7 +11,7 @@ import { HoverEffect } from '../animations/micro-interactions';
  * 基础卡片样式
  * 移动优先，触控优化
  */
-export const BaseCard = styled.div<{ elevated?: boolean; clickable?: boolean }>`
+export const BaseCard = styled.div<{ $elevated?: boolean; $clickable?: boolean }>`
   /* 移动优先 - 默认为移动端样式 */
   background-color: #ffffff;
   border-radius: 12px;
@@ -29,7 +29,7 @@ export const BaseCard = styled.div<{ elevated?: boolean; clickable?: boolean }>`
   }
   
   /* 悬浮效果 */
-  ${(props) => props.elevated && css`
+  ${(props) => props.$elevated && css`
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     
     @media (min-width: 768px) {
@@ -38,7 +38,7 @@ export const BaseCard = styled.div<{ elevated?: boolean; clickable?: boolean }>`
   `}
   
   /* 可点击效果 */
-  ${(props) => props.clickable && css`
+  ${(props) => props.$clickable && css`
     cursor: pointer;
     
     &:active {
@@ -54,14 +54,14 @@ export const BaseCard = styled.div<{ elevated?: boolean; clickable?: boolean }>`
 /**
  * 视频卡片
  */
-export const VideoCard = styled(BaseCard)<{ compact?: boolean }>`
+export const VideoCard = styled(BaseCard)<{ $compact?: boolean }>`
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
   
   /* 紧凑模式 */
-  ${(props) => props.compact && css`
+  ${(props) => props.$compact && css`
     flex-direction: row;
     align-items: center;
     gap: 12px;
@@ -81,7 +81,7 @@ export const VideoCard = styled(BaseCard)<{ compact?: boolean }>`
     overflow: hidden;
     position: relative;
     
-    ${(props) => props.compact && css`
+    ${(props) => props.$compact && css`
       width: 120px;
       height: 68px;
       flex-shrink: 0;
@@ -123,7 +123,7 @@ export const VideoCard = styled(BaseCard)<{ compact?: boolean }>`
     flex-direction: column;
     gap: 8px;
     
-    ${(props) => props.compact && css`
+    ${(props) => props.$compact && css`
       gap: 4px;
     `}
   }
@@ -142,7 +142,7 @@ export const VideoCard = styled(BaseCard)<{ compact?: boolean }>`
       -webkit-line-clamp: 2;
     }
     
-    ${(props) => props.compact && css`
+    ${(props) => props.$compact && css`
       font-size: 13px;
       -webkit-line-clamp: 1;
       
@@ -167,13 +167,13 @@ export const VideoCard = styled(BaseCard)<{ compact?: boolean }>`
 /**
  * 文件夹卡片
  */
-export const FolderCard = styled(BaseCard)<{ grid?: boolean }>`
+export const FolderCard = styled(BaseCard)<{ $grid?: boolean }>`
   display: flex;
   flex-direction: column;
   overflow: hidden;
   
   /* 网格模式 */
-  ${(props) => props.grid && css`
+  ${(props) => props.$grid && css`
     margin-bottom: 0;
   `}
   
@@ -258,7 +258,7 @@ export const SettingCard = styled(BaseCard)`
 /**
  * 任务卡片
  */
-export const TaskCard = styled(BaseCard)<{ status?: 'pending' | 'processing' | 'completed' | 'failed' }>`
+export const TaskCard = styled(BaseCard)<{ $status?: 'pending' | 'processing' | 'completed' | 'failed' }>`
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -290,7 +290,7 @@ export const TaskCard = styled(BaseCard)<{ status?: 'pending' | 'processing' | '
     text-transform: uppercase;
     
     ${(props) => {
-      switch (props.status) {
+      switch (props.$status) {
         case 'pending':
           return css`
             background: #fef3c7;
@@ -351,7 +351,7 @@ export const TaskCard = styled(BaseCard)<{ status?: 'pending' | 'processing' | '
 /**
  * 卡片网格容器
  */
-export const CardGrid = styled.div<{ columns?: 1 | 2 | 3 | 4 }>`
+export const CardGrid = styled.div<{ $columns?: 1 | 2 | 3 | 4 }>`
   display: grid;
   gap: 12px;
   grid-template-columns: 1fr;
@@ -366,7 +366,7 @@ export const CardGrid = styled.div<{ columns?: 1 | 2 | 3 | 4 }>`
   }
   
   ${(props) => {
-    switch (props.columns) {
+    switch (props.$columns) {
       case 1:
         return css`
           grid-template-columns: 1fr;

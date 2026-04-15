@@ -12,7 +12,7 @@ import { HoverEffect, FocusEffect } from '../animations/micro-interactions';
  * 基础按钮样式
  * 移动优先，触控优化
  */
-export const BaseButton = styled.button<{ size?: 'small' | 'medium' | 'large' }>`
+export const BaseButton = styled.button<{ $size?: 'small' | 'medium' | 'large' }>`
   /* 基础样式 */
   border: none;
   cursor: pointer;
@@ -31,7 +31,7 @@ export const BaseButton = styled.button<{ size?: 'small' | 'medium' | 'large' }>
   
   /* 尺寸变体 */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case 'small':
         return css`
           min-height: 36px;
@@ -56,7 +56,7 @@ export const BaseButton = styled.button<{ size?: 'small' | 'medium' | 'large' }>
     font-size: 14px;
     
     ${(props) => {
-      switch (props.size) {
+      switch (props.$size) {
         case 'small':
           return css`
             min-height: 32px;
@@ -127,7 +127,7 @@ export const GhostButton = styled(BaseButton)`
 /**
  * 图标按钮
  */
-export const IconButton = styled.button<{ size?: 'small' | 'medium' | 'large' }>`
+export const IconButton = styled.button<{ $size?: 'small' | 'medium' | 'large' }>`
   /* 基础样式 */
   border: none;
   cursor: pointer;
@@ -149,7 +149,7 @@ export const IconButton = styled.button<{ size?: 'small' | 'medium' | 'large' }>
   
   /* 尺寸变体 */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case 'small':
         return css`
           min-width: 36px;
@@ -177,7 +177,7 @@ export const IconButton = styled.button<{ size?: 'small' | 'medium' | 'large' }>
     height: 40px;
     
     ${(props) => {
-      switch (props.size) {
+      switch (props.$size) {
         case 'small':
           return css`
             min-width: 32px;

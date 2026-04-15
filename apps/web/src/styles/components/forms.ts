@@ -12,7 +12,7 @@ import { FocusEffect } from '../animations/micro-interactions';
  * 基础输入框样式
  * 移动优先，触控优化
  */
-export const BaseInput = styled.input<{ size?: 'small' | 'medium' | 'large' }>`
+export const BaseInput = styled.input<{ $size?: 'small' | 'medium' | 'large' }>`
   /* 基础样式 */
   width: 100%;
   border: 2px solid #e0e0e0;
@@ -29,7 +29,7 @@ export const BaseInput = styled.input<{ size?: 'small' | 'medium' | 'large' }>`
   
   /* 尺寸变体 */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case 'small':
         return css`
           min-height: 36px;
@@ -54,7 +54,7 @@ export const BaseInput = styled.input<{ size?: 'small' | 'medium' | 'large' }>`
     font-size: 14px;
     
     ${(props) => {
-      switch (props.size) {
+      switch (props.$size) {
         case 'small':
           return css`
             min-height: 32px;
@@ -104,7 +104,7 @@ export const BaseInput = styled.input<{ size?: 'small' | 'medium' | 'large' }>`
 /**
  * 文本域
  */
-export const BaseTextarea = styled.textarea<{ size?: 'small' | 'medium' | 'large' }>`
+export const BaseTextarea = styled.textarea<{ $size?: 'small' | 'medium' | 'large' }>`
   /* 基础样式 */
   width: 100%;
   border: 2px solid #e0e0e0;
@@ -122,7 +122,7 @@ export const BaseTextarea = styled.textarea<{ size?: 'small' | 'medium' | 'large
   
   /* 尺寸变体 */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case 'small':
         return css`
           min-height: 80px;
@@ -147,7 +147,7 @@ export const BaseTextarea = styled.textarea<{ size?: 'small' | 'medium' | 'large
     font-size: 14px;
     
     ${(props) => {
-      switch (props.size) {
+      switch (props.$size) {
         case 'small':
           return css`
             min-height: 60px;
@@ -197,7 +197,7 @@ export const BaseTextarea = styled.textarea<{ size?: 'small' | 'medium' | 'large
 /**
  * 下拉选择框
  */
-export const BaseSelect = styled.select<{ size?: 'small' | 'medium' | 'large' }>`
+export const BaseSelect = styled.select<{ $size?: 'small' | 'medium' | 'large' }>`
   /* 基础样式 */
   width: 100%;
   border: 2px solid #e0e0e0;
@@ -221,7 +221,7 @@ export const BaseSelect = styled.select<{ size?: 'small' | 'medium' | 'large' }>
   
   /* 尺寸变体 */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case 'small':
         return css`
           min-height: 36px;
@@ -246,7 +246,7 @@ export const BaseSelect = styled.select<{ size?: 'small' | 'medium' | 'large' }>
     font-size: 14px;
     
     ${(props) => {
-      switch (props.size) {
+      switch (props.$size) {
         case 'small':
           return css`
             min-height: 32px;
@@ -291,7 +291,7 @@ export const BaseSelect = styled.select<{ size?: 'small' | 'medium' | 'large' }>
 /**
  * 标签容器
  */
-export const Label = styled.label<{ size?: 'small' | 'medium' | 'large' }>`
+export const Label = styled.label<{ $size?: 'small' | 'medium' | 'large' }>`
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
@@ -299,7 +299,7 @@ export const Label = styled.label<{ size?: 'small' | 'medium' | 'large' }>`
   
   /* 尺寸变体 */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case 'small':
         return css`
           font-size: 13px;
@@ -331,11 +331,11 @@ export const ErrorMessage = styled.span`
 /**
  * 表单组容器
  */
-export const FormGroup = styled.div<{ spacing?: 'small' | 'medium' | 'large' }>`
+export const FormGroup = styled.div<{ $spacing?: 'small' | 'medium' | 'large' }>`
   margin-bottom: 16px;
   
   ${(props) => {
-    switch (props.spacing) {
+    switch (props.$spacing) {
       case 'small':
         return css`
           margin-bottom: 12px;

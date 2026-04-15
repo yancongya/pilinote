@@ -95,7 +95,7 @@ function MainLayout() {
   }
 
   return (
-    <S.MainContainer activeTab={activeTab}>
+    <S.MainContainer $activeTab={activeTab}>
       <S.Header>
         <S.HeaderLeft>
           <S.Logo>PiliNote</S.Logo>
@@ -111,7 +111,7 @@ function MainLayout() {
                 {mode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </S.DarkModeToggle>
               <S.WsStatusIcon
-                connected={connected}
+                $connected={connected}
                 title={connected ? 'WebSocket 已连接' : 'WebSocket 连接断开，正在重连...'}
               >
                 {connected ? <Wifi size={18} /> : <WifiOff size={18} />}
@@ -127,7 +127,7 @@ function MainLayout() {
                 />
                 <S.UserName>{user.username}</S.UserName>
                 <S.AuthStatus
-                  status={authStatus}
+                  $status={authStatus}
                   title={`认证系统状态: ${authStatus === 'initialized' ? '已启用' : authStatus === 'error' ? '异常' : '初始化中...'}`}
                 >
                   {authStatus === 'initialized' && <span>✓</span>}
@@ -166,7 +166,7 @@ function MainLayout() {
                 role="tab"
                 aria-selected={activeTab === item.id}
                 aria-controls={`${item.id}-panel`}
-                active={activeTab === item.id}
+                $active={activeTab === item.id}
                 onClick={() => handleTabChange(item.path)}
                 tabIndex={activeTab === item.id ? 0 : -1}
               >
@@ -207,13 +207,13 @@ function MainLayout() {
         {navItems.map((item) => (
           <S.NavItem
             key={item.id}
-            active={activeTab === item.id}
+            $active={activeTab === item.id}
             onClick={() => handleTabChange(item.path)}
             aria-label={item.label}
             aria-current={activeTab === item.id ? 'page' : undefined}
           >
             <item.icon className="nav-icon" />
-            <S.NavLabel active={activeTab === item.id}>{item.label}</S.NavLabel>
+            <S.NavLabel $active={activeTab === item.id}>{item.label}</S.NavLabel>
           </S.NavItem>
         ))}
       </S.BottomNav>

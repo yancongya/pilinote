@@ -47,10 +47,10 @@ export const HoverScale = css`
  * 悬停颜色变化
  * 鼠标悬停时改变颜色
  */
-export const HoverColor = css<{ hoverColor?: string }>`
+export const HoverColor = css<{ $hoverColor?: string }>`
   @media (hover: hover) {
     &:hover {
-      background-color: ${(props) => props.hoverColor || '#6366f1'};
+      background-color: ${(props) => props.$hoverColor || '#6366f1'};
       color: white;
     }
   }
@@ -99,10 +99,10 @@ export const TouchHighlight = css`
  * 加载动画
  * 旋转的加载指示器
  */
-export const LoadingSpinner = styled.div<{ size?: number; color?: string }>`
-  width: ${(props) => props.size || 24}px;
-  height: ${(props) => props.size || 24}px;
-  border: 3px solid ${(props) => props.color || '#e0e0e0'};
+export const LoadingSpinner = styled.div<{ $size?: number; $color?: string }>`
+  width: ${(props) => props.$size || 24}px;
+  height: ${(props) => props.$size || 24}px;
+  border: 3px solid ${(props) => props.$color || '#e0e0e0'};
   border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -118,9 +118,9 @@ export const LoadingSpinner = styled.div<{ size?: number; color?: string }>`
  * 脉冲加载动画
  * 脉冲式的加载指示器
  */
-export const PulseLoader = styled.div<{ size?: number }>`
-  width: ${(props) => props.size || 40}px;
-  height: ${(props) => props.size || 40}px;
+export const PulseLoader = styled.div<{ $size?: number }>`
+  width: ${(props) => props.$size || 40}px;
+  height: ${(props) => props.$size || 40}px;
   border-radius: 50%;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   animation: pulse-scale 1.5s ease-in-out infinite;
@@ -141,15 +141,15 @@ export const PulseLoader = styled.div<{ size?: number }>`
  * 点状加载动画
  * 三个点的加载动画
  */
-export const DotLoader = styled.div<{ size?: number }>`
+export const DotLoader = styled.div<{ $size?: number }>`
   display: flex;
   gap: 8px;
   align-items: center;
   justify-content: center;
   
   span {
-    width: ${(props) => props.size || 8}px;
-    height: ${(props) => props.size || 8}px;
+    width: ${(props) => props.$size || 8}px;
+    height: ${(props) => props.$size || 8}px;
     border-radius: 50%;
     background: #6366f1;
     animation: dot-pulse 1.4s ease-in-out infinite;
@@ -182,7 +182,7 @@ export const DotLoader = styled.div<{ size?: number }>`
 /**
  * 进度条动画
  */
-export const AnimatedProgress = styled.div<{ progress: number; color?: string }>`
+export const AnimatedProgress = styled.div<{ $progress: number; $color?: string }>`
   width: 100%;
   height: 4px;
   background: #e5e7eb;
@@ -196,8 +196,8 @@ export const AnimatedProgress = styled.div<{ progress: number; color?: string }>
     left: 0;
     top: 0;
     height: 100%;
-    width: ${(props) => props.progress}%;
-    background: ${(props) => props.color || 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)'};
+    width: ${(props) => props.$progress}%;
+    background: ${(props) => props.$color || 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)'};
     border-radius: 2px;
     transition: width 0.3s ease;
   }
@@ -206,8 +206,8 @@ export const AnimatedProgress = styled.div<{ progress: number; color?: string }>
 /**
  * 错误摇晃动画
  */
-export const ErrorShake = styled.div<{ isError?: boolean }>`
-  ${(props) => props.isError && css`
+export const ErrorShake = styled.div<{ $isError?: boolean }>`
+  ${(props) => props.$isError && css`
     animation: ${shake} 0.5s ease-in-out;
   `}
 `;
@@ -215,8 +215,8 @@ export const ErrorShake = styled.div<{ isError?: boolean }>`
 /**
  * 成功脉冲动画
  */
-export const SuccessPulse = styled.div<{ isSuccess?: boolean }>`
-  ${(props) => props.isSuccess && css`
+export const SuccessPulse = styled.div<{ $isSuccess?: boolean }>`
+  ${(props) => props.$isSuccess && css`
     animation: ${pulse} 0.5s ease-in-out;
   `}
 `;
@@ -224,7 +224,7 @@ export const SuccessPulse = styled.div<{ isSuccess?: boolean }>`
 /**
  * 工具提示动画
  */
-export const Tooltip = styled.div<{ visible?: boolean }>`
+export const Tooltip = styled.div<{ $visible?: boolean }>`
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -236,8 +236,8 @@ export const Tooltip = styled.div<{ visible?: boolean }>`
   font-size: 12px;
   white-space: nowrap;
   pointer-events: none;
-  opacity: ${(props) => (props.visible ? 1 : 0)};
-  animation: ${(props) => (props.visible ? scaleIn : 'fadeOut')} 0.2s ease;
+  opacity: ${(props) => (props.$visible ? 1 : 0)};
+  animation: ${(props) => (props.$visible ? scaleIn : 'fadeOut')} 0.2s ease;
   z-index: 1000;
   
   &::after {
@@ -280,9 +280,9 @@ export const RippleEffect = styled.button`
 /**
  * 骨架屏加载效果
  */
-export const Skeleton = styled.div<{ width?: string; height?: string }>`
-  width: ${(props) => props.width || '100%'};
-  height: ${(props) => props.height || '16px'};
+export const Skeleton = styled.div<{ $width?: string; $height?: string }>`
+  width: ${(props) => props.$width || '100%'};
+  height: ${(props) => props.$height || '16px'};
   background: linear-gradient(
     90deg,
     #f0f0f0 25%,
