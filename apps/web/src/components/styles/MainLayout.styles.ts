@@ -8,30 +8,22 @@ import { fadeIn, slideInUp } from '../../styles/animations/keyframes';
 import { SmoothTransition } from '../../styles/animations/transitions';
 
 /**
- * 主容器
+ * 主容器（固定视口高度）
  */
 export const MainContainer = styled.div<{ $activeTab?: string }>`
-  min-height: 100vh;
+  height: 100vh; /* 固定视口高度 */
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  
-  /* 移动端为底部导航留出空间 */
-  @media (max-width: 767px) {
-    padding-bottom: 56px;
-  }
-  
-  /* 桌面端无底部导航padding */
-  @media (min-width: 768px) {
-    padding-bottom: 0;
-  }
+  overflow: hidden; /* 防止页面整体滚动 */
+  display: flex;
+  flex-direction: column;
 `;
 
 /**
- * 顶部导航栏
+ * 顶部导航栏（固定高度）
  */
 export const Header = styled.header`
-  position: sticky;
-  top: 0;
+  position: relative; /* 改为相对定位，脱离sticky */
   z-index: 100;
   background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
@@ -39,6 +31,7 @@ export const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0; /* 防止被压缩 */
   ${SmoothTransition}
   
   @media (min-width: 768px) {
@@ -289,13 +282,13 @@ export const AuthStatus = styled.div<{ $status?: 'initialized' | 'pending' | 'er
 /**
  * 主内容区域
  */
+/**
+ * 主内容区域（固定视口高度）
+ */
 export const MainContent = styled.div`
   display: flex;
-  min-height: calc(100vh - 56px);
-  
-  @media (min-width: 768px) {
-    min-height: calc(100vh - 72px);
-  }
+  flex: 1; /* 占据剩余空间 */
+  overflow: hidden; /* 防止整体滚动 */
 `;
 
 /**
@@ -310,6 +303,11 @@ export const Sidebar = styled.aside<{ $width?: number; $collapsed?: boolean }>`
   display: flex;
   flex-direction: column;
   ${SmoothTransition}
+  
+  /* 固定高度，防止滚动 */
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
   
   /* 桌面端显示 */
   @media (min-width: 768px) {
@@ -368,12 +366,34 @@ export const MobileSidebarOverlay = styled.div`
 `;
 
 /**
- * 侧边栏导航
+ * 侧边栏导航（支持独立滚动）
  */
 export const SidebarNav = styled.nav`
   display: flex;
   flex-direction: column;
   gap: 4px;
+  
+  /* 自定义滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-text-tertiary);
+    border-radius: 3px;
+    
+    &:hover {
+      background: var(--color-text-secondary);
+    }
+  }
+  
+  /* Firefox滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-tertiary) transparent;
 `;
 
 /**
@@ -435,12 +455,35 @@ export const SidebarIcon = styled.svg<{ $active?: boolean }>`
 `;
 
 /**
- * 内容区域
+ * 内容区域（支持独立滚动）
  */
 export const ContentArea = styled.main`
   flex: 1;
   padding: 16px;
-  overflow-y: auto;
+  overflow-y: auto; /* 内容区域独立滚动 */
+  overflow-x: hidden;
+  
+  /* 自定义滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-text-tertiary);
+    border-radius: 3px;
+    
+    &:hover {
+      background: var(--color-text-secondary);
+    }
+  }
+  
+  /* Firefox滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-tertiary) transparent;
   
   @media (min-width: 768px) {
     padding: 24px;
