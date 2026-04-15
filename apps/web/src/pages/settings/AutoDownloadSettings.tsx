@@ -354,17 +354,17 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#64748b',
+                color: 'var(--color-text-secondary)',
                 transition: 'all 0.2s',
                 padding: '4px'
               }}
               onMouseEnter={(e) => {
                 if (!loadingFavorites) {
-                  e.currentTarget.style.color = '#fb7299'
+                  e.currentTarget.style.color = 'var(--color-primary-600)'
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#64748b'
+                e.currentTarget.style.color = 'var(--color-secondary-500)'
               }}
               aria-label="刷新收藏夹列表"
               title="刷新收藏夹列表"
@@ -398,12 +398,12 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
               gridTemplateColumns: '1fr 120px', 
               gap: '12px',
               padding: '12px',
-              backgroundColor: '#f1f5f9',
+              backgroundColor: 'var(--color-secondary-100)',
               borderRadius: '8px',
               marginBottom: '8px',
               fontWeight: 500,
               fontSize: '13px',
-              color: '#64748b'
+              color: 'var(--color-secondary-500)'
             }}>
               <div>收藏夹名称</div>
               <div>视频数</div>
@@ -412,12 +412,12 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             {/* 说明文字 */}
             <div style={{ 
               padding: '12px',
-              backgroundColor: '#fef3c7',
+              backgroundColor: 'var(--color-warning-50)',
               borderRadius: '8px',
               marginBottom: '12px',
               fontSize: '12px',
-              color: '#92400e',
-              border: '1px solid #fcd34d'
+              color: 'var(--color-warning-600)',
+              border: '1px solid var(--color-warning-200)'
             }}>
               💡 视频数为 0 表示不扫描该收藏夹，设置大于 0 的数值后才进行扫描
             </div>
@@ -427,7 +427,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
               <div style={{ 
                 padding: '32px 16px', 
                 textAlign: 'center', 
-                color: '#94a3b8',
+                color: 'var(--color-text-secondary)',
                 fontSize: '14px' 
               }}>
                 正在加载收藏夹列表...
@@ -436,7 +436,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
               <div style={{ 
                 padding: '32px 16px', 
                 textAlign: 'center', 
-                color: '#94a3b8',
+                color: 'var(--color-text-secondary)',
                 fontSize: '14px' 
               }}>
                 点击"刷新列表"按钮获取收藏夹列表
@@ -448,13 +448,13 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                   gridTemplateColumns: '1fr 120px', 
                   gap: '12px',
                   padding: '12px',
-                  backgroundColor: '#f8fafc',
+                  backgroundColor: 'var(--color-secondary-50)',
                   borderRadius: '8px',
                   marginBottom: '8px',
                   alignItems: 'center'
                 }}>
                   <div style={{ 
-                    color: '#1e293b',
+                    color: 'var(--color-text-primary)',
                     fontSize: '14px',
                     fontWeight: 500
                   }}>
@@ -486,12 +486,12 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             gridTemplateColumns: '1fr 120px', 
             gap: '12px',
             padding: '12px',
-            backgroundColor: '#f1f5f9',
+            backgroundColor: 'var(--color-bg-tertiary)',
             borderRadius: '8px',
             marginBottom: '8px',
             fontWeight: 500,
             fontSize: '13px',
-            color: '#64748b'
+            color: 'var(--color-text-secondary)'
           }}>
             <div>稍后再看</div>
             <div>视频数</div>
@@ -499,12 +499,12 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
           
           <div style={{ 
             padding: '12px',
-            backgroundColor: '#fef3c7',
+            backgroundColor: 'var(--color-warning-50)',
             borderRadius: '8px',
             marginBottom: '12px',
             fontSize: '12px',
-            color: '#92400e',
-            border: '1px solid #fcd34d'
+            color: 'var(--color-warning-700)',
+            border: '1px solid var(--color-warning-200)'
           }}>
             💡 稍后再看数量为 0 表示不扫描稍后再看，设置大于 0 的数值后才进行扫描
           </div>
@@ -514,15 +514,15 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             gridTemplateColumns: '1fr 120px', 
             gap: '12px',
             padding: '12px',
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--color-bg-primary)',
             borderRadius: '8px',
-            border: '1px solid #e2e8f0'
+            border: '1px solid var(--color-border)'
           }}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
               fontSize: '14px',
-              color: '#64748b'
+              color: 'var(--color-text-secondary)'
             }}>
               稍后再看列表
             </div>
@@ -597,12 +597,12 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         {/* 说明信息 */}
         <div style={{ 
           padding: '12px',
-          backgroundColor: '#eff6ff',
+          backgroundColor: 'var(--color-info-50)',
           borderRadius: '8px',
           marginTop: '12px',
           fontSize: '12px',
-          color: '#1e40af',
-          border: '1px solid #bfdbfe'
+          color: 'var(--color-info-700)',
+          border: '1px solid var(--color-info-200)'
         }}>
           <div style={{ fontWeight: 600, marginBottom: '4px' }}>💡 工作流程说明：</div>
           <div style={{ lineHeight: '1.6' }}>

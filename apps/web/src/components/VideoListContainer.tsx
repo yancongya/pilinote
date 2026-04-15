@@ -95,12 +95,12 @@ export default function VideoListContainer({
 
       {/* 错误状态 */}
       {error && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#ff4444' }}>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-error-500)' }}>
           {error.includes('请求频率过高') || error.includes('API暂时限制') ? (
             <>
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
               <div style={{ fontSize: '16px', marginBottom: '8px' }}>请求频率过高</div>
-              <div style={{ fontSize: '14px', color: '#666' }}>请稍后再试</div>
+              <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>请稍后再试</div>
             </>
           ) : (
             error

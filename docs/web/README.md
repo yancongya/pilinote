@@ -15,7 +15,19 @@
 - 路由
 - WebSocket 连接
 
-### 2. 前端组件
+### 2. 主题系统
+**文件**: [theme-system.md](theme-system.md)
+
+内容：
+- 设计令牌系统
+- 暗色模式实现
+- CSS 变量系统
+- 主题切换功能
+- 已适配的组件列表
+- 颜色使用规范
+- 暗色模式设计原则
+
+### 3. 前端组件
 **文件**: [components/README.md](../components/README.md)
 
 内容：

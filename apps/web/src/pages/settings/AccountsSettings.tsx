@@ -74,8 +74,8 @@ function AccountsSettings() {
       `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
         <defs>
           <linearGradient id="avatar-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#3B82F6"/>
-            <stop offset="100%" stop-color="#2563EB"/>
+            <stop offset="0%" stop-color="var(--color-primary-500)"/>
+            <stop offset="100%" stop-color="var(--color-primary-600)"/>
           </linearGradient>
         </defs>
         <rect width="48" height="48" rx="24" fill="url(#avatar-gradient)"/>
@@ -508,171 +508,338 @@ function AccountsSettings() {
       />
 
       <style>{`
-        .credentials-tabs {
-          display: flex;
-          gap: 4px;
-          border-bottom: 1px solid #E2E8F0;
-          margin-bottom: 16px;
-        }
 
-        .credentials-tab {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 10px 16px;
-          background: transparent;
-          border: none;
-          border-bottom: 2px solid transparent;
-          color: #64748B;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          margin-bottom: -1px;
-        }
+              .credentials-tabs {
 
-        .credentials-tab:hover {
-          color: #2563EB;
-        }
+                display: flex;
 
-        .credentials-tab.active {
-          color: #2563EB;
-          border-bottom-color: #2563EB;
-        }
+                gap: 4px;
 
-        .credentials-tab-icon {
-          width: 16px;
-          height: 16px;
-        }
+                border-bottom: 1px solid var(--color-border);
 
-        .credentials-tab-badge {
-          background: #F1F5F9;
-          color: #64748B;
-          font-size: 11px;
-          padding: 1px 6px;
-          border-radius: 10px;
-        }
+                margin-bottom: 16px;
 
-        .credentials-tab.active .credentials-tab-badge {
-          background: #DBEAFE;
-          color: #2563EB;
-        }
+              }
 
-        .credentials-tab-content {
-          max-height: 400px;
-          overflow-y: auto;
-        }
+      
 
-        .credentials-content-basic {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
+              .credentials-tab {
 
-        .credentials-field {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
+                display: flex;
 
-        .credentials-field label {
-          font-size: 12px;
-          font-weight: 600;
-          color: #64748B;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
+                align-items: center;
 
-        .credentials-field code {
-          font-size: 12px;
-          color: #1E293B;
-          background: #F8FAFC;
-          padding: 8px 12px;
-          border-radius: 6px;
-          word-break: break-all;
-          border: 1px solid #E2E8F0;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        }
+                gap: 6px;
 
-        .credentials-content-cookies {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
+                padding: 10px 16px;
 
-        .cookies-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
+                background: transparent;
 
-        .cookie-item {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 8px 12px;
-          background: #F8FAFC;
-          border-radius: 6px;
-          border: 1px solid #E2E8F0;
-        }
+                border: none;
 
-        .cookie-name {
-          font-size: 11px;
-          font-weight: 600;
-          color: #64748B;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        }
+                border-bottom: 2px solid transparent;
 
-        .cookie-value {
-          font-size: 11px;
-          color: #1E293B;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          word-break: break-all;
-        }
+                color: var(--color-text-secondary);
 
-        .credentials-content-wbi {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
+                font-size: 14px;
 
-        .wbi-url-container {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
+                font-weight: 500;
 
-        .wbi-url-code {
-          font-size: 11px;
-          color: #1E293B;
-          background: #F8FAFC;
-          padding: 8px 12px;
-          border-radius: 6px;
-          border: 1px solid #E2E8F0;
-          word-break: break-all;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-          flex: 1;
-          min-width: 200px;
-        }
+                cursor: pointer;
 
-        .credentials-link {
-          font-size: 13px;
-          color: #2563EB;
-          text-decoration: none;
-          padding: 6px 12px;
-          border: 1px solid #BFDBFE;
-          border-radius: 6px;
-          background: #EFF6FF;
-          white-space: nowrap;
-          transition: all 0.15s ease;
-        }
+                transition: all 0.15s ease;
 
-        .credentials-link:hover {
-          background: #DBEAFE;
-          border-color: #2563EB;
-        }
-      `}</style>
+                margin-bottom: -1px;
+
+              }
+
+      
+
+              .credentials-tab:hover {
+
+                color: var(--color-primary-600);
+
+              }
+
+      
+
+              .credentials-tab.active {
+
+                color: var(--color-primary-600);
+
+                border-bottom-color: var(--color-primary-600);
+
+              }
+
+      
+
+              .credentials-tab-icon {
+
+                width: 16px;
+
+                height: 16px;
+
+              }
+
+      
+
+              .credentials-tab-badge {
+
+                background: var(--color-bg-tertiary);
+
+                color: var(--color-text-secondary);
+
+                font-size: 11px;
+
+                padding: 1px 6px;
+
+                border-radius: 10px;
+
+              }
+
+      
+
+              .credentials-tab.active .credentials-tab-badge {
+
+                background: var(--color-primary-50);
+
+                color: var(--color-primary-600);
+
+              }
+
+      
+
+      
+
+              .credentials-tab-content {
+
+                max-height: 400px;
+
+                overflow-y: auto;
+
+              }
+
+      
+
+              .credentials-content-basic {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 12px;
+
+              }
+
+      
+
+              .credentials-field {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 4px;
+
+              }
+
+      
+
+              .credentials-field label {
+
+                font-size: 12px;
+
+                font-weight: 600;
+
+                color: var(--color-text-secondary);
+
+                text-transform: uppercase;
+
+                letter-spacing: 0.5px;
+
+              }
+
+      
+
+              .credentials-field code {
+
+                font-size: 12px;
+
+                color: var(--color-text-primary);
+
+                background: var(--color-bg-secondary);
+
+                padding: 8px 12px;
+
+                border-radius: 6px;
+
+                word-break: break-all;
+
+                border: 1px solid var(--color-border);
+
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+              }
+
+      
+
+              .credentials-content-cookies {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 8px;
+
+              }
+
+      
+
+              .cookies-list {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 8px;
+
+              }
+
+      
+
+              .cookie-item {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 2px;
+
+                padding: 8px 12px;
+
+                background: var(--color-bg-secondary);
+
+                border-radius: 6px;
+
+                border: 1px solid var(--color-border);
+
+              }
+
+      
+
+              .cookie-name {
+
+                font-size: 11px;
+
+                font-weight: 600;
+
+                color: var(--color-text-secondary);
+
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+              }
+
+      
+
+              .cookie-value {
+
+                font-size: 11px;
+
+                color: var(--color-text-primary);
+
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+                word-break: break-all;
+
+              }
+
+      
+
+              .credentials-content-wbi {
+
+                display: flex;
+
+                flex-direction: column;
+
+                gap: 12px;
+
+              }
+
+      
+
+              .wbi-url-container {
+
+                display: flex;
+
+                align-items: center;
+
+                gap: 8px;
+
+                flex-wrap: wrap;
+
+              }
+
+      
+
+              .wbi-url-code {
+
+                font-size: 11px;
+
+                color: var(--color-text-primary);
+
+                background: var(--color-bg-secondary);
+
+                padding: 8px 12px;
+
+                border-radius: 6px;
+
+                border: 1px solid var(--color-border);
+
+                word-break: break-all;
+
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+                flex: 1;
+
+                min-width: 200px;
+
+              }
+
+      
+
+              .credentials-link {
+
+                font-size: 13px;
+
+                color: var(--color-primary-600);
+
+                text-decoration: none;
+
+                padding: 6px 12px;
+
+                border: 1px solid var(--color-primary-200);
+
+                border-radius: 6px;
+
+                background: var(--color-primary-50);
+
+                white-space: nowrap;
+
+                transition: all 0.15s ease;
+
+              }
+
+      
+
+              .credentials-link:hover {
+
+                background: var(--color-primary-100);
+
+                border-color: var(--color-primary-600);
+
+              }
+
+            `}</style>
     </div>
   )
 }

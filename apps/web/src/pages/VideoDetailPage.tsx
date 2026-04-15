@@ -286,7 +286,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: '#fb7299',
+              color: 'var(--color-primary-600)',
               textDecoration: 'underline',
               wordBreak: 'break-all'
             }}
@@ -430,8 +430,8 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           onClick={() => navigate(-1)}
           style={{
             padding: '8px 16px',
-            background: '#fb7299',
-            color: '#fff',
+            background: 'var(--color-primary-600)',
+            color: 'var(--color-white)',
             border: 'none',
             borderRadius: '8px',
             cursor: 'pointer'
@@ -471,7 +471,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         top: 0,
         background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid #f0f0f0',
+        borderBottom: '1px solid var(--color-border)',
         padding: '12px 16px',
         display: 'flex',
         alignItems: 'center',
@@ -496,7 +496,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         <h1 style={{
           fontSize: '16px',
           fontWeight: '600',
-          color: '#1a1a1a',
+          color: 'var(--color-text-primary)',
           margin: 0,
           flex: 1,
           overflow: 'hidden',
@@ -512,7 +512,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         position: 'relative',
         width: '100%',
         paddingTop: video.isOpus ? '0' : '56.25%',
-        background: '#f5f5f5',
+        background: 'var(--color-bg-tertiary)',
         overflow: 'hidden',
         display: video.isOpus ? 'block' : 'relative'
       }}>
@@ -557,8 +557,8 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             position: 'absolute',
             bottom: '12px',
             right: '12px',
-            background: '#fb7299',
-            color: '#fff',
+            background: 'var(--color-primary-600)',
+            color: 'var(--color-white)',
             padding: '4px 8px',
             borderRadius: '4px',
             fontSize: '11px',
@@ -600,7 +600,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: '#1a1a1a',
+              color: 'var(--color-text-primary)',
               textDecoration: 'none',
               display: '-webkit-box',
               WebkitLineClamp: 2,
@@ -617,7 +617,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              color: '#1a1a1a',
+              color: 'var(--color-text-primary)',
               textDecoration: 'none',
               display: '-webkit-box',
               WebkitLineClamp: 2,
@@ -628,11 +628,11 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
               cursor: 'pointer'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = '#fb7299'
+              e.currentTarget.style.color = 'var(--color-primary-600)'
               e.currentTarget.style.textDecoration = 'underline'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = '#1a1a1a'
+              e.currentTarget.style.color = 'var(--color-text-primary)'
               e.currentTarget.style.textDecoration = 'none'
             }}
           >
@@ -650,7 +650,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             gap: '12px',
             marginBottom: '16px',
             paddingBottom: '16px',
-            borderBottom: '1px solid #f0f0f0'
+            borderBottom: '1px solid var(--color-border)'
           }}>
             <div style={{
               display: 'flex',
@@ -747,13 +747,13 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           gap: '12px',
           marginBottom: '12px',
           paddingBottom: '12px',
-          borderBottom: '1px solid #f0f0f0'
+          borderBottom: '1px solid var(--color-border)'
         }}>
           <div className="video-detail-avatar" style={{
             width: '48px',
             height: '48px',
             borderRadius: '50%',
-            background: '#f0f0f0',
+            background: 'var(--color-bg-tertiary)',
             overflow: 'hidden',
             flexShrink: 0
           }}>
@@ -771,7 +771,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             <div className="video-detail-uploader-name" style={{
               fontSize: '15px',
               fontWeight: '600',
-              color: '#1a1a1a',
+              color: 'var(--color-text-primary)',
               marginBottom: '2px',
               lineHeight: '1.3'
             }}>
@@ -785,7 +785,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         <div style={{
           marginBottom: '16px',
           paddingBottom: '16px',
-          borderBottom: '1px solid #f0f0f0'
+          borderBottom: '1px solid var(--color-border)'
         }}>
           {/* 视频统计信息 */}
           {!video.isOpus && (
@@ -836,11 +836,11 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
 {/* 视频简介 - 仅视频显示 */}
         {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
           <div style={{
-            background: '#f9f9f9',
+            background: 'var(--color-bg-tertiary)',
             borderRadius: '8px',
             padding: '12px',
             fontSize: '14px',
-            color: '#333',
+            color: 'var(--color-text-primary)',
             lineHeight: '1.6',
             marginBottom: '16px',
             whiteSpace: 'pre-wrap',
@@ -854,12 +854,12 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         <div style={{
           marginTop: '24px',
           paddingTop: '16px',
-          borderTop: '1px solid #f0f0f0'
+          borderTop: '1px solid var(--color-border)'
         }}>
           <h3 style={{
             fontSize: '16px',
             fontWeight: '600',
-            color: '#1a1a1a',
+            color: 'var(--color-text-primary)',
             marginBottom: '12px'
           }}>
             下载选项
@@ -868,7 +868,7 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           {/* 分P列表（只显示，不可选择） */}
           {video.pages && video.pages.length > 1 && (
             <div style={{
-              background: '#f9f9f9',
+              background: 'var(--color-bg-tertiary)',
               borderRadius: '8px',
               padding: '12px',
               marginBottom: '16px',
@@ -901,8 +901,8 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
                     {isInList && (
                       <span style={{
                         fontSize: '11px',
-                        color: '#fb7299',
-                        background: '#fff5f8',
+                        color: 'var(--color-primary-600)',
+                        background: 'var(--color-primary-50)',
                         padding: '2px 6px',
                         borderRadius: '4px',
                         marginLeft: '8px'
@@ -923,8 +923,8 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             style={{
               width: '100%',
               padding: '14px',
-              background: downloading ? '#ccc' : '#fb7299',
-              color: '#fff',
+              background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
+              color: 'var(--color-white)',
               border: 'none',
               borderRadius: '8px',
               fontSize: '16px',
@@ -938,12 +938,12 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
             }}
             onMouseEnter={(e) => {
               if (!downloading) {
-                e.currentTarget.style.background = '#ff5c8d'
+                e.currentTarget.style.background = 'var(--color-primary-700)'
               }
             }}
             onMouseLeave={(e) => {
               if (!downloading) {
-                e.currentTarget.style.background = '#fb7299'
+                e.currentTarget.style.background = 'var(--color-primary-600)'
               }
             }}
           >

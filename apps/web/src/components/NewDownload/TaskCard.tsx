@@ -66,16 +66,16 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
   }
 
   const statusConfig: Record<string, { label: string; color: string; icon?: string }> = {
-    'backlog': { label: '待处理', color: '#f59e0b' },
-    'pending': { label: '已规划', color: '#3b82f6' },
-    'active': { label: '进行中', color: '#10b981' },
-    'paused': { label: '已暂停', color: '#f97316' },
-    'failed': { label: '失败', color: '#ef4444' },
-    'cancelled': { label: '已取消', color: '#6b7280' },
-    'completed': { label: '已完成', color: '#22c55e' },
+    'backlog': { label: '待处理', color: 'var(--color-warning-500)' },
+    'pending': { label: '已规划', color: 'var(--color-primary-500)' },
+    'active': { label: '进行中', color: 'var(--color-success-500)' },
+    'paused': { label: '已暂停', color: 'var(--color-warning-600)' },
+    'failed': { label: '失败', color: 'var(--color-error-500)' },
+    'cancelled': { label: '已取消', color: 'var(--color-secondary-500)' },
+    'completed': { label: '已完成', color: 'var(--color-success-500)' },
   }
 
-  const status = statusConfig[task.state] || { label: task.state, color: '#6b7280' }
+  const status = statusConfig[task.state] || { label: task.state, color: 'var(--color-secondary-500)' }
   const hasCover = task.cover && task.cover.trim()
 
   const handleControl = async (action: string) => {
@@ -116,7 +116,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
       style={{
         borderLeft: `4px solid ${status.color}`,
         cursor: isBatchMode ? 'pointer' : 'default',
-        ...(isSelected && isBatchMode && { backgroundColor: '#f0f9ff' })
+        ...(isSelected && isBatchMode && { backgroundColor: 'var(--color-primary-50)' })
       }}
       onClick={handleCardClick}
     >
@@ -149,7 +149,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
             <div style={{
               width: '16px',
               height: '16px',
-              backgroundColor: '#3b82f6',
+              backgroundColor: 'var(--color-primary-500)',
               borderRadius: '2px',
               display: 'flex',
               alignItems: 'center',
@@ -160,7 +160,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
               </svg>
             </div>
           ) : (
-            <Square size={16} color="#64748b" />
+            <Square size={16} color="var(--color-text-secondary)" />
           )}
         </div>
       )}
@@ -170,7 +170,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
         <div className="video-card-thumbnail">
           {!hasCover ? (
             <div className="thumbnail-placeholder">
-              <Film size={40} color="#42a5f5" />
+              <Film size={40} color="var(--color-primary-500)" />
             </div>
           ) : (
             <img

@@ -235,8 +235,8 @@ function SettingsPage() {
           position: sticky;
           top: 0;
           z-index: 50;
-          background: #fff;
-          border-bottom: 1px solid #f0f0f0;
+          background: var(--color-bg-primary);
+          border-bottom: 1px solid var(--color-border);
         }
 
         .s-header-inner {
@@ -257,7 +257,7 @@ function SettingsPage() {
           padding: 0;
           border: none;
           background: transparent;
-          color: #1E293B;
+          color: var(--color-text-primary);
           border-radius: 10px;
           cursor: pointer;
           transition: background 0.15s ease;
@@ -266,7 +266,7 @@ function SettingsPage() {
         }
 
         .s-back-btn:active {
-          background: #f5f5f5;
+          background: var(--color-bg-tertiary);
         }
 
         /* 标题 */
@@ -275,7 +275,7 @@ function SettingsPage() {
           margin: 0;
           font-size: 17px;
           font-weight: 600;
-          color: #1E293B;
+          color: var(--color-text-primary);
           text-align: center;
           letter-spacing: -0.01em;
         }
@@ -302,7 +302,7 @@ function SettingsPage() {
           padding: 12px 8px 10px;
           border: none;
           background: transparent;
-          color: #94A3B8;
+          color: var(--color-text-secondary);
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
@@ -312,7 +312,7 @@ function SettingsPage() {
         }
 
         .s-tab-active {
-          color: #2563EB;
+          color: var(--color-primary-600);
           font-weight: 600;
         }
 
@@ -329,7 +329,7 @@ function SettingsPage() {
           position: absolute;
           bottom: 0;
           height: 2.5px;
-          background: #2563EB;
+          background: var(--color-primary-600);
           border-radius: 2.5px 2.5px 0 0;
           transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
                       width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -340,7 +340,7 @@ function SettingsPage() {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background: #F59E0B;
+          background: var(--color-warning-500);
           flex-shrink: 0;
         }
 

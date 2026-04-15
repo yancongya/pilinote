@@ -370,17 +370,7 @@ const formatDuration = (seconds: any) => {
               }}
             />
             {isOpus ? (
-              <div style={{
-                position: 'absolute',
-                bottom: '12px',
-                right: '12px',
-                background: '#fb7299',
-                color: '#fff',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: '600'
-              }}>
+              <div className="absolute bottom-3 right-3 bg-primary-600 text-white px-2 py-1 rounded text-xs font-semibold">
                 图文
               </div>
             ) : (
@@ -420,21 +410,11 @@ const formatDuration = (seconds: any) => {
                 className="uploader-avatar"
                 style={{ width: '28px', height: '28px', borderRadius: '50%' }}
               />
-              <span className="uploader-name" style={{
-                fontSize: '13px',
-                fontWeight: '500',
-                color: '#333'
-              }}>{videoInfo.owner.name}</span>
+              <span className="uploader-name text-sm font-medium text-secondary-800 dark:text-secondary-200">{videoInfo.owner.name}</span>
             </div>
 
             {/* 统计信息 */}
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '10px',
-              fontSize: '12px',
-              color: '#666'
-            }}>
+            <div className="flex flex-wrap gap-2.5 text-xs text-secondary-500 dark:text-secondary-400">
               {isOpus ? (
                 <>
                   {videoInfo.stat.like !== undefined && (
@@ -524,13 +504,7 @@ const formatDuration = (seconds: any) => {
 
             {/* 分P选择区域 */}
             {isMultiPart && downloadOptions.pages && (
-              <div className="video-pages-section" style={{
-                background: '#f9f9f9',
-                borderRadius: '6px',
-                padding: '10px',
-                maxHeight: '150px',
-                overflowY: 'auto'
-              }}>
+              <div className="video-pages-section bg-slate-100 dark:bg-slate-800 rounded-md p-2.5 max-h-[150px] overflow-y-auto">
                 <div className="pages-header" style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -585,10 +559,10 @@ const formatDuration = (seconds: any) => {
                       <div className="page-checkbox">
                         <Check fill={selectedPages.has(page.page) ? "currentColor" : "none"} size={14} />
                       </div>
-                      <div className="page-info" style={{ flex: 1, minWidth: 0 }}>
-                        <div className="page-number" style={{ fontSize: '11px', color: '#999' }}>第 {page.page} 话</div>
-                        <div className="page-title" style={{ fontSize: '12px', color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page.part}</div>
-                        <div className="page-duration" style={{ fontSize: '10px', color: '#999' }}>{formatDuration(page.duration)}</div>
+                      <div className="page-info flex-1 min-w-0">
+                        <div className="page-number text-xs text-secondary-400 dark:text-secondary-500">第 {page.page} 话</div>
+                        <div className="page-title text-xs text-secondary-800 dark:text-secondary-200 overflow-hidden text-ellipsis whitespace-nowrap">{page.part}</div>
+                        <div className="page-duration text-[10px] text-secondary-400 dark:text-secondary-500">{formatDuration(page.duration)}</div>
                       </div>
                     </div>
                   ))}
@@ -602,24 +576,13 @@ const formatDuration = (seconds: any) => {
               paddingTop: '8px'
             }}>
               <button
-                className="download-btn primary"
+                className={`download-btn primary w-full py-2.5 text-white border-none rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 ${
+                  downloading || (isMultiPart && selectedPages.size === 0)
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-primary-600 hover:bg-primary-700 cursor-pointer'
+                }`}
                 disabled={downloading || (isMultiPart && selectedPages.size === 0)}
                 onClick={(e) => { e.stopPropagation(); handleDownload(); }}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: (downloading || (isMultiPart && selectedPages.size === 0)) ? '#ccc' : '#fb7299',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  cursor: (downloading || (isMultiPart && selectedPages.size === 0)) ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
               >
                 {downloading ? (
                   <Loader2 className="loading-icon" style={{ animation: 'spin 1s linear infinite' }} />

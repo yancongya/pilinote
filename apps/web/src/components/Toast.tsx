@@ -37,10 +37,10 @@ function Toast({ message, type, duration = 3000, onClose }: ToastData & { onClos
   }, [duration, onClose])
 
   const themes = {
-    success: { bg: 'bg-green-500', icon: 'bg-green-500' },
-    error: { bg: 'bg-red-600', icon: 'bg-red-600' },
-    warning: { bg: 'bg-amber-600', icon: 'bg-amber-600' },
-    info: { bg: 'bg-blue-600', icon: 'bg-blue-600' },
+    success: { bg: 'bg-success-500', icon: 'bg-success-500' },
+    error: { bg: 'bg-error-500', icon: 'bg-error-500' },
+    warning: { bg: 'bg-warning-500', icon: 'bg-warning-500' },
+    info: { bg: 'bg-primary-500', icon: 'bg-primary-500' },
   }
 
   const theme = themes[type]
@@ -53,9 +53,9 @@ function Toast({ message, type, duration = 3000, onClose }: ToastData & { onClos
       role="alert"
       aria-live="polite"
     >
-      <div className="inline-flex items-center gap-2 px-3.5 py-2 bg-white rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.08)] pointer-events-auto max-w-[calc(100vw-32px)]">
+      <div className="inline-flex items-center gap-2 px-3.5 py-2 dark:bg-slate-800 bg-white rounded-full shadow-sm pointer-events-auto max-w-[calc(100vw-32px)]">
         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${theme.icon}`} />
-        <span className="text-sm font-medium text-slate-800 leading-[1.3] tracking-tight">
+        <span className="text-sm font-medium dark:text-slate-200 text-slate-800 leading-[1.3] tracking-tight">
           {message}
         </span>
       </div>

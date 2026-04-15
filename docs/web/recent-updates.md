@@ -2,6 +2,138 @@
 
 ## 更新时间线
 
+### 2026-04-15 - 主题系统全面升级和功能增强
+
+本次更新实现了完整的暗色模式支持和统一的设计令牌系统，确保在亮色和暗色主题下都有良好的用户体验。
+
+#### 主要更新
+
+##### 1. 暗色模式全面实现
+**影响范围**: 全站所有组件和页面
+**相关文件**:
+- `apps/web/src/design-tokens.css` (新建)
+- `apps/web/tailwind.config.js` (更新)
+- `apps/web/src/index.css` (更新)
+- `apps/web/src/settings-page.css` (更新)
+- 所有组件和页面文件
+
+**更新内容**:
+- 建立完整的CSS变量系统
+- 实现亮色/暗色模式切换
+- 所有组件适配暗色模式
+- 统一品牌色和设计令牌
+
+**设计令牌系统**:
+- 品牌色：`#2563EB` (primary-600)
+- 辅助色：完整的灰色系
+- 功能色：success、warning、error、info
+- 语义化颜色：bg、text、border
+
+**暗色模式配色**:
+- 主背景：`#0f0f0f` (纯黑色)
+- 次要背景：`#1a1a1a` (深灰)
+- 第三级背景：`#2a2a2a` (中灰)
+- 主要文字：`#E0E0E0` (浅灰白)
+- 次要文字：`#94A3B8` (中灰)
+
+##### 2. 主题切换功能
+**影响范围**: MainLayout组件
+**相关文件**:
+- `apps/web/src/components/MainLayout.tsx`
+
+**更新内容**:
+- 顶部导航栏WiFi图标左侧添加暗色模式切换按钮
+- 使用太阳/月亮图标切换
+- localStorage持久化用户偏好
+- 自动检测系统主题设置
+
+**功能特性**:
+- 点击切换亮色/暗色模式
+- 平滑的过渡动画
+- 页面刷新后保持选择
+- 支持系统偏好自动切换
+
+##### 3. 已适配的组件
+**核心组件**:
+- ✅ MainLayout.tsx - 主布局和主题切换
+- ✅ Toast.tsx - 消息提示
+- ✅ Modal.tsx - 模态框
+- ✅ AlertModal.tsx - 警告模态框
+- ✅ ConfirmModal.tsx - 确认模态框
+
+**页面组件**:
+- ✅ SettingsPage.tsx - 设置页面
+- ✅ VideoDetailPage.tsx - 视频详情页
+- ✅ HomeContent.tsx - 首页内容
+- ✅ FavoritesContent.tsx - 收藏夹内容
+- ✅ WatchLaterContent.tsx - 稍后再看内容
+- ✅ VideoListCard.tsx - 视频卡片
+
+**新下载组件**:
+- ✅ VideoLibrary.tsx - 视频库
+- ✅ SchedulerCard.tsx - 调度器卡片
+- ✅ TaskCard.tsx - 任务卡片
+- ✅ DownloadsList.tsx - 下载列表
+- ✅ ScanResultContent.tsx - 扫描结果
+
+**设置页面组件**:
+- ✅ AccountsSettings.tsx - 账号设置
+- ✅ AutoDownloadSettings.tsx - 自动下载设置
+- ✅ DownloadSettings.tsx - 下载设置
+- ✅ StorageSettings.tsx - 存储设置
+- ✅ BackupSettings.tsx - 备份设置
+
+**其他组件**:
+- ✅ VideoListContainer.tsx - 视频列表容器
+
+##### 4. Tailwind配置更新
+**影响范围**: 全局样式配置
+**相关文件**:
+- `apps/web/tailwind.config.js`
+
+**更新内容**:
+- 所有颜色配置使用CSS变量
+- 暗色模式通过dark:前缀支持
+- 阴影系统基于CSS变量
+- 完整的设计令牌支持
+
+**配置示例**:
+```javascript
+colors: {
+  primary: {
+    600: 'var(--color-primary-600)',
+    700: 'var(--color-primary-700)',
+    500: 'var(--color-primary-500)',
+  },
+  text: {
+    primary: 'var(--color-text-primary)',
+    secondary: 'var(--color-text-secondary)',
+  },
+  background: {
+    primary: 'var(--color-bg-primary)',
+    secondary: 'var(--color-bg-secondary)',
+  }
+}
+```
+
+##### 5. CSS样式文件更新
+**影响范围**: 全局样式和设置页面样式
+**相关文件**:
+- `apps/web/src/index.css`
+- `apps/web/src/settings-page.css`
+
+**更新内容**:
+- 全局暗色模式样式
+- 设置页面完整暗色模式支持
+- 所有硬编码颜色替换为CSS变量
+- 统一的设计语言
+
+**设计原则**:
+- 统一的黑色主题（非深蓝色）
+- 完整的颜色对比度支持
+- 响应式设计保持一致
+- 动画和过渡效果流畅
+
 ### 2026-04-15 - UI 界面优化和功能增强
 
 本次更新主要围绕用户界面优化和功能增强，包括视频卡片布局重新设计、统计数据显示优化、创建时间显示等功能。

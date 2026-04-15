@@ -10,12 +10,83 @@
 
 ## 类型
 
-| 类型 | 用途 | 颜色 |
-|------|------|------|
-| success | 成功 | #16A34A |
-| error | 错误 | #DC2626 |
-| warning | 警告 | #D97706 |
-| info | 信息 | #2563EB |
+### 亮色模式
+
+| 类型 | 用途 | 背景色 | 文字色 |
+|------|------|--------|--------|
+| success | 成功 | #F0FDF4 | #16A34A |
+| error | 错误 | #FEE2E2 | #DC2626 |
+| warning | 警告 | #FFFBEB | #D97706 |
+| info | 信息 | #EFF6FF | #2563EB |
+
+### 暗色模式
+
+| 类型 | 用途 | 背景色 | 文字色 |
+|------|------|--------|--------|
+| success | 成功 | var(--color-success-50) | var(--color-success-600) |
+| error | 错误 | var(--color-error-50) | var(--color-error-600) |
+| warning | 警告 | var(--color-warning-50) | var(--color-warning-600) |
+| info | 信息 | var(--color-info-50) | var(--color-info-600) |
+
+## 主题支持
+
+组件使用 CSS 变量系统，自动适配亮色和暗色模式：
+
+```tsx
+// 组件样式使用 CSS 变量
+const typeStyles = {
+  success: {
+    background: 'var(--color-success-50)',
+    color: 'var(--color-success-600)'
+  },
+  error: {
+    background: 'var(--color-error-50)',
+    color: 'var(--color-error-600)'
+  },
+  // ...
+}
+```
+
+## 样式说明
+
+### 亮色模式
+
+```css
+.toast-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: white;
+  border-radius: 100px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+```
+
+### 暗色模式
+
+```css
+.dark .toast-pill {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.dark .toast-dot {
+  background: var(--color-text-secondary);
+}
+```
+
+## 关联文档
+
+- [主题系统设计](../web/theme-system.md) - 完整的主题系统设计文档
+- [设计令牌系统](../web/theme-system.md#设计令牌系统) - CSS 变量系统说明
 
 ## API
 

@@ -265,7 +265,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
   if (!user?.mid) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <p style={{ color: '#999', fontSize: '16px' }}>请先登录以查看收藏夹</p>
+        <p className="text-secondary-400 dark:text-secondary-500 text-base">请先登录以查看收藏夹</p>
       </section>
     )
   }
@@ -323,17 +323,17 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       )}
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>加载中...</div>
+        <div className="text-center py-10 text-secondary-400 dark:text-secondary-500">加载中...</div>
       )}
 
       {error && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#ff4444' }}>{error}</div>
+        <div className="text-center py-10 text-error-600 dark:text-error-500">{error}</div>
       )}
 
       {!loading && !error && !selectedFolder && (
         <div className="fav-folder-list" role="list" aria-label="收藏夹列表">
           {folders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>暂无收藏夹</div>
+            <div className="text-center py-16 px-5 text-secondary-400 dark:text-secondary-500">暂无收藏夹</div>
           ) : (
             folders.map(folder => (
               <article

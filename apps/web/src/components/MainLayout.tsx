@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
-import { Home, Heart, Clock, Download, User, Wifi, WifiOff } from 'lucide-react'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 import HomeContent from '../pages/components/HomeContent'
@@ -25,9 +25,33 @@ function MainLayout() {
   const { connected } = useNewQueueStore()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
+  const [darkMode, setDarkMode] = useState(false)
 
   useEffect(() => {
   }, [user])
+
+  // 初始化暗色模式
+  useEffect(() => {
+    const savedMode = localStorage.getItem('darkMode')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const initialDarkMode = savedMode ? savedMode === 'true' : prefersDark
+    setDarkMode(initialDarkMode)
+    if (initialDarkMode) {
+      document.documentElement.classList.add('dark')
+    }
+  }, [])
+
+  // 切换暗色模式
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode)
+    if (!darkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('darkMode', 'true')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('darkMode', 'false')
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -104,6 +128,14 @@ function MainLayout() {
         <div className="header-right">
           {user ? (
             <>
+              <button
+                onClick={toggleDarkMode}
+                className="dark-mode-toggle"
+                title={darkMode ? '切换到浅色模式' : '切换到暗色模式'}
+                aria-label={darkMode ? '切换到浅色模式' : '切换到暗色模式'}
+              >
+                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
               <div
                 className={`ws-status-icon ${connected ? 'ws-connected' : 'ws-disconnected'}`}
                 title={connected ? 'WebSocket 已连接' : 'WebSocket 连接断开，正在重连...'}
@@ -221,15 +253,16 @@ function LoginPrompt({ message }: { message: string }) {
   
   return (
     <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
-      <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
-      <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1E293B', marginBottom: '12px' }}>请先登录</h3>
-      <p style={{ fontSize: '16px', color: '#64748B', marginBottom: '24px' }}>{message}</p>
+      <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: 'var(--color-text-secondary)', marginBottom: '20px' }} />
+      <h3 className="dark:text-secondary-100" style={{ fontSize: '20px', fontWeight: '600', color: 'var(--color-text-primary)', marginBottom: '12px' }}>请先登录</h3>
+      <p className="dark:text-secondary-400" style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginBottom: '24px' }}>{message}</p>
       <button
         onClick={() => navigate('/login')}
+        className="dark:bg-primary-700 dark:hover:bg-primary-800"
         style={{
           padding: '12px 24px',
-          background: '#2563EB',
-          color: 'white',
+          background: 'var(--color-primary-600)',
+          color: 'var(--color-white)',
           border: 'none',
           borderRadius: '8px',
           fontSize: '16px',
@@ -250,15 +283,16 @@ function AuthGuardWrapper({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return (
       <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
-        <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: '#94A3B8', marginBottom: '20px' }} />
-        <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1E293B', marginBottom: '12px' }}>请先登录</h3>
-        <p style={{ fontSize: '16px', color: '#64748B', marginBottom: '24px' }}>登录后可以查看和管理您的内容</p>
+        <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: 'var(--color-text-secondary)', marginBottom: '20px' }} />
+        <h3 className="dark:text-secondary-100" style={{ fontSize: '20px', fontWeight: '600', color: 'var(--color-text-primary)', marginBottom: '12px' }}>请先登录</h3>
+        <p className="dark:text-secondary-400" style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginBottom: '24px' }}>登录后可以查看和管理您的内容</p>
         <button
           onClick={() => navigate('/login')}
+          className="dark:bg-primary-700 dark:hover:bg-primary-800"
           style={{
             padding: '12px 24px',
-            background: '#2563EB',
-            color: 'white',
+            background: 'var(--color-primary-600)',
+            color: 'var(--color-white)',
             border: 'none',
             borderRadius: '8px',
             fontSize: '16px',
@@ -266,8 +300,8 @@ function AuthGuardWrapper({ children }: { children: React.ReactNode }) {
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
-          onMouseOver={(e) => e.currentTarget.style.background = '#1D4ED8'}
-          onMouseOut={(e) => e.currentTarget.style.background = '#2563EB'}
+          onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-primary-700)'}
+          onMouseOut={(e) => e.currentTarget.style.background = 'var(--color-primary-600)'}
         >
           去登录
         </button>

@@ -1,3 +1,10 @@
+/* ===================================
+   PiliNote 设计令牌系统
+   Design Tokens System
+   =================================== */
+@import './design-tokens.css';
+
+/* Tailwind CSS 框架 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,6 +22,86 @@ body {
   color: #1a1a1a;
   line-height: 1.6;
   overflow-y: auto;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 暗色模式全局样式 */
+.dark body {
+  background: #0f0f0f;
+  color: #e0e0e0;
+}
+
+.dark .app {
+  background: #0f0f0f;
+}
+
+.dark .home-header {
+  background: #1a1a1a;
+  border-bottom-color: #2a2a2a;
+}
+
+.dark .home-sidebar {
+  background: #1a1a1a;
+  border-right-color: #2a2a2a;
+}
+
+.dark .home-content {
+  background: #0f0f0f;
+}
+
+.dark .sidebar-tab {
+  color: #94A3B8;
+}
+
+.dark .sidebar-tab:hover {
+  background: rgba(37, 99, 235, 0.15);
+  color: #60A5FA;
+}
+
+.dark .sidebar-tab.active {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60A5FA;
+}
+
+.dark .section-title h2 {
+  color: #e0e0e0;
+}
+
+.dark .video-count {
+  color: #94A3B8;
+  background: #1a1a1a;
+}
+
+.dark .video-card {
+  background: #1a1a1a;
+}
+
+.dark .video-info h3 {
+  color: #e0e0e0;
+}
+
+.dark .video-meta p {
+  color: #94A3B8;
+}
+
+.dark .video-item {
+  background: #1a1a1a;
+}
+
+.dark .video-item:hover {
+  background: #2a2a2a;
+}
+
+.dark .video-details h3 {
+  color: #e0e0e0;
+}
+
+.dark .user-name {
+  color: #e0e0e0;
+}
+
+.dark .user-info:hover {
+  background-color: rgba(37, 99, 235, 0.15);
 }
 
 .app {
@@ -2365,6 +2452,47 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 暗色模式切换按钮 */
+.dark-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  background: transparent;
+  color: #64748B;
+}
+
+.dark-mode-toggle:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #2563EB;
+  transform: translateY(-1px);
+}
+
+.dark-mode-toggle:active {
+  transform: translateY(0);
+}
+
+.dark-mode-toggle:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+}
+
+/* 暗色模式下的样式 */
+.dark .dark-mode-toggle {
+  color: #94A3B8;
+}
+
+.dark .dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #60A5FA;
 }
 
 /* WebSocket 状态图标 - 纯图标带悬浮提示 */
@@ -9686,4 +9814,305 @@ html {
   .history-list-clear-btn {
     transition: none;
   }
+}
+
+/* 暗色模式补充样式 */
+.dark .login-card {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+}
+
+.dark .login-title {
+  color: #e0e0e0;
+}
+
+.dark .tab {
+  color: #94A3B8;
+}
+
+.dark .tab:hover {
+  color: #60A5FA;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .tab.active {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60A5FA;
+}
+
+.dark .input-field {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .input-field::placeholder {
+  color: #64748B;
+}
+
+.dark .input-field:hover {
+  border-color: #3a3a3a;
+}
+
+.dark .input-field:focus {
+  border-color: #2563EB;
+  background: #1a1a1a;
+}
+
+.dark .video-card {
+  background: #1a1a1a;
+}
+
+.dark .video-info h3 {
+  color: #e0e0e0;
+}
+
+.dark .video-meta p {
+  color: #94A3B8;
+}
+
+.dark .video-item {
+  background: #1a1a1a;
+}
+
+.dark .video-item:hover {
+  background: #2a2a2a;
+}
+
+.dark .video-details h3 {
+  color: #e0e0e0;
+}
+
+.dark .section-header h2 {
+  color: #e0e0e0;
+}
+
+.dark .video-count {
+  color: #94A3B8;
+  background: #1a1a1a;
+}
+
+.dark .refresh-btn {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.dark .refresh-btn:hover:not(:disabled) {
+  background: #2563EB;
+  color: white;
+}
+
+.dark .empty-icon {
+  color: #64748B;
+}
+
+.dark .empty-text {
+  color: #e0e0e0;
+}
+
+.dark .empty-hint {
+  color: #94A3B8;
+}
+
+.dark .download-btn {
+  background: #2563EB;
+}
+
+.dark .download-btn:hover {
+  background: #1D4ED8;
+}
+
+.dark .stat-card {
+  background: #1a1a1a;
+}
+
+.dark .user-info {
+  color: #e0e0e0;
+}
+
+.dark .user-info:hover {
+  background-color: rgba(37, 99, 235, 0.15);
+}
+
+.dark .user-name {
+  color: #e0e0e0;
+}
+
+/* NewDownload 相关组件暗色模式 */
+.dark .download-menu {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+}
+
+.dark .download-menu-item {
+  color: #e0e0e0;
+}
+
+.dark .download-menu-item:hover {
+  background: #2a2a2a;
+}
+
+.dark .filter-bar {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+}
+
+.dark .filter-input {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .filter-input::placeholder {
+  color: #64748B;
+}
+
+.dark .filter-input:focus {
+  border-color: #2563EB;
+  background: #1a1a1a;
+}
+
+.dark .task-list {
+  background: #1a1a1a;
+}
+
+.dark .task-card {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+}
+
+.dark .task-card:hover {
+  background: #2a2a2a;
+  border-color: #3a3a3a;
+}
+
+.dark .task-card.selected {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: #2563EB;
+}
+
+.dark .task-title {
+  color: #e0e0e0;
+}
+
+.dark .task-meta {
+  color: #94A3B8;
+}
+
+.dark .task-state {
+  color: #94A3B8;
+}
+
+/* Settings 页面暗色模式 */
+.dark .settings-container {
+  background: #0f0f0f;
+}
+
+.dark .settings-section {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+}
+
+.dark .settings-section-title {
+  color: #e0e0e0;
+}
+
+.dark .settings-section-description {
+  color: #94A3B8;
+}
+
+.dark .settings-item {
+  border-color: #2a2a2a;
+}
+
+.dark .settings-item:hover {
+  background: #2a2a2a;
+}
+
+.dark .settings-item-title {
+  color: #e0e0e0;
+}
+
+.dark .settings-item-description {
+  color: #94A3B8;
+}
+
+.dark .settings-input {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .settings-input:focus {
+  border-color: #2563EB;
+  background: #1a1a1a;
+}
+
+.dark .settings-select {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .settings-select:focus {
+  border-color: #2563EB;
+}
+
+.dark .settings-button {
+  background: #2563EB;
+  color: white;
+}
+
+.dark .settings-button:hover {
+  background: #1D4ED8;
+}
+
+.dark .settings-button.secondary {
+  background: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .settings-button.secondary:hover {
+  background: #3a3a3a;
+}
+
+/* VideoListControls 暗色模式 */
+.dark .video-list-controls {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+}
+
+.dark .control-input {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .control-input:focus {
+  border-color: #2563EB;
+  background: #1a1a1a;
+}
+
+.dark .control-select {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .control-select:focus {
+  border-color: #2563EB;
+}
+
+.dark .control-button {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.dark .control-button:hover {
+  background: #2a2a2a;
+}
+
+.dark .control-button:focus {
+  border-color: #2563EB;
 }

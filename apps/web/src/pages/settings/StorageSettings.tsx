@@ -594,13 +594,21 @@ const getCurrentValue = useCallback((field: string) => {
               />
               <button
                 className="stg-reset-btn"
-                style={{ padding: '6px', border: '1px solid #E2E8F0', borderRadius: '6px', background: '#F8FAFC', color: '#94A3B8', cursor: 'pointer', flexShrink: 0 }}
+                style={{ 
+                  padding: '6px', 
+                  border: '1px solid var(--color-border)', 
+                  borderRadius: '6px', 
+                  background: 'var(--color-bg-secondary)', 
+                  color: 'var(--color-text-secondary)', 
+                  cursor: 'pointer', 
+                  flexShrink: 0 
+                }}
                 onClick={() => handleResetToolPath('ffmpeg')}
                 disabled={loading}
                 aria-label="重置FFmpeg路径"
                 title="重置为默认路径"
               >
-                <RotateCcw size={14} style={{ width: '14px', height: '14px', color: '#94A3B8' }} />
+                <RotateCcw size={14} style={{ width: '14px', height: '14px', color: 'var(--color-text-secondary)' }} />
               </button>
             </div>
           </div>
@@ -623,13 +631,21 @@ const getCurrentValue = useCallback((field: string) => {
               />
               <button
                 className="stg-reset-btn"
-                style={{ padding: '6px', border: '1px solid #E2E8F0', borderRadius: '6px', background: '#F8FAFC', color: '#94A3B8', cursor: 'pointer', flexShrink: 0 }}
+                style={{ 
+                  padding: '6px', 
+                  border: '1px solid var(--color-border)', 
+                  borderRadius: '6px', 
+                  background: 'var(--color-bg-secondary)', 
+                  color: 'var(--color-text-secondary)', 
+                  cursor: 'pointer', 
+                  flexShrink: 0 
+                }}
                 onClick={() => handleResetToolPath('aria2c')}
                 disabled={loading}
                 aria-label="重置Aria2c路径"
                 title="重置为默认路径"
               >
-                <RotateCcw size={14} style={{ width: '14px', height: '14px', color: '#94A3B8' }} />
+                <RotateCcw size={14} style={{ width: '14px', height: '14px', color: 'var(--color-text-secondary)' }} />
               </button>
             </div>
           </div>

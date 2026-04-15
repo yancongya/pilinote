@@ -274,7 +274,7 @@ export default function DownloadsList() {
             onClick={() => setShowBatchDeleteConfirm(true)}
             aria-label="批量删除"
             title={`删除选中的 ${selectedTasks.size} 个任务`}
-            style={{ marginLeft: '8px', color: '#ef4444' }}
+            style={{ marginLeft: '8px', color: 'var(--color-error-500)' }}
           >
             <Trash2 size={16} />
             <span>删除 ({selectedTasks.size})</span>
@@ -288,7 +288,7 @@ export default function DownloadsList() {
             onClick={handleBatchStart}
             aria-label="批量开始下载"
             title={`开始下载选中的 ${selectedTasks.size} 个任务`}
-            style={{ marginLeft: '8px', color: '#10b981' }}
+            style={{ marginLeft: '8px', color: 'var(--color-success-500)' }}
           >
             <Play size={16} />
             <span>开始 ({selectedTasks.size})</span>
@@ -302,7 +302,7 @@ export default function DownloadsList() {
             onClick={() => setShowDeleteAllConfirm(true)}
             aria-label="删除所有"
             title={`删除所有 ${filteredTasks.length} 个任务`}
-            style={{ marginLeft: '8px', color: '#ef4444' }}
+            style={{ marginLeft: '8px', color: 'var(--color-error-500)' }}
           >
             <Trash2 size={16} />
             <span>全部删除</span>
@@ -322,7 +322,7 @@ export default function DownloadsList() {
               <div style={{
                 width: '16px',
                 height: '16px',
-                backgroundColor: '#3b82f6',
+                backgroundColor: 'var(--color-primary-500)',
                 borderRadius: '2px',
                 display: 'flex',
                 alignItems: 'center',

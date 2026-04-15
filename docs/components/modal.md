@@ -61,6 +61,58 @@ function MyComponent() {
 | 背景滚动锁 | 打开时禁止背景滚动 |
 | 移动端适配 | 底部弹出式布局 |
 | 无障碍 | 支持 aria 属性 |
+| **暗色模式** | 使用 CSS 变量自动适配 |
+
+## 主题支持
+
+组件使用 CSS 变量系统，自动适配亮色和暗色模式：
+
+```tsx
+// 暗色模式样式
+.dark .modal-panel {
+  background: 'var(--color-bg-secondary)';
+  color: 'var(--color-text-primary)';
+  border: '1px solid var(--color-border)';
+}
+
+.dark .modal-overlay {
+  background: 'var(--color-overlay)';
+}
+```
+
+### 亮色模式样式
+
+```css
+.modal-panel {
+  background: white;
+  color: #1a1a1a;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+```
+
+### 暗色模式样式
+
+```css
+.dark .modal-panel {
+  background: #1a1a1a;
+  color: #e0e0e0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+```
+
+## 关联文档
+
+- [主题系统设计](../web/theme-system.md) - 完整的主题系统设计文档
+- [MainLayout](./main-layout.md) - 主布局和主题切换功能
+- [设计令牌系统](../web/theme-system.md#设计令牌系统) - CSS 变量系统说明
 
 ## 样式定制
 

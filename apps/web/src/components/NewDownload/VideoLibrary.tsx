@@ -121,7 +121,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               />
             ) : (
               <div className="cover-placeholder">
-                <Film size={32} color="#42a5f5" />
+                <Film size={32} color="var(--color-primary-500)" />
               </div>
             )}
             
@@ -135,7 +135,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             {/* 评分显示 */}
             {task.meta?.rating && (
               <div className="library-folder-rating">
-                <Star size={12} color="#fbbf24" fill="#fbbf24" />
+                <Star size={12} color="var(--color-warning-400)" fill="var(--color-warning-400)" />
                 <span>{task.meta.rating}</span>
               </div>
             )}
@@ -681,7 +681,7 @@ export default function VideoLibrary() {
   if (!connected) {
     return (
       <div className="video-library">
-        <div style={{ textAlign: 'center', padding: '40px', color: '#92400e', background: '#fef3c7', borderRadius: '8px', fontSize: '14px' }}>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-warning-700)', background: 'var(--color-warning-50)', borderRadius: '8px', fontSize: '14px' }}>
           <EmptyIcon size={16} style={{ marginBottom: '8px' }} />
           <br />
           WebSocket 未连接，请检查后端服务
@@ -770,11 +770,11 @@ export default function VideoLibrary() {
 
           <div className="empty-state">
 
-            <EmptyIcon size={48} color="#94a3b8" />
+            <EmptyIcon size={48} color="var(--color-text-secondary)" />
 
             <p>暂无视频文件</p>
 
-            <p style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
 
               点击刷新按钮扫描本地视频库
 
@@ -840,11 +840,11 @@ export default function VideoLibrary() {
 
               <div className="empty-state">
 
-                <EmptyIcon size={48} color="#94a3b8" />
+                <EmptyIcon size={48} color="var(--color-text-secondary)" />
 
                 <p>未找到匹配的视频</p>
 
-                <p style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px' }}>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
 
                   请尝试其他关键词或清除搜索条件
 

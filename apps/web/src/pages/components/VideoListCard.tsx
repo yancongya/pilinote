@@ -208,7 +208,7 @@ export default function VideoListCard({
         <div className="video-card-thumbnail">
           {!hasCover ? (
                 <div className="thumbnail-placeholder">
-                  <Film size={48} color="#42a5f5" />
+                  <Film size={48} color="var(--color-primary-500)" />
                 </div>
               ) : (
                 <>
@@ -226,7 +226,7 @@ export default function VideoListCard({
                     }}
                   />
                   <div className="thumbnail-placeholder" style={{ display: 'none' }}>
-                    <Film size={48} color="#42a5f5" />
+                    <Film size={48} color="var(--color-primary-500)" />
                   </div>
                 </>
               )}
@@ -278,7 +278,7 @@ export default function VideoListCard({
           {showActionButtons ? (
             <>
               {download_speed !== undefined && download_speed > 0 && (
-                <span className="video-card-download-speed" style={{ color: '#42a5f5', fontWeight: 'bold' }}>
+                <span className="video-card-download-speed" style={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}>
                   {formatDownloadSpeed(download_speed)}
                 </span>
               )}
@@ -293,7 +293,7 @@ export default function VideoListCard({
                 </span>
               )}
               {eta !== undefined && eta > 0 && eta !== Infinity && (
-                <span className="video-card-eta" style={{ color: '#666', fontSize: '12px' }}>
+                <span className="video-card-eta" style={{ color: 'var(--color-secondary-500)', fontSize: '12px' }}>
                   剩余{formatETA(eta)}
                 </span>
               )}
@@ -390,8 +390,8 @@ export default function VideoListCard({
           aria-label={selected ? '取消选择' : '选择'}
           title={selected ? '取消选择' : '选择'}
           style={{
-            backgroundColor: selected ? '#fb7299' : 'white',
-            borderColor: selected ? '#fb7299' : '#ddd',
+            backgroundColor: selected ? 'var(--color-primary-600)' : 'var(--color-white)',
+            borderColor: selected ? 'var(--color-primary-600)' : 'var(--color-border)',
           }}
         >
           {selected && <Check size={18} color="white" />}
@@ -419,15 +419,15 @@ export default function VideoListCard({
             '添加到下载'
           }
           style={{
-            backgroundColor: downloadStatus === 'in_list' ? '#fb7299' :
-                         downloadStatus === 'downloaded' ? '#22c55e' :
-                         'white',
-            borderColor: downloadStatus === 'in_list' ? '#fb7299' :
-                        downloadStatus === 'downloaded' ? '#22c55e' :
-                        '#ddd',
-            color: downloadStatus === 'in_list' ? 'white' :
-                   downloadStatus === 'downloaded' ? 'white' :
-                   '#999',
+            backgroundColor: downloadStatus === 'in_list' ? 'var(--color-primary-600)' :
+                         downloadStatus === 'downloaded' ? 'var(--color-success-500)' :
+                         'var(--color-white)',
+            borderColor: downloadStatus === 'in_list' ? 'var(--color-primary-600)' :
+                        downloadStatus === 'downloaded' ? 'var(--color-success-500)' :
+                        'var(--color-border)',
+            color: downloadStatus === 'in_list' ? 'var(--color-white)' :
+                   downloadStatus === 'downloaded' ? 'var(--color-white)' :
+                   'var(--color-secondary-400)',
             cursor: 'pointer'
           }}
         >

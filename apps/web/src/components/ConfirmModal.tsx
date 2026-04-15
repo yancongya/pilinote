@@ -34,11 +34,11 @@ export default function ConfirmModal({
     const disabledClass = disabled ? "opacity-50 cursor-not-allowed" : ""
     
     if (variant === 'primary') {
-      return `${baseClass} bg-blue-600 text-white shadow-[0_2px_8px_rgba(37,99,235,0.2)] ${!disabled ? 'hover:bg-blue-700 hover:shadow-[0_4px_12px_rgba(37,99,235,0.3)]' : ''} ${disabledClass}`
+      return `${baseClass} bg-primary-600 text-white shadow-primary ${!disabled ? 'hover:bg-primary-700 hover:shadow-primary-hover' : ''} ${disabledClass}`
     } else if (variant === 'danger') {
-      return `${baseClass} bg-red-600 text-white shadow-[0_2px_8px_rgba(220,38,38,0.2)] ${!disabled ? 'hover:bg-red-700 hover:shadow-[0_4px_12px_rgba(220,38,38,0.3)]' : ''} ${disabledClass}`
+      return `${baseClass} bg-error-600 text-white shadow-error ${!disabled ? 'hover:bg-error-700 hover:shadow-error-hover' : ''} ${disabledClass}`
     } else {
-      return `${baseClass} bg-slate-100 text-slate-600 ${!disabled ? 'hover:bg-slate-200 hover:text-slate-800' : ''} ${disabledClass}`
+      return `${baseClass} dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600 dark:hover:text-secondary-100 bg-secondary-100 text-secondary-600 ${!disabled ? 'hover:bg-secondary-200 hover:text-secondary-800' : ''} ${disabledClass}`
     }
   }
 
@@ -66,7 +66,7 @@ export default function ConfirmModal({
         </>
       }
     >
-      <p className="m-0 text-base text-slate-600 leading-relaxed">{message}</p>
+      <p className="m-0 text-base dark:text-slate-300 text-slate-600 leading-relaxed">{message}</p>
     </Modal>
   )
 }

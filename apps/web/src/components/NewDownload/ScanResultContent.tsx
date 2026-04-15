@@ -317,10 +317,10 @@ export default function ScanResultContent() {
               style={{
                 padding: '6px 12px',
                 fontSize: '12px',
-                border: '1px solid #e2e8f0',
+                border: '1px solid var(--color-border)',
                 borderRadius: '6px',
-                backgroundColor: 'white',
-                color: '#64748b',
+                backgroundColor: 'var(--color-bg-primary)',
+                color: 'var(--color-text-secondary)',
                 cursor: 'pointer',
                 minWidth: '120px'
               }}
@@ -343,14 +343,14 @@ export default function ScanResultContent() {
                   alignItems: 'center',
                   gap: '4px',
                   backgroundColor: 'transparent',
-                  color: '#dc2626',
+                  color: 'var(--color-error-600)',
                   border: '1px solid transparent',
                   minWidth: 'auto',
                   cursor: 'pointer'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.1)'
-                  e.currentTarget.style.borderColor = '#fca5a5'
+                  e.currentTarget.style.backgroundColor = 'var(--color-error-50)'
+                  e.currentTarget.style.borderColor = 'var(--color-error-300)'
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent'
@@ -421,7 +421,7 @@ export default function ScanResultContent() {
                         padding: '4px',
                         backgroundColor: 'transparent',
                         border: 'none',
-                        color: '#ef4444',
+                        color: 'var(--color-error-500)',
                         cursor: 'pointer',
                         opacity: 0.7,
                         transition: 'opacity 0.2s'

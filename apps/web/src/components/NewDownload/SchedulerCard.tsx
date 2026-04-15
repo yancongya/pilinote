@@ -162,25 +162,25 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
   }, [schedulerTasks])
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-    'idle': { label: '待处理', color: '#f59e0b', icon: Clock },
-    'running': { label: '执行中', color: '#10b981', icon: Loader2 },
-    'paused': { label: '已暂停', color: '#f97316', icon: Pause },
-    'completed': { label: '已完成', color: '#22c55e', icon: CheckCircle },
-    'failed': { label: '失败', color: '#ef4444', icon: XCircle },
-    'cancelled': { label: '已取消', color: '#6b7280', icon: XCircle },
+    'idle': { label: '待处理', color: 'var(--color-warning-500)', icon: Clock },
+    'running': { label: '执行中', color: 'var(--color-success-500)', icon: Loader2 },
+    'paused': { label: '已暂停', color: 'var(--color-warning-600)', icon: Pause },
+    'completed': { label: '已完成', color: 'var(--color-success-500)', icon: CheckCircle },
+    'failed': { label: '失败', color: 'var(--color-error-500)', icon: XCircle },
+    'cancelled': { label: '已取消', color: 'var(--color-secondary-500)', icon: XCircle },
   }
 
   const taskStatusConfig: Record<string, { label: string; color: string }> = {
-    'backlog': { label: '待办', color: '#94a3b8' },
-    'pending': { label: '待处理', color: '#f59e0b' },
-    'active': { label: '下载中', color: '#10b981' },
-    'completed': { label: '已完成', color: '#22c55e' },
-    'paused': { label: '已暂停', color: '#f97316' },
-    'failed': { label: '失败', color: '#ef4444' },
-    'cancelled': { label: '已取消', color: '#6b7280' },
+    'backlog': { label: '待办', color: 'var(--color-secondary-400)' },
+    'pending': { label: '待处理', color: 'var(--color-warning-500)' },
+    'active': { label: '下载中', color: 'var(--color-success-500)' },
+    'completed': { label: '已完成', color: 'var(--color-success-500)' },
+    'paused': { label: '已暂停', color: 'var(--color-warning-600)' },
+    'failed': { label: '失败', color: 'var(--color-error-500)' },
+    'cancelled': { label: '已取消', color: 'var(--color-secondary-500)' },
   }
 
-  const status = statusConfig[scheduler.state] || { label: '未知', color: '#6b7280', icon: Clock }
+  const status = statusConfig[scheduler.state] || { label: '未知', color: 'var(--color-text-tertiary)', icon: Clock }
   const StatusIcon = status.icon
 
   const completedCount = schedulerTasks.filter(t => t.state === 'completed').length
@@ -240,7 +240,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                 }}
               />
               <div className="cover-placeholder" style={{ display: 'none' }}>
-                <Film size={32} color="#42a5f5" />
+                <Film size={32} color="var(--color-primary-500)" />
               </div>
             </div>
           </div>
@@ -385,7 +385,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                         <div style={{
                           width: '16px',
                           height: '16px',
-                          backgroundColor: '#3b82f6',
+                          backgroundColor: 'var(--color-primary-500)',
                           borderRadius: '2px',
                           display: 'flex',
                           alignItems: 'center',
@@ -396,7 +396,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                           </svg>
                         </div>
                       ) : (
-                        <Square size={16} color="#64748b" />
+                        <Square size={16} color="var(--color-text-secondary)" />
                       )}
                     </div>
                   )}
@@ -418,7 +418,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                           }}
                         />
                         <div className="cover-placeholder" style={{ display: 'none' }}>
-                          <Film size={24} color="#42a5f5" />
+                          <Film size={24} color="var(--color-primary-500)" />
                         </div>
                       </div>
                     </div>
@@ -429,7 +429,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                     <div className="task-meta">
                       {/* 状态标签（仅在非完成状态时显示） */}
                       {task.state !== 'completed' && (
-                        <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || '#6b7280' }}>
+                        <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || 'var(--color-text-tertiary)' }}>
                           {taskStatusConfig[task.state]?.label || task.state}
                         </span>
                       )}

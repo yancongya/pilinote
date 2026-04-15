@@ -16,10 +16,26 @@ export default function AlertModal({
   type = 'info',
 }: AlertModalProps) {
   const colors = {
-    info: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800' },
-    success: { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800' },
-    warning: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800' },
-    error: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800' },
+    info: { 
+      bg: 'bg-info-50 dark:bg-info-950', 
+      border: 'border-info-200 dark:border-info-900', 
+      text: 'text-info-800 dark:text-info-200' 
+    },
+    success: { 
+      bg: 'bg-success-50 dark:bg-success-950', 
+      border: 'border-success-200 dark:border-success-900', 
+      text: 'text-success-800 dark:text-success-200' 
+    },
+    warning: { 
+      bg: 'bg-warning-50 dark:bg-warning-950', 
+      border: 'border-warning-200 dark:border-warning-900', 
+      text: 'text-warning-800 dark:text-warning-200' 
+    },
+    error: { 
+      bg: 'bg-error-50 dark:bg-error-950', 
+      border: 'border-error-200 dark:border-error-900', 
+      text: 'text-error-800 dark:text-error-200' 
+    },
   }
 
   const color = colors[type]
@@ -29,9 +45,9 @@ export default function AlertModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      footer={
+footer={
         <button
-          className="px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation bg-blue-600 text-white shadow-[0_2px_8px_rgba(37,99,235,0.2)] hover:bg-blue-700 hover:shadow-[0_4px_12px_rgba(37,99,235,0.3)] focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+          className="px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation bg-primary-600 text-white shadow-primary hover:bg-primary-700 hover:shadow-primary-hover focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2"
           onClick={onClose}
         >
           确定
