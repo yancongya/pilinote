@@ -30,8 +30,23 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
  */
 const ThemeConsumer: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { theme } = useTheme();
+  
+  // 确保主题对象包含所有必要的属性
+  const styledTheme = {
+    ...theme,
+    // 添加CSS变量访问
+    colors: {
+      ...theme.colors,
+      // 确保可以直接通过CSS变量访问
+      primary: theme.colors.primary,
+      secondary: theme.colors.secondary,
+      functional: theme.colors.functional,
+      semantic: theme.colors.semantic,
+    },
+  };
+  
   return (
-    <StyledComponentsThemeProvider theme={theme}>
+    <StyledComponentsThemeProvider theme={styledTheme}>
       {children}
     </StyledComponentsThemeProvider>
   );

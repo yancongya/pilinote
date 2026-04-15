@@ -78,6 +78,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } else {
       document.documentElement.classList.remove('dark');
     }
+    
+    // 强制触发CSS变量更新
+    document.documentElement.style.setProperty('--color-mode', mode);
   }, [mode]);
 
   const contextValue: ThemeContextValue = {
