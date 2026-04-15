@@ -74,6 +74,7 @@ export const MobileMenuToggle = styled.button`
 export const SidebarCollapseButton = styled.button`
   width: 100%;
   height: 40px;
+  padding: 16px 0; /* 顶部和底部padding */
   border: none;
   border-top: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
@@ -84,6 +85,7 @@ export const SidebarCollapseButton = styled.button`
   justify-content: center;
   ${SmoothTransition}
   margin-top: auto;
+  flex-shrink: 0; /* 防止被压缩 */
   
   &:hover {
     background: var(--color-bg-tertiary);
@@ -296,7 +298,6 @@ export const MainContent = styled.div`
  */
 export const Sidebar = styled.aside<{ $width?: number; $collapsed?: boolean }>`
   width: ${props => props.$collapsed ? '70px' : props.$width || 240}px;
-  padding: 16px 0;
   border-right: 1px solid var(--color-border);
   position: relative;
   z-index: 50;
@@ -369,9 +370,13 @@ export const MobileSidebarOverlay = styled.div`
  * 侧边栏导航（支持独立滚动）
  */
 export const SidebarNav = styled.nav`
+  flex: 1;
+  padding: 16px 12px 0 12px; /* 顶部padding，底部无padding */
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
   
   /* 自定义滚动条样式 */
   &::-webkit-scrollbar {
