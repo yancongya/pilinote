@@ -468,13 +468,13 @@ const getCurrentValue = useCallback((field: string) => {
             onDragOver={handleDragOver}
           >
             <div className="stg-item-label-row">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="flex items-center gap-1.5">
                 <Folder size={18} className="stg-item-icon" />
                 <span className="stg-item-label">下载路径</span>
               </span>
               <button
-                className="stg-btn-icon"
-                style={{ padding: '4px', width: 'auto', height: 'auto', flexShrink: 0, color: 'var(--color-text-secondary)' }}
+                className="stg-btn-icon p-1 w-auto h-auto flex-shrink-0"
+                style={{ color: 'var(--color-text-secondary)' }}
                 onClick={() => handleEditPath('download_path')}
                 title="编辑路径"
               >
@@ -503,13 +503,13 @@ const getCurrentValue = useCallback((field: string) => {
             onDragOver={handleDragOver}
           >
             <div className="stg-item-label-row">
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="flex items-center gap-1.5">
                 <Database size={18} className="stg-item-icon" />
                 <span className="stg-item-label">临时路径</span>
               </span>
               <button
-                className="stg-btn-icon"
-                style={{ padding: '4px', width: 'auto', height: 'auto', flexShrink: 0, color: 'var(--color-text-secondary)' }}
+                className="stg-btn-icon p-1 w-auto h-auto flex-shrink-0"
+                style={{ color: 'var(--color-text-secondary)' }}
                 onClick={() => handleEditPath('temp_path')}
                 title="编辑路径"
               >
@@ -577,11 +577,10 @@ const getCurrentValue = useCallback((field: string) => {
               <FileVideo size={18} className="stg-item-icon" />
               <span className="stg-item-label">FFmpeg</span>
             </div>
-            <div className="stg-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+            <div className="stg-input-wrapper flex items-center gap-1.5 w-full">
               <input
                 type="text"
-                className="stg-input"
-                style={{ flex: '1', minWidth: 0 }}
+                className="stg-input flex-1 min-w-0"
                 value={getCurrentValue('sidecar.ffmpeg') ?? 'ffmpeg'}
                 onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
                 disabled={loading}
@@ -589,22 +588,19 @@ const getCurrentValue = useCallback((field: string) => {
                 aria-label="输入FFmpeg路径"
               />
               <button
-                className="stg-reset-btn"
+                className="stg-reset-btn p-1.5 flex-shrink-0 cursor-pointer"
                 style={{ 
-                  padding: '6px', 
                   border: '1px solid var(--color-border)', 
                   borderRadius: '6px', 
                   background: 'var(--color-bg-secondary)', 
-                  color: 'var(--color-text-secondary)', 
-                  cursor: 'pointer', 
-                  flexShrink: 0 
+                  color: 'var(--color-text-secondary)' 
                 }}
                 onClick={() => handleResetToolPath('ffmpeg')}
                 disabled={loading}
                 aria-label="重置FFmpeg路径"
                 title="重置为默认路径"
               >
-                <RotateCcw size={14} style={{ width: '14px', height: '14px', color: 'var(--color-text-secondary)' }} />
+                <RotateCcw size={14} className="w-3.5 h-3.5" style={{ color: 'var(--color-text-secondary)' }} />
               </button>
             </div>
           </div>
@@ -614,11 +610,10 @@ const getCurrentValue = useCallback((field: string) => {
               <Zap size={18} className="stg-item-icon" />
               <span className="stg-item-label">Aria2c</span>
             </div>
-            <div className="stg-input-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+            <div className="stg-input-wrapper flex items-center gap-1.5 w-full">
               <input
                 type="text"
-                className="stg-input"
-                style={{ flex: '1', minWidth: 0 }}
+                className="stg-input flex-1 min-w-0"
                 value={getCurrentValue('sidecar.aria2c') ?? 'aria2c'}
                 onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
                 disabled={loading}
@@ -626,22 +621,19 @@ const getCurrentValue = useCallback((field: string) => {
                 aria-label="输入Aria2c路径"
               />
               <button
-                className="stg-reset-btn"
+                className="stg-reset-btn p-1.5 flex-shrink-0 cursor-pointer"
                 style={{ 
-                  padding: '6px', 
                   border: '1px solid var(--color-border)', 
                   borderRadius: '6px', 
                   background: 'var(--color-bg-secondary)', 
-                  color: 'var(--color-text-secondary)', 
-                  cursor: 'pointer', 
-                  flexShrink: 0 
+                  color: 'var(--color-text-secondary)' 
                 }}
                 onClick={() => handleResetToolPath('aria2c')}
                 disabled={loading}
                 aria-label="重置Aria2c路径"
                 title="重置为默认路径"
               >
-                <RotateCcw size={14} style={{ width: '14px', height: '14px', color: 'var(--color-text-secondary)' }} />
+                <RotateCcw size={14} className="w-3.5 h-3.5" style={{ color: 'var(--color-text-secondary)' }} />
               </button>
             </div>
           </div>

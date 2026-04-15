@@ -36,21 +36,42 @@ function MainLayout() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const initialDarkMode = savedMode ? savedMode === 'true' : prefersDark
     setDarkMode(initialDarkMode)
+    
+    // 明确设置dark class的状态
     if (initialDarkMode) {
       document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
+    
+    // 调试：检查当前主题状态
+    console.log('Initial dark mode:', initialDarkMode)
+    console.log('Current dark class:', document.documentElement.classList.contains('dark'))
+    console.log('CSS variables test:', {
+      bgPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary'),
+      textPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary')
+    })
   }, [])
 
   // 切换暗色模式
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode)
-    if (!darkMode) {
+    const newDarkMode = !darkMode
+    setDarkMode(newDarkMode)
+    if (newDarkMode) {
       document.documentElement.classList.add('dark')
       localStorage.setItem('darkMode', 'true')
     } else {
       document.documentElement.classList.remove('dark')
       localStorage.setItem('darkMode', 'false')
     }
+    
+    // 调试：检查切换后的主题状态
+    console.log('Toggle dark mode:', newDarkMode)
+    console.log('Current dark class:', document.documentElement.classList.contains('dark'))
+    console.log('CSS variables after toggle:', {
+      bgPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary'),
+      textPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary')
+    })
   }
 
   useEffect(() => {
@@ -121,6 +142,30 @@ function MainLayout() {
 
   return (
     <div className={`home-container ${activeTab === 'home' ? 'has-tabs' : ''}`}>
+      {/* 主题切换测试元素 */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          padding: '16px',
+          background: 'var(--color-bg-secondary)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '8px',
+          zIndex: 10000,
+          color: 'var(--color-text-primary)'
+        }}
+      >
+        <div>主题测试</div>
+        <div>当前模式: {darkMode ? '暗色' : '亮色'}</div>
+        <div>Dark类: {document.documentElement.classList.contains('dark') ? '存在' : '不存在'}</div>
+        <div style={{ marginTop: '8px' }}>
+          <span style={{ display: 'inline-block', padding: '8px', background: 'var(--color-primary-600)', color: 'white', borderRadius: '4px' }}>
+            主要色测试
+          </span>
+        </div>
+      </div>
+      
       <header className="home-header">
         <div className="header-left">
           <h1>PiliNote</h1>
@@ -206,24 +251,24 @@ function MainLayout() {
 
         <main className="home-content">
           <div className="content-wrapper">
-            <div style={{ display: activeTab === 'home' ? 'block' : 'none' }}>
+            <div className={activeTab === 'home' ? 'block' : 'hidden'}>
               <HomeContent />
             </div>
-            <div style={{ display: activeTab === 'favorites' ? 'block' : 'none' }}>
+            <div className={activeTab === 'favorites' ? 'block' : 'hidden'}>
               {isAuthenticated ? (
                 <FavoritesContent />
               ) : (
                 <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
               )}
             </div>
-            <div style={{ display: activeTab === 'watch-later' ? 'block' : 'none' }}>
+            <div className={activeTab === 'watch-later' ? 'block' : 'hidden'}>
               {isAuthenticated ? (
                 <WatchLaterContent />
               ) : (
                 <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
               )}
             </div>
-            <div style={{ display: activeTab === 'new-downloads' ? 'block' : 'none' }}>
+            <div className={activeTab === 'new-downloads' ? 'block' : 'hidden'}>
               <NewDownloadContent />
             </div>
           </div>
@@ -250,24 +295,18 @@ function MainLayout() {
 
 function LoginPrompt({ message }: { message: string }) {
   const navigate = useNavigate()
-  
+
   return (
-    <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
-      <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: 'var(--color-text-secondary)', marginBottom: '20px' }} />
-      <h3 className="dark:text-secondary-100" style={{ fontSize: '20px', fontWeight: '600', color: 'var(--color-text-primary)', marginBottom: '12px' }}>请先登录</h3>
-      <p className="dark:text-secondary-400" style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginBottom: '24px' }}>{message}</p>
+    <section className="content-section text-center py-20 px-5">
+      <LogIn className="empty-state-icon w-16 h-16 mb-5" style={{ color: 'var(--color-text-secondary)' }} />
+      <h3 className="dark:text-secondary-100 text-xl font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>请先登录</h3>
+      <p className="dark:text-secondary-400 text-base mb-6" style={{ color: 'var(--color-text-secondary)' }}>{message}</p>
       <button
         onClick={() => navigate('/login')}
-        className="dark:bg-primary-700 dark:hover:bg-primary-800"
+        className="px-6 py-3 rounded-lg text-base font-medium cursor-pointer transition-colors hover:opacity-90"
         style={{
-          padding: '12px 24px',
           background: 'var(--color-primary-600)',
           color: 'var(--color-white)',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '16px',
-          fontWeight: '500',
-          cursor: 'pointer',
         }}
       >
         去登录
@@ -279,36 +318,27 @@ function LoginPrompt({ message }: { message: string }) {
 function AuthGuardWrapper({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
-  
+
   if (!isAuthenticated) {
     return (
-      <section className="content-section" style={{ textAlign: 'center', padding: '80px 20px' }}>
-        <LogIn className="empty-state-icon" style={{ width: '64px', height: '64px', color: 'var(--color-text-secondary)', marginBottom: '20px' }} />
-        <h3 className="dark:text-secondary-100" style={{ fontSize: '20px', fontWeight: '600', color: 'var(--color-text-primary)', marginBottom: '12px' }}>请先登录</h3>
-        <p className="dark:text-secondary-400" style={{ fontSize: '16px', color: 'var(--color-text-secondary)', marginBottom: '24px' }}>登录后可以查看和管理您的内容</p>
+      <section className="content-section text-center py-20 px-5">
+        <LogIn className="empty-state-icon w-16 h-16 mb-5" style={{ color: 'var(--color-text-secondary)' }} />
+        <h3 className="dark:text-secondary-100 text-xl font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>请先登录</h3>
+        <p className="dark:text-secondary-400 text-base mb-6" style={{ color: 'var(--color-text-secondary)' }}>登录后可以查看和管理您的内容</p>
         <button
           onClick={() => navigate('/login')}
-          className="dark:bg-primary-700 dark:hover:bg-primary-800"
+          className="px-6 py-3 rounded-lg text-base font-medium cursor-pointer transition-colors hover:opacity-90"
           style={{
-            padding: '12px 24px',
             background: 'var(--color-primary-600)',
             color: 'var(--color-white)',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            transition: 'all 0.2s'
           }}
-          onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-primary-700)'}
-          onMouseOut={(e) => e.currentTarget.style.background = 'var(--color-primary-600)'}
         >
           去登录
         </button>
       </section>
     )
   }
-  
+
   return <>{children}</>
 }
 

@@ -352,7 +352,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
                 <div className="fav-folder-cover">
                   <div className="fav-folder-thumbnail">
                     {folder.cover ? (
-                      <img src={getAvatarProxyUrl(folder.cover)} alt={folder.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={getAvatarProxyUrl(folder.cover)} alt={folder.title} className="w-full h-full object-cover" />
                     ) : (
                       <Folder />
                     )}

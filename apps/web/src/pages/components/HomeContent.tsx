@@ -357,7 +357,8 @@ const formatDuration = (seconds: any) => {
             position: 'relative',
             width: '320px',
             flexShrink: 0,
-            height: '180px'
+            height: '180px',
+            backgroundColor: 'var(--color-bg-tertiary)'
           }}>
             <img
               src={getProxyImageUrl(videoInfo.pic)}
@@ -370,7 +371,17 @@ const formatDuration = (seconds: any) => {
               }}
             />
             {isOpus ? (
-              <div className="absolute bottom-3 right-3 bg-primary-600 text-white px-2 py-1 rounded text-xs font-semibold">
+              <div style={{
+                position: 'absolute',
+                bottom: '12px',
+                right: '12px',
+                backgroundColor: 'var(--color-primary)',
+                color: 'var(--color-white)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}>
                 图文
               </div>
             ) : (
@@ -385,13 +396,15 @@ const formatDuration = (seconds: any) => {
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
-            minWidth: 0
+            minWidth: '0',
+            backgroundColor: 'var(--color-bg-primary)'
           }}>
             <h3 className="video-title" style={{
               fontSize: '15px',
               fontWeight: '600',
               lineHeight: '1.4',
               margin: '0',
+              color: 'var(--color-text-primary)',
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
@@ -408,35 +421,50 @@ const formatDuration = (seconds: any) => {
                 src={getProxyImageUrl(videoInfo.owner.face)}
                 alt={videoInfo.owner.name}
                 className="uploader-avatar"
-                style={{ width: '28px', height: '28px', borderRadius: '50%' }}
+                style={{ 
+                  width: '28px', 
+                  height: '28px', 
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--color-bg-tertiary)'
+                }}
               />
-              <span className="uploader-name text-sm font-medium text-secondary-800 dark:text-secondary-200">{videoInfo.owner.name}</span>
+              <span style={{
+                fontSize: '14px',
+                fontWeight: '500',
+                color: 'var(--color-text-primary)'
+              }}>{videoInfo.owner.name}</span>
             </div>
 
             {/* 统计信息 */}
-            <div className="flex flex-wrap gap-2.5 text-xs text-secondary-500 dark:text-secondary-400">
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '10px',
+              fontSize: '12px',
+              color: 'var(--color-text-tertiary)'
+            }}>
               {isOpus ? (
                 <>
                   {videoInfo.stat.like !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="点赞数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="点赞数">
                       <ThumbsUp size={11} />
                       {formatNumber(videoInfo.stat.like)}
                     </span>
                   )}
                   {videoInfo.stat.favorite !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="收藏数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="收藏数">
                       <Star size={11} />
                       {formatNumber(videoInfo.stat.favorite)}
                     </span>
                   )}
                   {videoInfo.stat.reply !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="评论数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="评论数">
                       <MessageCircle size={11} />
                       {formatNumber(videoInfo.stat.reply)}
                     </span>
                   )}
                   {videoInfo.stat.share !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="转发数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="转发数">
                       <Share2 size={11} />
                       {formatNumber(videoInfo.stat.share)}
                     </span>
@@ -444,42 +472,42 @@ const formatDuration = (seconds: any) => {
                 </>
               ) : (
                 <>
-                  <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="播放量">
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="播放量">
                     <Eye size={11} />
                     {formatNumber(videoInfo.stat.view)}
                   </span>
                   {videoInfo.stat.danmaku !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="弹幕数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="弹幕数">
                       <MessageSquare size={11} />
                       {formatNumber(videoInfo.stat.danmaku)}
                     </span>
                   )}
                   {videoInfo.stat.like !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="点赞数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="点赞数">
                       <ThumbsUp size={11} />
                       {formatNumber(videoInfo.stat.like)}
                     </span>
                   )}
                   {videoInfo.stat.coin !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="投币数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="投币数">
                       <Coins size={11} />
                       {formatNumber(videoInfo.stat.coin)}
                     </span>
                   )}
                   {videoInfo.stat.favorite !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="收藏数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="收藏数">
                       <Star size={11} />
                       {formatNumber(videoInfo.stat.favorite)}
                     </span>
                   )}
                   {videoInfo.stat.reply !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="评论数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="评论数">
                       <MessageCircle size={11} />
                       {formatNumber(videoInfo.stat.reply)}
                     </span>
                   )}
                   {videoInfo.stat.share !== undefined && (
-                    <span className="stat-item" style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="转发数">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }} title="转发数">
                       <Share2 size={11} />
                       {formatNumber(videoInfo.stat.share)}
                     </span>
@@ -490,59 +518,84 @@ const formatDuration = (seconds: any) => {
 
             {/* 视频简介 - 仅视频显示 */}
             {!isOpus && videoInfo.desc && (
-              <p className="video-description" style={{
+              <p style={{
                 fontSize: '12px',
-                color: '#666',
+                color: 'var(--color-text-tertiary)',
                 lineHeight: '1.5',
                 margin: '0',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
-                overflow: 'hidden'
+                overflow: 'hidden',
+                backgroundColor: 'var(--color-bg-secondary)',
+                padding: '12px',
+                borderRadius: '8px'
               }}>{videoInfo.desc}</p>
             )}
 
             {/* 分P选择区域 */}
             {isMultiPart && downloadOptions.pages && (
-              <div className="video-pages-section bg-slate-100 dark:bg-slate-800 rounded-md p-2.5 max-h-[150px] overflow-y-auto">
-                <div className="pages-header" style={{
+              <div style={{
+                backgroundColor: 'var(--color-bg-secondary)',
+                borderRadius: '8px',
+                padding: '10px',
+                maxHeight: '150px',
+                overflowY: 'auto'
+              }}>
+                <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   marginBottom: '6px'
                 }}>
-                  <h4 className="pages-title" style={{
+                  <h4 style={{
                     fontSize: '12px',
                     fontWeight: '600',
-                    margin: '0'
+                    margin: '0',
+                    color: 'var(--color-text-primary)'
                   }}>视频章节 ({downloadOptions.pages.length})</h4>
-                  <div className="pages-actions" style={{
+                  <div style={{
                     display: 'flex',
                     gap: '6px'
                   }}>
                     <button
-                      className="select-all-btn"
                       onClick={(e) => { e.stopPropagation(); selectAllPages(); }}
                       disabled={selectedPages.size === downloadOptions.pages.length}
-                      style={{ fontSize: '11px', padding: '3px 6px' }}
+                      style={{ 
+                        fontSize: '11px', 
+                        padding: '3px 6px',
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        color: 'var(--color-text-primary)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '4px',
+                        cursor: selectedPages.size === downloadOptions.pages.length ? 'not-allowed' : 'pointer',
+                        opacity: selectedPages.size === downloadOptions.pages.length ? 0.5 : 1
+                      }}
                     >
                       全选
                     </button>
                     <button
-                      className="deselect-all-btn"
                       onClick={(e) => { e.stopPropagation(); deselectAllPages(); }}
                       disabled={selectedPages.size === 0}
-                      style={{ fontSize: '11px', padding: '3px 6px' }}
+                      style={{ 
+                        fontSize: '11px', 
+                        padding: '3px 6px',
+                        backgroundColor: 'var(--color-bg-tertiary)',
+                        color: 'var(--color-text-primary)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '4px',
+                        cursor: selectedPages.size === 0 ? 'not-allowed' : 'pointer',
+                        opacity: selectedPages.size === 0 ? 0.5 : 1
+                      }}
                     >
                       全不选
                     </button>
                   </div>
                 </div>
-                <div className="pages-list" role="list" aria-label="视频章节列表">
+                <div role="list" aria-label="视频章节列表">
                   {downloadOptions.pages.map((page) => (
                     <div
                       key={page.page}
-                      className={`page-item ${selectedPages.has(page.page) ? 'selected' : ''}`}
                       role="listitem"
                       onClick={(e) => { e.stopPropagation(); togglePageSelection(page.page); }}
                       style={{
@@ -550,19 +603,46 @@ const formatDuration = (seconds: any) => {
                         alignItems: 'center',
                         gap: '6px',
                         padding: '6px',
-                        background: '#fff',
+                        backgroundColor: selectedPages.has(page.page) ? 'var(--color-bg-tertiary)' : 'var(--color-bg-secondary)',
                         borderRadius: '4px',
                         marginBottom: '4px',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        border: selectedPages.has(page.page) ? '1px solid var(--color-primary)' : '1px solid var(--color-border)'
                       }}
                     >
-                      <div className="page-checkbox">
-                        <Check fill={selectedPages.has(page.page) ? "currentColor" : "none"} size={14} />
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '16px',
+                        height: '16px',
+                        backgroundColor: selectedPages.has(page.page) ? 'var(--color-primary)' : 'var(--color-border)',
+                        borderRadius: '2px'
+                      }}>
+                        <Check 
+                          fill={selectedPages.has(page.page) ? "white" : "none"} 
+                          size={12} 
+                          color={selectedPages.has(page.page) ? "white" : "var(--color-text-tertiary)"}
+                        />
                       </div>
-                      <div className="page-info flex-1 min-w-0">
-                        <div className="page-number text-xs text-secondary-400 dark:text-secondary-500">第 {page.page} 话</div>
-                        <div className="page-title text-xs text-secondary-800 dark:text-secondary-200 overflow-hidden text-ellipsis whitespace-nowrap">{page.part}</div>
-                        <div className="page-duration text-[10px] text-secondary-400 dark:text-secondary-500">{formatDuration(page.duration)}</div>
+                      <div style={{ flex: '1', minWidth: '0' }}>
+                        <div style={{ 
+                          fontSize: '12px', 
+                          color: 'var(--color-text-tertiary)',
+                          marginBottom: '2px'
+                        }}>第 {page.page} 话</div>
+                        <div style={{ 
+                          fontSize: '12px', 
+                          color: 'var(--color-text-primary)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          marginBottom: '2px'
+                        }}>{page.part}</div>
+                        <div style={{ 
+                          fontSize: '10px', 
+                          color: 'var(--color-text-tertiary)'
+                        }}>{formatDuration(page.duration)}</div>
                       </div>
                     </div>
                   ))}
@@ -571,25 +651,36 @@ const formatDuration = (seconds: any) => {
             )}
 
             {/* 操作按钮 */}
-            <div className="video-actions" style={{
+            <div style={{
               marginTop: 'auto',
               paddingTop: '8px'
             }}>
               <button
-                className={`download-btn primary w-full py-2.5 text-white border-none rounded-md text-sm font-semibold flex items-center justify-center gap-1.5 ${
-                  downloading || (isMultiPart && selectedPages.size === 0)
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-primary-600 hover:bg-primary-700 cursor-pointer'
-                }`}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  backgroundColor: downloading || (isMultiPart && selectedPages.size === 0) ? 'var(--color-text-disabled)' : 'var(--color-primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: downloading || (isMultiPart && selectedPages.size === 0) ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s ease'
+                }}
                 disabled={downloading || (isMultiPart && selectedPages.size === 0)}
                 onClick={(e) => { e.stopPropagation(); handleDownload(); }}
               >
                 {downloading ? (
-                  <Loader2 className="loading-icon" style={{ animation: 'spin 1s linear infinite' }} />
+                  <Loader2 style={{ animation: 'spin 1s linear infinite' }} />
                 ) : (
                   <Download size={14} />
                 )}
-                <span className="btn-text">
+                <span>
                   {downloading ? '添加中...' : (isMultiPart ? `添加到列表 (${selectedPages.size})` : '添加到列表')}
                 </span>
               </button>

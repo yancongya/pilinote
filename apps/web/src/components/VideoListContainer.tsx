@@ -88,7 +88,7 @@ export default function VideoListContainer({
 
       {/* 加载状态 */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-tertiary)' }}>
           加载中...
         </div>
       )}
@@ -131,7 +131,7 @@ export default function VideoListContainer({
 
           {/* 视频列表内容 */}
           {videos.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--color-text-tertiary)' }}>
               {emptyText}
             </div>
           ) : (
@@ -156,14 +156,14 @@ export default function VideoListContainer({
 
               {/* 加载更多状态 */}
               {loadingMore && (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-tertiary)' }}>
                   加载中...
                 </div>
               )}
 
               {/* 没有更多数据提示 */}
               {!hasMore && videos.length > 0 && (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-tertiary)' }}>
                   没有更多视频了
                 </div>
               )}

@@ -18,7 +18,7 @@ export default function HistoryList() {
   if (history.length === 0) {
     return (
       <div className="history-list-empty">
-        <Clock size={48} color="#999" />
+        <Clock size={48} className="history-list-empty-icon" />
         <p className="history-list-empty-title">暂无浏览历史</p>
         <p className="history-list-empty-desc">解析链接后会自动记录在这里</p>
       </div>

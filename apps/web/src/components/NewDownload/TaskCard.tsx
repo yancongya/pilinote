@@ -111,50 +111,25 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
 
   return (
     <article
-      className="video-card"
+      className={`video-card ${isBatchMode ? 'cursor-pointer' : 'cursor-default'}`}
       data-selected={isSelected && isBatchMode}
       style={{
         borderLeft: `4px solid ${status.color}`,
-        cursor: isBatchMode ? 'pointer' : 'default',
         ...(isSelected && isBatchMode && { backgroundColor: 'var(--color-primary-50)' })
       }}
       onClick={handleCardClick}
     >
       {/* 批量选择复选框 */}
       {isBatchMode && (
-        <div 
-          className="batch-checkbox"
-          style={{
-            position: 'absolute',
-            top: '8px',
-            left: '8px',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: '4px',
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            borderRadius: '4px',
-            width: '24px',
-            height: '24px',
-            minWidth: '24px'
-          }}
+        <div
+          className="batch-checkbox absolute top-2 left-2 z-10 flex items-center justify-center cursor-pointer p-1 bg-white/90 rounded w-6 h-6 min-w-6"
           onClick={(e) => {
             e.stopPropagation()
             onSelect?.()
           }}
         >
           {isSelected ? (
-            <div style={{
-              width: '16px',
-              height: '16px',
-              backgroundColor: 'var(--color-primary-500)',
-              borderRadius: '2px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
+            <div className="w-4 h-4 rounded-sm flex items-center justify-center" style={{ backgroundColor: 'var(--color-primary-500)' }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
@@ -176,7 +151,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
             <img
               src={coverUrl}
               alt={task.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              className="w-full h-full object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = 'none'
                 const placeholder = e.currentTarget.parentElement?.querySelector('.thumbnail-placeholder')
@@ -243,7 +218,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
             {task.state !== 'completed' && (
               <span
                 className="video-card-status-badge"
-                style={{ 
+                style={{
                   color: status.color,
                   backgroundColor: `${status.color}15`
                 }}

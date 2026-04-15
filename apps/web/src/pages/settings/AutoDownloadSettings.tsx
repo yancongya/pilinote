@@ -159,6 +159,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
   const customScanEnabled = getCurrentValue('custom_scan.enabled') ?? false
   const folderList = (getCurrentValue('custom_scan.folder_list') ?? []) as FolderScanConfig[]
   const [loadingFavorites, setLoadingFavorites] = useState(false)
+  const [isHoveringRefresh, setIsHoveringRefresh] = useState(false)
 
   // 加载收藏夹列表
   const loadFavorites = async () => {
@@ -339,39 +340,23 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
 
       {/* 自定义扫描列表 */}
       <div className="stg-group">
-        <div className="stg-group-header" style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center' 
-        }}>
+        <div className="stg-group-header flex justify-between items-center">
           <span className="stg-group-title">自定义扫描列表</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="flex items-center gap-3">
             <div
               onClick={loadFavorites}
+              className={`flex items-center justify-center p-1 transition-all duration-200 ${loadingFavorites ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
               style={{ 
-                cursor: loadingFavorites ? 'not-allowed' : 'pointer',
-                opacity: loadingFavorites ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-text-secondary)',
-                transition: 'all 0.2s',
-                padding: '4px'
+                color: isHoveringRefresh && !loadingFavorites ? 'var(--color-primary-600)' : 'var(--color-text-secondary)'
               }}
-              onMouseEnter={(e) => {
-                if (!loadingFavorites) {
-                  e.currentTarget.style.color = 'var(--color-primary-600)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-secondary-500)'
-              }}
+              onMouseEnter={() => setIsHoveringRefresh(true)}
+              onMouseLeave={() => setIsHoveringRefresh(false)}
               aria-label="刷新收藏夹列表"
               title="刷新收藏夹列表"
             >
               <RotateCw size={16} className={loadingFavorites ? 'animate-spin' : ''} />
             </div>
-            <label className="stg-toggle" style={{ marginBottom: 0 }}>
+            <label className="stg-toggle mb-0">
               <div className="stg-toggle-content">
                 <span className="stg-toggle-label">启用</span>
               </div>
@@ -391,75 +376,66 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         </div>
 
         {customScanEnabled && (
-          <div style={{ marginTop: '16px' }}>
+          <div className="mt-4">
             {/* 表头 */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 120px', 
-              gap: '12px',
-              padding: '12px',
-              backgroundColor: 'var(--color-bg-tertiary)',
-              borderRadius: '8px',
-              marginBottom: '8px',
-              fontWeight: 500,
-              fontSize: '13px',
-              color: 'var(--color-text-secondary)'
-            }}>
+            <div 
+              className="grid gap-3 p-3 mb-2 font-medium text-sm"
+              style={{ 
+                gridTemplateColumns: '1fr 120px',
+                backgroundColor: 'var(--color-bg-tertiary)',
+                borderRadius: '8px',
+                color: 'var(--color-text-secondary)'
+              }}
+            >
               <div>收藏夹名称</div>
               <div>视频数</div>
             </div>
             
             {/* 说明文字 */}
-            <div style={{ 
-              padding: '12px',
-              backgroundColor: 'var(--color-warning-50)',
-              borderRadius: '8px',
-              marginBottom: '12px',
-              fontSize: '12px',
-              color: 'var(--color-warning-700)',
-              border: '1px solid var(--color-warning-200)'
-            }}>
+            <div 
+              className="p-3 mb-3 text-xs border"
+              style={{ 
+                backgroundColor: 'var(--color-warning-50)',
+                borderRadius: '8px',
+                color: 'var(--color-warning-700)',
+                borderColor: 'var(--color-warning-200)'
+              }}
+            >
               💡 视频数为 0 表示不扫描该收藏夹，设置大于 0 的数值后才进行扫描
             </div>
             
             {/* 收藏夹列表 */}
             {loadingFavorites ? (
-              <div style={{ 
-                padding: '32px 16px', 
-                textAlign: 'center', 
-                color: 'var(--color-text-secondary)',
-                fontSize: '14px' 
-              }}>
+              <div 
+                className="py-8 px-4 text-center text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
                 正在加载收藏夹列表...
               </div>
             ) : folderList.length === 0 ? (
-              <div style={{ 
-                padding: '32px 16px', 
-                textAlign: 'center', 
-                color: 'var(--color-text-secondary)',
-                fontSize: '14px' 
-              }}>
+              <div 
+                className="py-8 px-4 text-center text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
                 点击"刷新列表"按钮获取收藏夹列表
               </div>
             ) : (
               <>
                 {folderList.map((config, index) => (
-                <div key={index} style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 120px', 
-                  gap: '12px',
-                  padding: '12px',
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  borderRadius: '8px',
-                  marginBottom: '8px',
-                  alignItems: 'center',
-                  border: '1px solid var(--color-border)'
-                }}>
-                  <div style={{ 
-                    color: 'var(--color-text-primary)',
-                    fontSize: '14px',
-                    fontWeight: 500
-                  }}>
+                <div 
+                  key={index}
+                  className="grid items-center gap-3 p-3 mb-2 border"
+                  style={{ 
+                    gridTemplateColumns: '1fr 120px',
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    borderRadius: '8px',
+                    borderColor: 'var(--color-border)'
+                  }}
+                >
+                  <div 
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
                     {config.folder_name}
                   </div>
                   <input
@@ -479,60 +455,55 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         )}
 
         {/* 稍后再看数量设置 */}
-        <div style={{ marginTop: '16px' }}>
-          <div className="stg-item-label-row" style={{ marginBottom: '8px' }}>
+        <div className="mt-4">
+          <div className="stg-item-label-row mb-2">
             <ClockIcon size={18} className="stg-item-icon" />
             <span className="stg-item-label">稍后再看数量限制</span>
           </div>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 120px', 
-            gap: '12px',
-            padding: '12px',
-            backgroundColor: 'var(--color-bg-tertiary)',
-            borderRadius: '8px',
-            marginBottom: '8px',
-            fontWeight: 500,
-            fontSize: '13px',
-            color: 'var(--color-text-secondary)'
-          }}>
+          <div 
+            className="grid gap-3 p-3 mb-2 font-medium text-sm"
+            style={{ 
+              gridTemplateColumns: '1fr 120px',
+              backgroundColor: 'var(--color-bg-tertiary)',
+              borderRadius: '8px',
+              color: 'var(--color-text-secondary)'
+            }}
+          >
             <div>稍后再看</div>
             <div>视频数</div>
           </div>
           
-          <div style={{ 
-            padding: '12px',
-            backgroundColor: 'var(--color-warning-50)',
-            borderRadius: '8px',
-            marginBottom: '12px',
-            fontSize: '12px',
-            color: 'var(--color-warning-700)',
-            border: '1px solid var(--color-warning-200)'
-          }}>
+          <div 
+            className="p-3 mb-3 text-xs border"
+            style={{ 
+              backgroundColor: 'var(--color-warning-50)',
+              borderRadius: '8px',
+              color: 'var(--color-warning-700)',
+              borderColor: 'var(--color-warning-200)'
+            }}
+          >
             💡 稍后再看数量为 0 表示不扫描稍后再看，设置大于 0 的数值后才进行扫描
           </div>
           
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 120px', 
-            gap: '12px',
-            padding: '12px',
-            backgroundColor: 'var(--color-bg-secondary)',
-            borderRadius: '8px',
-            border: '1px solid var(--color-border)'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              fontSize: '14px',
-              color: 'var(--color-text-secondary)'
-            }}>
+          <div 
+            className="grid gap-3 p-3 border"
+            style={{ 
+              gridTemplateColumns: '1fr 120px',
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderRadius: '8px',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <div 
+              className="flex items-center text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
               稍后再看列表
             </div>
             <div>
               <input
                 type="number"
-                className="stg-input"
+                className="stg-input w-full"
                 min="0"
                 max="999"
                 value={getCurrentValue('watch_later_max') ?? currentSettings.watch_later_max}
@@ -540,7 +511,6 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                   const value = parseInt(e.target.value) || 0
                   handleLocalUpdate('watch_later_max', Math.max(0, Math.min(999, value)))
                 }}
-                style={{ width: '100%' }}
               />
             </div>
           </div>
@@ -598,17 +568,17 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
         </div>
 
         {/* 说明信息 */}
-        <div style={{ 
-          padding: '12px',
-          backgroundColor: 'var(--color-info-50)',
-          borderRadius: '8px',
-          marginTop: '12px',
-          fontSize: '12px',
-          color: 'var(--color-info-700)',
-          border: '1px solid var(--color-info-200)'
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: '4px' }}>💡 工作流程说明：</div>
-          <div style={{ lineHeight: '1.6' }}>
+        <div 
+          className="p-3 mt-3 text-xs border"
+          style={{ 
+            backgroundColor: 'var(--color-info-50)',
+            borderRadius: '8px',
+            color: 'var(--color-info-700)',
+            borderColor: 'var(--color-info-200)'
+          }}
+        >
+          <div className="font-semibold mb-1">💡 工作流程说明：</div>
+          <div className="leading-relaxed">
             1. 当"扫描后自动开始下载"开启时，扫描完成后会自动触发下载<br/>
             2. 触发下载前会检查当前视频库占用空间<br/>
             3. 如果占用空间超过设定的阈值，则不会触发下载，避免磁盘空间不足<br/>

@@ -214,11 +214,10 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
   }
   
   return (
-    <article 
-      className="scheduler-card"
+    <article
+      className="scheduler-card mb-3"
       style={{
-        borderLeft: `4px solid ${status.color}`,
-        marginBottom: '12px'
+        borderLeft: `4px solid ${status.color}`
       }}
     >
       {/* 调度器头部 */}
@@ -230,7 +229,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
               <img
                 src={schedulerCover}
                 alt={scheduler.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                className="w-full h-full object-cover"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                   const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
@@ -239,7 +238,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                   }
                 }}
               />
-              <div className="cover-placeholder" style={{ display: 'none' }}>
+              <div className="cover-placeholder hidden">
                 <Film size={32} color="var(--color-primary-500)" />
               </div>
             </div>
@@ -361,20 +360,10 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                 <div key={task.id} className="scheduler-task-item" data-selected={selectedTasks.has(task.id)}>
                   {/* 批量选择复选框 */}
                   {isBatchMode && (
-                    <div 
-                      className="batch-checkbox"
+                    <div
+                      className="batch-checkbox flex items-center justify-center cursor-pointer p-1 flex-shrink-0 w-6 h-6 min-w-6 rounded"
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        padding: '4px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        borderRadius: '4px',
-                        flexShrink: 0,
-                        width: '24px',
-                        height: '24px',
-                        minWidth: '24px'
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)'
                       }}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -382,14 +371,8 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                       }}
                     >
                       {selectedTasks.has(task.id) ? (
-                        <div style={{
-                          width: '16px',
-                          height: '16px',
-                          backgroundColor: 'var(--color-primary-500)',
-                          borderRadius: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
+                        <div className="w-4 h-4 flex items-center justify-center rounded-sm" style={{
+                          backgroundColor: 'var(--color-primary-500)'
                         }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12"></polyline>
@@ -408,7 +391,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                         <img
                           src={coverUrl}
                           alt={task.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
                             const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
@@ -417,7 +400,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                             }
                           }}
                         />
-                        <div className="cover-placeholder" style={{ display: 'none' }}>
+                        <div className="cover-placeholder hidden">
                           <Film size={24} color="var(--color-primary-500)" />
                         </div>
                       </div>

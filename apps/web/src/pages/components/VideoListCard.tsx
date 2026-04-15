@@ -208,14 +208,14 @@ export default function VideoListCard({
         <div className="video-card-thumbnail">
           {!hasCover ? (
                 <div className="thumbnail-placeholder">
-                  <Film size={48} color="var(--color-primary-500)" />
+                  <Film size={48} className="film-icon" />
                 </div>
               ) : (
                 <>
-                  <img 
-                    src={getProxyImageUrl(coverUrl)} 
-                    alt={title} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  <img
+                    src={getProxyImageUrl(coverUrl)}
+                    alt={title}
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       // 图片加载失败时显示占位符
                       e.currentTarget.style.display = 'none'
@@ -225,8 +225,8 @@ export default function VideoListCard({
                       }
                     }}
                   />
-                  <div className="thumbnail-placeholder" style={{ display: 'none' }}>
-                    <Film size={48} color="var(--color-primary-500)" />
+                  <div className="thumbnail-placeholder hidden">
+                    <Film size={48} className="film-icon" />
                   </div>
                 </>
               )}
@@ -394,7 +394,7 @@ export default function VideoListCard({
             borderColor: selected ? 'var(--color-primary-600)' : 'var(--color-border)',
           }}
         >
-          {selected && <Check size={18} color="white" />}
+          {selected && <Check size={18} className="check-icon" />}
         </button>
       )}
       {!batchMode && showDownloadButton && onDownloadToggle && (

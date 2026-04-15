@@ -175,7 +175,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
 
   if (!user?.mid) {
     return (
-      <section className="content-section" style={{ textAlign: 'center', padding: '60px 20px' }}>
+      <section className="content-section text-center py-15 px-5">
         <p className="text-secondary-400 dark:text-secondary-500 text-base">请先登录以查看稍后再看</p>
       </section>
     )

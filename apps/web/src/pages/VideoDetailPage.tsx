@@ -663,10 +663,10 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
                 style={{ width: '40px', height: '40px', borderRadius: '50%' }}
               />
               <div>
-                <div style={{ fontSize: '14px', fontWeight: '600', color: '#333' }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
                   {video.uploader.name}
                 </div>
-                <div style={{ fontSize: '12px', color: '#999' }}>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
                   {formatTime(video.pubtime)}
                 </div>
               </div>
@@ -891,10 +891,10 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
                     }}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', color: '#333', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '13px', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
                         P{page.page}: {page.part || `第${page.page}个视频`}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#999' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
                         {formatDuration(page.duration)}
                       </div>
                     </div>
