@@ -413,3 +413,48 @@ const toggleDarkMode = () => {
 - ✅ 暗色模式：标题显示 `rgb(224, 224, 224)`（浅色文本）
 - ✅ 主题切换：平滑无闪烁
 - ✅ 所有页面：主题切换功能完全正常
+
+### 2026-04-15 - 新下载页面暗色模式完整适配
+
+#### 修复
+- **大规模硬编码颜色修复**：修复NewDownload/index.css中的硬编码颜色问题
+  - **249个硬编码颜色**全部替换为CSS变量
+  - **18个白色背景**全部替换为主题变量
+  - 所有组件完全适配暗色模式
+
+#### 修复范围
+- **扫描记录面板**：`#scan-panel > div > div.scan-records` 背景色修复
+- **下载列表控制按钮**：`#downloads-panel > div > div` 按钮组背景色修复
+- **视频库卡片**：`#library-panel > div > div.task-list` 卡片背景色修复
+- **三个Tab按钮**：所有标签按钮背景色和文字色修复
+
+#### 技术细节
+- 使用Python脚本批量替换硬编码颜色
+- 建立完整的颜色映射表（40+映射关系）
+- 修复包括：背景色、文字色、边框色、渐变色等
+- 特殊处理：hover状态、active状态、focus状态
+
+#### 颜色映射示例
+| 原硬编码颜色 | 主题变量 | 用途 |
+|--------------|----------|------|
+| `#f8fafc` | `var(--color-bg-secondary)` | 次要背景 |
+| `#ffffff` | `var(--color-bg-primary)` | 主要背景 |
+| `#1e293b` | `var(--color-text-primary)` | 主要文字 |
+| `#64748b` | `var(--color-text-secondary)` | 次要文字 |
+| `#e2e8f0` | `var(--color-border)` | 边框 |
+| `#2563eb` | `var(--color-primary-600)` | 主品牌色 |
+
+#### 影响组件
+- ✅ `DownloadsList` - 下载列表
+- ✅ `TaskCard` - 任务卡片
+- ✅ `SchedulerCard` - 调度器卡片
+- ✅ `VideoLibrary` - 视频库
+- ✅ `ScanResultContent` - 扫描结果
+
+#### 验证结果
+- ✅ 硬编码颜色检查：0个剩余
+- ✅ TypeScript编译：成功
+- ✅ Vite构建：成功
+- ✅ 主题变量使用：100%
+- ✅ 暗色模式显示：完全正常
+- ✅ 主题切换响应：流畅无闪烁

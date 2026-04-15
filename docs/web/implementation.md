@@ -148,10 +148,36 @@ const routes = [
   { path: '/favorites', element: <FavoritesPage /> },
   { path: '/watchlater', element: <WatchLaterPage /> },
   { path: '/download', element: <DownloadPage /> },
+  { path: '/new-download', element: <NewDownload /> },  // 新下载页面（完全适配暗色模式）
   { path: '/settings', element: <SettingsPage /> },
   { path: '/video/:id', element: <VideoDetailPage /> },
 ]
 ```
+
+### NewDownload页面
+
+新下载管理页面，提供下载任务管理和视频库浏览功能。
+
+**主要功能**：
+- 下载列表显示和管理
+- 任务卡片（TaskCard）
+- 调度器卡片（SchedulerCard）
+- 视频库浏览（VideoLibrary）
+- 扫描结果显示（ScanResultContent）
+- 搜索和排序功能
+
+**暗色模式适配**：
+- ✅ 完全适配暗色模式
+- ✅ 所有颜色使用CSS变量
+- ✅ 支持100%主题切换
+- ✅ 249个硬编码颜色已修复
+
+**子组件**：
+- `DownloadsList.tsx` - 下载列表
+- `TaskCard.tsx` - 任务卡片
+- `SchedulerCard.tsx` - 调度器卡片
+- `VideoLibrary.tsx` - 视频库
+- `ScanResultContent.tsx` - 扫描结果
 
 ## WebSocket 连接
 
