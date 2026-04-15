@@ -14,8 +14,13 @@ export const MainContainer = styled.div<{ $activeTab?: string }>`
   min-height: 100vh;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  padding-bottom: 56px; /* 为底部导航栏留出空间 */
   
+  /* 移动端为底部导航留出空间 */
+  @media (max-width: 767px) {
+    padding-bottom: 56px;
+  }
+  
+  /* 桌面端无底部导航padding */
   @media (min-width: 768px) {
     padding-bottom: 0;
   }
@@ -71,9 +76,9 @@ export const MobileMenuToggle = styled.button`
 `;
 
 /**
- * 导航模式切换按钮
+ * 侧边栏收缩切换按钮
  */
-export const NavModeToggle = styled.button`
+export const SidebarCollapseToggle = styled.button`
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -299,44 +304,55 @@ export const MainContent = styled.div`
 /**
  * 侧边栏（桌面端）
  */
-export const Sidebar = styled.aside<{ $mobileOpen?: boolean; $mode?: 'sidebar' | 'bottom' }>`
-  display: none;
-  width: 240px;
+export const Sidebar = styled.aside<{ $width?: number; $collapsed?: boolean }>`
+  width: ${props => props.$collapsed ? '70px' : props.$width || 240}px;
   padding: 16px 0;
   border-right: 1px solid var(--color-border);
   position: relative;
   z-index: 50;
+  display: flex;
+  flex-direction: column;
+  ${SmoothTransition}
   
-  ${(props) => props.$mode === 'bottom' && css`
-    @media (min-width: 768px) {
-      display: none;
-    }
-  `}
-  
-  ${(props) => props.$mode === 'sidebar' && css`
-    @media (min-width: 768px) {
-      display: block;
-    }
-  `}
-  
-  /* 移动端侧边栏 */
-  @media (max-width: 767px) {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    background: var(--color-bg-primary);
-    border-right: 1px solid var(--color-border);
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    z-index: 1001;
-    padding: 80px 0 20px 0;
-    
-    ${(props) => props.$mobileOpen && css`
-      transform: translateX(0);
-    `}
+  /* 桌面端显示 */
+  @media (min-width: 768px) {
+    display: flex;
   }
+  
+  /* 移动端隐藏 */
+  @media (max-width: 767px) {
+    display: none;
+  }
+`;
+
+/**
+ * 侧边栏拖拽手柄
+ */
+export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
+  position: absolute;
+  right: -6px;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  z-index: 60;
+  opacity: 0;
+  ${SmoothTransition}
+  
+  &:hover {
+    opacity: 1;
+    background: rgba(37, 99, 235, 0.1);
+  }
+  
+  ${(props) => props.$isDragging && css`
+    opacity: 1;
+    background: rgba(37, 99, 235, 0.2);
+  `}
+  
+  color: var(--color-text-tertiary);
 `;
 
 /**
@@ -366,11 +382,11 @@ export const SidebarNav = styled.nav`
 /**
  * 侧边栏标签
  */
-export const SidebarTab = styled.button<{ $active?: boolean }>`
+export const SidebarTab = styled.button<{ $active?: boolean; $collapsed?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: ${props => props.$collapsed ? '0' : '12px'};
+  padding: ${props => props.$collapsed ? '12px' : '12px 16px'};
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
@@ -378,6 +394,7 @@ export const SidebarTab = styled.button<{ $active?: boolean }>`
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
+  justify-content: ${props => props.$collapsed ? 'center' : 'flex-start'};
   ${SmoothTransition}
   
   ${(props) =>
@@ -397,7 +414,17 @@ export const SidebarTab = styled.button<{ $active?: boolean }>`
   
   @media (min-width: 768px) {
     font-size: 15px;
-    padding: 14px 20px;
+    padding: ${props => props.$collapsed ? '14px' : '14px 20px'};
+  }
+  
+  /* 收缩状态下隐藏文本标签 */
+  .sidebar-label {
+    display: ${props => props.$collapsed ? 'none' : 'block'};
+    white-space: nowrap;
+  }
+  
+  .sidebar-icon {
+    flex-shrink: 0;
   }
 `;
 
@@ -433,7 +460,7 @@ export const ContentWrapper = styled.div`
 /**
  * 底部导航栏（移动端）
  */
-export const BottomNav = styled.nav<{ $visible?: boolean }>`
+export const BottomNav = styled.nav`
   position: fixed;
   bottom: 0;
   left: 0;
@@ -448,17 +475,14 @@ export const BottomNav = styled.nav<{ $visible?: boolean }>`
   padding-bottom: env(safe-area-inset-bottom);
   ${SmoothTransition}
   
-  ${(props) => !props.$visible && css`
-    display: none;
-  `}
+  /* 移动端显示 */
+  @media (max-width: 767px) {
+    display: flex !important;
+  }
   
+  /* 桌面端隐藏 */
   @media (min-width: 768px) {
-    ${(props) => props.$visible && css`
-      display: flex;
-    `}
-    ${(props) => !props.$visible && css`
-      display: none;
-    `}
+    display: none !important;
   }
 `;
 

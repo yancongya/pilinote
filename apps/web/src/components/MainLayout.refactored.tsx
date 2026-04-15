@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
-import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X } from 'lucide-react'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X, ArrowLeftToLine, ArrowRightToLine, GripVertical } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 import { useTheme } from '../theme/context/ThemeContext'
@@ -27,8 +27,66 @@ function MainLayout() {
   const { mode, toggleTheme } = useTheme()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
-  const [navMode, setNavMode] = useState<'sidebar' | 'bottom'>('sidebar')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(240)
+  const [isDragging, setIsDragging] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const dragRef = useRef<HTMLDivElement>(null)
+
+  // 检测移动端状态
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // 拖拽调整侧边栏宽度
+  useEffect(() => {
+    const dragHandle = dragRef.current
+    if (!dragHandle) return
+
+    const handleMouseDown = (e: MouseEvent) => {
+      e.preventDefault()
+      setIsDragging(true)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return
+      
+      const newWidth = e.clientX
+      const minWidth = 180
+      const maxWidth = 400
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth)
+        setSidebarCollapsed(newWidth < 200)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    dragHandle.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      dragHandle.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
 
   useEffect(() => {
     if (!user) return
@@ -96,9 +154,13 @@ function MainLayout() {
     navigate('/settings')
   }
 
-  const toggleNavMode = () => {
-    setNavMode(prev => prev === 'sidebar' ? 'bottom' : 'sidebar')
-    setMobileMenuOpen(false)
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(prev => !prev)
+    if (sidebarCollapsed) {
+      setSidebarWidth(240)
+    } else {
+      setSidebarWidth(70)
+    }
   }
 
   const toggleMobileMenu = () => {
@@ -121,13 +183,15 @@ function MainLayout() {
         <S.HeaderRight>
           {user ? (
             <>
-              <S.NavModeToggle
-                onClick={toggleNavMode}
-                title={navMode === 'sidebar' ? '切换到底部导航' : '切换到侧边栏'}
-                aria-label="切换导航模式"
-              >
-                {navMode === 'sidebar' ? <Download size={18} /> : <Menu size={18} />}
-              </S.NavModeToggle>
+              {!isMobile && (
+                <S.SidebarCollapseToggle
+                  onClick={toggleSidebarCollapsed}
+                  title={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+                  aria-label={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+                >
+                  {sidebarCollapsed ? <ArrowRightToLine size={18} /> : <ArrowLeftToLine size={18} />}
+                </S.SidebarCollapseToggle>
+              )}
               <S.DarkModeToggle
                 onClick={toggleTheme}
                 title={mode === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
@@ -189,27 +253,43 @@ function MainLayout() {
         )}
 
         {/* 桌面端侧边栏或移动端侧边栏 */}
-        <S.Sidebar $mobileOpen={mobileMenuOpen} $mode={navMode}>
-          <S.SidebarNav role="tablist" aria-label="功能导航">
-            {navItems.map((item) => (
-              <S.SidebarTab
-                key={item.id}
-                role="tab"
-                aria-selected={activeTab === item.id}
-                aria-controls={`${item.id}-panel`}
-                $active={activeTab === item.id}
-                onClick={() => {
-                  handleTabChange(item.path)
-                  setMobileMenuOpen(false)
-                }}
-                tabIndex={activeTab === item.id ? 0 : -1}
-              >
-                <item.icon className="sidebar-icon" />
-                <span className="sidebar-label">{item.label}</span>
-              </S.SidebarTab>
-            ))}
-          </S.SidebarNav>
-        </S.Sidebar>
+        {!isMobile && (
+          <>
+            <S.Sidebar 
+              $width={sidebarWidth}
+              $collapsed={sidebarCollapsed}
+            >
+              <S.SidebarNav role="tablist" aria-label="功能导航">
+                {navItems.map((item) => (
+                  <S.SidebarTab
+                    key={item.id}
+                    role="tab"
+                    aria-selected={activeTab === item.id}
+                    aria-controls={`${item.id}-panel`}
+                    $active={activeTab === item.id}
+                    $collapsed={sidebarCollapsed}
+                    onClick={() => {
+                      handleTabChange(item.path)
+                    }}
+                    tabIndex={activeTab === item.id ? 0 : -1}
+                  >
+                    <item.icon className="sidebar-icon" />
+                    <span className="sidebar-label">{item.label}</span>
+                  </S.SidebarTab>
+                ))}
+              </S.SidebarNav>
+            </S.Sidebar>
+            
+            {/* 拖拽手柄 */}
+            <S.SidebarDragHandle 
+              ref={dragRef}
+              $isDragging={isDragging}
+              title="拖拽调整侧边栏宽度"
+            >
+              <GripVertical size={16} />
+            </S.SidebarDragHandle>
+          </>
+        )}
 
         <S.ContentArea>
           <S.ContentWrapper>
@@ -237,25 +317,26 @@ function MainLayout() {
         </S.ContentArea>
       </S.MainContent>
 
-      {/* 底部导航栏 */}
-      <S.BottomNav 
-        role="navigation" 
-        aria-label="底部导航"
-        $visible={navMode === 'bottom'}
-      >
-        {navItems.map((item) => (
-          <S.NavItem
-            key={item.id}
-            $active={activeTab === item.id}
-            onClick={() => handleTabChange(item.path)}
-            aria-label={item.label}
-            aria-current={activeTab === item.id ? 'page' : undefined}
-          >
-            <item.icon className="nav-icon" />
-            <S.NavLabel $active={activeTab === item.id}>{item.label}</S.NavLabel>
-          </S.NavItem>
-        ))}
-      </S.BottomNav>
+      {/* 底部导航栏 - 仅移动端显示 */}
+      {isMobile && (
+        <S.BottomNav 
+          role="navigation" 
+          aria-label="底部导航"
+        >
+          {navItems.map((item) => (
+            <S.NavItem
+              key={item.id}
+              $active={activeTab === item.id}
+              onClick={() => handleTabChange(item.path)}
+              aria-label={item.label}
+              aria-current={activeTab === item.id ? 'page' : undefined}
+            >
+              <item.icon className="nav-icon" />
+              <S.NavLabel $active={activeTab === item.id}>{item.label}</S.NavLabel>
+            </S.NavItem>
+          ))}
+        </S.BottomNav>
+      )}
     </S.MainContainer>
   )
 }

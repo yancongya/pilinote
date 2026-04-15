@@ -12,50 +12,178 @@
 
 ### 1. 布局管理
 
-- **顶部导航栏**：应用标题、WiFi图标、导航模式切换按钮、暗色模式切换按钮
-- **侧边栏**：桌面端导航菜单，支持侧边栏/底部导航模式切换
+- **顶部导航栏**：应用标题、WiFi图标、侧边栏收缩按钮、暗色模式切换按钮
+- **侧边栏**：桌面端自动显示左侧固定侧边栏，支持拖拽调整宽度和收缩
 - **内容区域**：主要业务内容显示
-- **底部导航**：移动端导航栏，支持侧边栏/底部导航模式切换
-- **移动端菜单**：移动端侧边栏菜单，支持从左侧滑出
+- **底部导航**：移动端自动显示底部导航栏
+- **拖拽手柄**：侧边栏右侧拖拽区域，用于调整宽度
 
-### 2. 导航模式切换
+### 2. 自动响应式切换
 
-#### 导航模式切换功能
+#### 自动切换机制
 
-**切换按钮位置**：顶部导航栏WiFi图标右侧
+**切换逻辑**：系统根据屏幕宽度自动切换布局模式，无需手动操作
 
-**图标**：
-- 侧边栏模式：下载图标（`Download`）
-- 底部导航模式：菜单图标（`Menu`）
-
-**功能特性**：
-- 点击切换侧边栏/底部导航模式
-- 桌面端和移动端都支持模式切换
-- 切换后自动关闭移动端菜单
-- 模式状态在组件内管理，不持久化
+- **移动端（< 768px）**：自动显示底部导航栏，隐藏侧边栏
+- **桌面端（≥ 768px）**：自动显示左侧固定侧边栏，隐藏底部导航
 
 #### 实现方式
 
 ```typescript
-const [navMode, setNavMode] = useState<'sidebar' | 'bottom'>('sidebar')
+// 自动检测移动端状态
+const [isMobile, setIsMobile] = useState(false)
 
-const toggleNavMode = () => {
-  setNavMode(prev => prev === 'sidebar' ? 'bottom' : 'sidebar')
-  setMobileMenuOpen(false)
+useEffect(() => {
+  const checkMobile = () => {
+    setIsMobile(window.innerWidth < 768)
+  }
+  
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+  
+  return () => window.removeEventListener('resize', checkMobile)
+}, [])
+```
+
+#### 自动切换特性
+
+- **实时响应**：窗口大小变化时立即切换布局
+- **无缝过渡**：布局切换使用平滑动画，用户体验流畅
+- **智能适配**：根据设备类型自动选择最佳导航方式
+- **无需配置**：系统自动处理所有切换逻辑
+
+### 3. 侧边栏拖拽调整宽度
+
+#### 拖拽调整功能
+
+**拖拽手柄位置**：侧边栏右侧边缘
+
+**视觉反馈**：
+- 鼠标悬停：显示拖拽手柄和提示
+- 拖拽时：手柄高亮，光标变为调整图标
+- 拖拽范围：180px - 400px
+
+**功能特性**：
+- 点击拖拽手柄并左右拖动可调整侧边栏宽度
+- 支持实时预览宽度变化
+- 自动收缩：当宽度小于200px时自动进入收缩状态
+- 宽度限制：最小180px，最大400px
+
+#### 实现方式
+
+```typescript
+const [sidebarWidth, setSidebarWidth] = useState(240)
+const [isDragging, setIsDragging] = useState(false)
+const dragRef = useRef<HTMLDivElement>(null)
+
+// 拖拽调整侧边栏宽度
+useEffect(() => {
+  const dragHandle = dragRef.current
+  if (!dragHandle) return
+
+  const handleMouseDown = (e: MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+    
+    const newWidth = e.clientX
+    const minWidth = 180
+    const maxWidth = 400
+    
+    if (newWidth >= minWidth && newWidth <= maxWidth) {
+      setSidebarWidth(newWidth)
+      setSidebarCollapsed(newWidth < 200)
+    }
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+  }
+
+  dragHandle.addEventListener('mousedown', handleMouseDown)
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+
+  return () => {
+    dragHandle.removeEventListener('mousedown', handleMouseDown)
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  }
+}, [isDragging])
+```
+
+#### 拖拽效果
+
+**宽度调整**：
+- 默认宽度：240px
+- 最小宽度：180px
+- 最大宽度：400px
+- 实时预览：拖拽过程中即时显示效果
+
+**自动收缩**：
+- 宽度 < 200px：自动进入收缩状态
+- 宽度 ≥ 200px：自动进入展开状态
+- 平滑过渡：宽度变化使用动画过渡
+
+### 4. 侧边栏收缩功能
+
+#### 侧边栏收缩功能
+
+**收缩按钮位置**：顶部导航栏（仅桌面端显示）
+
+**图标**：
+- 展开状态：左箭头图标（`ArrowLeftToLine`）
+- 收缩状态：右箭头图标（`ArrowRightToLine`）
+
+**功能特性**：
+- 点击收缩按钮可切换展开/收缩状态
+- 拖拽侧边栏宽度小于200px时自动收缩
+- 拖拽侧边栏宽度大于等于200px时自动展开
+- 收缩状态下只显示图标，隐藏文字标签
+- 展开宽度：可拖拽调整（180px-400px），收缩宽度：70px
+
+#### 两种触发方式
+
+**方式一：点击折叠按钮**
+```typescript
+const toggleSidebarCollapsed = () => {
+  setSidebarCollapsed(prev => !prev)
+  if (sidebarCollapsed) {
+    setSidebarWidth(240)  // 展开到默认宽度
+  } else {
+    setSidebarWidth(70)   // 收缩到图标模式
+  }
 }
 ```
 
-#### 模式说明
+**方式二：拖拽调整宽度**
+- 拖拽侧边栏右侧边界
+- 当宽度 < 200px时自动收缩
+- 当宽度 ≥ 200px时自动展开
+- 支持任意宽度调整（180px-400px）
 
-**侧边栏模式**：
-- 桌面端：显示左侧侧边栏导航
-- 移动端：隐藏底部导航，通过菜单按钮打开侧边栏
+#### 收缩效果
 
-**底部导航模式**：
-- 桌面端：隐藏侧边栏，显示底部导航栏
-- 移动端：显示底部导航栏，隐藏侧边栏
+**展开状态**：
+- 显示完整图标和文字标签
+- 宽度：可拖拽调整（默认240px）
+- 图标和文字间距：12px
+- 文字标签正常显示
 
-### 3. 移动端菜单
+**收缩状态**：
+- 仅显示图标，隐藏文字标签
+- 宽度：固定70px
+- 图标居中显示
+- 支持拖拽边界调整宽度
+
+### 4. 移动端菜单
 
 #### 移动端菜单功能
 
@@ -341,22 +469,58 @@ function LoginPrompt({ message }: { message: string }) {
 
 ## 响应式设计
 
-### 断点设置
+### 自动响应式断点
 
-| 断点 | 说明 |
-|------|------|
-| ≤ 767px | 移动端 - 显示菜单按钮，根据导航模式显示侧边栏或底部导航 |
-| ≥ 768px | 桌面端 - 根据导航模式显示侧边栏或底部导航 |
+| 断点 | 屏幕宽度 | 导航方式 | 侧边栏状态 |
+|------|----------|----------|------------|
+| 移动端 | < 768px | 底部导航 | 隐藏 |
+| 桌面端 | ≥ 768px | 左侧侧边栏 | 显示，支持拖拽调整 |
 
-### 导航模式响应式行为
+### 自动切换行为
 
-**侧边栏模式**：
-- 桌面端（≥768px）：显示左侧固定侧边栏
-- 移动端（≤767px）：隐藏侧边栏，显示菜单按钮，点击后从左侧滑出侧边栏
+**移动端（< 768px）**：
+- 自动显示底部导航栏
+- 隐藏侧边栏
+- 保留移动端菜单按钮（用于特殊场景）
+- 侧边栏可通过菜单按钮从左侧滑出
 
-**底部导航模式**：
-- 桌面端（≥768px）：隐藏侧边栏，显示底部导航栏
-- 移动端（≤767px）：显示底部导航栏，隐藏侧边栏
+**桌面端（≥ 768px）**：
+- 自动显示左侧固定侧边栏
+- 隐藏底部导航栏
+- 侧边栏支持拖拽调整宽度
+- 侧边栏支持收缩/展开
+
+### 拖拽调整功能
+
+**拖拽手柄**：
+- 位置：侧边栏右侧边缘
+- 视觉：3px宽的可拖拽区域
+- 悬停效果：高亮显示，光标变为调整图标
+
+**拖拽操作**：
+1. 将鼠标移动到侧边栏右侧边缘
+2. 看到光标变为调整图标（col-resize）
+3. 按住鼠标左键并左右拖动
+4. 释放鼠标完成调整
+
+**拖拽限制**：
+- 最小宽度：180px
+- 最大宽度：400px
+- 自动收缩阈值：200px
+- 实时预览效果
+
+### 收缩操作
+
+**方式一：点击收缩按钮**
+1. 找到顶部导航栏的收缩按钮（仅桌面端显示）
+2. 点击按钮切换展开/收缩状态
+3. 观察侧边栏宽度变化
+
+**方式二：拖拽调整宽度**
+1. 拖拽侧边栏右侧边界
+2. 将宽度拖到 < 200px 自动收缩
+3. 将宽度拖到 ≥ 200px 自动展开
+4. 支持任意宽度调整
 
 ### 布局切换实现
 
@@ -444,6 +608,33 @@ const MobileMenuToggle = styled.button`
 - [侧边栏组件](../components/sidebar.md) - 侧边栏导航组件
 
 ## 更新日志
+
+### 2026-04-15 - 智能响应式侧边栏系统
+
+#### 新增
+- **自动响应式切换**：基于屏幕尺寸自动切换侧边栏/底部导航，无需手动操作
+- **拖拽调整宽度**：支持拖拽侧边栏右侧边界调整宽度（180px-400px）
+- **智能收缩机制**：拖拽宽度小于200px时自动收缩，大于等于200px时自动展开
+- **拖拽手柄**：侧边栏右侧添加拖拽区域，支持鼠标悬停高亮和调整光标
+
+#### 优化
+- **移除手动位置切换**：删除位置切换按钮，改为系统自动适配
+- **简化UI布局**：减少手动控制元素，界面更加简洁
+- **优化移动端体验**：移动端始终显示底部导航，操作更加直观
+- **增强桌面端体验**：桌面端侧边栏支持拖拽调整，满足个性化需求
+
+#### 技术亮点
+- **实时响应**：使用useEffect监听窗口尺寸变化，实时切换布局
+- **拖拽实现**：通过鼠标事件监听实现流畅的拖拽调整功能
+- **智能阈值**：200px宽度阈值自动触发收缩/展开状态
+- **平滑过渡**：所有状态变化使用CSS动画，用户体验流畅
+- **宽度限制**：最小180px、最大400px，确保布局稳定性
+
+#### 用户体验提升
+- **零学习成本**：自动适配，无需用户了解切换逻辑
+- **个性化定制**：支持拖拽调整侧边栏宽度，满足不同需求
+- **智能感知**：系统能够根据屏幕尺寸和用户操作智能调整
+- **操作便捷**：拖拽和点击两种方式，满足不同使用习惯
 
 ### 2026-04-15 - 导航模式和移动端菜单增强
 
