@@ -1,7 +1,7 @@
 import LoginPage from './pages/LoginPage'
 import VideoDetailPage from './pages/VideoDetailPage'
 import SettingsPage from './pages/SettingsPage'
-import MainLayout from './components/MainLayout'
+import MainLayout from './components/MainLayout.refactored'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth'
 import { useSettingsStore } from './stores/settings'
