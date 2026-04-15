@@ -28,19 +28,30 @@ PiliNote 实现了完整的暗色模式支持和统一的设计令牌系统，�
 
 #### 功能色
 ```css
---color-success-500: #22C55E   /* 成功 */
---color-warning-500: #F59E0B   /* 警告 */
---color-error-500: #EF4444     /* 错误 */
---color-info-500: #3B82F6      /* 信息 */
+--color-success-50: #F0FDF4    /* 成功浅色 */
+--color-success-200: #BBF7D0   /* 成功中色 */
+--color-success-600: #16A34A   /* 成功深色 */
+--color-warning-50: #FFFBEB    /* 警告浅色 */
+--color-warning-200: #FDE68A   /* 警告中色 */
+--color-warning-600: #D97706   /* 警告深色 */
+--color-error-50: #FEF2F2      /* 错误浅色 */
+--color-error-200: #FECACA     /* 错误中色 */
+--color-error-600: #DC2626      /* 错误深色 */
+--color-info-50: #EFF6FF       /* 信息浅色 */
+--color-info-200: #BFDBFE      /* 信息中色 */
+--color-info-600: #2563EB      /* 信息深色 */
 ```
 
 #### 语义化颜色
 ```css
 --color-bg-primary: #FFFFFF      /* 主要背景 */
 --color-bg-secondary: #F8FAFC    /* 次要背景 */
+--color-bg-tertiary: #F1F5F9    /* 第三背景 */
 --color-text-primary: #1E293B     /* 主要文字 */
 --color-text-secondary: #64748B   /* 次要文字 */
+--color-text-tertiary: #94A3B8    /* 第三文字 */
 --color-border: #E2E8F0           /* 边框 */
+--color-divider: #E5E7EB          /* 分隔线 */
 ```
 
 ### 2. 暗色模式配置
@@ -48,6 +59,95 @@ PiliNote 实现了完整的暗色模式支持和统一的设计令牌系统，�
 #### 全局暗色模式变量
 ```css
 .dark {
+  /* 背景色 - 黑色主题 */
+  --color-bg-primary: #0f0f0f      /* 纯黑色 */
+  --color-bg-secondary: #1a1a1a    /* 深灰 */
+  --color-bg-tertiary: #2a2a2a    /* 中灰 */
+  --color-bg-hover: #3a3a3a       /* 悬停 */
+  
+  /* 文字色 */
+  --color-text-primary: #E0E0E0     /* 主要文字 */
+  --color-text-secondary: #94A3B8   /* 次要文字 */
+  --color-text-tertiary: #64748B    /* 第三文字 */
+  
+  /* 边框色 */
+  --color-border: #2a2a2a           /* 边框 */
+  --color-border-hover: #3a3a3a    /* 悬停边框 */
+  
+  /* 功能色暗色模式 */
+  --color-success-50: rgba(34, 197, 94, 0.1)
+  --color-success-200: rgba(34, 197, 94, 0.2)
+  --color-success-600: #22C55E
+  --color-warning-50: rgba(245, 158, 11, 0.1)
+  --color-warning-200: rgba(245, 158, 11, 0.2)
+  --color-warning-600: #F59E0B
+  --color-error-50: rgba(239, 68, 68, 0.1)
+  --color-error-200: rgba(239, 68, 68, 0.2)
+  --color-error-600: #EF4444
+  --color-info-50: rgba(59, 130, 246, 0.1)
+  --color-info-200: rgba(59, 130, 246, 0.2)
+  --color-info-600: #3B82F6
+}
+```
+
+### 3. 组件适配列表
+
+#### 核心组件
+- ✅ Toast - 完全适配，现代化设计
+- ✅ Modal - 完全适配，支持深色背景
+- ✅ AlertModal - 完全适配
+- ✅ ConfirmModal - 完全适配
+
+#### 页面组件
+- ✅ HomeContent - 完全适配
+- ✅ FavoritesContent - 完全适配
+- ✅ WatchLaterContent - 完全适配
+- ✅ VideoDetailPage - 完全适配
+- ✅ VideoListCard - 完全适配
+
+#### 新下载组件
+- ✅ SchedulerCard - 完全适配
+- ✅ TaskCard - 完全适配
+- ✅ VideoLibrary - 完全适配
+- ✅ DownloadsList - 完全适配
+- �   ScanResultContent - 完全适配
+
+#### 设置页面
+- ✅ SettingsPage - 完全适配，主题切换功能
+- ✅ AccountsSettings - 完全适配
+- ✅ DownloadSettings - 完全适配
+- ✅ StorageSettings - 完全适配
+- ✅ AutoDownloadSettings - 完全适配
+- ✅ BackupSettings - 完全适配
+
+## Toast组件主题支持
+
+### 设计特点
+- **现代化图标**：每种状态有独特的SVG图标
+- **进度条显示**：底部显示剩余时间
+- **关闭按钮**：支持手动关闭
+- **响应式设计**：手机、平板、电脑完全适配
+- **毛玻璃效果**：backdrop-filter模糊背景
+
+### CSS变量使用
+```tsx
+const themes = {
+  success: { 
+    bg: 'var(--color-success-50)', 
+    border: 'var(--color-success-200)', 
+    icon: 'var(--color-success-600)',
+    progress: 'var(--color-success-600)'
+  },
+  // ...其他类型
+}
+```
+
+### 响应式断点
+- **手机模式** (< 640px)：紧凑布局，padding: 12px
+- **平板模式** (641px - 1024px)：适中布局，padding-top: 20px
+- **电脑模式** (> 1025px)：宽敞布局，padding-top: 32px
+
+## 使用指南
   --color-bg-primary: #0f0f0f;
   --color-bg-secondary: #1a1a1a;
   --color-bg-tertiary: #2a2a2a;

@@ -175,11 +175,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
   const handleResetToolPath = async (tool: string) => {
     try {
-      const resetPath = () => {
-        handleLocalUpdateSidecar(tool, tool)
-        showToast('已重置', 'info')
-      }
-
       // 尝试获取工具状态API，获取真实路径
       try {
         const response = await fetch(getApiUrl('/api/settings/tool-status'))
@@ -189,7 +184,6 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
 
           if (toolStatus && toolStatus.installed && toolStatus.path) {
             handleLocalUpdateSidecar(tool, toolStatus.path)
-            showToast('已重置', 'success')
 
             // 自动保存
             const currentSidecar = (settings?.storage as any)?.sidecar || {}
@@ -203,6 +197,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
             } as any)
             // 清空本地设置
             setLocalSettings({})
+            showToast('已重置为系统路径', 'success')
             return
           }
         }
@@ -211,7 +206,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
       }
 
       // 如果无法获取真实路径，使用默认值
-      resetPath()
+      handleLocalUpdateSidecar(tool, tool)
       const currentSidecar = (settings?.storage as any)?.sidecar || {}
       const sidecar = { ...currentSidecar, [tool]: tool }
       await updateSettings({
@@ -221,6 +216,7 @@ const StorageSettings = forwardRef<StorageSettingsRef>((_props, ref) => {
         }
       } as any)
       setLocalSettings({})
+      showToast('已重置为默认值', 'success')
     } catch (error) {
       console.error('重置工具路径失败:', error)
       showToast('重置失败', 'error')
@@ -251,15 +247,15 @@ const getCurrentValue = useCallback((field: string) => {
     return undefined
   }
   
-  // Handle regular fields - check backend settings first
+  // Handle regular fields - check local settings first for immediate feedback
+  if (field in localSettings) {
+    return (localSettings as any)[field]
+  }
+  
+  // Then check backend settings
   const storageValue = (settings.storage as any)[field]
   if (storageValue !== undefined && storageValue !== null) {
     return storageValue
-  }
-  
-  // Then check local settings
-  if (field in localSettings) {
-    return (localSettings as any)[field]
   }
   
   return undefined
@@ -478,7 +474,7 @@ const getCurrentValue = useCallback((field: string) => {
               </span>
               <button
                 className="stg-btn-icon"
-                style={{ padding: '4px', width: 'auto', height: 'auto', flexShrink: 0 }}
+                style={{ padding: '4px', width: 'auto', height: 'auto', flexShrink: 0, color: 'var(--color-text-secondary)' }}
                 onClick={() => handleEditPath('download_path')}
                 title="编辑路径"
               >
@@ -513,7 +509,7 @@ const getCurrentValue = useCallback((field: string) => {
               </span>
               <button
                 className="stg-btn-icon"
-                style={{ padding: '4px', width: 'auto', height: 'auto', flexShrink: 0 }}
+                style={{ padding: '4px', width: 'auto', height: 'auto', flexShrink: 0, color: 'var(--color-text-secondary)' }}
                 onClick={() => handleEditPath('temp_path')}
                 title="编辑路径"
               >

@@ -229,20 +229,20 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
     const totalSize = formatFileSize(backupProgress.total_size)
 
     return (
-      <div className="bg-slate-100 rounded-xl p-4 mb-4">
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-sm font-semibold text-slate-700">{backupProgress.message}</span>
-          <span className="text-xs text-slate-500">{backupProgress.completed_files}/{backupProgress.total_files} 个文件</span>
+      <div className="stg-progress-card">
+        <div className="stg-progress-header">
+          <span className="stg-progress-message">{backupProgress.message}</span>
+          <span className="stg-progress-count">{backupProgress.completed_files}/{backupProgress.total_files} 个文件</span>
         </div>
-        <div className="h-2 bg-slate-200 rounded-full overflow-hidden mb-2">
+        <div className="stg-progress-track">
           <div 
-            className="h-full bg-primary-500 rounded-full transition-all duration-300"
+            className="stg-progress-fill"
             style={{ width: `${percentage}%` }}
           />
         </div>
-        <div className="flex justify-between text-xs text-slate-400">
+        <div className="stg-progress-footer">
           <span>{completedSize} / {totalSize}</span>
-          <span className="truncate max-w-[60%] text-right">{backupProgress.current_file}</span>
+          <span className="stg-progress-filename">{backupProgress.current_file}</span>
         </div>
       </div>
     )
@@ -259,12 +259,12 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
           <span className="stg-group-subtitle">配置 FTP 服务器以备份文件</span>
         </div>
 
-        <div className="stg-form-stack">
-          <div className="stg-form-item">
-            <label className="stg-form-label">
-              <Server className="w-4 h-4" />
-              服务器地址
-            </label>
+        <div className="stg-list">
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Server size={18} className="stg-item-icon" />
+              <span className="stg-item-label">服务器地址</span>
+            </div>
             <input
               type="text"
               className="stg-input"
@@ -275,11 +275,11 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
             />
           </div>
 
-          <div className="stg-form-item">
-            <label className="stg-form-label">
-              <RefreshCw className="w-4 h-4" />
-              用户名
-            </label>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <RefreshCw size={18} className="stg-item-icon" />
+              <span className="stg-item-label">用户名</span>
+            </div>
             <input
               type="text"
               className="stg-input"
@@ -290,11 +290,11 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
             />
           </div>
 
-          <div className="stg-form-item">
-            <label className="stg-form-label">
-              <Lock className="w-4 h-4" />
-              密码
-            </label>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Lock size={18} className="stg-item-icon" />
+              <span className="stg-item-label">密码</span>
+            </div>
             <input
               type="password"
               className="stg-input"
@@ -305,11 +305,11 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
             />
           </div>
 
-          <div className="stg-form-item">
-            <label className="stg-form-label">
-              <Folder className="w-4 h-4" />
-              远程路径
-            </label>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Folder size={18} className="stg-item-icon" />
+              <span className="stg-item-label">远程路径</span>
+            </div>
             <input
               type="text"
               className="stg-input"
@@ -320,11 +320,11 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
             />
           </div>
 
-          <div className="stg-form-item">
-            <label className="stg-form-label">
-              <Shield className="w-4 h-4" />
-              TLS 加密
-            </label>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Shield size={18} className="stg-item-icon" />
+              <span className="stg-item-label">TLS 加密</span>
+            </div>
             <select
               className="stg-select"
               value={localSettings.ftp?.use_tls ? 'true' : 'false'}
@@ -366,7 +366,7 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
           <span className="stg-group-subtitle">将文件和数据库备份到 FTP</span>
         </div>
 
-        <div className="stg-action-body">
+        <div className="stg-list">
           {renderProgressBar()}
 
           <div className="stg-backup-actions">

@@ -398,12 +398,12 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
               gridTemplateColumns: '1fr 120px', 
               gap: '12px',
               padding: '12px',
-              backgroundColor: 'var(--color-secondary-100)',
+              backgroundColor: 'var(--color-bg-tertiary)',
               borderRadius: '8px',
               marginBottom: '8px',
               fontWeight: 500,
               fontSize: '13px',
-              color: 'var(--color-secondary-500)'
+              color: 'var(--color-text-secondary)'
             }}>
               <div>收藏夹名称</div>
               <div>视频数</div>
@@ -416,7 +416,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
               borderRadius: '8px',
               marginBottom: '12px',
               fontSize: '12px',
-              color: 'var(--color-warning-600)',
+              color: 'var(--color-warning-700)',
               border: '1px solid var(--color-warning-200)'
             }}>
               💡 视频数为 0 表示不扫描该收藏夹，设置大于 0 的数值后才进行扫描
@@ -442,16 +442,18 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                 点击"刷新列表"按钮获取收藏夹列表
               </div>
             ) : (
-              folderList.map((config, index) => (
+              <>
+                {folderList.map((config, index) => (
                 <div key={index} style={{ 
                   display: 'grid', 
                   gridTemplateColumns: '1fr 120px', 
                   gap: '12px',
                   padding: '12px',
-                  backgroundColor: 'var(--color-secondary-50)',
+                  backgroundColor: 'var(--color-bg-secondary)',
                   borderRadius: '8px',
                   marginBottom: '8px',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  border: '1px solid var(--color-border)'
                 }}>
                   <div style={{ 
                     color: 'var(--color-text-primary)',
@@ -470,7 +472,8 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                     placeholder="0=不扫描"
                   />
                 </div>
-              ))
+              ))}
+              </>
             )}
           </div>
         )}
@@ -514,7 +517,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             gridTemplateColumns: '1fr 120px', 
             gap: '12px',
             padding: '12px',
-            backgroundColor: 'var(--color-bg-primary)',
+            backgroundColor: 'var(--color-bg-secondary)',
             borderRadius: '8px',
             border: '1px solid var(--color-border)'
           }}>
