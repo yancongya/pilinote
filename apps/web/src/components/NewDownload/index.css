@@ -4427,3 +4427,22 @@
 .library-video-meta .stats-divider {
   display: none !important;
 }
+/* 修复暗色模式下select文本颜色问题 */
+.filter-bar select {
+  color: var(--color-text-primary);
+}
+
+.filter-bar select option {
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+}
+
+/* 暗色模式 */
+.dark .filter-bar select {
+  color: var(--color-text-primary);
+}
+
+.dark .filter-bar select option {
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+}
