@@ -307,43 +307,44 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
 
   // 检查哪些分P已经在下载列表中
   useEffect(() => {
-    if (!video || !video.pages) return
+    if (!video) return
     
     const cidsInList = new Set<number>()
     const downloadedStatus: Record<number, 'none' | 'in_list' | 'downloaded'> = {}
     const tasks = newQueueStore.tasks
     const newSystemTasks = Object.values(tasks)
     
-    video.pages.forEach((page: any) => {
-      // 检查是否在新下载系统队列中
-      const hasInNewQueue = newSystemTasks.some(task =>
-        task.media_id === video.bvid &&
-        task.meta?.cid === page.cid &&
-        !['completed', 'cancelled'].includes(task.state)
-      )
+    if (video.pages && video.pages.length > 1) {
+      // 多P视频
+      video.pages.forEach((page: any) => {
+        // 检查是否在新下载系统队列中
+        const hasInNewQueue = newSystemTasks.some(task =>
+          task.media_id === video.bvid &&
+          task.meta?.cid === page.cid &&
+          !['completed', 'cancelled'].includes(task.state)
+        )
+        
+        // 检查是否在新下载系统已完成
+        const hasCompleted = newSystemTasks.some(task =>
+          task.media_id === video.bvid &&
+          task.meta?.cid === page.cid &&
+          task.state === 'completed'
+        )
+        
+        if (hasInNewQueue) {
+          cidsInList.add(page.cid)
+          downloadedStatus[page.cid] = 'in_list'
+        } else if (hasCompleted) {
+          downloadedStatus[page.cid] = 'downloaded'
+        } else {
+          downloadedStatus[page.cid] = 'none'
+        }
+      })
       
-      // 检查是否在新下载系统已完成
-      const hasCompleted = newSystemTasks.some(task =>
-        task.media_id === video.bvid &&
-        task.meta?.cid === page.cid &&
-        task.state === 'completed'
-      )
-      
-      if (hasInNewQueue) {
-        cidsInList.add(page.cid)
-        downloadedStatus[page.cid] = 'in_list'
-      } else if (hasCompleted) {
-        downloadedStatus[page.cid] = 'downloaded'
-      } else {
-        downloadedStatus[page.cid] = 'none'
-      }
-    })
-    
-    setDownloadedCids(cidsInList)
-    setDownloadedVideoStatus(downloadedStatus)
-    
-    // 对于单个视频，也检查视频库状态
-    if (!video.pages || video.pages.length === 0) {
+      setDownloadedCids(cidsInList)
+      setDownloadedVideoStatus(downloadedStatus)
+    } else {
+      // 单个视频 - 立即检查状态
       checkSingleVideoStatus()
     }
   }, [video, newQueueStore.tasks])
@@ -362,17 +363,15 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       const tasks = newQueueStore.tasks
       const newSystemTasks = Object.values(tasks)
       
-      // 检查是否在新下载系统队列中
+      // 检查是否在新下载系统队列中或已完成
+      // 对于单个视频，我们检查 media_id 是否匹配 bvid
       const hasInNewQueue = newSystemTasks.some(task =>
         task.media_id === video.bvid &&
-        task.meta?.cid === video.cid &&
         !['completed', 'cancelled'].includes(task.state)
       )
       
-      // 检查是否在新下载系统已完成
       const hasCompleted = newSystemTasks.some(task =>
         task.media_id === video.bvid &&
-        task.meta?.cid === video.cid &&
         task.state === 'completed'
       )
       
@@ -385,6 +384,15 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       } else if (hasCompleted) {
         status = 'downloaded'
       }
+      
+      console.log('[VideoDetail] 单个视频状态检查:', {
+        bvid: video.bvid,
+        cid: video.cid,
+        status,
+        hasInNewQueue,
+        hasCompleted,
+        videoLibraryResult: result.action
+      })
       
       setDownloadedVideoStatus({ [video.cid]: status })
       
@@ -518,6 +526,26 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     if (downloading) return '操作中...'
     
     const addedCount = getAddedCount()
+    const status = downloadedVideoStatus[video?.cid || 0]
+    
+    console.log('[VideoDetail] 按钮文本计算:', {
+      videoBvid: video?.bvid,
+      videoCid: video?.cid,
+      addedCount,
+      status,
+      downloadedVideoStatus,
+      buttonText: video?.pages && video.pages.length > 1 
+        ? addedCount === 0 
+          ? `添加全部 ${video.pages.length} 个视频`
+          : addedCount < video.pages.length
+            ? `添加剩余 ${video.pages.length - addedCount} 个视频`
+            : '从列表移除'
+        : status === 'downloaded'
+          ? '已下载'
+          : status === 'in_list' || addedCount > 0
+            ? '从列表移除'
+            : '添加到列表'
+    })
     
     if (video?.pages && video.pages.length > 1) {
       // 多P视频
@@ -530,7 +558,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       }
     } else {
       // 单个视频
-      const status = downloadedVideoStatus[video?.cid || 0]
       if (status === 'downloaded') {
         return '已下载'
       } else if (status === 'in_list' || addedCount > 0) {
