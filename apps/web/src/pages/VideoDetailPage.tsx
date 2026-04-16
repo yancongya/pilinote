@@ -828,6 +828,18 @@ const handleReDownloadConfirm = async () => {
         >
           <ArrowLeft size={responsiveStyle.layout === 'two-column' ? 24 : 20} />
         </button>
+        <h1 style={{
+          fontSize: responsiveStyle.layout === 'two-column' ? '18px' : '16px',
+          fontWeight: '600',
+          color: 'var(--color-text-primary)',
+          margin: 0,
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}>
+          {video.title}
+        </h1>
       </div>
 
       {/* 主内容区 - 桌面模式为左右布局 */}
@@ -955,71 +967,6 @@ const handleReDownloadConfirm = async () => {
         flexDirection: 'column',
         gap: '20px'
       }}>
-        {/* 视频标题 */}
-        <h2 className="video-detail-title" style={{
-          fontSize: responsiveStyle.fontSize.title,
-          fontWeight: '600',
-          margin: 0,
-          lineHeight: '1.4',
-          color: 'var(--color-text-primary)'
-        }}>
-          {video.isOpus ? (
-            <a
-              href={`https://www.bilibili.com/opus/${mediaId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: 'var(--color-text-primary)',
-                textDecoration: 'none',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                transition: 'color 0.2s ease',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-primary-600)'
-                e.currentTarget.style.textDecoration = 'underline'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-text-primary)'
-                e.currentTarget.style.textDecoration = 'none'
-              }}
-            >
-              {video.title}
-            </a>
-          ) : (
-            <a
-              href={`https://www.bilibili.com/video/${video.bvid}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: 'var(--color-text-primary)',
-                textDecoration: 'none',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                transition: 'color 0.2s ease',
-                cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--color-primary-600)'
-                e.currentTarget.style.textDecoration = 'underline'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = 'var(--color-text-primary)'
-                e.currentTarget.style.textDecoration = 'none'
-              }}
-            >
-              {video.title}
-            </a>
-          )}
-        </h2>
-
         {/* UP主信息 */}
         {!video.isOpus && (
           <div className="video-detail-uploader" style={{
