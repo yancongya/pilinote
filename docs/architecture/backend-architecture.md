@@ -10,18 +10,27 @@ apps/api/src/
 ├── routers/            # API 路由
 │   ├── auth.py         # 认证路由
 │   ├── media.py        # 媒体路由
-│   ├── queue.py        # 队列路由
+│   ├── download.py     # 下载路由（已废弃）
+│   ├── queue.py        # 队列路由（新系统）
+│   ├── downloads.py    # 下载列表路由（新系统）
 │   ├── auto_download.py # 自动下载路由
 │   └── websocket.py    # WebSocket 路由
 ├── services/           # 业务逻辑
 │   ├── queue/          # 队列服务
-│   │   └── manager.py  # 队列管理器
+│   │   ├── manager.py  # 队列管理器
+│   │   ├── handlers/   # 队列处理器
+│   │   │   ├── video.py    # 视频处理器
+│   │   │   ├── opus.py     # 图文处理器
+│   │   │   ├── nfo.py      # NFO生成器
+│   │   │   └── base.py     # 基础处理器
+│   │   └── models.py   # 队列模型
 │   ├── scan_service.py # 扫描服务
 │   ├── download_service.py # 下载服务
 │   ├── bilibili.py     # B站 API 服务
 │   └── settings_service.py # 设置服务
 ├── models/             # 数据模型
 │   ├── user.py         # 用户模型
+│   ├── cookie.py       # Cookie 模型
 │   ├── task.py         # 任务模型
 │   ├── scheduler.py    # 调度器模型
 │   ├── download.py     # 下载记录模型
@@ -104,6 +113,197 @@ BACKLOG → PENDING → DOING → COMPLETED
   ↓         ↓        ↓         ↓
 待处理   等待中    执行中    已完成
 ```
+
+### 下载系统整合优化（2026年4月）
+
+#### 新下载系统架构
+
+PiliNote在2026年4月完成了下载系统的整合优化，采用了全新的下载队列管理架构：
+
+**主要改进**：
+1. **统一队列系统**：将分散的下载功能整合到统一的队列系统中
+2. **多类型媒体支持**：支持视频、图文、番剧、课程等多种媒体类型
+3. **实时进度推送**：通过WebSocket实时推送下载进度
+4. **智能重试机制**：失败任务自动重试，最多3次
+5. **状态管理优化**：前端使用Zustand进行状态管理，支持离线同步
+
+#### 新旧系统对比
+
+| 特性 | 旧系统 | 新系统 |
+|------|--------|--------|
+| API路由 | `/api/download/*` | `/api/queue/*` 和 `/api/downloads/*` |
+| 状态管理 | 分散在多个组件 | 统一的Zustand Store |
+| 实时更新 | 轮询方式 | WebSocket推送 |
+| 错误处理 | 基本错误信息 | 详细错误类型和重试机制 |
+| 队列管理 | 简单队列 | 四级队列系统（BACKLOG/PENDING/DOING/COMPLETE） |
+| 历史记录 | 无 | 专门的下载历史记录 |
+| 设置同步 | 无 | 设置自动同步 |
+
+#### 数据模型更新
+
+**新下载记录模型**：
+
+```python
+class Download(Base):
+    """下载记录模型"""
+    __tablename__ = "downloads"
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    bvid = Column(String(20), index=True)
+    title = Column(String(500))
+    status = Column(String(20), default="pending")  # pending, downloading, completed, failed, paused, cancelled
+    progress = Column(Float, default=0.0)
+    download_speed = Column(Float, default=0.0)
+    eta = Column(Integer, default=0)
+    stage = Column(String(50), default="preparing")  # preparing, downloading, moving, post_processing, completed
+    downloaded_bytes = Column(BigInteger, default=0)
+    total_bytes = Column(BigInteger, default=0)
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    error_message = Column(Text, nullable=True)
+    thumbnail_url = Column(String(500), nullable=True)
+    duration = Column(Integer, nullable=True)
+    uploader = Column(String(200), nullable=True)
+    file_path = Column(String(1000), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    aid = Column(Integer, nullable=True)
+    cid = Column(Integer, nullable=True)
+    quality = Column(Integer, nullable=True)
+    audio_bitrate = Column(Integer, nullable=True)
+    codec = Column(String(50), nullable=True)
+```
+
+#### 前端状态管理架构
+
+**下载状态Store** (`apps/web/src/stores/download.ts`)：
+
+```typescript
+interface DownloadState {
+  // 下载列表
+  downloads: Map<string, DownloadItem>
+  downloadIds: string[]
+  
+  // 同步状态
+  syncing: boolean
+  lastSyncTime: number | null
+  
+  // WebSocket连接
+  ws: WebSocket | null
+  wsConnected: boolean
+  
+  // 下载状态管理
+  updateDownloadStatus: (downloadId: string, status: DownloadStatus) => void
+  updateDownloadProgress: (downloadId: string, progress: number, speed?: number, eta?: number) => void
+  setDownloadError: (downloadId: string, error: ErrorInfo) => void
+  
+  // 任务控制
+  startDownload: (downloadId: string) => Promise<boolean>
+  pauseDownload: (downloadId: string) => Promise<boolean>
+  resumeDownload: (downloadId: string) => Promise<boolean>
+  retryDownload: (downloadId: string) => Promise<boolean>
+  
+  // 服务器同步
+  syncFromServer: () => Promise<void>
+}
+```
+
+**下载历史记录Store** (`apps/web/src/stores/downloadHistory.ts`)：
+
+```typescript
+interface DownloadHistoryState {
+  // 历史记录
+  history: DownloadHistoryItem[]
+  
+  // 添加到历史记录
+  addToHistory: (item: DownloadHistoryItem) => void
+  
+  // 获取历史记录
+  getHistory: () => DownloadHistoryItem[]
+  
+  // 清空历史记录
+  clearHistory: () => void
+}
+```
+
+**下载设置Store** (`apps/web/src/stores/downloadSettings.ts`)：
+
+```typescript
+interface DownloadSettingsState {
+  // 下载设置
+  settings: DownloadSettings
+  
+  // 更新设置
+  updateSettings: (settings: Partial<DownloadSettings>) => void
+  
+  // 同步设置到服务器
+  syncSettings: () => Promise<void>
+}
+```
+
+#### WebSocket事件流
+
+```
+服务器端 (WebSocketManager)
+  ↓
+  下载进度更新 → download_progress
+  ↓
+  下载状态更新 → download_status
+  ↓
+  下载阶段更新 → download_stage
+  ↓
+  下载错误 → download_error
+  ↓
+前端 (DownloadStore.handleWebSocketMessage)
+  ↓
+  更新本地状态
+  ↓
+  UI自动更新
+```
+
+#### 迁移说明
+
+**旧API废弃**：
+- `POST /api/download/parse` → 使用 `POST /api/queue/tasks` 或 `GET /api/media/{media_type}/{media_id}`
+- `GET /api/queue` → 使用 `GET /api/queue/tasks` 或 `GET /api/downloads`
+- `POST /api/queue/add` → 使用 `POST /api/queue/tasks`
+
+**数据迁移**：
+- 旧的下载记录已迁移到新的 `downloads` 表
+- 任务状态已转换为新的状态枚举值
+- 错误信息已标准化为 `ErrorInfo` 格式
+
+**前端迁移**：
+- 旧的下载组件已更新为使用新的 `download` Store
+- WebSocket连接已从手动管理改为自动管理
+- 错误处理已统一使用 `errorHandler` 工具
+
+#### 性能优化
+
+1. **WebSocket推送**：替代轮询，减少90%的API请求
+2. **本地状态缓存**：使用Zustand的persist中间件，支持离线浏览
+3. **批量操作**：支持批量开始、暂停、取消下载
+4. **智能重试**：失败任务自动重试，最多3次
+5. **并发控制**：服务器端限制最大并发下载数（默认3个）
+
+#### 已知问题和解决方案
+
+1. **WebSocket连接不稳定**
+   - 问题：网络波动导致连接断开
+   - 解决：自动重连机制，3秒后重试
+
+2. **下载进度不准确**
+   - 问题：某些情况下进度计算错误
+   - 解决：使用字节级别计算，避免百分比误差
+
+3. **历史记录性能问题**
+   - 问题：大量历史记录导致渲染卡顿
+   - 解决：使用虚拟滚动和分页加载
+
+4. **设置同步延迟**
+   - 问题：设置修改后同步到服务器有延迟
+   - 解决：乐观更新 + 后台同步
 
 ### 扫描服务 (scan_service.py)
 

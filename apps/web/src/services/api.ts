@@ -468,42 +468,329 @@ class ApiService {
   }
 
   async getDownloadList(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/downloads', { method: 'GET' })
+    // 迁移到新的队列API
+    return this.request<any>('/api/queue/tasks', { method: 'GET' })
   }
 
   async deleteDownload(taskId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/${taskId}`, { method: 'DELETE' })
+    // 迁移到新的队列API
+    return this.request<any>(`/api/queue/tasks/${taskId}`, { method: 'DELETE' })
   }
 
   async deleteDownloadByBvid(bvid: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/by-bvid/${bvid}`, { method: 'DELETE' })
+    // 迁移到新的队列API - 先获取所有任务，然后根据media_id过滤
+    const response = await this.request<any>('/api/queue/tasks', { method: 'GET' })
+    if (response.success && response.data) {
+      const tasksToDelete = response.data.filter((task: any) => task.media_id === bvid)
+      const taskIds = tasksToDelete.map((task: any) => task.id)
+      
+      // 批量删除
+      return this.request<any>('/api/queue/tasks/batch', {
+        method: 'DELETE',
+        body: JSON.stringify(taskIds),
+      })
+    }
+    return response
   }
 
   async startBatchDownloads(bvidList: string[]): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/downloads/batch/start', {
-      method: 'POST',
-      body: JSON.stringify({ bvids: bvidList }),
-    })
+    // 迁移到新的队列API - 先获取所有任务，然后根据media_id过滤并启动
+    const response = await this.request<any>('/api/queue/tasks', { method: 'GET' })
+    if (response.success && response.data) {
+      const tasksToStart = response.data.filter((task: any) => bvidList.includes(task.media_id))
+      
+      // 批量更新任务状态为active
+      const updatePromises = tasksToStart.map((task: any) => 
+        this.updateTask(task.id, { state: 2 }) // 2 = ACTIVE
+      )
+      
+      const results = await Promise.all(updatePromises)
+      const allSuccess = results.every(result => result.success)
+      
+      return {
+        success: allSuccess,
+        message: allSuccess ? `已启动 ${tasksToStart.length} 个下载任务` : '部分任务启动失败'
+      }
+    }
+    return { success: false, message: '获取任务列表失败' }
   }
 
   async startDownloadTask(taskId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/${taskId}/start`, { method: 'POST' })
+    // 迁移到新的队列API - 更新任务状态为active
+    return this.updateTask(taskId, { state: 2 }) // 2 = ACTIVE
   }
 
   async pauseDownloadTask(taskId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/${taskId}/pause`, { method: 'POST' })
+    // 迁移到新的队列API - 使用专门的暂停端点
+    return this.request<any>(`/api/queue/tasks/${taskId}/pause`, { method: 'POST' })
   }
 
   async resumeDownloadTask(taskId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/${taskId}/resume`, { method: 'POST' })
+    // 迁移到新的队列API - 更新任务状态为active
+    return this.updateTask(taskId, { state: 2 }) // 2 = ACTIVE
   }
 
   async cancelDownloadTask(taskId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/${taskId}/cancel`, { method: 'POST' })
+    // 迁移到新的队列API - 使用专门的取消端点
+    return this.request<any>(`/api/queue/tasks/${taskId}/cancel`, { method: 'POST' })
   }
 
   async getDownloadTaskStatus(taskId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/downloads/${taskId}/status`, { method: 'GET' })
+    // 迁移到新的队列API - 获取任务详情
+    return this.getTask(taskId)
+  }
+
+  // ========== 下载历史记录相关API ==========
+
+  async getDownloadHistory(
+    status?: string,
+    page: number = 1,
+    pageSize: number = 20,
+    keyword?: string,
+    dateFrom?: string,
+    dateTo?: string,
+    order?: string,
+    sortDirection?: string
+  ): Promise<ApiResponse<any>> {
+    // 迁移到新的队列API - 获取所有任务并在前端过滤
+    const response = await this.request<any>('/api/queue/tasks', { method: 'GET' })
+    
+    if (response.success && response.data) {
+      let filteredTasks = response.data
+      
+      // 状态过滤
+      if (status) {
+        const statusMap: Record<string, number> = {
+          'pending': 0,    // BACKLOG
+          'downloading': 2, // ACTIVE
+          'completed': 3,  // COMPLETED
+          'paused': 4,     // PAUSED
+          'failed': 5,     // FAILED
+          'cancelled': 6   // CANCELLED
+        }
+        if (statusMap[status] !== undefined) {
+          filteredTasks = filteredTasks.filter((task: any) => task.state === statusMap[status])
+        }
+      }
+      
+      // 关键词过滤
+      if (keyword) {
+        const lowerKeyword = keyword.toLowerCase()
+        filteredTasks = filteredTasks.filter((task: any) =>
+          task.title.toLowerCase().includes(lowerKeyword) ||
+          task.media_id.toLowerCase().includes(lowerKeyword)
+        )
+      }
+      
+      // 日期过滤
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom).getTime()
+        filteredTasks = filteredTasks.filter((task: any) =>
+          task.created_at >= fromDate
+        )
+      }
+      
+      if (dateTo) {
+        const toDate = new Date(dateTo).getTime()
+        filteredTasks = filteredTasks.filter((task: any) =>
+          task.created_at <= toDate
+        )
+      }
+      
+      // 排序
+      if (order) {
+        filteredTasks.sort((a: any, b: any) => {
+          const isAsc = sortDirection === 'asc'
+          let comparison = 0
+          
+          if (order === 'created_at' || order === 'completed_at') {
+            const field = order === 'completed_at' ? 'updated_at' : order
+            comparison = a[field] - b[field]
+          } else if (order === 'title') {
+            comparison = a.title.localeCompare(b.title)
+          }
+          
+          return isAsc ? comparison : -comparison
+        })
+      }
+      
+      // 分页
+      const total = filteredTasks.length
+      const startIndex = (page - 1) * pageSize
+      const endIndex = startIndex + pageSize
+      const paginatedTasks = filteredTasks.slice(startIndex, endIndex)
+      
+      return {
+        success: true,
+        data: {
+          downloads: paginatedTasks,
+          total: total
+        }
+      }
+    }
+    
+    return response
+  }
+
+  async clearDownloadHistory(): Promise<ApiResponse<any>> {
+    // 迁移到新的队列API - 删除所有已完成、失败或取消的任务
+    const response = await this.request<any>('/api/queue/tasks', { method: 'GET' })
+    
+    if (response.success && response.data) {
+      const tasksToDelete = response.data.filter((task: any) =>
+        task.state === 3 || // COMPLETED
+        task.state === 5 || // FAILED
+        task.state === 6    // CANCELLED
+      )
+      
+      const taskIds = tasksToDelete.map((task: any) => task.id)
+      
+      if (taskIds.length > 0) {
+        return this.request<any>('/api/queue/tasks/batch', {
+          method: 'DELETE',
+          body: JSON.stringify(taskIds),
+        })
+      }
+      
+      return { success: true, message: '没有需要清理的任务' }
+    }
+    
+    return { success: false, message: '获取任务列表失败' }
+  }
+
+  async getHistoryStats(): Promise<ApiResponse<any>> {
+    // 迁移到新的队列API - 在前端计算统计信息
+    const response = await this.request<any>('/api/queue/tasks', { method: 'GET' })
+    
+    if (response.success && response.data) {
+      const tasks = response.data
+      
+      // 状态映射
+      const stateMap: Record<number, string> = {
+        0: 'pending',
+        1: 'pending',
+        2: 'downloading',
+        3: 'completed',
+        4: 'paused',
+        5: 'failed',
+        6: 'cancelled'
+      }
+      
+      // 统计信息
+      const total = tasks.length
+      const completed = tasks.filter((t: any) => t.state === 3).length
+      const failed = tasks.filter((t: any) => t.state === 5).length
+      const cancelled = tasks.filter((t: any) => t.state === 6).length
+      const downloading = tasks.filter((t: any) => t.state === 2).length
+      const pending = tasks.filter((t: any) => t.state === 0 || t.state === 1).length
+      const paused = tasks.filter((t: any) => t.state === 4).length
+      
+      // 计算文件大小（从meta中获取）
+      let totalSize = 0
+      tasks.forEach((task: any) => {
+        if (task.meta && task.meta.totalSize) {
+          totalSize += task.meta.totalSize
+        }
+      })
+      
+      const averageSize = completed > 0 ? totalSize / completed : 0
+      
+      // 计算最近的时间统计
+      const now = Date.now()
+      const oneDay = 24 * 60 * 60 * 1000
+      const oneWeek = 7 * oneDay
+      const oneMonth = 30 * oneDay
+      
+      const completedTasks = tasks.filter((t: any) => t.state === 3)
+      
+      const completedToday = completedTasks.filter((task: any) =>
+        task.updated_at >= now - oneDay
+      ).length
+      
+      const completedThisWeek = completedTasks.filter((task: any) =>
+        task.updated_at >= now - oneWeek
+      ).length
+      
+      const completedThisMonth = completedTasks.filter((task: any) =>
+        task.updated_at >= now - oneMonth
+      ).length
+      
+      const successRate = total > 0 ? (completed / total) * 100 : 0
+      
+      return {
+        success: true,
+        data: {
+          total,
+          completed,
+          failed,
+          cancelled,
+          total_size: totalSize,
+          average_size: averageSize,
+          completed_today: completedToday,
+          completed_this_week: completedThisWeek,
+          completed_this_month: completedThisMonth,
+          success_rate: successRate,
+          downloading,
+          pending,
+          paused
+        }
+      }
+    }
+    
+    return { success: false, message: '获取任务列表失败' }
+  }
+
+  // ========== 下载设置相关API ==========
+// 注意：这些API端点尚未在后端实现，暂时保留方法签名
+// 实际下载设置通过settings API管理
+
+  async getDownloadSettings(): Promise<ApiResponse<any>> {
+    // TODO: 下载设置功能尚未实现，需要后端支持
+    // 临时返回默认设置
+    return {
+      success: false,
+      message: '下载设置功能尚未实现，请使用全局设置'
+    }
+  }
+
+  async updateDownloadSettings(settings: any): Promise<ApiResponse<any>> {
+    // TODO: 下载设置功能尚未实现，需要后端支持
+    return {
+      success: false,
+      message: '下载设置功能尚未实现，请使用全局设置'
+    }
+  }
+
+  async resetDownloadSettings(category?: string): Promise<ApiResponse<any>> {
+    // TODO: 下载设置功能尚未实现，需要后端支持
+    return {
+      success: false,
+      message: '下载设置功能尚未实现，请使用全局设置'
+    }
+  }
+
+  async exportDownloadSettings(): Promise<ApiResponse<any>> {
+    // TODO: 下载设置功能尚未实现，需要后端支持
+    return {
+      success: false,
+      message: '下载设置功能尚未实现，请使用全局设置'
+    }
+  }
+
+  async importDownloadSettings(data: any): Promise<ApiResponse<any>> {
+    // TODO: 下载设置功能尚未实现，需要后端支持
+    return {
+      success: false,
+      message: '下载设置功能尚未实现，请使用全局设置'
+    }
+  }
+
+  async validateDownloadSettings(settings: any): Promise<ApiResponse<any>> {
+    // TODO: 下载设置功能尚未实现，需要后端支持
+    return {
+      success: false,
+      message: '下载设置功能尚未实现，请使用全局设置'
+    }
   }
 }
 

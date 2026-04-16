@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
-import { useDownloadStore } from '../../stores/download'
+import { useNewQueueStore } from '../../stores/newQueue'
 import { useSettingsStore } from '../../stores/settings'
 import { useHistoryStore } from '../../stores/history'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
@@ -62,7 +62,7 @@ export default function HomeContent() {
   const [parseData, setParseData] = useState<ParseResponse | null>(null)
   const navigate = useNavigate()
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
-  const downloadStore = useDownloadStore()
+  const newQueueStore = useNewQueueStore()
   const settingsStore = useSettingsStore()
   const { settings } = settingsStore
   const authStore = useAuthStore()
@@ -167,30 +167,36 @@ export default function HomeContent() {
           if (!page) continue
 
           // 检查是否已经有相同的cid在下载列表中
-          if (downloadStore.isCidInDownloadList(video.bvid, page.cid)) {
+          const existingTask = Object.values(newQueueStore.tasks).find(
+            t => t.media_id === video.bvid && 
+            t.meta?.cid === page.cid && 
+            !['completed', 'cancelled'].includes(t.state)
+          )
+          if (existingTask) {
             skippedCount++
             continue
           }
 
-          const downloadData = {
-            bvid: video.bvid,
+          const taskData = {
             title: video.title,
-            cid: page.cid,
-            aid: video.aid,
-            quality: defaultQuality,
-            output_format: 'mp4',
-            thumbnail_url: video.pic,
-            duration: page.duration,
-            uploader: video.owner.name,
-            uploader_mid: video.owner.mid,
-            sessdata: sessdata || undefined,
-            enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
-            enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
-            enable_cover: settings?.download?.metadata?.enable_cover ?? true,
-            enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
+            media_type: 'video',
+            media_id: video.bvid,
+            cover: video.pic,
+            desc: `CID: ${page.cid}`,
+            meta: {
+              cid: page.cid,
+              page: page.page,
+              part_title: page.part,
+              quality: defaultQuality,
+              output_format: 'mp4',
+              enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+              enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+              enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+              enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
+            }
           }
 
-          const response = await apiService.addToDownloadQueue(downloadData)
+          const response = await apiService.submitTask(taskData)
 
           if (!response.success) {
             setError(`添加下载失败: ${response.message}`)
@@ -204,31 +210,35 @@ export default function HomeContent() {
         const cid = video.cid || (downloadOptions?.pages && downloadOptions.pages[0]?.cid) || 0
         
         // 检查是否已经在下载列表中
-        if (downloadStore.isCidInDownloadList(video.bvid, cid)) {
+        const existingTask = Object.values(newQueueStore.tasks).find(
+          t => t.media_id === video.bvid && 
+          t.meta?.cid === cid && 
+          !['completed', 'cancelled'].includes(t.state)
+        )
+        if (existingTask) {
           setError('该视频已在下载列表中')
           setDownloading(false)
           return
         }
 
-        const downloadData = {
-          bvid: video.bvid,
+        const taskData = {
           title: video.title,
-          cid: cid,
-          aid: video.aid,
-          quality: defaultQuality,
-          output_format: 'mp4',
-          thumbnail_url: video.pic,
-          duration: video.duration || 0,
-          uploader: video.owner.name,
-          uploader_mid: video.owner.mid,
-          sessdata: sessdata || undefined,
-          enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
-          enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
-          enable_cover: settings?.download?.metadata?.enable_cover ?? true,
-          enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
+          media_type: 'video',
+          media_id: video.bvid,
+          cover: video.pic,
+          desc: `CID: ${cid}`,
+          meta: {
+            cid: cid,
+            quality: defaultQuality,
+            output_format: 'mp4',
+            enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+            enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+            enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+            enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
+          }
         }
 
-        const response = await apiService.addToDownloadQueue(downloadData)
+        const response = await apiService.submitTask(taskData)
 
         if (!response.success) {
           setError(`添加下载失败: ${response.message}`)
@@ -244,7 +254,8 @@ export default function HomeContent() {
       setSelectedPages(new Set())
       
       // 刷新下载列表
-      await downloadStore.syncFromServer()
+      await newQueueStore.fetchTasks()
+      await newQueueStore.fetchSchedulers()
       
       if (skippedCount > 0) {
         setError(`已添加 ${addedCount} 个视频到下载队列，跳过 ${skippedCount} 个已存在的视频`)

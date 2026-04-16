@@ -127,15 +127,50 @@
 
 ## 下载接口
 
+### 下载队列管理（新系统）
+
+**注意**：旧的下载API (`/api/download/*`) 已废弃，请使用新的下载队列系统。
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/queue` | 获取下载队列 |
-| POST | `/api/queue/add` | 添加任务 |
-| POST | `/api/queue/{id}/control` | 控制任务 |
-| DELETE | `/api/queue/{id}` | 删除任务 |
-| GET | `/api/queue/schedulers` | 获取调度器 |
+| GET | `/api/queue/tasks` | 获取下载任务列表 |
+| POST | `/api/queue/tasks` | 创建下载任务 |
+| GET | `/api/queue/tasks/{task_id}` | 获取单个任务详情 |
+| POST | `/api/queue/tasks/{task_id}/start` | 开始任务 |
+| POST | `/api/queue/tasks/{task_id}/pause` | 暂停任务 |
+| POST | `/api/queue/tasks/{task_id}/resume` | 恢复任务 |
+| POST | `/api/queue/tasks/{task_id}/cancel` | 取消任务 |
+| POST | `/api/queue/tasks/{task_id}/retry` | 重试任务 |
+| DELETE | `/api/queue/tasks/{task_id}` | 删除任务 |
+| POST | `/api/queue/tasks/batch/start` | 批量开始任务 |
+| GET | `/api/queue/schedulers` | 获取调度器列表 |
 | POST | `/api/queue/schedulers` | 创建调度器 |
 | POST | `/api/queue/schedulers/{id}/start` | 启动调度器 |
+| POST | `/api/queue/schedulers/{id}/pause` | 暂停调度器 |
+| POST | `/api/queue/schedulers/{id}/stop` | 停止调度器 |
+| DELETE | `/api/queue/schedulers/{id}` | 删除调度器 |
+
+### 下载列表管理（历史记录）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/downloads` | 获取下载列表 |
+| GET | `/api/downloads/{download_id}` | 获取单个下载详情 |
+| DELETE | `/api/downloads/{download_id}` | 删除下载记录 |
+| DELETE | `/api/downloads/by-bvid/{bvid}` | 通过BVID删除下载记录 |
+| POST | `/api/downloads/batch/start` | 批量开始下载 |
+| POST | `/api/downloads/{download_id}/start` | 开始下载 |
+| POST | `/api/downloads/{download_id}/pause` | 暂停下载 |
+| POST | `/api/downloads/{download_id}/resume` | 恢复下载 |
+| POST | `/api/downloads/{download_id}/cancel` | 取消下载 |
+
+### 下载解析接口（已废弃）
+
+**注意**：以下端点已迁移至新的队列系统，但为了向后兼容性保留。建议使用新的媒体API: `/api/media/{media_type}/{media_id}`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/download/parse` | 解析下载URL（支持视频、图文、课程、番剧等） |
 
 ### 任务创建（POST /api/queue/tasks）
 
@@ -197,6 +232,162 @@
   - `Field required`（缺少必填字段）
   - `String should have at least 1 character`（字符串太短）
   - `String should have at most X characters`（字符串太长）
+
+### 下载列表管理
+
+#### 获取下载列表（GET /api/downloads）
+
+获取所有下载记录，支持状态筛选。
+
+**查询参数**：
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `status` | string | 否 | - | 状态筛选：`pending`, `downloading`, `completed`, `failed`, `paused`, `cancelled` |
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "downloads": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "bvid": "BV1xx411c7mD",
+        "title": "示例视频",
+        "status": "downloading",
+        "progress": 45.5,
+        "download_speed": 1024000,
+        "eta": 120,
+        "stage": "downloading",
+        "downloaded_bytes": 536870912,
+        "total_bytes": 1178599424,
+        "retry_count": 0,
+        "max_retries": 3,
+        "error_message": null,
+        "thumbnail_url": "https://example.com/cover.jpg",
+        "duration": 300,
+        "uploader": "UP主名称",
+        "file_path": "/downloads/video.mp4",
+        "created_at": "2024-01-01T00:00:00Z",
+        "started_at": "2024-01-01T00:01:00Z",
+        "completed_at": null,
+        "aid": 123456789,
+        "cid": 987654321,
+        "quality": 80,
+        "audio_bitrate": 192,
+        "codec": "h264"
+      }
+    ]
+  }
+}
+```
+
+#### 批量开始下载（POST /api/downloads/batch/start）
+
+批量开始多个下载任务。
+
+**请求体**：
+
+```json
+{
+  "download_ids": ["550e8400-e29b-41d4-a716-446655440000", "660e8400-e29b-41d4-a716-446655440001"]
+}
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "message": "成功开始 2 个下载任务",
+  "data": {
+    "started_count": 2
+  }
+}
+```
+
+#### 任务控制方法
+
+**开始下载**：
+```
+POST /api/downloads/{download_id}/start
+```
+
+**暂停下载**：
+```
+POST /api/downloads/{download_id}/pause
+```
+
+**恢复下载**：
+```
+POST /api/downloads/{download_id}/resume
+```
+
+**取消下载**：
+```
+POST /api/downloads/{download_id}/cancel
+```
+
+### 下载状态说明
+
+| 状态 | 说明 |
+|------|------|
+| `pending` | 待处理 |
+| `downloading` | 下载中 |
+| `completed` | 已完成 |
+| `failed` | 失败 |
+| `paused` | 暂停 |
+| `cancelled` | 取消 |
+
+### 下载阶段说明
+
+| 阶段 | 说明 |
+|------|------|
+| `preparing` | 准备中 |
+| `downloading` | 下载中 |
+| `moving` | 文件移动中 |
+| `post_processing` | 后处理中 |
+| `completed` | 已完成 |
+
+### WebSocket 实时进度
+
+**端点**：`ws://localhost:8000/ws/downloads`
+
+**事件类型**：
+
+| 事件类型 | 说明 |
+|----------|------|
+| `download_progress` | 下载进度更新 |
+| `download_status` | 下载状态更新 |
+| `download_stage` | 下载阶段更新 |
+| `download_bytes` | 下载字节数更新 |
+| `download_error` | 下载错误 |
+
+**进度更新事件示例**：
+
+```json
+{
+  "type": "download_progress",
+  "download_id": "550e8400-e29b-41d4-a716-446655440000",
+  "progress": 45.5,
+  "speed": 1024000,
+  "eta": 120
+}
+```
+
+**错误事件示例**：
+
+```json
+{
+  "type": "download_error",
+  "download_id": "550e8400-e29b-41d4-a716-446655440000",
+  "error": "网络连接失败",
+  "error_type": "network",
+  "error_code": "NETWORK_ERROR"
+}
+```
 
 ### 调度器创建（POST /api/queue/schedulers）
 

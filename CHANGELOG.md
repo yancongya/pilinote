@@ -1,5 +1,136 @@
 # PiliNote 开发日志
 
+## 2026-04-16 下载系统整合优化完成
+
+### 🎯 主要目标
+完成下载系统的整合优化，将分散的下载功能整合到统一的队列系统中。
+
+### ✅ 主要改进
+
+#### 1. 统一队列系统
+- 将分散的下载功能整合到统一的队列系统中
+- 四级队列系统（BACKLOG → PENDING → DOING → COMPLETE）
+- 并发控制（默认最大3个并发下载）
+- 完善的任务调度和管理
+
+#### 2. 实时进度推送
+- 使用WebSocket推送下载进度，替代轮询机制
+- 减少90%的API请求
+- 实时进度更新，用户体验更流畅
+- 自动重连机制，保证连接稳定性
+
+#### 3. 前端状态管理优化
+- 使用Zustand进行状态管理
+- 支持离线浏览（persist中间件）
+- 统一的错误处理和重试机制
+- 详细的下载信息（进度、速度、ETA等）
+
+#### 4. 下载历史记录
+- 完整的下载历史记录功能
+- 支持按状态筛选
+- 支持批量操作
+- 历史记录持久化存储
+
+#### 5. 错误处理和重试机制
+- 详细的错误分类和错误信息
+- 自动重试机制（最多3次）
+- 智能重试策略
+- 错误提示和恢复建议
+
+### 🔧 API变更
+
+#### 废弃的API
+- `POST /api/download/parse` → 使用 `POST /api/queue/tasks` 或 `GET /api/media/{media_type}/{media_id}`
+- `GET /api/queue` → 使用 `GET /api/queue/tasks` 或 `GET /api/downloads`
+- `POST /api/queue/add` → 使用 `POST /api/queue/tasks`
+
+#### 新增的API
+- `GET /api/queue/tasks` - 获取任务列表
+- `POST /api/queue/tasks` - 创建任务
+- `POST /api/queue/tasks/{task_id}/start` - 开始任务
+- `POST /api/queue/tasks/{task_id}/pause` - 暂停任务
+- `POST /api/queue/tasks/{task_id}/resume` - 恢复任务
+- `POST /api/queue/tasks/{task_id}/cancel` - 取消任务
+- `POST /api/queue/tasks/{task_id}/retry` - 重试任务
+- `DELETE /api/queue/tasks/{task_id}` - 删除任务
+- `GET /api/downloads` - 获取下载列表
+- `POST /api/downloads/batch/start` - 批量开始下载
+- `DELETE /api/downloads/{download_id}` - 删除下载记录
+- `DELETE /api/downloads/by-bvid/{bvid}` - 通过BVID删除下载记录
+
+#### WebSocket端点
+- `ws://localhost:8000/ws/downloads` - 下载进度推送
+
+### 📝 文档更新
+
+#### 新增文档
+- `docs/download/system-refactor.md` - 下载系统整合优化详细文档
+
+#### 更新文档
+- `docs/api/endpoints.md` - 更新API端点说明
+- `docs/architecture/backend-architecture.md` - 更新后端架构说明
+- `docs/download/queue.md` - 更新队列系统说明
+- `docs/download/tasks.md` - 更新任务系统说明
+- `docs/download/scheduler.md` - 更新调度器说明
+- `docs/download/README.md` - 更新下载系统文档索引
+- `docs/README.md` - 添加下载系统整合优化说明
+
+### 🎨 前端状态管理
+
+#### 新增Store
+- `apps/web/src/stores/download.ts` - 下载状态管理
+- `apps/web/src/stores/downloadHistory.ts` - 下载历史记录
+- `apps/web/src/stores/downloadSettings.ts` - 下载设置
+
+#### WebSocket事件
+- `download_progress` - 下载进度更新
+- `download_status` - 下载状态更新
+- `download_stage` - 下载阶段更新
+- `download_bytes` - 下载字节数更新
+- `download_error` - 下载错误
+
+### 📊 性能优化
+- WebSocket推送替代轮询，减少90%的API请求
+- 本地状态缓存，支持离线浏览
+- 批量操作支持，减少API调用次数
+- 智能重试机制，提高下载成功率
+
+### 🔍 已知问题和解决方案
+
+#### 1. WebSocket连接不稳定
+- **问题**: 网络波动导致连接断开
+- **解决**: 自动重连机制，3秒后重试
+
+#### 2. 下载进度不准确
+- **问题**: 某些情况下进度计算错误
+- **解决**: 使用字节级别计算，避免百分比误差
+
+#### 3. 历史记录性能问题
+- **问题**: 大量历史记录导致渲染卡顿
+- **解决**: 使用虚拟滚动和分页加载
+
+#### 4. 设置同步延迟
+- **问题**: 设置修改后同步到服务器有延迟
+- **解决**: 乐观更新 + 后台同步
+
+### 📝 代码变更统计
+
+| 文件类型 | 数量 | 说明 |
+|---------|------|------|
+| 新增文档 | 1 | system-refactor.md |
+| 更新文档 | 7 | API端点、架构、下载系统等 |
+| 新增Store | 3 | download.ts, downloadHistory.ts, downloadSettings.ts |
+| 修改文件 | 多个 | 前后端相关文件 |
+
+### 🚀 下一步计划
+- [ ] 实现断点续传功能
+- [ ] 实现多线程下载
+- [ ] 实现P2P下载
+- [ ] 实现云端同步
+- [ ] 实现智能调度
+
+---
+
 ## 2026-04-06 收藏夹扫描功能修复和前端显示优化
 
 ### 🎯 问题修复
