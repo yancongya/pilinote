@@ -210,37 +210,43 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
 
         <div className="stg-list">
           <div className="stg-item">
-            <div className="stg-item-label-row">
+            <div className="stg-icon-badge">
               <RefreshCw size={18} className="stg-item-icon" />
-              <span className="stg-item-label">当前状态</span>
             </div>
-            <div className="stg-meta">
-              <span className={cacheStatusInfo.color}>
-                {cacheStatusInfo.text}
-              </span>
+            <div className="stg-item-content">
+              <div className="stg-item-label">当前状态</div>
+              <div className="stg-meta">
+                <span className={cacheStatusInfo.color}>
+                  {cacheStatusInfo.text}
+                </span>
+              </div>
             </div>
           </div>
 
           {cachedVideoCount > 0 && (
             <div className="stg-item">
-              <div className="stg-item-label-row">
+              <div className="stg-icon-badge">
                 <CheckCircle size={18} className="stg-item-icon" />
-                <span className="stg-item-label">缓存视频数</span>
               </div>
-              <div className="stg-meta">
-                {cachedVideoCount} 个视频
+              <div className="stg-item-content">
+                <div className="stg-item-label">缓存视频数</div>
+                <div className="stg-meta">
+                  {cachedVideoCount} 个视频
+                </div>
               </div>
             </div>
           )}
 
           {lastRefreshTime && (
             <div className="stg-item">
-              <div className="stg-item-label-row">
+              <div className="stg-icon-badge">
                 <Clock size={18} className="stg-item-icon" />
-                <span className="stg-item-label">最后刷新时间</span>
               </div>
-              <div className="stg-meta">
-                {lastRefreshTime.toLocaleString('zh-CN')}
+              <div className="stg-item-content">
+                <div className="stg-item-label">最后刷新时间</div>
+                <div className="stg-meta">
+                  {lastRefreshTime.toLocaleString('zh-CN')}
+                </div>
               </div>
             </div>
           )}
