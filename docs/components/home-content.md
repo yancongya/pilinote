@@ -132,7 +132,7 @@ interface ParseResponse {
 
 ### 2. handleDownload
 添加视频/图文到下载列表：
-- **图文**: 调用 `apiService.addToDownloadQueue`（后端实现中）
+- **图文**: 调用 `apiService.submitTask()`，提交 `media_type: opus` 与规范化后的 `cv...` 任务
 - **单P视频**: 直接调用 `apiService.addToDownloadQueue`
 - **多P视频**: 遍历选中的分P，逐个调用 `apiService.addToDownloadQueue`
 

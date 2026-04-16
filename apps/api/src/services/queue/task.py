@@ -7,6 +7,14 @@ import logging
 from src.models.task import Task, TaskState
 from src.schemas.task import SubTask, SubTaskType
 from src.services.bilibili import BilibiliService
+from src.services.opus_archive_service import (
+    build_local_image_filename,
+    build_opus_meta,
+    generate_opus_nfo,
+    normalize_opus_id,
+    render_opus_markdown,
+    sanitize_filename_component,
+)
 from src.database import SessionLocal
 from src.utils.error_handler import ErrorHandler, handle_error
 
@@ -135,6 +143,8 @@ class TaskService:
         # favorite 和 watch_later 本质上也是视频，使用相同的准备逻辑
         if self.task.media_type in ["video", "favorite", "watch_later"]:
             await self._prepare_video(bilibili_service)
+        elif self.task.media_type == "opus":
+            await self._prepare_opus(bilibili_service)
         elif self.task.media_type == "bangumi":
             await self._prepare_bangumi()
         else:
@@ -233,6 +243,111 @@ class TaskService:
 
         return subtasks
 
+    async def _prepare_opus(self, bilibili_service: BilibiliService):
+        """准备图文任务"""
+        normalized_opus_id = normalize_opus_id(self.task.media_id)
+        opus_result = await bilibili_service.get_opus_details(normalized_opus_id.replace("cv", ""))
+
+        if not opus_result.get('success'):
+            raise Exception(opus_result.get('message', '获取图文信息失败'))
+
+        raw_opus_data = opus_result.get('data', {}) or {}
+        author = raw_opus_data.get('author', {}) or {}
+        stat = raw_opus_data.get('stat', {}) or {}
+
+        avatar_url = ""
+        avatar_data = author.get("avatar", {}) if isinstance(author.get("avatar"), dict) else {}
+        fallback_layers = avatar_data.get("fallback_layers", {})
+        for layer in fallback_layers.get("layers", []):
+            resource = layer.get("resource", {})
+            res_image = resource.get("res_image", {})
+            remote = res_image.get("image_src", {}).get("remote", {})
+            if remote.get("url"):
+                avatar_url = remote["url"]
+                break
+
+        meta = build_opus_meta(
+            normalized_opus_id,
+            {
+                "id": raw_opus_data.get("id"),
+                "title": raw_opus_data.get("title", ""),
+                "paragraphs": raw_opus_data.get("paragraphs", []),
+                "image_urls": raw_opus_data.get("image_urls", []),
+                "author": {
+                    "name": author.get("name", ""),
+                    "mid": author.get("mid", 0),
+                    "avatar_url": avatar_url,
+                },
+                "stat": {
+                    "like": (stat.get("like", {}) or {}).get("count", 0),
+                    "reply": (stat.get("comment", {}) or {}).get("count", 0),
+                    "share": (stat.get("forward", {}) or {}).get("count", 0),
+                    "favorite": (stat.get("favorite", {}) or {}).get("count", 0),
+                    "coin": (stat.get("coin", {}) or {}).get("count", 0),
+                },
+                "pubdate": author.get("pub_ts", 0),
+                "basic": raw_opus_data.get("basic", {}) or {},
+            },
+        )
+
+        self.task.media_id = normalized_opus_id
+        self.task.title = meta.get('title') or self.task.title
+        self.task.cover = meta.get('pic') or self.task.cover
+        self.task.meta = meta
+        self.task.prepare = {
+            'subtasks': self._create_opus_subtasks(meta)
+        }
+        self.task.updated_at = int(datetime.now().timestamp())
+
+        db = SessionLocal()
+        try:
+            db.merge(self.task)
+            db.commit()
+        finally:
+            db.close()
+
+    def _create_opus_subtasks(self, meta: dict) -> List[dict]:
+        subtasks = []
+        image_urls = meta.get('image_urls', []) or []
+        title = sanitize_filename_component(meta.get('title', 'opus'), fallback='opus')
+
+        if meta.get('pic'):
+            cover_ext = Path(meta['pic'].split('?', 1)[0].split('@', 1)[0]).suffix or '.jpg'
+            subtasks.append({
+                'type': SubTaskType.THUMB,
+                'url': meta['pic'],
+                'filename': f'cover{cover_ext}'
+            })
+
+        author = meta.get('author', {}) or {}
+        if author.get('avatar'):
+            avatar_ext = Path(author['avatar'].split('?', 1)[0].split('@', 1)[0]).suffix or '.jpg'
+            subtasks.append({
+                'type': 'AVATAR',
+                'uploader_mid': author.get('mid'),
+                'uploader': author.get('name'),
+                'avatar_url': author.get('avatar'),
+                'filename': f'avatar{avatar_ext}'
+            })
+
+        if image_urls:
+            subtasks.append({
+                'type': SubTaskType.OPUS_IMAGES,
+                'images': image_urls
+            })
+
+        subtasks.append({
+            'type': SubTaskType.OPUS_CONTENT,
+            'filename': f'{title}.md'
+        })
+        subtasks.append({
+            'type': SubTaskType.SINGLE_NFO,
+            'meta': meta,
+            'filename': f'{title}.nfo'
+        })
+
+        return subtasks
+
     async def _prepare_bangumi(self):
         """准备番剧任务"""
         # TODO: 实现番剧准备逻辑
@@ -295,18 +410,24 @@ class TaskService:
             # 检查任务状态
             await self._check_task_status()
 
-            # 1. 下载视频/音频到临时目录
-            await self._download_media(temp_dir, final_output_dir)
-
-            # 检查任务状态
-            await self._check_task_status()
-
-            # 2. 依次执行其他子任务
             subtasks = self.task.prepare.get('subtasks', [])
-
-            # 过滤掉已完成的视频和音频子任务
             media_subtasks = [s for s in subtasks if s['type'] in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]]
             post_subtasks = [s for s in subtasks if s['type'] not in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]]
+
+            # 1. 下载视频/音频到临时目录
+            if media_subtasks:
+                await self._download_media(temp_dir, final_output_dir)
+                await self._check_task_status()
+            else:
+                self.task.status['stage'] = 'post_processing'
+                self.task.status['progress'] = 0
+                self.task.updated_at = int(datetime.now().timestamp())
+                db = SessionLocal()
+                try:
+                    db.merge(self.task)
+                    db.commit()
+                finally:
+                    db.close()
 
             # 如果有后处理子任务，设置后处理阶段
             if post_subtasks:
@@ -785,6 +906,11 @@ class TaskService:
             logger.info(f"生成 NFO 文件: {filename}")
             
             # 构建 NFO 内容
+            if meta_data.get('type') == 'opus':
+                output_file.write_text(generate_opus_nfo(meta_data), encoding='utf-8')
+                logger.info(f"NFO 文件生成成功: {filename}")
+                return
+
             title = meta_data.get('title', 'Unknown')
             desc = meta_data.get('desc', '')
             owner = meta_data.get('owner', {})
@@ -861,6 +987,46 @@ class TaskService:
             
             output_file.write_text(content, encoding='utf-8')
             logger.info(f"NFO 文件生成成功: {filename}")
+
+        elif subtask_type == SubTaskType.OPUS_IMAGES:
+            image_urls = subtask_data.get('images', []) or []
+            if not image_urls:
+                return
+
+            from src.services.download_service import DownloadService
+
+            images_dir = output_dir / 'images'
+            images_dir.mkdir(parents=True, exist_ok=True)
+            download_service = DownloadService()
+            used_names: set[str] = set()
+            downloaded_images = []
+
+            for index, url in enumerate(image_urls, start=1):
+                filename = build_local_image_filename(url, used_names, index)
+                output_file = images_dir / filename
+                success = await download_service._download_image(url, output_file)
+                if success:
+                    downloaded_images.append({
+                        'url': url,
+                        'filename': filename,
+                        'relative_path': f'images/{filename}'
+                    })
+
+            self.task.meta['downloaded_images'] = downloaded_images
+
+        elif subtask_type == SubTaskType.OPUS_CONTENT:
+            filename = subtask_data.get('filename', f"{self.task.title or 'opus'}.md")
+            output_file = output_dir / filename
+            image_map = {
+                item['url']: item['relative_path']
+                for item in self.task.meta.get('downloaded_images', [])
+            }
+            markdown = render_opus_markdown(
+                title=self.task.meta.get('title', self.task.title or '未命名图文'),
+                paragraphs=self.task.meta.get('paragraphs', []),
+                image_filename_map=image_map,
+            )
+            output_file.write_text(markdown, encoding='utf-8')
 
         # 视频和音频已经在主下载流程中处理
         elif subtask_type in [SubTaskType.VIDEO, SubTaskType.AUDIO, SubTaskType.AUDIO_VIDEO]:

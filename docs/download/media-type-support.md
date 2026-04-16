@@ -658,15 +658,35 @@ elif media_type in [MediaType.OPUS, MediaType.OPUS_LIST]:
 ```
 downloads/
 └── 图文标题/
-    ├── cover.jpg              # 封面（第一张图片）
+    ├── cover.jpg              # 封面（使用第一张图片作为本地封面）
     ├── images/
-    │   ├── image_001.jpg
-    │   ├── image_002.jpg
-    │   └── image_003.jpg
+    │   ├── article-image.png
+    │   ├── article-image-2.png
+    │   └── banner.webp
     ├── avatar.jpg             # 作者头像
-    ├── content.md             # 文本内容（Markdown格式）
+    ├── 图文标题.md            # 文本内容（Markdown格式，引用本地 images/）
     └── 图文标题.nfo           # 元数据文件
 ```
+
+#### 当前实现说明
+
+- 任务创建入口统一提交 `media_type: opus`
+- `media_id` 会规范化为 `cv...`
+- 准备阶段调用 `BilibiliService.get_opus_details()` 获取标题、段落、图片、作者与统计信息
+- 执行阶段不再尝试走视频媒体下载，而是直接进入后处理归档
+- 后处理会生成：
+  - `cover.*`
+  - `avatar.*`
+  - `images/` 本地图片目录
+  - `图文标题.md`
+  - `图文标题.nfo`
+
+#### Markdown 归档规则
+
+- 正文段落写入 Markdown 普通段落
+- 图片段落转换为 `![图文图片 N](images/文件名.ext)`
+- 图片文件名优先复用源 URL basename，冲突时自动追加 `-2`、`-3`
+- Markdown 内不再保留远程 B 站图片 URL，详情页读取本地 Markdown 时会走本地图片代理接口
 
 ---
 
@@ -701,7 +721,7 @@ downloads/
 #### 图文内容流程
 
 ```
-获取详情 → 解析内容 → 下载图片 → 保存文本 → 完成
+获取详情 → 规范化 cv 任务 → 下载头像/封面/图片 → 生成 Markdown/NFO → 完成
 ```
 
 ### 文件组织差异

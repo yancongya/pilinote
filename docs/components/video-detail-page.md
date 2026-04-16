@@ -28,7 +28,9 @@ interface VideoDetailPageProps {
 ### 2. 数据获取
 
 - **视频**: 通过 `apiService.getVideoDetail()` 获取
-- **图文**: 通过 `apiService.parseDownloadUrl()` 获取，参数格式 `cv{mediaId}`
+- **图文**:
+  - 优先通过 `apiService.getLocalOpusContent()` 读取本地归档 Markdown
+  - 本地未命中时，再通过 `apiService.parseDownloadUrl()` 获取远端内容，参数格式 `cv{mediaId}`
 
 ### 3. 页面布局
 
@@ -188,6 +190,21 @@ const handleAddToDownload = async (video: VideoInfo) => {
 }
 ```
 
+### 8. 本地图文优先渲染
+
+- 已下载图文会优先读取本地归档目录中的 `*.md`
+- 页面保留封面展示，但正文区域改为按本地 Markdown 渲染
+- Markdown 中的 `images/...` 相对路径会映射到 `/api/library/image?file_path=...`
+- 已归档图文按钮文案会显示“已下载”，避免重复添加
+
+**图文本地链路**：
+
+1. 前端调用 `apiService.getLocalOpusContent(cvId)`
+2. 后端 `/api/video-library/opus/{opus_id}/content` 扫描本地库，按 NFO 中的 `opus_id` 命中图文目录
+3. 返回 `markdown_content`、`folder_path`、`cover_path`、`avatar_path`
+4. 前端使用 `videoDetailOpus.ts` 将受控 Markdown 解析为标题、段落和本地图片块
+5. 若本地不存在，再回退到远端 `parseDownloadUrl` 返回的段落数据
+
 ## 使用示例
 
 ```typescript
@@ -288,6 +305,22 @@ import VideoDetailPage from './pages/VideoDetailPage'
   - 如果当前分P未下载，不自动切换到其他分P
   - 已下载的分P在列表中显示“播放本地”状态
   - 当前播放中的分P会高亮显示
+
+### 2026-04-17 - 图文本地归档渲染
+
+#### 本地 Markdown 优先
+- **本地内容优先**: 图文详情页进入后先查本地归档，再决定是否请求远端解析
+  - 命中本地归档时，正文直接读取 `图文标题.md`
+  - 未命中时，继续使用远端段落数组渲染
+
+#### 本地图片与封面
+- **封面保留**: 已归档图文仍展示封面图
+  - 如果目录内存在 `cover.*`，详情页会优先显示本地封面
+- **图片本地化**: Markdown 中的 `images/...` 统一通过本地图片代理接口渲染
+
+#### 交互行为
+- **已下载态提示**: 图文已归档时，按钮显示“已下载”
+- **下载入口修正**: 详情页与首页解析卡片都使用 `media_type: opus` 和规范化后的 `cv...` 任务载荷
 
 ---
 

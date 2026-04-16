@@ -19,6 +19,7 @@
 """
 
 import os
+from pathlib import Path
 from typing import List, Dict, Any, Set
 from sqlalchemy.orm import Session
 from src.services.local_library_service import LocalLibraryService
@@ -190,4 +191,39 @@ class VideoLibraryService:
             "has_local_video": len(entries) > 0,
             "entries": entries,
             "folder_path": folder_match.get('path') if folder_match else None
+        }
+
+    def get_local_opus_content(self, opus_id: str) -> Dict[str, Any]:
+        """
+        获取图文的本地归档内容
+        """
+        normalized_opus_id = opus_id if opus_id.startswith('cv') else f'cv{opus_id}'
+        library_data = self.local_library.scan_library()
+        folder_match = None
+
+        for folder in library_data.folders:
+            nfo_data = folder.get('nfo_data') or {}
+            if nfo_data.get('opus_id') == normalized_opus_id:
+                folder_match = folder
+                break
+
+        if not folder_match:
+            raise FileNotFoundError(f"未找到图文本地归档: {normalized_opus_id}")
+
+        markdown_path = folder_match.get('markdown_path')
+        if not markdown_path or not os.path.exists(markdown_path):
+            raise FileNotFoundError(f"未找到图文 Markdown 文件: {normalized_opus_id}")
+
+        markdown_content = Path(markdown_path).read_text(encoding='utf-8')
+        nfo_data = folder_match.get('nfo_data') or {}
+
+        return {
+            "opus_id": normalized_opus_id,
+            "title": folder_match.get('title') or nfo_data.get('title') or folder_match.get('name'),
+            "folder_path": folder_match.get('path'),
+            "markdown_path": markdown_path,
+            "markdown_content": markdown_content,
+            "cover_path": folder_match.get('cover_path'),
+            "avatar_path": folder_match.get('avatar_path'),
+            "nfo_data": nfo_data,
         }

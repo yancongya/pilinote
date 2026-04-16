@@ -8,6 +8,7 @@ import { videoLibraryService } from '../../services/videoLibraryService'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
 import { getAvatarProxyUrl } from '../../config/api'
 import HistoryList from './HistoryList'
+import { buildDetailTaskPayload, normalizeOpusMediaId } from '../videoDetailMedia'
 
 interface VideoInfo {
   bvid: string
@@ -218,47 +219,58 @@ export default function HomeContent() {
       } else {
         // 单个视频或图文：直接添加
         const cid = video.cid || (downloadOptions?.pages && downloadOptions.pages[0]?.cid) || 0
+        const opusMediaId = normalizeOpusMediaId((parseData?.data as any)?.parsed_id?.id || String(video.aid || ''))
+        const taskMediaId = isOpus ? opusMediaId : video.bvid
         
         // 检查是否已经在下载列表中
         const existingTask = Object.values(newQueueStore.tasks).find(
-          t => t.media_id === video.bvid && 
+          t => t.media_id === taskMediaId && 
           t.meta?.cid === cid && 
           !['completed', 'cancelled'].includes(t.state)
         )
         if (existingTask) {
-          setError('该视频已在下载列表中')
+          setError(isOpus ? '该图文已在下载列表中' : '该视频已在下载列表中')
           setDownloading(false)
           return
         }
 
-        // 检查视频是否已在视频库中
-        try {
-          const isDownloaded = await videoLibraryService.isVideoDownloaded(video.bvid, cid)
-          if (isDownloaded) {
-            setError('该视频已在视频库中')
-            setDownloading(false)
-            return
+        if (!isOpus) {
+          // 检查视频是否已在视频库中
+          try {
+            const isDownloaded = await videoLibraryService.isVideoDownloaded(video.bvid, cid)
+            if (isDownloaded) {
+              setError('该视频已在视频库中')
+              setDownloading(false)
+              return
+            }
+          } catch (error) {
+            console.warn('[HomeContent] 视频库检查失败:', error)
           }
-        } catch (error) {
-          console.warn('[HomeContent] 视频库检查失败:', error)
         }
 
-        const taskData = {
-          title: video.title,
-          media_type: 'video',
-          media_id: video.bvid,
-          cover: video.pic,
-          desc: `CID: ${cid}`,
-          meta: {
-            cid: cid,
-            quality: defaultQuality,
-            output_format: 'mp4',
-            enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
-            enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
-            enable_cover: settings?.download?.metadata?.enable_cover ?? true,
-            enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
-          }
-        }
+        const taskData = isOpus
+          ? buildDetailTaskPayload({
+              type: 'opus',
+              mediaId: opusMediaId,
+              title: video.title,
+              cover: video.pic
+            })
+          : {
+              title: video.title,
+              media_type: 'video',
+              media_id: video.bvid,
+              cover: video.pic,
+              desc: `CID: ${cid}`,
+              meta: {
+                cid: cid,
+                quality: defaultQuality,
+                output_format: 'mp4',
+                enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+                enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+                enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+                enable_avatar: settings?.download?.metadata?.enable_avatar ?? false
+              }
+            }
 
         const response = await apiService.submitTask(taskData)
 

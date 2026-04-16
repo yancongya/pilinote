@@ -459,6 +459,12 @@ class ApiService {
     });
   }
 
+  async getLocalOpusContent(opusId: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/video-library/opus/${encodeURIComponent(opusId)}/content`, {
+      method: 'GET',
+    })
+  }
+
   async addToDownloadQueue(data: {
     bvid: string
     cid: number

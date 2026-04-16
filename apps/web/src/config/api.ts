@@ -40,6 +40,12 @@ export const getLocalVideoUrl = (filePath: string): string => {
   return `${baseUrl}/api/library/video?file_path=${encodeURIComponent(cleanPath)}`;
 };
 
+export const getLocalImageUrl = (filePath: string): string => {
+  const baseUrl = getApiBaseUrl();
+  const cleanPath = filePath.replace('file://', '');
+  return `${baseUrl}/api/library/image?file_path=${encodeURIComponent(cleanPath)}`;
+};
+
 /**
  * 获取 WebSocket URL
  */

@@ -162,3 +162,28 @@ async def get_local_playback_map(
             status_code=500,
             detail=f"获取本地播放映射失败: {str(e)}"
         )
+
+
+@router.get("/opus/{opus_id}/content", response_model=dict)
+async def get_local_opus_content(
+    opus_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取图文的本地 Markdown 归档内容
+    """
+    try:
+        service = VideoLibraryService(db)
+        result = service.get_local_opus_content(opus_id)
+
+        return {
+            "success": True,
+            "data": result
+        }
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取本地图文内容失败: {str(e)}"
+        )

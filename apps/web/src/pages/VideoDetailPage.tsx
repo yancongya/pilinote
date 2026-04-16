@@ -8,7 +8,7 @@ import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
 import { ArrowLeft, Film, Play, User } from 'lucide-react'
-import { getAvatarProxyUrl, getLocalVideoUrl } from '../config/api'
+import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
 import {
   buildPlayablePages,
   getPlayableEntries,
@@ -16,6 +16,8 @@ import {
   type LocalPlaybackEntry,
   type LocalPlaybackMap
 } from './videoDetailPlayback'
+import { buildDetailTaskPayload, normalizeOpusMediaId } from './videoDetailMedia'
+import { parseLocalOpusMarkdown, type LocalOpusContent, type OpusBlock } from './videoDetailOpus'
 
 interface VideoDetailPageProps {
   type?: 'video' | 'opus'
@@ -35,7 +37,7 @@ interface VideoDetailData {
   coin: number;
   share: number;
   like: number;
-  pubtime: number;
+  pubtime: number | string;
   duration: number;
   cover: string;
   cid: number;
@@ -55,6 +57,7 @@ interface VideoDetailData {
     author: string;
     time: number;
   }>;
+  localOpus?: LocalOpusContent | null;
 }
 
 export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps) {
@@ -76,6 +79,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [activePlaybackEntry, setActivePlaybackEntry] = useState<LocalPlaybackEntry | null>(null)
   const [showReDownloadDialog, setShowReDownloadDialog] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
+  const [localOpusContent, setLocalOpusContent] = useState<LocalOpusContent | null>(null)
   const [alertModal, setAlertModal] = useState<{
     show: boolean
     title: string
@@ -247,9 +251,58 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       
       try {
         let response
+        let localOpusResponse = null
+
+        if (type === 'opus') {
+          try {
+            localOpusResponse = await apiService.getLocalOpusContent(normalizeOpusMediaId(mediaId || ''))
+          } catch (localOpusError) {
+            console.debug('[VideoDetail] 本地图文未命中，回退远端详情:', localOpusError)
+          }
+        }
         
         if (type === 'opus') {
-          response = await apiService.parseDownloadUrl(`cv${mediaId}`)
+          if (localOpusResponse?.success && localOpusResponse.data) {
+            const localData = localOpusResponse.data as LocalOpusContent
+            const nfoData = localData.nfo_data || {}
+            setLocalOpusContent(localData)
+            setVideo({
+              bvid: '',
+              aid: localData.opus_id,
+              title: localData.title || nfoData.title || 'Untitled',
+              description: '',
+              isOpus: true,
+              uploader: {
+                name: nfoData.studio || 'Unknown',
+                avatar: localData.avatar_path ? getLocalImageUrl(localData.avatar_path) : '',
+                mid: 0
+              },
+              view: 0,
+              danmaku: 0,
+              reply: nfoData.statistics?.reply || 0,
+              favorite: nfoData.statistics?.favorite || 0,
+              coin: nfoData.statistics?.coin || 0,
+              share: nfoData.statistics?.share || 0,
+              like: nfoData.statistics?.like || 0,
+              pubtime: nfoData.premiered || '',
+              duration: 0,
+              cover: localData.cover_path || '',
+              cid: 0,
+              pages: [],
+              opusParagraphs: [],
+              opusImages: [],
+              dimension: null,
+              rights: null,
+              descV2: [],
+              staff: null,
+              ugcSeason: null,
+              localOpus: localData
+            })
+            return
+          }
+
+          setLocalOpusContent(null)
+          response = await apiService.parseDownloadUrl(normalizeOpusMediaId(mediaId || ''))
         } else {
           response = await apiService.getVideoDetail(mediaId, sessdata || undefined)
         }
@@ -263,6 +316,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
             const videoStat = data.video?.stat || {}
             const opusParagraphs = data.opus_info?.paragraphs || []
             const opusImages = data.opus_info?.image_urls || []
+            setLocalOpusContent(null)
 
             setVideo({
               bvid: '',
@@ -293,7 +347,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               rights: null,
               descV2: [],
               staff: null,
-              ugcSeason: null
+              ugcSeason: null,
+              localOpus: null
             })
             
             
@@ -549,6 +604,9 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }
 
   const playableEntries = getPlayableEntries(localPlayback)
+  const localOpusBlocks: OpusBlock[] = localOpusContent
+    ? parseLocalOpusMarkdown(localOpusContent.markdown_content, localOpusContent.folder_path)
+    : []
   const hasLocalPlayback = playableEntries.length > 0
   const playablePages = video?.pages && video.pages.length > 1
     ? buildPlayablePages(video.pages, localPlayback)
@@ -639,6 +697,9 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   // 获取按钮文本
   const getButtonText = () => {
     if (downloading) return '操作中...'
+    if (type === 'opus') {
+      return localOpusContent ? '已下载' : '添加到列表'
+    }
     
     const addedCount = getAddedCount()
     const status = downloadedVideoStatus[video?.cid || 0]
@@ -686,6 +747,21 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
 const handleAddToDownload = async (e: React.MouseEvent) => {
   e.stopPropagation()
   if (!video) return
+
+  if (type === 'opus') {
+    if (localOpusContent) {
+      setAlertModal({
+        show: true,
+        title: '提示',
+        message: '该图文已下载并优先使用本地 Markdown 展示',
+        type: 'success'
+      })
+      return
+    }
+
+    await performDownload(video, e)
+    return
+  }
   
   try {
     const decision = await videoLibraryService.checkBeforeAdd(video)
@@ -722,34 +798,62 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
 const performDownload = async (video: any, e: React.MouseEvent) => {
   setDownloading(true)
   try {
-    const result = await toggleDownload(video as any, e)
-    
-    if (result.success) {
-      // 如果需要跳转到视频库
-      if (result.shouldNavigateToLibrary) {
-        navigate('/downloads', { replace: true })
-        // 延迟显示弹窗，让页面先跳转
-        setTimeout(() => {
+    if (type !== 'opus') {
+      const result = await toggleDownload(video as any, e)
+
+      if (result.success) {
+        if (result.shouldNavigateToLibrary) {
+          navigate('/downloads', { replace: true })
+          setTimeout(() => {
+            setAlertModal({
+              show: true,
+              title: '操作成功',
+              message: result.message,
+              type: 'success'
+            })
+          }, 100)
+        } else {
           setAlertModal({
             show: true,
             title: '操作成功',
             message: result.message,
             type: 'success'
           })
-        }, 100)
+        }
       } else {
         setAlertModal({
           show: true,
-          title: '操作成功',
+          title: '操作失败',
           message: result.message,
-          type: 'success'
+          type: 'error'
         })
       }
+      return
+    }
+
+    const taskPayload = buildDetailTaskPayload({
+      type,
+      mediaId: type === 'opus' ? normalizeOpusMediaId(String(mediaId || video.aid || '')) : video.bvid,
+      title: video.title,
+      cover: video.cover,
+      cid: undefined
+    })
+
+    const response = await apiService.submitTask(taskPayload)
+    if (response.success) {
+      await newQueueStore.fetchTasks()
+      await newQueueStore.fetchSchedulers()
+      setAlertModal({
+        show: true,
+        title: '操作成功',
+        message: '已添加到下载队列',
+        type: 'success'
+      })
     } else {
       setAlertModal({
         show: true,
         title: '操作失败',
-        message: result.message,
+        message: response.message || '添加下载失败',
         type: 'error'
       })
     }
@@ -953,7 +1057,7 @@ const handleReDownloadConfirm = async () => {
           {video.isOpus ? (
             video.cover ? (
               <img
-                src={getProxyImageUrl(video.cover)}
+                src={video.localOpus ? getLocalImageUrl(video.cover) : getProxyImageUrl(video.cover)}
                 alt={video.title}
                 style={{ width: '100%', borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0' }}
               />
@@ -1430,7 +1534,58 @@ const handleReDownloadConfirm = async () => {
       </div>
 
       {/* 图文内容 - 仅图文显示 */}
-      {video.isOpus && video.opusParagraphs && video.opusParagraphs.length > 0 && (
+      {video.isOpus && localOpusBlocks.length > 0 && (
+        <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {localOpusBlocks.map((block, index) => {
+            if (block.type === 'heading') {
+              return (
+                <h2
+                  key={`local-${index}`}
+                  style={{
+                    fontSize: '20px',
+                    lineHeight: '1.4',
+                    color: 'var(--color-text-primary)',
+                    margin: 0
+                  }}
+                >
+                  {block.text}
+                </h2>
+              )
+            }
+
+            if (block.type === 'paragraph') {
+              return (
+                <p
+                  key={`local-${index}`}
+                  style={{
+                    fontSize: '15px',
+                    lineHeight: '1.8',
+                    color: 'var(--color-text-primary)',
+                    margin: 0,
+                    whiteSpace: 'pre-wrap'
+                  }}
+                >
+                  {block.text}
+                </p>
+              )
+            }
+
+            return (
+              <img
+                key={`local-${index}`}
+                src={block.src}
+                alt={block.alt}
+                style={{
+                  width: '100%',
+                  borderRadius: '8px'
+                }}
+              />
+            )
+          })}
+        </div>
+      )}
+
+      {video.isOpus && localOpusBlocks.length === 0 && video.opusParagraphs && video.opusParagraphs.length > 0 && (
         <div style={{ marginBottom: '16px' }}>
           {video.opusParagraphs.map((para: any, index: number) => {
             if (para.para_type === 1) {

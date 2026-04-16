@@ -108,6 +108,7 @@ class LibraryScanResult:
                 "cover_path": folder.get("cover_path"),
                 "avatar": folder.get("avatar"),
                 "avatar_path": folder.get("avatar_path"),
+                "markdown_path": folder.get("markdown_path"),
                 "studio": folder.get("studio"),
                 "nfo_data": folder.get("nfo_data"),
                 "created_time": folder.get("created_time", 0)
@@ -224,6 +225,10 @@ class LocalLibraryService:
             bvid_elem = root.find('bvid')
             if bvid_elem is not None and bvid_elem.text:
                 metadata['bvid'] = bvid_elem.text
+
+            opus_id_elem = root.find('opus_id')
+            if opus_id_elem is not None and opus_id_elem.text:
+                metadata['opus_id'] = opus_id_elem.text
             
             # 提取基本信息
             title_elem = root.find('title')
@@ -395,7 +400,8 @@ class LocalLibraryService:
             'avatar': None,
             'nfo_data': None,
             'cover_path': None,
-            'avatar_path': None
+            'avatar_path': None,
+            'markdown_path': None
         }
         
         try:
@@ -433,6 +439,15 @@ class LocalLibraryService:
             if os.path.exists(avatar_path):
                 metadata['avatar_path'] = avatar_path
                 metadata['avatar'] = avatar_path
+
+            markdown_path = os.path.join(folder_path, f"{folder_name}.md")
+            if os.path.exists(markdown_path):
+                metadata['markdown_path'] = markdown_path
+            else:
+                for filename in os.listdir(folder_path):
+                    if filename.lower().endswith('.md'):
+                        metadata['markdown_path'] = os.path.join(folder_path, filename)
+                        break
             
         except Exception as e:
             logger.warning(f"查找文件夹元数据失败 {folder_path}: {e}")
@@ -614,6 +629,28 @@ class LocalLibraryService:
                             "cover_path": folder_metadata['cover_path'],
                             "avatar": folder_metadata['avatar'],
                             "avatar_path": folder_metadata['avatar_path'],
+                            "markdown_path": folder_metadata.get('markdown_path'),
+                            "studio": folder_metadata.get('studio'),
+                            "nfo_data": folder_metadata.get('nfo_data'),
+                            "created_time": folder_created_time
+                        })
+                    elif folder_metadata.get('nfo_data') or folder_metadata.get('markdown_path'):
+                        result.folder_count += 1
+                        result.folders.append({
+                            "name": folder_name,
+                            "title": folder_metadata['title'],
+                            "path": folder_path,
+                            "file_count": 0,
+                            "size": 0,
+                            "metadata_size": metadata_size,
+                            "total_size": metadata_size,
+                            "size_mb": 0,
+                            "size_gb": 0,
+                            "cover": folder_metadata['cover'],
+                            "cover_path": folder_metadata['cover_path'],
+                            "avatar": folder_metadata['avatar'],
+                            "avatar_path": folder_metadata['avatar_path'],
+                            "markdown_path": folder_metadata.get('markdown_path'),
                             "studio": folder_metadata.get('studio'),
                             "nfo_data": folder_metadata.get('nfo_data'),
                             "created_time": folder_created_time
