@@ -932,6 +932,31 @@ const handleReDownloadConfirm = async () => {
             </div>
           )}
         </div>
+
+        {/* 视频简介 - 封面下方显示 */}
+        {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
+          <div style={{
+            marginTop: '16px',
+            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            fontSize: responsiveStyle.fontSize.body,
+            color: 'var(--color-text-primary)',
+            lineHeight: '1.6',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word'
+          }}>
+            <h3 style={{
+              fontSize: responsiveStyle.fontSize.small,
+              fontWeight: '600',
+              color: 'var(--color-text-primary)',
+              marginBottom: '8px'
+            }}>
+              视频简介
+            </h3>
+            {parseLinks(video.description)}
+          </div>
+        )}
       </div>
 
       {/* 右侧 - 视频信息和状态 */}
@@ -1228,30 +1253,6 @@ const handleReDownloadConfirm = async () => {
       </div>
       </div>
 
-      {/* 视频简介 - 底部区域 */}
-      {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
-        <div style={{
-          padding: responsiveStyle.layout === 'two-column' ? '24px' : '16px',
-          background: 'var(--color-bg-tertiary)',
-          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
-          fontSize: responsiveStyle.fontSize.body,
-          color: 'var(--color-text-primary)',
-          lineHeight: '1.6',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word'
-        }}>
-          <h3 style={{
-            fontSize: responsiveStyle.fontSize.uploader,
-            fontWeight: '600',
-            color: 'var(--color-text-primary)',
-            marginBottom: responsiveStyle.spacing.element
-          }}>
-            视频简介
-          </h3>
-          {parseLinks(video.description)}
-        </div>
-      )}
-
       {/* 图文内容 - 仅图文显示 */}
       {video.isOpus && video.opusParagraphs && video.opusParagraphs.length > 0 && (
         <div style={{ marginBottom: '16px' }}>
@@ -1315,4 +1316,5 @@ const handleReDownloadConfirm = async () => {
       </div>
     </div>
   )
+
 }
