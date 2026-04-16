@@ -1483,6 +1483,7 @@ const handleReDownloadConfirm = async () => {
           </div>
         )}
       </div>
+      </div>
     </div>
   )
 }
