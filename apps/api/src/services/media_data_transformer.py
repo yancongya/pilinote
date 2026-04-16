@@ -64,26 +64,29 @@ class MediaDataTransformer:
     @staticmethod
     def transform_watchlater_video(raw_video: Dict[str, Any]) -> CardData:
         """转换 Watch Later 视频数据
-        
+
         Args:
             raw_video: B站 API 返回的视频数据
-            
+
         Returns:
             CardData: 统一格式的卡片数据
         """
         # 提取统计数据
         stat_data = raw_video.get("stat", {})
         cnt_info = raw_video.get("cnt_info", {})
-        
+
         # 提取UP主信息
         owner = raw_video.get("owner", {})
-        
+
         # 归一化统计数据
         stats = MediaDataTransformer.normalize_stats(stat_data, cnt_info)
-        
+
         # 获取发布时间：优先使用 pubdate，如果没有则使用 pubtime
         pubtime = raw_video.get("pubdate", raw_video.get("pubtime", 0))
-        
+
+        # 归一化UP主信息
+        uploader_info = MediaDataTransformer.normalize_uploader(owner)
+
         return CardData(
             id=raw_video.get("aid", 0),
             bvid=raw_video.get("bvid", ""),
@@ -91,7 +94,8 @@ class MediaDataTransformer:
             cover=raw_video.get("pic", ""),
             duration=raw_video.get("duration", 0),
             pubtime=pubtime,
-            uploader=MediaDataTransformer.normalize_uploader(owner),
+            uploader=uploader_info,
+            author=uploader_info.name,  # 将 uploader.name 映射到 author 字段
             stats=stats,
             progress=raw_video.get("progress", -1),
             add_time=raw_video.get("add_at", 0),
@@ -121,22 +125,25 @@ class MediaDataTransformer:
     @staticmethod
     def transform_favorite_video(raw_media: Dict[str, Any]) -> CardData:
         """转换 Favorites 视频数据
-        
+
         Args:
             raw_media: B站 API 返回的视频数据
-            
+
         Returns:
             CardData: 统一格式的卡片数据
         """
         # 提取统计数据
         cnt_info = raw_media.get("cnt_info", {})
-        
+
         # 提取UP主信息
         upper = raw_media.get("upper", {})
-        
+
         # 归一化统计数据
         stats = MediaDataTransformer.normalize_stats({}, cnt_info)
-        
+
+        # 归一化UP主信息
+        uploader_info = MediaDataTransformer.normalize_uploader({}, upper)
+
         return CardData(
             id=raw_media.get("id", 0),
             bvid=raw_media.get("bvid", ""),
@@ -145,7 +152,8 @@ class MediaDataTransformer:
             duration=raw_media.get("duration", 0),
             pubtime=raw_media.get("pubtime", 0),
             add_time=raw_media.get("fav_time", 0),  # 收藏时间
-            uploader=MediaDataTransformer.normalize_uploader({}, upper),
+            uploader=uploader_info,
+            author=uploader_info.name,  # 将 uploader.name 映射到 author 字段
             stats=stats,
             intro=raw_media.get("intro", ""),
             # 为了前端兼容，将 stats 字段提升到顶层
@@ -169,6 +177,76 @@ class MediaDataTransformer:
             List[CardData]: 统一格式的卡片数据列表
         """
         return [MediaDataTransformer.transform_favorite_video(media) for media in raw_medias]
+
+    @staticmethod
+    def transform_history_video(raw_video: Dict[str, Any]) -> CardData:
+        """转换 History 视频数据
+
+        Args:
+            raw_video: B站 API 返回的视频数据
+
+        Returns:
+            CardData: 统一格式的卡片数据
+        """
+        # 提取统计数据
+        stat_data = raw_video.get("stat", {})
+
+        # 提取UP主信息
+        owner = raw_video.get("owner", {})
+
+        # 归一化统计数据
+        stats = MediaDataTransformer.normalize_stats(stat_data, {})
+
+        # 获取观看进度（秒数）并转换为百分比
+        progress_seconds = raw_video.get("progress", -1)
+        duration = raw_video.get("duration", 0)
+
+        # 计算进度百分比
+        progress_percent = -1  # -1 表示未开始或未知
+        if progress_seconds > 0 and duration > 0:
+            progress_percent = int((progress_seconds / duration) * 100)
+
+        # 获取观看时间
+        view_at = raw_video.get("view_at", 0)
+
+        # 归一化UP主信息
+        uploader_info = MediaDataTransformer.normalize_uploader(owner)
+
+        return CardData(
+            id=raw_video.get("aid", 0),
+            bvid=raw_video.get("bvid", ""),
+            title=raw_video.get("title", ""),
+            cover=raw_video.get("pic", ""),
+            duration=raw_video.get("duration", 0),
+            pubtime=raw_video.get("pubdate", 0),
+            uploader=uploader_info,
+            author=uploader_info.name,  # 将 uploader.name 映射到 author 字段
+            stats=stats,
+            progress=progress_percent,
+            add_time=view_at,  # 观看时间
+            # 为了前端兼容，将 stats 字段提升到顶层
+            view=stats.view,
+            danmaku=stats.danmaku,
+            comment=stats.comment,
+            like=stats.like,
+            coin=stats.coin,
+            favorite=stats.favorite,
+            share=stats.share
+        )
+
+    @staticmethod
+    def transform_history_list(raw_data: dict) -> List[CardData]:
+        """转换B站观看历史数据为CardData列表
+        
+        Args:
+            raw_data: B站 API 返回的完整数据（包含data数组）
+            
+        Returns:
+            List[CardData]: 统一格式的卡片数据列表
+        """
+        # /x/v2/history API 返回的数据中，data 是一个数组
+        videos = raw_data if isinstance(raw_data, list) else raw_data.get("data", [])
+        return [MediaDataTransformer.transform_history_video(video) for video in videos]
 
 
 # 单例实例，方便直接使用

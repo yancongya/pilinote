@@ -9,6 +9,7 @@ from src.database import engine, Base
 from src.routers.auth import router as auth_router
 from src.routers.metrics import router as metrics_router
 from src.routers.favorites import router as favorites_router
+from src.routers.history import router as history_router
 from src.routers.video import router as video_router
 from src.routers.watchlater import router as watchlater_router
 from src.routers.download import router as download_router
@@ -187,6 +188,7 @@ app.include_router(queue_router)
 app.include_router(auth_router)
 app.include_router(metrics_router)
 app.include_router(favorites_router)
+app.include_router(history_router)
 app.include_router(video_router)
 app.include_router(watchlater_router)
 app.include_router(download_router)

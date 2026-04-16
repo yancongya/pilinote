@@ -63,6 +63,7 @@ class CardData(BaseModel):
     duration: int = Field(default=0, description="时长（秒）")
     pubtime: int = Field(default=0, description="发布时间（时间戳）")
     uploader: UploaderInfo = Field(default_factory=UploaderInfo, description="UP主信息")
+    author: str = Field(default="未知", description="UP主名称（字符串，方便前端直接使用）")
     stats: CardStats = Field(default_factory=CardStats, description="统计信息")
     
     # 前端兼容字段（从 stats 对象提升到顶层）
@@ -95,6 +96,7 @@ class CardData(BaseModel):
                     "name": "UP主名称",
                     "face": "https://..."
                 },
+                "author": "UP主名称",
                 "stats": {
                     "view": 10000,
                     "danmaku": 500,

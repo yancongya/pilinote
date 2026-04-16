@@ -212,6 +212,34 @@ class ApiService {
     );
   }
 
+  // 观看历史相关API
+  async getHistoryList(
+    pn: number = 1,
+    ps: number = 20,
+    keyword: string = '',
+    order: string = 'default',
+    sortDirection: 'desc' | 'asc' = 'desc'
+  ): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams({
+      pn: pn.toString(),
+      ps: ps.toString()
+    })
+    
+    if (keyword) {
+      params.append('keyword', keyword)
+    }
+    
+    if (order && order !== 'default') {
+      params.append('order', order)
+      params.append('sort_direction', sortDirection)
+    }
+    
+    return this.request<any>(
+      `/api/history/list?${params.toString()}`,
+      { method: 'GET' }
+    );
+  }
+
   // 认证升级相关API（Week 1 & 2）
   async initFingerprint(): Promise<ApiResponse<any>> {
     return this.request<any>('/api/auth/init', {

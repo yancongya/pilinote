@@ -617,6 +617,54 @@ class BilibiliService:
                 "message": f"获取稍后再看列表异常: {str(e)}"
             }
 
+    async def get_history(self, sessdata: str) -> Dict:
+        """获取观看历史列表（使用HeadersManager获取headers）"""
+        # 尝试从缓存获取
+        from src.services.cache.video_cache import video_cache
+
+        # 使用用户MID作为缓存键
+        cached_data = video_cache.get('history', user_id=sessdata[:20])  # 使用sessdata前20位作为用户标识
+        if cached_data:
+            print(f"[Cache] 观看历史列表命中缓存")
+            return cached_data
+
+        # 确保SESSDATA在headers中
+        await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        url = f"{self.api_base}/x/v2/history"
+        headers = await self.headers_manager.get_headers()
+
+        # 传递大参数获取全部数据，B站API默认只返回20个
+        params = {
+            "ps": 1000  # 获取1000个视频，确保覆盖全部
+        }
+
+        try:
+            # 使用异步请求
+            response = await self._request("GET", url, params=params)
+            data = response.json()
+            print(f"观看历史列表响应: {data}")
+
+            if data.get("code") == 0:
+                result = {
+                    "success": True,
+                    "data": data.get("data", {})
+                }
+                # 缓存结果（5分钟）
+                video_cache.set('history', result, user_id=sessdata[:20])
+                return result
+            return {
+                "success": False,
+                "message": data.get("message", "获取观看历史列表失败"),
+                "code": data.get("code")
+            }
+        except Exception as e:
+            print(f"获取观看历史列表异常: {str(e)}")
+            return {
+                "success": False,
+                "message": f"获取观看历史列表异常: {str(e)}"
+            }
+
     async def get_collected_folders(self, sessdata: str, up_mid: int, page: int = 1, page_size: int = 20) -> Dict:
         """获取用户订阅的收藏夹列表（使用HeadersManager获取headers）"""
         # 确保SESSDATA在headers中

@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
-import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X, ArrowLeftToLine, ArrowRightToLine, GripVertical } from 'lucide-react'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X, ArrowLeftToLine, ArrowRightToLine, GripVertical, History } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 import { useTheme } from '../theme/context/ThemeContext'
 import HomeContent from '../pages/components/HomeContent'
 import FavoritesContent from '../pages/components/FavoritesContent'
 import WatchLaterContent from '../pages/components/WatchLaterContent'
+import HistoryContent from '../pages/components/HistoryContent'
 import NewDownloadContent from '../components/NewDownload'
 import * as S from './styles/MainLayout.styles'
 
@@ -16,6 +17,7 @@ const navItems = [
   { id: 'home', label: '首页', path: '/home', icon: Home },
   { id: 'favorites', label: '收藏', path: '/favorites', icon: Heart },
   { id: 'watch-later', label: '稍后再看', path: '/watch-later', icon: Clock },
+  { id: 'history', label: '观看历史', path: '/history', icon: History },
   { id: 'downloads', label: '新下载', path: '/downloads', icon: Download },
 ]
 
@@ -131,6 +133,7 @@ function MainLayout() {
     const path = location.pathname
     if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
     if (path === '/watch-later') return 'watch-later'
+    if (path === '/history') return 'history'
     if (path === '/downloads') return 'downloads'
     return 'home'
   }
@@ -311,6 +314,13 @@ function MainLayout() {
                 <WatchLaterContent />
               ) : (
                 <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
+              )}
+            </div>
+            <div className={activeTab === 'history' ? 'block' : 'hidden'}>
+              {isAuthenticated ? (
+                <HistoryContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看和管理您的观看历史" />
               )}
             </div>
             <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
