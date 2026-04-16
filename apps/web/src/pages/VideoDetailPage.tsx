@@ -71,6 +71,48 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const { user } = useAuthStore()
   const sessdata = user?.sessdata
 
+  // 响应式布局状态
+  const [isMobile, setIsMobile] = useState(false)
+  const [isTablet, setIsTablet] = useState(false)
+
+  // 检测屏幕尺寸
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 768)
+      setIsTablet(width >= 768 && width < 1024)
+    }
+
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+
+    return () => {
+      window.removeEventListener('resize', checkScreenSize)
+    }
+  }, [])
+
+  // 获取响应式样式
+  const getResponsiveStyle = () => {
+    if (isMobile) {
+      return {
+        padding: '12px 16px',
+        maxWidth: '100%'
+      }
+    } else if (isTablet) {
+      return {
+        padding: '16px 24px',
+        maxWidth: '900px'
+      }
+    } else {
+      return {
+        padding: '20px 32px',
+        maxWidth: '1000px'
+      }
+    }
+  }
+
+  const responsiveStyle = getResponsiveStyle()
+
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
@@ -526,7 +568,7 @@ const handleReDownloadConfirm = async () => {
       left: '50%',
       transform: 'translateX(-50%)',
       width: '100%',
-      maxWidth: '800px',
+      maxWidth: responsiveStyle.maxWidth,
       height: '100vh',
       background: 'var(--color-bg-primary)',
       overflowY: 'auto',
@@ -540,7 +582,7 @@ const handleReDownloadConfirm = async () => {
         background: 'var(--color-bg-primary)',
         backdropFilter: 'blur(10px)',
         borderBottom: '1px solid var(--color-border)',
-        padding: '12px 16px',
+        padding: responsiveStyle.padding,
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
@@ -654,7 +696,11 @@ const handleReDownloadConfirm = async () => {
       </div>
 
       {/* 图文内容或视频信息 */}
-      <div className="video-detail-content" style={{ padding: '16px', maxWidth: '800px', margin: '0 auto' }}>
+      <div className="video-detail-content" style={{
+  padding: responsiveStyle.padding,
+  maxWidth: '100%',
+  margin: '0 auto'
+}}>
         {/* 视频标题 */}
         <h2 className="video-detail-title" style={{
           fontSize: '18px',
