@@ -326,7 +326,7 @@ export const Sidebar = styled.aside<{ $width?: number; $collapsed?: boolean }>`
  */
 export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
   position: absolute;
-  right: -10px;
+  right: 0;
   top: 0;
   bottom: 0;
   width: 20px;
@@ -342,7 +342,7 @@ export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
   &::before {
     content: '';
     position: absolute;
-    left: 8px;
+    right: 0;
     top: 15%;
     bottom: 15%;
     width: 4px;
@@ -359,7 +359,7 @@ export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
     &::before {
       background: var(--color-primary-600);
       width: 5px;
-      left: 7.5px;
+      right: 0;
       opacity: 1;
       box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
     }
@@ -372,7 +372,7 @@ export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
     &::before {
       background: var(--color-primary-600);
       width: 6px;
-      left: 7px;
+      right: 0;
       opacity: 1;
       box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
     }

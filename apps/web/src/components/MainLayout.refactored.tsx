@@ -64,6 +64,7 @@ function MainLayout() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isCurrentlyDragging) return
       
+      // 计算新宽度（鼠标位置减去拖拽手柄在Sidebar内的偏移）
       const newWidth = e.clientX
       const minWidth = 180
       const maxWidth = 400
@@ -249,40 +250,38 @@ function MainLayout() {
 
         {/* 桌面端侧边栏或移动端侧边栏 */}
         {!isMobile && (
-          <>
-            <S.Sidebar 
-              $width={sidebarWidth}
-              $collapsed={sidebarCollapsed}
+          <S.Sidebar 
+            $width={sidebarWidth}
+            $collapsed={sidebarCollapsed}
+          >
+            <S.SidebarNav role="tablist" aria-label="功能导航">
+              {navItems.map((item) => (
+                <S.SidebarTab
+                  key={item.id}
+                  role="tab"
+                  aria-selected={activeTab === item.id}
+                  aria-controls={`${item.id}-panel`}
+                  $active={activeTab === item.id}
+                  $collapsed={sidebarCollapsed}
+                  onClick={() => {
+                    handleTabChange(item.path)
+                  }}
+                  tabIndex={activeTab === item.id ? 0 : -1}
+                >
+                  <item.icon className="sidebar-icon" />
+                  <span className="sidebar-label">{item.label}</span>
+                </S.SidebarTab>
+              ))}
+            </S.SidebarNav>
+            
+            {/* 侧边栏折叠按钮 */}
+            <S.SidebarCollapseButton
+              onClick={toggleSidebarCollapsed}
+              title={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+              aria-label={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
             >
-              <S.SidebarNav role="tablist" aria-label="功能导航">
-                {navItems.map((item) => (
-                  <S.SidebarTab
-                    key={item.id}
-                    role="tab"
-                    aria-selected={activeTab === item.id}
-                    aria-controls={`${item.id}-panel`}
-                    $active={activeTab === item.id}
-                    $collapsed={sidebarCollapsed}
-                    onClick={() => {
-                      handleTabChange(item.path)
-                    }}
-                    tabIndex={activeTab === item.id ? 0 : -1}
-                  >
-                    <item.icon className="sidebar-icon" />
-                    <span className="sidebar-label">{item.label}</span>
-                  </S.SidebarTab>
-                ))}
-              </S.SidebarNav>
-              
-              {/* 侧边栏折叠按钮 */}
-              <S.SidebarCollapseButton
-                onClick={toggleSidebarCollapsed}
-                title={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
-                aria-label={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
-              >
-                {sidebarCollapsed ? <ArrowRightToLine size={16} /> : <ArrowLeftToLine size={16} />}
-              </S.SidebarCollapseButton>
-            </S.Sidebar>
+              {sidebarCollapsed ? <ArrowRightToLine size={16} /> : <ArrowLeftToLine size={16} />}
+            </S.SidebarCollapseButton>
             
             {/* 拖拽手柄 */}
             <S.SidebarDragHandle 
@@ -292,7 +291,7 @@ function MainLayout() {
             >
               <GripVertical size={16} />
             </S.SidebarDragHandle>
-          </>
+          </S.Sidebar>
         )}
 
         <S.ContentArea>
