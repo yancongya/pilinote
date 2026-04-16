@@ -326,48 +326,55 @@ export const Sidebar = styled.aside<{ $width?: number; $collapsed?: boolean }>`
  */
 export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
   position: absolute;
-  right: -8px;
+  right: -10px;
   top: 0;
   bottom: 0;
-  width: 16px;
+  width: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: col-resize;
-  z-index: 60;
+  z-index: 100;
   background: transparent;
-  ${SmoothTransition}
+  transition: all 0.2s ease;
   
-  /* 视觉提示线 */
+  /* 视觉提示线 - 更明显 */
   &::before {
     content: '';
     position: absolute;
-    left: 7px;
-    top: 20%;
-    bottom: 20%;
-    width: 2px;
+    left: 8px;
+    top: 15%;
+    bottom: 15%;
+    width: 4px;
     background: var(--color-border);
-    border-radius: 1px;
+    border-radius: 2px;
     transition: all 0.2s ease;
+    opacity: 0.7;
   }
   
+  /* 悬停效果 */
   &:hover {
-    background: rgba(37, 99, 235, 0.05);
-    
-    &::before {
-      background: var(--color-primary-600);
-      width: 3px;
-      left: 6.5px;
-    }
-  }
-  
-  ${(props) => props.$isDragging && css`
     background: rgba(37, 99, 235, 0.1);
     
     &::before {
       background: var(--color-primary-600);
-      width: 4px;
-      left: 6px;
+      width: 5px;
+      left: 7.5px;
+      opacity: 1;
+      box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
+    }
+  }
+  
+  /* 拖拽状态 */
+  ${(props) => props.$isDragging && css`
+    background: rgba(37, 99, 235, 0.15);
+    
+    &::before {
+      background: var(--color-primary-600);
+      width: 6px;
+      left: 7px;
+      opacity: 1;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
     }
   `}
   
@@ -377,19 +384,27 @@ export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
     opacity: 0;
     transition: all 0.2s ease;
     pointer-events: none;
+    z-index: 101;
   }
   
   &:hover svg {
     opacity: 1;
     color: var(--color-primary-600);
+    transform: scale(1.1);
   }
   
   ${(props) => props.$isDragging && css`
     svg {
       opacity: 1;
       color: var(--color-primary-600);
+      transform: scale(1.2);
     }
   `}
+  
+  /* 移动端隐藏 */
+  @media (max-width: 767px) {
+    display: none;
+  }
 `;
 
 /**
