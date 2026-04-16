@@ -73,6 +73,8 @@ class VideoLibraryService {
   private lastRefreshTime: number = 0
   private isRefreshing: boolean = false
   private refreshLock: Promise<RefreshResult> | null = null
+  private totalVideos: number = 0
+  private totalFolders: number = 0
 
   // Configuration
   private config: VideoLibraryConfig = {
@@ -207,6 +209,10 @@ class VideoLibraryService {
       if (response && response.success && response.data) {
         this._buildCache(response.data)
         this.lastRefreshTime = Date.now()
+        
+        // Store totals
+        this.totalVideos = response.data.total_files || 0
+        this.totalFolders = response.data.folder_count || 0
 
         console.log('[VideoLibrary] Cache refreshed successfully')
 
@@ -252,6 +258,8 @@ class VideoLibraryService {
         }
 
         this.lastRefreshTime = Date.now()
+        this.totalVideos = completedTasks.length
+        this.totalFolders = completedTasks.length
 
         console.log(`[VideoLibrary] Fallback refresh: ${completedTasks.length} completed tasks`)
 
@@ -286,6 +294,7 @@ class VideoLibraryService {
     cached: boolean
     is_fresh: boolean
     video_count: number
+    folder_count: number
     last_refresh: number
   }> {
     const cached = this.cache.size > 0
@@ -294,7 +303,8 @@ class VideoLibraryService {
     return {
       cached,
       is_fresh: isFresh,
-      video_count: this.cache.size,
+      video_count: this.totalVideos,
+      folder_count: this.totalFolders,
       last_refresh: this.lastRefreshTime
     }
   }
@@ -443,6 +453,8 @@ class VideoLibraryService {
     this.taskCache.clear()
     this.lastRefreshTime = 0
     this.lastTaskRefreshTime = 0
+    this.totalVideos = 0
+    this.totalFolders = 0
     console.log('[VideoLibrary] Cache cleared')
   }
 

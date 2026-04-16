@@ -26,6 +26,7 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
   const [cacheStatus, setCacheStatus] = useState<'empty' | 'fresh' | 'stale'>('empty')
   const [cachedVideoCount, setCachedVideoCount] = useState(0)
+  const [cachedFolderCount, setCachedFolderCount] = useState(0)
 
   // 初始化时从settings加载配置
   useEffect(() => {
@@ -71,10 +72,12 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
     if (status.cached) {
       setCacheStatus(status.is_fresh ? 'fresh' : 'stale')
       setCachedVideoCount(status.video_count)
+      setCachedFolderCount(status.folder_count || 0)
       setLastRefreshTime(new Date(status.last_refresh))
     } else {
       setCacheStatus('empty')
       setCachedVideoCount(0)
+      setCachedFolderCount(0)
       setLastRefreshTime(null)
     }
   }
@@ -185,8 +188,10 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
             </select>
             <p className="stg-hint">批量检查视频状态时的最大并发请求数，避免后端压力过大</p>
           </div>
+        </div>
 
-          {/* 启用智能刷新 */}
+        {/* 开关选项 */}
+        <div className="stg-toggles">
           <label className="stg-toggle">
             <div className="stg-toggle-content">
               <span className="stg-toggle-label">启用智能刷新</span>
@@ -221,7 +226,30 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
                 </span>
               </div>
             </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="stg-btn-icon"
+              style={{ color: 'var(--color-text-secondary)' }}
+              title="刷新视频库"
+            >
+              <RefreshCw size={16} className={refreshing ? 'stg-spin' : ''} />
+            </button>
           </div>
+
+          {cachedFolderCount > 0 && (
+            <div className="stg-item">
+              <div className="stg-icon-badge">
+                <Zap size={18} className="stg-item-icon" />
+              </div>
+              <div className="stg-item-content">
+                <div className="stg-item-label">缓存系列数</div>
+                <div className="stg-meta">
+                  {cachedFolderCount} 个系列
+                </div>
+              </div>
+            </div>
+          )}
 
           {cachedVideoCount > 0 && (
             <div className="stg-item">
@@ -250,43 +278,8 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
               </div>
             </div>
           )}
-
-          <div className="stg-actions">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="stg-btn stg-btn-primary"
-            >
-              {refreshing ? (
-                <>
-                  <RefreshCw size={16} className="stg-btn-icon stg-spin" />
-                  刷新中...
-                </>
-              ) : (
-                <>
-                  <RefreshCw size={16} className="stg-btn-icon" />
-                  刷新视频库
-                </>
-              )}
-            </button>
-          </div>
         </div>
       </div>
-
-      <style>{`
-        .spinning {
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   )
 })
