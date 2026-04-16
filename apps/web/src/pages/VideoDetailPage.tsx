@@ -4,6 +4,8 @@ import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
 import { useVideoDownload } from '../hooks/useVideoDownload'
+import { videoLibraryService } from '../services/videoLibraryService'
+import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
 import { ArrowLeft, Film, User, ThumbsUp, Star, MessageCircle, MessageSquare, Share2, Coins, Eye } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
@@ -53,6 +55,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [error, setError] = useState<string>('')
   const [downloading, setDownloading] = useState(false)
   const [downloadedCids, setDownloadedCids] = useState<Set<number>>(new Set())
+  const [showReDownloadDialog, setShowReDownloadDialog] = useState(false)
+  const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [alertModal, setAlertModal] = useState<{
     show: boolean
     title: string
@@ -351,55 +355,110 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }
 
 const handleAddToDownload = async (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!video) return
+  e.stopPropagation()
+  if (!video) return
+  
+  try {
+    const decision = await videoLibraryService.checkBeforeAdd(video)
     
-    setDownloading(true)
-    try {
-      const result = await toggleDownload(video as any, e)
-      
-      if (result.success) {
-        // 如果需要跳转到视频库
-        if (result.shouldNavigateToLibrary) {
-          navigate('/downloads', { replace: true })
-          // 延迟显示弹窗，让页面先跳转
-          setTimeout(() => {
-            setAlertModal({
-              show: true,
-              title: '操作成功',
-              message: result.message,
-              type: 'success'
-            })
-          }, 100)
-        } else {
+    switch (decision.action) {
+      case 'add':
+        // 直接添加
+        await performDownload(video, e)
+        break
+        
+      case 'show_confirm':
+        // 显示确认对话框
+        setSelectedVideo(video)
+        setShowReDownloadDialog(true)
+        break
+        
+      case 'skip':
+        // 静默跳过
+        setAlertModal({
+          show: true,
+          title: '提示',
+          message: '视频已下载，已在视频库中',
+          type: 'success'
+        })
+        break
+    }
+  } catch (error) {
+    console.error('检查下载状态失败:', error)
+    // 降级到原有逻辑
+    await performDownload(video, e)
+  }
+}
+
+const performDownload = async (video: any, e: React.MouseEvent) => {
+  setDownloading(true)
+  try {
+    const result = await toggleDownload(video as any, e)
+    
+    if (result.success) {
+      // 如果需要跳转到视频库
+      if (result.shouldNavigateToLibrary) {
+        navigate('/downloads', { replace: true })
+        // 延迟显示弹窗，让页面先跳转
+        setTimeout(() => {
           setAlertModal({
             show: true,
             title: '操作成功',
             message: result.message,
             type: 'success'
           })
-        }
+        }, 100)
       } else {
         setAlertModal({
           show: true,
-          title: '操作失败',
+          title: '操作成功',
           message: result.message,
-          type: 'error'
+          type: 'success'
         })
       }
-    } catch (error) {
-      console.error('操作失败:', error)
+    } else {
       setAlertModal({
         show: true,
         title: '操作失败',
-        message: '添加下载失败',
+        message: result.message,
         type: 'error'
       })
-    } finally {
-      setDownloading(false)
     }
+  } catch (error) {
+    console.error('操作失败:', error)
+    setAlertModal({
+      show: true,
+      title: '操作失败',
+      message: '添加下载失败',
+      type: 'error'
+    })
+  } finally {
+    setDownloading(false)
   }
+}
 
+const handleReDownloadConfirm = async () => {
+  if (!selectedVideo) return
+  
+  try {
+    await performDownload(selectedVideo, {} as React.MouseEvent)
+    setShowReDownloadDialog(false)
+    setAlertModal({
+      show: true,
+      title: '操作成功',
+      message: '已重新添加到下载列表',
+      type: 'success'
+    })
+  } catch (error) {
+    console.error('重新下载失败:', error)
+    setAlertModal({
+      show: true,
+      title: '操作失败',
+      message: '重新下载失败',
+      type: 'error'
+    })
+  }
+}
   if (loading) {
     return (
       <div style={{ 
@@ -959,6 +1018,19 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
           type={alertModal.type}
           onClose={() => setAlertModal({ ...alertModal, show: false })}
         />
+
+        {/* ReDownloadDialog */}
+        {showReDownloadDialog && selectedVideo && (
+          <ReDownloadDialog
+            isOpen={showReDownloadDialog}
+            video={selectedVideo}
+            onConfirm={handleReDownloadConfirm}
+            onCancel={() => {
+              setShowReDownloadDialog(false)
+              setSelectedVideo(null)
+            }}
+          />
+        )}
       </div>
     </div>
   )
