@@ -934,7 +934,7 @@ const handleReDownloadConfirm = async () => {
         </div>
 
         {/* 视频简介 - 封面下方显示 */}
-        {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
+        {!video.isOpus && video.description && video.description.trim() && (
           <div style={{
             marginTop: '16px',
             padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
