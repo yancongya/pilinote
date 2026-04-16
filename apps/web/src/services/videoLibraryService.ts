@@ -23,7 +23,6 @@ interface VideoCheckDetail {
   downloaded: boolean
   inLibrary: boolean
   inQueue: boolean
-  taskState?: string
 }
 
 interface RefreshResult {
@@ -39,16 +38,6 @@ interface AddDecision {
   reason?: string
   video?: any
 }
-
-interface TaskState {
-  id: string
-  state: number
-  status: string
-  created_at: number
-  updated_at: number
-}
-
-type TaskStateValue = 'none' | 'pending' | 'active' | 'completed' | 'paused' | 'failed' | 'cancelled'
 
 interface VideoLibraryConfig {
   cacheTTL: number
@@ -85,11 +74,6 @@ class VideoLibraryService {
     enableDeepScan: false
   }
 
-  // Task cache
-  private taskCache: Map<string, TaskState> = new Map()
-  private taskCacheTTL: number = 5 * 60 * 1000 // 5 minutes
-  private lastTaskRefreshTime: number = 0
-
   // ============== Core Methods ==============
 
   /**
@@ -104,15 +88,8 @@ class VideoLibraryService {
       await this.ensureCacheLoaded()
     }
 
-    // 2. Check library cache
-    const inLibrary = this.checkLibraryCache(bvid, cid)
-    if (inLibrary) {
-      return true
-    }
-
-    // 3. Check task queue (supplementary check)
-    const taskState = await this.checkTaskState(bvid, cid)
-    return taskState === 'completed'
+    // 2. Check library cache (direct check)
+    return this.checkLibraryCache(bvid, cid)
   }
 
   /**
@@ -159,8 +136,7 @@ class VideoLibraryService {
         bvid,
         downloaded: isDownloaded,
         inLibrary: isDownloaded,
-        inQueue: false,
-        taskState: undefined
+        inQueue: false
       })
     }
 
@@ -201,7 +177,7 @@ class VideoLibraryService {
     console.log('[VideoLibrary] Starting cache refresh...')
 
     try {
-      // Try to use video library API
+      // Use video library API
       const response = await apiService.request<any>('/api/video-library/refresh', {
         method: 'GET'
       })
@@ -209,20 +185,42 @@ class VideoLibraryService {
       if (response && response.success && response.data) {
         this.lastRefreshTime = Date.now()
         
-        // Update totals based on new logic
-        this.totalVideos = response.data.downloaded_tasks || 0
-        this.totalFolders = response.data.folder_count || 0
+        // Extract data from file system scan
+        const folders = response.data.folders || []
+        const downloadedBvids = response.data.downloaded_bvids || []
         
-        // Build cache from downloaded_bvids
+        // Update totals
+        this.totalFolders = response.data.folder_count || 0
+        this.totalVideos = response.data.total_files || 0
+        
+        // Build cache from file system data
         this.cache.clear()
-        for (const bvid of response.data.downloaded_bvids || []) {
-          this.cache.set(bvid, {
-            bvid,
-            title: '',
-            path: '',
-            size: 0,
-            exists: true
-          })
+        
+        // Build from folders (preferred method - contains full metadata)
+        for (const folder of folders) {
+          const nfoData = folder.nfo_data
+          if (nfoData && nfoData.bvid) {
+            this.cache.set(nfoData.bvid, {
+              bvid: nfoData.bvid,
+              title: folder.title || folder.name,
+              path: folder.path,
+              size: folder.size || 0,
+              exists: true
+            })
+          }
+        }
+        
+        // Fallback: build from downloaded_bvids if folders not available
+        if (folders.length === 0 && downloadedBvids.length > 0) {
+          for (const bvid of downloadedBvids) {
+            this.cache.set(bvid, {
+              bvid,
+              title: '',
+              path: '',
+              size: 0,
+              exists: true
+            })
+          }
         }
 
         console.log('[VideoLibrary] Cache refreshed successfully')
@@ -230,8 +228,8 @@ class VideoLibraryService {
         return {
           success: true,
           cached: false,
-          folderCount: response.data.folder_count,
-          videoCount: response.data.downloaded_tasks
+          folderCount: this.totalFolders,
+          videoCount: this.totalVideos
         }
       } else {
         throw new Error(response?.message || 'Refresh failed')
@@ -382,9 +380,6 @@ class VideoLibraryService {
   handleDownloadComplete(taskId: string): void {
     console.log(`[VideoLibrary] Task ${taskId} completed, scheduling library refresh`)
     
-    // Clear task cache to force refresh
-    this.taskCache.clear()
-    
     // Schedule refresh
     this.scheduleLibraryRefresh(this.config.autoRefreshDelay)
   }
@@ -397,6 +392,7 @@ class VideoLibraryService {
    * @returns Promise<AddDecision> - Decision on how to proceed
    */
   async checkBeforeAdd(video: VideoInfo): Promise<AddDecision> {
+    // Check if video is in library (based on file system)
     const isDownloaded = await this.isVideoDownloaded(video.bvid, video.cid)
 
     if (isDownloaded) {
@@ -407,16 +403,7 @@ class VideoLibraryService {
       }
     }
 
-    // Check if already in queue
-    const inQueue = await this.checkTaskState(video.bvid, video.cid)
-    if (inQueue === 'active' || inQueue === 'pending') {
-      return {
-        action: 'skip',
-        reason: '视频已在下载队列中',
-        video
-      }
-    }
-
+    // Video can be added
     return { action: 'add', video }
   }
 
@@ -461,9 +448,7 @@ class VideoLibraryService {
    */
   clearCache(): void {
     this.cache.clear()
-    this.taskCache.clear()
     this.lastRefreshTime = 0
-    this.lastTaskRefreshTime = 0
     this.totalVideos = 0
     this.totalFolders = 0
     console.log('[VideoLibrary] Cache cleared')
@@ -526,101 +511,8 @@ class VideoLibraryService {
    * @param cid - Optional CID for multi-part videos
    */
   private checkLibraryCache(bvid: string, cid?: number): boolean {
-    const folder = this.cache.get(bvid)
-    
-    if (!folder) {
-      return false
-    }
-
-    // Single-part video: folder exists
-    if (!cid) {
-      return folder.exists
-    }
-
-    // Multi-part video: check specific video
-    if (folder.videos && folder.videos.length > 0) {
-      return folder.videos.some(v => v.cid === cid && v.exists)
-    }
-
-    // Fallback: assume folder exists
-    return folder.exists
-  }
-
-  /**
-   * Check task state for video
-   * @param bvid - Video BVID
-   * @param cid - Optional CID for multi-part videos
-   */
-  private async checkTaskState(bvid: string, cid?: number): Promise<TaskStateValue> {
-    // Check task cache first
-    const cacheKey = cid ? `${bvid}_${cid}` : bvid
-    if (this.taskCache.has(cacheKey)) {
-      const task = this.taskCache.get(cacheKey)!
-      if (Date.now() - task.updated_at < this.taskCacheTTL) {
-        return this._mapTaskState(task.state)
-      }
-    }
-
-    // Refresh task cache if needed
-    if (Date.now() - this.lastTaskRefreshTime > this.taskCacheTTL) {
-      await this._refreshTaskCache()
-    }
-
-    // Check again
-    if (this.taskCache.has(cacheKey)) {
-      const task = this.taskCache.get(cacheKey)!
-      return this._mapTaskState(task.state)
-    }
-
-    return 'none'
-  }
-
-  /**
-   * Refresh task cache
-   */
-  private async _refreshTaskCache(): Promise<void> {
-    try {
-      const response = await apiService.getDownloadList()
-
-      if (response && response.success && response.data) {
-        this.taskCache.clear()
-
-        for (const task of response.data) {
-          const key = task.meta?.cid 
-            ? `${task.media_id}_${task.meta.cid}` 
-            : task.media_id
-
-          this.taskCache.set(key, {
-            id: task.id,
-            state: task.state,
-            status: task.status,
-            created_at: task.created_at,
-            updated_at: task.updated_at
-          })
-        }
-
-        this.lastTaskRefreshTime = Date.now()
-      }
-    } catch (error) {
-      console.error('[VideoLibrary] Failed to refresh task cache:', error)
-    }
-  }
-
-  /**
-   * Map task state number to string
-   */
-  private _mapTaskState(state: number): TaskStateValue {
-    const stateMap: Record<number, TaskStateValue> = {
-      0: 'pending',    // BACKLOG
-      1: 'pending',    // PENDING
-      2: 'active',     // ACTIVE
-      3: 'completed',  // COMPLETED
-      4: 'paused',     // PAUSED
-      5: 'failed',     // FAILED
-      6: 'cancelled'   // CANCELLED
-    }
-
-    return stateMap[state] || 'none'
+    // Direct check: if bvid exists in cache, video is downloaded
+    return this.cache.has(bvid)
   }
 }
 
@@ -634,8 +526,6 @@ export type {
   VideoCheckDetail,
   RefreshResult,
   AddDecision,
-  TaskState,
-  TaskStateValue,
   VideoLibraryConfig,
   VideoInfo
 }
