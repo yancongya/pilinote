@@ -96,18 +96,54 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const getResponsiveStyle = () => {
     if (isMobile) {
       return {
+        // 移动端：紧凑布局
         padding: '12px 16px',
-        maxWidth: '100%'
+        maxWidth: '100%',
+        fontSize: {
+          title: '18px',
+          uploader: '15px',
+          body: '14px',
+          small: '12px'
+        },
+        spacing: {
+          section: '16px',
+          element: '12px'
+        },
+        layout: 'single-column' as const
       }
     } else if (isTablet) {
       return {
-        padding: '16px 24px',
-        maxWidth: '900px'
+        // 平板：中等布局
+        padding: '20px 28px',
+        maxWidth: '900px',
+        fontSize: {
+          title: '20px',
+          uploader: '16px',
+          body: '15px',
+          small: '13px'
+        },
+        spacing: {
+          section: '20px',
+          element: '14px'
+        },
+        layout: 'single-column' as const
       }
     } else {
       return {
-        padding: '20px 32px',
-        maxWidth: '1000px'
+        // 桌面：宽松双列布局
+        padding: '32px 40px',
+        maxWidth: '1400px',
+        fontSize: {
+          title: '24px',
+          uploader: '17px',
+          body: '16px',
+          small: '14px'
+        },
+        spacing: {
+          section: '28px',
+          element: '16px'
+        },
+        layout: 'two-column' as const
       }
     }
   }
@@ -747,13 +783,15 @@ const handleReDownloadConfirm = async () => {
         WebkitOverflowScrolling: 'touch',
         zIndex: 9999
       }}>
-      {/* 内容容器 - 用于居中 */}
+      {/* 内容容器 - 用于居中和布局 */}
       <div style={{
         maxWidth: responsiveStyle.maxWidth,
         margin: '0 auto',
         minHeight: '100vh',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: responsiveStyle.layout === 'two-column' ? 'row' : 'column',
+        gap: responsiveStyle.layout === 'two-column' ? '32px' : '0',
+        padding: `0 ${responsiveStyle.padding}`
       }}>
       {/* 顶部导航 */}
       <div style={{
@@ -762,11 +800,12 @@ const handleReDownloadConfirm = async () => {
         background: 'var(--color-bg-primary)',
         backdropFilter: 'blur(10px)',
         borderBottom: '1px solid var(--color-border)',
-        padding: responsiveStyle.padding,
+        padding: responsiveStyle.layout === 'two-column' ? '16px 0' : responsiveStyle.padding,
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
-        zIndex: 100
+        zIndex: 100,
+        width: responsiveStyle.layout === 'two-column' ? '100%' : 'auto'
       }}>
         <button
           onClick={() => navigate(-1)}
@@ -774,17 +813,24 @@ const handleReDownloadConfirm = async () => {
             border: 'none',
             background: 'none',
             cursor: 'pointer',
-            padding: '4px',
+            padding: '8px',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            transition: 'background 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--color-bg-tertiary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'none'
           }}
         >
-          <ArrowLeft />
+          <ArrowLeft size={responsiveStyle.layout === 'two-column' ? 24 : 20} />
         </button>
         <h1 style={{
-          fontSize: '16px',
+          fontSize: responsiveStyle.layout === 'two-column' ? '18px' : '16px',
           fontWeight: '600',
           color: 'var(--color-text-primary)',
           margin: 0,
@@ -797,15 +843,24 @@ const handleReDownloadConfirm = async () => {
         </h1>
       </div>
 
-      {/* 视频/图文封面区域 */}
+      {/* 左侧主要内容列 */}
       <div style={{
-        position: 'relative',
-        width: '100%',
-        paddingTop: video.isOpus ? '0' : '56.25%',
-        background: 'var(--color-bg-tertiary)',
-        overflow: 'hidden',
-        display: video.isOpus ? 'block' : 'relative'
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column'
       }}>
+        {/* 视频/图文封面区域 */}
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          paddingTop: video.isOpus ? '0' : (responsiveStyle.layout === 'two-column' ? '56.25%' : '56.25%'),
+          background: 'var(--color-bg-tertiary)',
+          overflow: 'hidden',
+          display: video.isOpus ? 'block' : 'relative',
+          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0',
+          marginBottom: responsiveStyle.layout === 'two-column' ? '24px' : '0'
+        }}>
         {video.isOpus ? (
           video.cover ? (
             <img 
@@ -877,15 +932,15 @@ const handleReDownloadConfirm = async () => {
 
       {/* 图文内容或视频信息 */}
       <div className="video-detail-content" style={{
-  padding: responsiveStyle.padding,
-  maxWidth: '100%',
-  margin: '0 auto'
-}}>
+        padding: responsiveStyle.layout === 'two-column' ? '0' : responsiveStyle.padding,
+        maxWidth: '100%',
+        margin: '0 auto'
+      }}>
         {/* 视频标题 */}
         <h2 className="video-detail-title" style={{
-          fontSize: '18px',
+          fontSize: responsiveStyle.fontSize.title,
           fontWeight: '600',
-          margin: '0 0 16px 0',
+          margin: `0 0 ${responsiveStyle.spacing.element}px 0`,
           lineHeight: '1.4'
         }}>
           {video.isOpus ? (
@@ -1039,13 +1094,13 @@ const handleReDownloadConfirm = async () => {
           display: 'flex',
           alignItems: 'flex-start',
           gap: '12px',
-          marginBottom: '12px',
-          paddingBottom: '12px',
+          marginBottom: responsiveStyle.spacing.element,
+          paddingBottom: responsiveStyle.spacing.element,
           borderBottom: '1px solid var(--color-border)'
         }}>
           <div className="video-detail-avatar" style={{
-            width: '48px',
-            height: '48px',
+            width: responsiveStyle.layout === 'two-column' ? '56px' : '48px',
+            height: responsiveStyle.layout === 'two-column' ? '56px' : '48px',
             borderRadius: '50%',
             background: 'var(--color-bg-tertiary)',
             overflow: 'hidden',
@@ -1058,12 +1113,12 @@ const handleReDownloadConfirm = async () => {
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             ) : (
-              <User />
+              <User size={responsiveStyle.layout === 'two-column' ? 32 : 24} />
             )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="video-detail-uploader-name" style={{
-              fontSize: '15px',
+              fontSize: responsiveStyle.fontSize.uploader,
               fontWeight: '600',
               color: 'var(--color-text-primary)',
               marginBottom: '2px',
@@ -1075,7 +1130,8 @@ const handleReDownloadConfirm = async () => {
         </div>
         )}
         
-        {/* 底部统计信息区域 */}
+        {/* 底部统计信息区域 - 仅移动端和平板显示 */}
+        {responsiveStyle.layout !== 'two-column' && (
         <div style={{
           marginBottom: '16px',
           paddingBottom: '16px',
@@ -1086,7 +1142,7 @@ const handleReDownloadConfirm = async () => {
             <div className="video-detail-stats" style={{
               display: 'flex',
               gap: '16px',
-              fontSize: '12px',
+              fontSize: responsiveStyle.fontSize.small,
               color: '#666',
               flexWrap: 'wrap',
               alignItems: 'center'
@@ -1115,12 +1171,13 @@ const handleReDownloadConfirm = async () => {
             </div>
           )}
         </div>
+        )}
 
         {/* 分P信息 */}
                 {video.pages && video.pages.length > 1 && (
                   <div style={{
-                    marginBottom: '16px',
-                    fontSize: '13px',
+                    marginBottom: responsiveStyle.spacing.element,
+                    fontSize: responsiveStyle.fontSize.small,
                     color: '#666'
                   }}>
                     共{video.pages.length}个视频，总时长：{formatDuration(video.pages.reduce((total: number, p: any) => total + p.duration, 0))}
@@ -1131,12 +1188,12 @@ const handleReDownloadConfirm = async () => {
         {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
           <div style={{
             background: 'var(--color-bg-tertiary)',
-            borderRadius: '8px',
-            padding: '12px',
-            fontSize: '14px',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+            fontSize: responsiveStyle.fontSize.body,
             color: 'var(--color-text-primary)',
             lineHeight: '1.6',
-            marginBottom: '16px',
+            marginBottom: responsiveStyle.spacing.element,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word'
           }}>
@@ -1146,15 +1203,15 @@ const handleReDownloadConfirm = async () => {
 
         {/* 下载区域 */}
         <div style={{
-          marginTop: '24px',
+          marginTop: responsiveStyle.spacing.section,
           paddingTop: '16px',
           borderTop: '1px solid var(--color-border)'
         }}>
           <h3 style={{
-            fontSize: '16px',
+            fontSize: responsiveStyle.fontSize.uploader,
             fontWeight: '600',
             color: 'var(--color-text-primary)',
-            marginBottom: '12px'
+            marginBottom: responsiveStyle.spacing.element
           }}>
             下载选项
           </h3>
@@ -1163,10 +1220,10 @@ const handleReDownloadConfirm = async () => {
           {video.pages && video.pages.length > 1 && (
             <div style={{
               background: 'var(--color-bg-tertiary)',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '16px',
-              maxHeight: '300px',
+              borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+              padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+              marginBottom: responsiveStyle.spacing.element,
+              maxHeight: responsiveStyle.layout === 'two-column' ? '400px' : '300px',
               overflowY: 'auto'
             }}>
               {video.pages.map((page: any, index: number) => {
@@ -1180,15 +1237,15 @@ const handleReDownloadConfirm = async () => {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      padding: '10px',
+                      padding: responsiveStyle.layout === 'two-column' ? '12px' : '10px',
                       background: 'var(--color-bg-primary)',
-                      borderRadius: '6px',
-                      marginBottom: index < video.pages.length - 1 ? '8px' : '0',
+                      borderRadius: responsiveStyle.layout === 'two-column' ? '8px' : '6px',
+                      marginBottom: index < video.pages.length - 1 ? (responsiveStyle.layout === 'two-column' ? '10px' : '8px') : '0',
                       opacity: (isInList || isDownloaded) ? 0.6 : 1
                     }}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                      <div style={{ fontSize: responsiveStyle.fontSize.small, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
                         P{page.page}: {page.part || `第${page.page}个视频`}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
@@ -1200,7 +1257,7 @@ const handleReDownloadConfirm = async () => {
                         fontSize: '11px',
                         color: 'var(--color-success-600)',
                         background: 'var(--color-success-50)',
-                        padding: '2px 6px',
+                        padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
                         borderRadius: '4px',
                         fontWeight: '500'
                       }}>
@@ -1212,7 +1269,7 @@ const handleReDownloadConfirm = async () => {
                         fontSize: '11px',
                         color: 'var(--color-primary-600)',
                         background: 'var(--color-primary-50)',
-                        padding: '2px 6px',
+                        padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
                         borderRadius: '4px',
                         fontWeight: '500'
                       }}>
@@ -1231,12 +1288,12 @@ const handleReDownloadConfirm = async () => {
             disabled={downloading}
             style={{
               width: '100%',
-              padding: '14px',
+              padding: responsiveStyle.layout === 'two-column' ? '16px' : '14px',
               background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
               color: 'var(--color-white)',
               border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
+              borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+              fontSize: responsiveStyle.layout === 'two-column' ? '17px' : '16px',
               fontWeight: '600',
               cursor: downloading ? 'not-allowed' : 'pointer',
               display: 'flex',
@@ -1282,6 +1339,145 @@ const handleReDownloadConfirm = async () => {
           />
         )}
         </div>
+        </div>
+
+        {/* 右侧统计信息列 - 仅桌面模式显示 */}
+        {responsiveStyle.layout === 'two-column' && (
+          <div style={{
+            width: '320px',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+            paddingTop: '60px' // 与顶部导航对齐
+          }}>
+            {/* 统计信息卡片 */}
+            <div style={{
+              background: 'var(--color-bg-tertiary)',
+              borderRadius: '12px',
+              padding: '20px',
+              border: '1px solid var(--color-border)'
+            }}>
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: 'var(--color-text-primary)',
+                marginBottom: '16px'
+              }}>
+                视频统计
+              </h3>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '16px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    播放量
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                    {formatNumber(video.view)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    弹幕
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                    {formatNumber(video.danmaku)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    点赞
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                    {formatNumber(video.like)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    投币
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                    {formatNumber(video.coin)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    收藏
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                    {formatNumber(video.favorite)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    评论
+                  </div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                    {formatNumber(video.reply)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 视频元数据卡片 */}
+            <div style={{
+              background: 'var(--color-bg-tertiary)',
+              borderRadius: '12px',
+              padding: '20px',
+              border: '1px solid var(--color-border)'
+            }}>
+              <h3 style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: 'var(--color-text-primary)',
+                marginBottom: '16px'
+              }}>
+                视频信息
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    发布时间
+                  </div>
+                  <div style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
+                    {formatTime(video.pubtime)}
+                  </div>
+                </div>
+                {!video.isOpus && (
+                  <div>
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                      视频时长
+                    </div>
+                    <div style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
+                      {formatDuration(video.duration)}
+                    </div>
+                  </div>
+                )}
+                {video.pages && video.pages.length > 1 && (
+                  <div>
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                      分P数量
+                    </div>
+                    <div style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
+                      {video.pages.length} 个视频
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    UP主
+                  </div>
+                  <div style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
+                    {video.uploader.name}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
