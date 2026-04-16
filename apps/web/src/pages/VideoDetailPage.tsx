@@ -55,6 +55,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [error, setError] = useState<string>('')
   const [downloading, setDownloading] = useState(false)
   const [downloadedCids, setDownloadedCids] = useState<Set<number>>(new Set())
+  const [downloadedVideoStatus, setDownloadedVideoStatus] = useState<Record<number, 'none' | 'in_list' | 'downloaded'>>({})
   const [showReDownloadDialog, setShowReDownloadDialog] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [alertModal, setAlertModal] = useState<{
@@ -309,21 +310,94 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     if (!video || !video.pages) return
     
     const cidsInList = new Set<number>()
+    const downloadedStatus: Record<number, 'none' | 'in_list' | 'downloaded'> = {}
     const tasks = newQueueStore.tasks
     const newSystemTasks = Object.values(tasks)
     
     video.pages.forEach((page: any) => {
+      // 检查是否在新下载系统队列中
       const hasInNewQueue = newSystemTasks.some(task =>
         task.media_id === video.bvid &&
         task.meta?.cid === page.cid &&
         !['completed', 'cancelled'].includes(task.state)
       )
+      
+      // 检查是否在新下载系统已完成
+      const hasCompleted = newSystemTasks.some(task =>
+        task.media_id === video.bvid &&
+        task.meta?.cid === page.cid &&
+        task.state === 'completed'
+      )
+      
       if (hasInNewQueue) {
         cidsInList.add(page.cid)
+        downloadedStatus[page.cid] = 'in_list'
+      } else if (hasCompleted) {
+        downloadedStatus[page.cid] = 'downloaded'
+      } else {
+        downloadedStatus[page.cid] = 'none'
       }
     })
+    
     setDownloadedCids(cidsInList)
+    setDownloadedVideoStatus(downloadedStatus)
+    
+    // 对于单个视频，也检查视频库状态
+    if (!video.pages || video.pages.length === 0) {
+      checkSingleVideoStatus()
+    }
   }, [video, newQueueStore.tasks])
+  
+  // 检查单个视频的下载状态
+  const checkSingleVideoStatus = async () => {
+    if (!video) return
+    
+    try {
+      const result = await videoLibraryService.checkBeforeAdd({
+        bvid: video.bvid,
+        cid: video.cid,
+        title: video.title || ''
+      })
+      
+      const tasks = newQueueStore.tasks
+      const newSystemTasks = Object.values(tasks)
+      
+      // 检查是否在新下载系统队列中
+      const hasInNewQueue = newSystemTasks.some(task =>
+        task.media_id === video.bvid &&
+        task.meta?.cid === video.cid &&
+        !['completed', 'cancelled'].includes(task.state)
+      )
+      
+      // 检查是否在新下载系统已完成
+      const hasCompleted = newSystemTasks.some(task =>
+        task.media_id === video.bvid &&
+        task.meta?.cid === video.cid &&
+        task.state === 'completed'
+      )
+      
+      let status: 'none' | 'in_list' | 'downloaded' = 'none'
+      
+      if (result.action === 'skip' || result.action === 'show_confirm') {
+        status = 'downloaded'
+      } else if (hasInNewQueue) {
+        status = 'in_list'
+      } else if (hasCompleted) {
+        status = 'downloaded'
+      }
+      
+      setDownloadedVideoStatus({ [video.cid]: status })
+      
+      // 如果在队列中，更新 downloadedCids
+      if (status === 'in_list') {
+        setDownloadedCids(new Set([video.cid]))
+      } else {
+        setDownloadedCids(new Set())
+      }
+    } catch (error) {
+      console.error('检查单个视频下载状态失败:', error)
+    }
+  }
 
   const formatNumber = (num: number): string => {
     if (num >= 10000) {
@@ -456,7 +530,14 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       }
     } else {
       // 单个视频
-      return addedCount > 0 ? '从列表移除' : '添加到列表'
+      const status = downloadedVideoStatus[video?.cid || 0]
+      if (status === 'downloaded') {
+        return '已下载'
+      } else if (status === 'in_list' || addedCount > 0) {
+        return '从列表移除'
+      } else {
+        return '添加到列表'
+      }
     }
   }
 
@@ -1063,6 +1144,9 @@ const handleReDownloadConfirm = async () => {
             }}>
               {video.pages.map((page: any, index: number) => {
                 const isInList = downloadedCids.has(page.cid)
+                const status = downloadedVideoStatus[page.cid] || 'none'
+                const isDownloaded = status === 'downloaded'
+                
                 return (
                   <div
                     key={page.cid || index}
@@ -1073,7 +1157,7 @@ const handleReDownloadConfirm = async () => {
                       background: 'var(--color-bg-primary)',
                       borderRadius: '6px',
                       marginBottom: index < video.pages.length - 1 ? '8px' : '0',
-                      opacity: isInList ? 0.6 : 1
+                      opacity: (isInList || isDownloaded) ? 0.6 : 1
                     }}
                   >
                     <div style={{ flex: 1 }}>
@@ -1084,16 +1168,28 @@ const handleReDownloadConfirm = async () => {
                         {formatDuration(page.duration)}
                       </div>
                     </div>
-                    {isInList && (
+                    {isDownloaded && (
+                      <span style={{
+                        fontSize: '11px',
+                        color: 'var(--color-success-600)',
+                        background: 'var(--color-success-50)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: '500'
+                      }}>
+                        已下载
+                      </span>
+                    )}
+                    {isInList && !isDownloaded && (
                       <span style={{
                         fontSize: '11px',
                         color: 'var(--color-primary-600)',
                         background: 'var(--color-primary-50)',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        marginLeft: '8px'
+                        fontWeight: '500'
                       }}>
-                        已添加
+                        队列中
                       </span>
                     )}
                   </div>
