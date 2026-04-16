@@ -789,8 +789,7 @@ const handleReDownloadConfirm = async () => {
         margin: '0 auto',
         minHeight: '100vh',
         display: 'flex',
-        flexDirection: responsiveStyle.layout === 'two-column' ? 'row' : 'column',
-        gap: responsiveStyle.layout === 'two-column' ? '32px' : '0',
+        flexDirection: 'column',
         padding: `0 ${responsiveStyle.padding}`
       }}>
       {/* 顶部导航 */}
@@ -805,7 +804,7 @@ const handleReDownloadConfirm = async () => {
         alignItems: 'center',
         gap: '12px',
         zIndex: 100,
-        width: responsiveStyle.layout === 'two-column' ? '100%' : 'auto'
+        width: '100%'
       }}>
         <button
           onClick={() => navigate(-1)}
@@ -843,6 +842,12 @@ const handleReDownloadConfirm = async () => {
         </h1>
       </div>
 
+      {/* 双列布局容器 */}
+      <div style={{
+        display: 'flex',
+        flexDirection: responsiveStyle.layout === 'two-column' ? 'row' : 'column',
+        gap: responsiveStyle.layout === 'two-column' ? '32px' : '0'
+      }}>
       {/* 左侧主要内容列 */}
       <div style={{
         flex: 1,
@@ -1348,8 +1353,7 @@ const handleReDownloadConfirm = async () => {
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: '24px',
-            paddingTop: '60px' // 与顶部导航对齐
+            gap: '24px'
           }}>
             {/* 统计信息卡片 */}
             <div style={{
