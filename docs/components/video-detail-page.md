@@ -119,6 +119,45 @@ interface VideoDetailPageProps {
 > **注意**: 图文的统计数据来源于 `data.video.stat`，由后端已经扁平化处理，直接使用数字值即可。
 > 发布时间仅显示在作者信息下方，底部统计区域不再重复显示。
 
+### 5. 视频库状态检查
+
+在添加下载前检查视频是否已下载，避免重复添加：
+
+- 使用 `VideoLibraryService` 检查视频是否已下载
+- 已下载的视频显示"重新下载"按钮
+- 显示确认对话框让用户确认是否重新下载
+- 避免重复添加已下载的视频
+
+**使用示例**：
+
+```typescript
+import { videoLibraryService } from '../../services/videoLibraryService'
+
+const handleAddToDownload = async (video: VideoInfo) => {
+  const decision = await videoLibraryService.checkBeforeAdd(video)
+  
+  switch (decision.action) {
+    case 'add':
+      // 直接添加
+      await addVideoToQueue(video)
+      break
+      
+    case 'show_confirm':
+      // 显示确认对话框
+      const confirmed = await videoLibraryService.showReDownloadDialog(video)
+      if (confirmed) {
+        await addVideoToQueue(video)
+      }
+      break
+      
+    case 'skip':
+      // 静默跳过
+      showToast('视频已下载，已在视频库中', 'info')
+      break
+  }
+}
+```
+
 ## 使用示例
 
 ```typescript

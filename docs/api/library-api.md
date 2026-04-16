@@ -974,6 +974,375 @@ async def batch_update_nfo_files(
 
 ---
 
+## 视频库状态管理功能
+
+### 功能概述
+
+PiliNote 支持视频库状态管理，用于判断视频是否已下载到本地视频库，避免重复下载。
+
+### 批量检查视频是否已下载
+
+**端点**：`POST /api/video-library/check-batch`
+
+**描述**：批量检查指定BVID列表中的视频是否已在视频库中
+
+**请求参数**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `bvids` | array | 是 | BVID列表 |
+
+**请求示例**：
+
+```bash
+curl -X POST "http://localhost:8000/api/video-library/check-batch" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bvids": ["BV1xx411c7mD", "BV1yy411c7mE"]
+  }'
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "downloaded": ["BV1xx411c7mD"],
+    "not_downloaded": ["BV1yy411c7mE"],
+    "total": 2
+  }
+}
+```
+
+**响应字段说明**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `downloaded` | array | 已下载的视频BVID列表 |
+| `not_downloaded` | array | 未下载的视频BVID列表 |
+| `total` | int | 总视频数量 |
+
+**错误响应**：
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 400 | 请求参数错误 |
+| 500 | 服务器内部错误 |
+
+### 刷新视频库缓存
+
+**端点**：`GET /api/video-library/refresh`
+
+**描述**：刷新视频库缓存，同步最新的文件状态
+
+**请求示例**：
+
+```bash
+curl -X GET "http://localhost:8000/api/video-library/refresh"
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "refreshed_at": 1713264000,
+    "video_count": 112,
+    "folder_count": 45
+  }
+}
+```
+
+**响应字段说明**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `refreshed_at` | int | 刷新时间戳 |
+| `video_count` | int | 视频数量 |
+| `folder_count` | int | 文件夹数量 |
+
+**错误响应**：
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 500 | 服务器内部错误 |
+
+### 获取视频库状态
+
+**端点**：`GET /api/video-library/status`
+
+**描述**：获取视频库的当前状态信息
+
+**请求示例**：
+
+```bash
+curl -X GET "http://localhost:8000/api/video-library/status"
+```
+
+**响应示例**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "enabled": true,
+    "cache_valid": true,
+    "last_refresh": 1713264000,
+    "cache_ttl": 600,
+    "total_videos": 112
+  }
+}
+```
+
+**响应字段说明**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `enabled` | bool | 视频库是否启用 |
+| `cache_valid` | bool | 缓存是否有效 |
+| `last_refresh` | int | 最后刷新时间戳 |
+| `cache_ttl` | int | 缓存过期时间（秒） |
+| `total_videos` | int | 视频总数 |
+
+**错误响应**：
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 500 | 服务器内部错误 |
+
+### 使用场景
+
+#### 1. 避免重复下载
+
+在用户添加视频到下载队列前，检查视频是否已下载：
+
+```typescript
+const response = await fetch('/api/video-library/check-batch', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ bvids: [videoBvid] })
+});
+
+const result = await response.json();
+
+if (result.data.downloaded.includes(videoBvid)) {
+  // 视频已下载，显示确认对话框
+  showReDownloadDialog(video);
+} else {
+  // 直接添加到下载队列
+  addToDownloadQueue(video);
+}
+```
+
+#### 2. 批量检查收藏夹视频
+
+在批量添加收藏夹视频时，自动过滤已下载的视频：
+
+```typescript
+const bvids = videos.map(v => v.bvid);
+const response = await fetch('/api/video-library/check-batch', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ bvids })
+});
+
+const result = await response.json();
+const videosToDownload = videos.filter(v => 
+  !result.data.downloaded.includes(v.bvid)
+);
+
+console.log(`跳过 ${result.data.downloaded.length} 个已下载视频`);
+console.log(`添加 ${videosToDownload.length} 个新视频`);
+```
+
+#### 3. 下载完成后自动刷新
+
+下载任务完成后自动刷新视频库缓存：
+
+```typescript
+// 监听WebSocket下载完成事件
+ws.addEventListener('message', (event) => {
+  const data = JSON.parse(event.data);
+  
+  if (data.type === 'download_complete') {
+    // 延迟5秒后刷新视频库
+    setTimeout(async () => {
+      await fetch('/api/video-library/refresh');
+    }, 5000);
+  }
+});
+```
+
+### 后端实现
+
+#### 视频库服务
+
+**文件**：`apps/api/src/services/video_library_service.py`
+
+```python
+class VideoLibraryService:
+    """视频库状态管理服务"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+        self.local_library = local_library_service
+    
+    async def check_videos_in_library(self, bvids: List[str]) -> Dict[str, List[str]]:
+        """
+        批量检查视频是否在视频库中
+        
+        Args:
+            bvids: 视频BVID列表
+            
+        Returns:
+            {
+                "downloaded": ["BV1xx", "BV1yy"],  # 已下载的视频
+                "not_downloaded": ["BV1zz"]      # 未下载的视频
+            }
+        """
+        # 获取视频库数据
+        library_data = self.local_library.get_library_data()
+        downloaded_bvids = set()
+        
+        # 遍历所有文件夹和视频
+        for folder in library_data.get('folders', []):
+            for video in folder.get('videos', []):
+                bvid = video.get('bvid')
+                if bvid:
+                    downloaded_bvids.add(bvid)
+        
+        # 分类检查结果
+        downloaded = []
+        not_downloaded = []
+        
+        for bvid in bvids:
+            if bvid in downloaded_bvids:
+                downloaded.append(bvid)
+            else:
+                not_downloaded.append(bvid)
+        
+        return {
+            "downloaded": downloaded,
+            "not_downloaded": not_downloaded
+        }
+    
+    async def refresh_library(self) -> Dict[str, Any]:
+        """
+        刷新视频库缓存
+        
+        Returns:
+            刷新结果
+        """
+        # 扫描视频库
+        scan_result = self.local_library.scan_library()
+        
+        return {
+            "refreshed_at": int(time.time()),
+            "video_count": scan_result.total_files,
+            "folder_count": scan_result.folder_count
+        }
+    
+    async def get_library_status(self) -> Dict[str, Any]:
+        """
+        获取视频库状态
+        
+        Returns:
+            视频库状态信息
+        """
+        library_data = self.local_library.get_library_data()
+        
+        return {
+            "enabled": True,
+            "cache_valid": True,
+            "last_refresh": int(time.time()),
+            "cache_ttl": 600,
+            "total_videos": library_data.get('total_files', 0)
+        }
+```
+
+#### API路由
+
+**文件**：`apps/api/src/routers/video_library.py`
+
+```python
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import List
+from sqlalchemy.orm import Session
+from src.database import get_db
+from src.services.video_library_service import VideoLibraryService
+
+router = APIRouter(prefix="/api/video-library", tags=["video-library"])
+
+class CheckBatchRequest(BaseModel):
+    """批量检查请求"""
+    bvids: List[str]
+
+@router.post("/check-batch")
+async def check_batch_videos(
+    request: CheckBatchRequest,
+    db: Session = Depends(get_db)
+):
+    """批量检查视频是否在视频库中"""
+    try:
+        service = VideoLibraryService(db)
+        result = await service.check_videos_in_library(request.bvids)
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"检查视频失败: {str(e)}"
+        )
+
+@router.get("/refresh")
+async def refresh_library(db: Session = Depends(get_db)):
+    """刷新视频库缓存"""
+    try:
+        service = VideoLibraryService(db)
+        result = await service.refresh_library()
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"刷新视频库失败: {str(e)}"
+        )
+
+@router.get("/status")
+async def get_library_status(db: Session = Depends(get_db)):
+    """获取视频库状态"""
+    try:
+        service = VideoLibraryService(db)
+        result = await service.get_library_status()
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取视频库状态失败: {str(e)}"
+        )
+```
+
+### 相关文档
+
+- [前端VideoLibraryService](../components/video-library-service.md)
+- [视频库设置](../settings/video-library.md)
+- [视频库状态管理系统设计](../superpowers/specs/2026-04-16-video-library-status-management-design.md)
+
+---
+
 ## 评论数据提取功能
 
 ### 功能概述

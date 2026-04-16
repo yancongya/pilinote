@@ -250,13 +250,13 @@ export const useSettingsStore = create<SettingsState>()(
             }
             
             set((state) => ({
-              settings: {
+              settings: state.settings ? {
                 ...state.settings,
                 video_library: {
                   ...state.settings.video_library,
                   ...settings
                 }
-              }
+              } : null
             }))
           },
         }))

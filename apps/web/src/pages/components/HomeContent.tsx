@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiService } from '../../services/api'
-import { useAuthStore } from '../../stores/auth'
 import { useNewQueueStore } from '../../stores/newQueue'
 import { useSettingsStore } from '../../stores/settings'
 import { useHistoryStore } from '../../stores/history'
+import { videoLibraryService } from '../../services/videoLibraryService'
 import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, Coins, Star, Share2 } from 'lucide-react'
 import { getAvatarProxyUrl } from '../../config/api'
 import HistoryList from './HistoryList'
@@ -65,7 +65,6 @@ export default function HomeContent() {
   const newQueueStore = useNewQueueStore()
   const settingsStore = useSettingsStore()
   const { settings } = settingsStore
-  const authStore = useAuthStore()
   const addToHistory = useHistoryStore((state) => state.addToHistory)
 
   const handleParseUrl = async () => {
@@ -152,13 +151,13 @@ export default function HomeContent() {
 
     try {
       const video = parseData.data.video
-      const sessdata = authStore.user?.sessdata
 
       // 从设置中获取默认质量
       const defaultQuality = settings?.download?.video?.default_quality || 64
 
       let addedCount = 0
       let skippedCount = 0
+      let librarySkippedCount = 0
 
       // 多P视频：为每个选中的分P创建下载任务
       if (isMultiPart && downloadOptions.pages) {
@@ -175,6 +174,17 @@ export default function HomeContent() {
           if (existingTask) {
             skippedCount++
             continue
+          }
+
+          // 检查视频是否已在视频库中
+          try {
+            const isDownloaded = await videoLibraryService.isVideoDownloaded(video.bvid, page.cid)
+            if (isDownloaded) {
+              librarySkippedCount++
+              continue
+            }
+          } catch (error) {
+            console.warn('[HomeContent] 视频库检查失败:', error)
           }
 
           const taskData = {
@@ -221,6 +231,18 @@ export default function HomeContent() {
           return
         }
 
+        // 检查视频是否已在视频库中
+        try {
+          const isDownloaded = await videoLibraryService.isVideoDownloaded(video.bvid, cid)
+          if (isDownloaded) {
+            setError('该视频已在视频库中')
+            setDownloading(false)
+            return
+          }
+        } catch (error) {
+          console.warn('[HomeContent] 视频库检查失败:', error)
+        }
+
         const taskData = {
           title: video.title,
           media_type: 'video',
@@ -257,8 +279,13 @@ export default function HomeContent() {
       await newQueueStore.fetchTasks()
       await newQueueStore.fetchSchedulers()
       
-      if (skippedCount > 0) {
-        setError(`已添加 ${addedCount} 个视频到下载队列，跳过 ${skippedCount} 个已存在的视频`)
+      const skippedTotal = skippedCount + librarySkippedCount
+      if (skippedTotal > 0) {
+        let message = `已添加 ${addedCount} 个视频到下载队列，跳过 ${skippedTotal} 个已存在的视频`
+        if (librarySkippedCount > 0) {
+          message += `（其中 ${librarySkippedCount} 个已在视频库中）`
+        }
+        setError(message)
       } else {
         setError(`已成功添加 ${addedCount} 个视频到下载队列`)
       }

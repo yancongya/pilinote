@@ -53,11 +53,21 @@
 - 稍后再看扫描配置
 - 存储空间阈值
 
-### 5. 备份设置
+### 6. 备份设置
 **文件**: [backup.md](backup.md)
 
 内容：
 - FTP 备份
+
+### 7. 视频库设置
+**文件**: [video-library.md](video-library.md)
+
+内容：
+- 缓存过期时间
+- 智能刷新
+- 深度扫描
+- 自动刷新设置
+- 性能设置
 
 ---
 
@@ -95,6 +105,13 @@
     "watch_later_max": 0,
     "auto_start_after_scan": false,
     "storage_threshold_gb": 20
+  },
+  "video_library": {
+    "cache_ttl": 600,
+    "auto_refresh_delay": 5,
+    "max_concurrent_checks": 50,
+    "enable_smart_refresh": true,
+    "enable_deep_scan": false
   }
 }
 ```

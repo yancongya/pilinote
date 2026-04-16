@@ -17,6 +17,10 @@ interface AlertModalProps {
   title: string             // 标题
   message: string          // 消息内容（支持换行）
   type?: 'info' | 'success' | 'warning' | 'error'  // 类型
+  showConfirm?: boolean     // 是否显示确认按钮（用于确认对话框）
+  onConfirm?: () => void   // 确认按钮回调
+  confirmText?: string     // 确认按钮文本（默认"确定"）
+  cancelText?: string      // 取消按钮文本（默认"取消"）
 }
 ```
 
@@ -68,6 +72,8 @@ const typeStyles = {
 
 ## 使用示例
 
+### 基础提示对话框
+
 ```tsx
 import AlertModal from './components/AlertModal'
 
@@ -82,6 +88,106 @@ function MyComponent() {
       message="您的操作已成功完成\n感谢使用"
       type="success"
     />
+  )
+}
+```
+
+### 确认对话框
+
+```tsx
+import AlertModal from './components/AlertModal'
+
+function MyComponent() {
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const handleConfirm = () => {
+    // 执行确认操作
+    console.log('用户确认了操作')
+    setShowConfirm(false)
+  }
+
+  return (
+    <AlertModal
+      isOpen={showConfirm}
+      onClose={() => setShowConfirm(false)}
+      title="确认重新下载"
+      message="该视频已在视频库中，是否要重新下载？"
+      type="warning"
+      showConfirm={true}
+      onConfirm={handleConfirm}
+      confirmText="重新下载"
+      cancelText="取消"
+    />
+  )
+}
+```
+
+### 视频库状态检查示例
+
+```tsx
+import AlertModal from './components/AlertModal'
+import { videoLibraryService } from '../services/videoLibraryService'
+
+function VideoDetailPage() {
+  const [alertModal, setAlertModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    type: 'info' as const,
+    showConfirm: false,
+    onConfirm: () => {}
+  })
+
+  const handleAddToDownload = async (video: VideoInfo) => {
+    const decision = await videoLibraryService.checkBeforeAdd(video)
+    
+    switch (decision.action) {
+      case 'add':
+        // 直接添加
+        await addToDownloadQueue(video)
+        break
+        
+      case 'show_confirm':
+        // 显示确认对话框
+        setAlertModal({
+          show: true,
+          title: '重新下载视频',
+          message: `视频 ${video.title} 已在视频库中，是否重新下载？`,
+          type: 'info',
+          showConfirm: true,
+          onConfirm: async () => {
+            await addToDownloadQueue(video)
+            setAlertModal(prev => ({ ...prev, show: false }))
+          }
+        })
+        break
+        
+      case 'skip':
+        // 静默跳过
+        setAlertModal({
+          show: true,
+          title: '提示',
+          message: `视频 ${video.title} 已下载，已在视频库中`,
+          type: 'success'
+        })
+        break
+    }
+  }
+
+  return (
+    <>
+      {/* 页面内容 */}
+      
+      <AlertModal
+        isOpen={alertModal.show}
+        onClose={() => setAlertModal({ ...alertModal, show: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        showConfirm={alertModal.showConfirm}
+        onConfirm={alertModal.onConfirm}
+      />
+    </>
   )
 }
 ```

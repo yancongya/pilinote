@@ -1,5 +1,4 @@
 import { apiService } from './api'
-import type { ApiResponse } from './api'
 
 // ============== Type Definitions ==============
 
@@ -71,7 +70,6 @@ interface VideoInfo {
 class VideoLibraryService {
   // Cache management
   private cache: Map<string, VideoFileMeta> = new Map()
-  private cacheTTL: number = 10 * 60 * 1000 // 10 minutes
   private lastRefreshTime: number = 0
   private isRefreshing: boolean = false
   private refreshLock: Promise<RefreshResult> | null = null
@@ -281,6 +279,27 @@ class VideoLibraryService {
   }
 
   /**
+   * Get video library status
+   * @returns Promise with cache status information
+   */
+  async getLibraryStatus(): Promise<{
+    cached: boolean
+    is_fresh: boolean
+    video_count: number
+    last_refresh: number
+  }> {
+    const cached = this.cache.size > 0
+    const isFresh = this.isCacheFresh()
+    
+    return {
+      cached,
+      is_fresh: isFresh,
+      video_count: this.cache.size,
+      last_refresh: this.lastRefreshTime
+    }
+  }
+
+  /**
    * Batch check videos using API
    */
   private async _batchCheckVideos(bvids: string[]): Promise<CheckResult> {
@@ -412,7 +431,6 @@ class VideoLibraryService {
    * @param ttl - TTL in milliseconds
    */
   setCacheTTL(ttl: number): void {
-    this.cacheTTL = ttl
     this.config.cacheTTL = ttl
     console.log(`[VideoLibrary] Cache TTL set to ${ttl}ms`)
   }

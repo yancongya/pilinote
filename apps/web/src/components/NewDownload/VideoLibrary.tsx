@@ -2,6 +2,7 @@
 import { useNewQueueStore, Task } from '../../stores/newQueue'
 import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
+import { videoLibraryService } from '../../services/videoLibraryService'
 import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import VideoListControls from '../VideoListControls'
@@ -620,6 +621,14 @@ export default function VideoLibrary() {
       const result = await scanLibrary()
       
       if (result) {
+        // 刷新视频库缓存
+        try {
+          await videoLibraryService.refreshCache()
+          console.log('[VideoLibrary] 视频库缓存已刷新')
+        } catch (error) {
+          console.warn('[VideoLibrary] 刷新缓存失败:', error)
+        }
+        
         // 延迟2秒后显示扫描结果
         setTimeout(() => {
           showToast(`视频库刷新完成！${result.folder_count} 个系列，${result.total_files} 个视频`, 'success')

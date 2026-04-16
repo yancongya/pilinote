@@ -252,6 +252,49 @@ const handleBatchUpdateNfo = async () => {
 }
 ```
 
+### 4. 缓存刷新
+
+**函数**：`handleRefreshLibrary()`
+
+**描述**：调用后端API刷新视频库缓存，确保状态判断准确。
+
+```typescript
+const handleRefreshLibrary = async () => {
+  if (isRefreshing) return
+  
+  setIsRefreshing(true)
+  
+  try {
+    const response = await fetch('http://localhost:8000/api/video-library/refresh', {
+      method: 'GET'
+    })
+    
+    if (response.ok) {
+      const result = await response.json()
+      
+      if (result.success) {
+        showToast('视频库缓存已刷新', 'success')
+        
+        // 延迟重新扫描以显示最新状态
+        setTimeout(() => {
+          scanLibrary()
+        }, 500)
+      }
+    }
+  } catch (error) {
+    console.error('刷新视频库失败:', error)
+    showToast('刷新视频库失败', 'error')
+  } finally {
+    setIsRefreshing(false)
+  }
+}
+```
+
+**特性**：
+- 防止重复刷新（`isRefreshing`状态）
+- 刷新成功后延迟扫描（避免过快请求）
+- 显示加载状态和错误提示
+
 ## 子组件
 
 ### LibraryCard

@@ -1103,4 +1103,75 @@ POST /api/downloads/{download_id}/cancel
 
 ---
 
+## 视频库状态管理接口
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/video-library/check-batch` | 批量检查视频是否在视频库中 |
+| GET | `/api/video-library/refresh` | 刷新视频库缓存 |
+| GET | `/api/video-library/status` | 获取视频库状态 |
+
+### 批量检查视频
+
+**端点**：`POST /api/video-library/check-batch`
+
+**描述**：批量检查指定BVID列表中的视频是否已在视频库中
+
+**请求体**：
+```json
+{
+  "bvids": ["BV1xx411c7mD", "BV1yy411c7mE"]
+}
+```
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "downloaded": ["BV1xx411c7mD"],
+    "not_downloaded": ["BV1yy411c7mE"],
+    "total": 2
+  }
+}
+```
+
+### 刷新视频库缓存
+
+**端点**：`GET /api/video-library/refresh`
+
+**描述**：刷新视频库缓存，同步最新的文件状态
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "refreshed_at": 1713264000,
+    "video_count": 112
+  }
+}
+```
+
+### 获取视频库状态
+
+**端点**：`GET /api/video-library/status`
+
+**描述**：获取视频库的当前状态信息
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "data": {
+    "enabled": true,
+    "cache_valid": true,
+    "last_refresh": 1713264000,
+    "cache_ttl": 600
+  }
+}
+```
+
+---
+
 [返回上级](./README.md)

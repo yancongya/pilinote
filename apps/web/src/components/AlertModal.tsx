@@ -6,6 +6,8 @@ interface AlertModalProps {
   title: string
   message: string
   type?: 'info' | 'success' | 'warning' | 'error'
+  showConfirm?: boolean
+  onConfirm?: () => void
 }
 
 export default function AlertModal({
@@ -14,6 +16,8 @@ export default function AlertModal({
   title,
   message,
   type = 'info',
+  showConfirm = false,
+  onConfirm,
 }: AlertModalProps) {
   const colors = {
     info: { 
@@ -46,12 +50,27 @@ export default function AlertModal({
       onClose={onClose}
       title={title}
 footer={
-        <button
-          className="px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation bg-primary-600 text-white shadow-primary hover:bg-primary-700 hover:shadow-primary-hover focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2"
-          onClick={onClose}
-        >
-          确定
-        </button>
+        <div className="flex gap-3">
+          {showConfirm && (
+            <button
+              className="px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 focus-visible:outline-2 focus-visible:outline-gray-600 focus-visible:outline-offset-2"
+              onClick={onClose}
+            >
+              取消
+            </button>
+          )}
+          <button
+            className="px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation bg-primary-600 text-white shadow-primary hover:bg-primary-700 hover:shadow-primary-hover focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2"
+            onClick={() => {
+              if (showConfirm && onConfirm) {
+                onConfirm()
+              }
+              onClose()
+            }}
+          >
+            {showConfirm ? '确认' : '确定'}
+          </button>
+        </div>
       }
     >
       <div className={`p-4 rounded-lg border ${color.bg} ${color.border} ${color.text}`}>

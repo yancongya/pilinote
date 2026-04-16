@@ -4,6 +4,7 @@ import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
 import { useCacheStore } from '../../stores/cache'
 import { useNewQueueStore } from '../../stores/newQueue'
+import { videoLibraryService } from '../../services/videoLibraryService'
 import { ArrowLeft, Folder } from 'lucide-react'
 import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
@@ -36,7 +37,14 @@ export default function FavoritesContent() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [loadedCount, setLoadedCount] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
-  const [alertModal, setAlertModal] = useState<{ show: boolean; title: string; message: string; type: 'success' | 'error' }>({
+  const [alertModal, setAlertModal] = useState<{ 
+    show: boolean; 
+    title: string; 
+    message: string; 
+    type: 'success' | 'error' | 'info';
+    showConfirm?: boolean;
+    onConfirm?: () => void;
+  }>({
     show: false,
     title: '',
     message: '',
@@ -171,6 +179,44 @@ export default function FavoritesContent() {
 
   // 包装toggleDownload，确保状态更新
 const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
+    try {
+      // 检查视频是否已下载
+      const decision = await videoLibraryService.checkBeforeAdd(video)
+      
+      switch (decision.action) {
+        case 'add':
+          // 直接添加
+          await baseToggleDownload(video, e)
+          break
+          
+        case 'show_confirm':
+          // 显示确认对话框
+          setAlertModal({
+            show: true,
+            title: '重新下载视频',
+            message: `视频 ${video.title} 已在视频库中，是否重新下载？`,
+            type: 'info',
+            showConfirm: true,
+            onConfirm: async () => {
+              await baseToggleDownload(video, e)
+              setAlertModal(prev => ({ ...prev, show: false }))
+            }
+          })
+          break
+          
+        case 'skip':
+          // 静默跳过
+          setAlertModal({
+            show: true,
+            title: '提示',
+            message: `视频 ${video.title} 已下载，已在视频库中`,
+            type: 'success'
+          })
+          break
+      }
+    } catch (error) {
+      console.error('检查下载状态失败:', error)
+      // 降级到原有逻辑
       const result = await baseToggleDownload(video, e)
       if (result.success) {
         // 如果需要跳转到视频库
@@ -201,7 +247,8 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
           type: 'error'
         })
       }
-    }, [baseToggleDownload, navigate])
+    }
+}, [baseToggleDownload, navigate])
 
   // 监听路由变化，支持通过URL直接访问收藏夹详情
   useEffect(() => {
@@ -388,10 +435,12 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       {/* AlertModal */}
       <AlertModal
         isOpen={alertModal.show}
-        onClose={() => setAlertModal({ show: false, title: '', message: '', type: 'success' })}
+        onClose={() => setAlertModal({ show: false, title: '', message: '', type: 'success', showConfirm: false })}
         title={alertModal.title}
         message={alertModal.message}
         type={alertModal.type}
+        showConfirm={alertModal.showConfirm}
+        onConfirm={alertModal.onConfirm}
       />
 
       {/* ConfirmModal */}

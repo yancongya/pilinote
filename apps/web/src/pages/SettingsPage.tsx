@@ -16,10 +16,11 @@ import DownloadSettings from './settings/DownloadSettings'
 import StorageSettings from './settings/StorageSettings'
 import BackupSettings from './settings/BackupSettings'
 import AutoDownloadSettings from './settings/AutoDownloadSettings'
+import VideoLibrarySettings from './settings/VideoLibrarySettings'
 import { useToast } from '../components/Toast'
 import '../settings-page.css'
 
-type TabType = 'accounts' | 'download' | 'storage' | 'backup' | 'auto-download'
+type TabType = 'accounts' | 'download' | 'storage' | 'backup' | 'auto-download' | 'video-library'
 
 // 定义ref类型
 interface SettingsComponentRef {
@@ -39,7 +40,8 @@ function SettingsPage() {
     { id: 'download' as TabType, label: '下载', icon: Download },
     { id: 'storage' as TabType, label: '数据', icon: Database },
     { id: 'backup' as TabType, label: '备份', icon: Cloud },
-    { id: 'auto-download' as TabType, label: '定时', icon: Clock }
+    { id: 'auto-download' as TabType, label: '定时', icon: Clock },
+    { id: 'video-library' as TabType, label: '视频库', icon: Database }
   ]
 
   // 从hash初始化activeTab
@@ -56,6 +58,7 @@ function SettingsPage() {
   const downloadSettingsRef = useRef<SettingsComponentRef>(null)
   const backupSettingsRef = useRef<SettingsComponentRef>(null)
   const autoDownloadSettingsRef = useRef<SettingsComponentRef>(null)
+  const videoLibrarySettingsRef = useRef<SettingsComponentRef>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
   
@@ -115,6 +118,9 @@ function SettingsPage() {
     if (targetTab === 'auto-download' && autoDownloadSettingsRef.current) {
       return autoDownloadSettingsRef.current.hasUnsavedChanges()
     }
+    if (targetTab === 'video-library' && videoLibrarySettingsRef.current) {
+      return videoLibrarySettingsRef.current.hasUnsavedChanges()
+    }
     return false
   }
 
@@ -131,6 +137,8 @@ function SettingsPage() {
         await backupSettingsRef.current.saveSettings()
       } else if (activeTab === 'auto-download' && autoDownloadSettingsRef.current) {
         await autoDownloadSettingsRef.current.saveSettings()
+      } else if (activeTab === 'video-library' && videoLibrarySettingsRef.current) {
+        await videoLibrarySettingsRef.current.saveSettings()
       }
       
       showToast('设置已保存', 'success')
@@ -210,10 +218,11 @@ function SettingsPage() {
         {activeTab === 'storage' && <StorageSettings ref={storageSettingsRef} />}
         {activeTab === 'backup' && <BackupSettings ref={backupSettingsRef} />}
         {activeTab === 'auto-download' && <AutoDownloadSettings ref={autoDownloadSettingsRef} />}
+        {activeTab === 'video-library' && <VideoLibrarySettings ref={videoLibrarySettingsRef} />}
       </div>
 
       {/* 悬浮保存按钮 */}
-      {(activeTab === 'storage' || activeTab === 'download' || activeTab === 'backup' || activeTab === 'auto-download') && (
+      {(activeTab === 'storage' || activeTab === 'download' || activeTab === 'backup' || activeTab === 'auto-download' || activeTab === 'video-library') && (
         <button
           className={`settings-fab-save-btn ${hasUnsavedChanges() ? 'has-changes' : ''} ${saving ? 'saving' : ''}`}
           onClick={handleSave}
