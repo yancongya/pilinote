@@ -15,6 +15,7 @@
 from typing import List, Dict, Any, Set
 from sqlalchemy.orm import Session
 from src.services.local_library_service import LocalLibraryService
+from src.services.settings_service import SettingsService
 from src.models.task import Task, TaskState
 from pathlib import Path
 import os
@@ -32,11 +33,18 @@ class VideoLibraryService:
         """
         self.db = db
         self.local_library = LocalLibraryService(db)
+        self.settings_service = SettingsService(db)
 
     def _get_download_directory(self) -> str:
         """获取下载目录"""
-        from src.settings import settings
-        return settings.storage.download_path
+        settings = self.settings_service.get_settings()
+        download_path = settings.storage.download_path if settings.storage else "./downloads"
+        
+        # 处理相对路径
+        if not os.path.isabs(download_path):
+            download_path = os.path.abspath(download_path)
+        
+        return download_path
 
     def _check_task_video_exists(self, task: Task) -> bool:
         """
