@@ -207,12 +207,23 @@ class VideoLibraryService {
       })
 
       if (response && response.success && response.data) {
-        this._buildCache(response.data)
         this.lastRefreshTime = Date.now()
         
-        // Store totals
-        this.totalVideos = response.data.total_files || 0
+        // Update totals based on new logic
+        this.totalVideos = response.data.downloaded_tasks || 0
         this.totalFolders = response.data.folder_count || 0
+        
+        // Build cache from downloaded_bvids
+        this.cache.clear()
+        for (const bvid of response.data.downloaded_bvids || []) {
+          this.cache.set(bvid, {
+            bvid,
+            title: '',
+            path: '',
+            size: 0,
+            exists: true
+          })
+        }
 
         console.log('[VideoLibrary] Cache refreshed successfully')
 
@@ -220,7 +231,7 @@ class VideoLibraryService {
           success: true,
           cached: false,
           folderCount: response.data.folder_count,
-          videoCount: response.data.total_files
+          videoCount: response.data.downloaded_tasks
         }
       } else {
         throw new Error(response?.message || 'Refresh failed')
@@ -610,42 +621,6 @@ class VideoLibraryService {
     }
 
     return stateMap[state] || 'none'
-  }
-
-  /**
-   * Build cache from API response data
-   */
-  private _buildCache(data: any): void {
-    this.cache.clear()
-
-    if (data.folders) {
-      for (const folder of data.folders) {
-        const videos: VideoFileMeta[] = []
-
-        // Process videos if available
-        if (folder.videos) {
-          for (const video of folder.videos) {
-            videos.push({
-              bvid: folder.bvid,
-              cid: video.cid,
-              title: video.title || folder.title,
-              path: video.path || folder.path,
-              size: video.size || 0,
-              exists: video.exists !== false
-            })
-          }
-        }
-
-        this.cache.set(folder.bvid, {
-          bvid: folder.bvid,
-          title: folder.title,
-          path: folder.path,
-          size: folder.size || 0,
-          exists: folder.exists !== false,
-          videos: videos.length > 0 ? videos : undefined
-        })
-      }
-    }
   }
 }
 
