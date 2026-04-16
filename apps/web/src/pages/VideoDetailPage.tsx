@@ -461,12 +461,13 @@ const handleReDownloadConfirm = async () => {
 }
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
-        color: '#999'
+        background: 'var(--color-bg-primary)',
+        color: 'var(--color-text-secondary)'
       }}>
         加载中...
       </div>
@@ -475,14 +476,15 @@ const handleReDownloadConfirm = async () => {
 
   if (error) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         flexDirection: 'column',
         gap: '16px',
-        color: '#999'
+        background: 'var(--color-bg-primary)',
+        color: 'var(--color-text-secondary)'
       }}>
         <div>{error}</div>
         <button
@@ -504,12 +506,13 @@ const handleReDownloadConfirm = async () => {
 
   if (!video) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
-        color: '#999'
+        background: 'var(--color-bg-primary)',
+        color: 'var(--color-text-secondary)'
       }}>
         视频不存在
       </div>
@@ -521,14 +524,16 @@ const handleReDownloadConfirm = async () => {
       maxWidth: '800px',
       margin: '0 auto',
       minHeight: '100vh',
-      background: '#fff',
-      paddingBottom: '60px'
+      background: 'var(--color-bg-primary)',
+      paddingBottom: '60px',
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch'
     }}>
       {/* 顶部导航 */}
       <div style={{
         position: 'sticky',
         top: 0,
-        background: 'rgba(255, 255, 255, 0.95)',
+        background: 'var(--color-bg-primary)',
         backdropFilter: 'blur(10px)',
         borderBottom: '1px solid var(--color-border)',
         padding: '12px 16px',
@@ -943,7 +948,7 @@ const handleReDownloadConfirm = async () => {
                       display: 'flex',
                       alignItems: 'center',
                       padding: '10px',
-                      background: '#fff',
+                      background: 'var(--color-bg-primary)',
                       borderRadius: '6px',
                       marginBottom: index < video.pages.length - 1 ? '8px' : '0',
                       opacity: isInList ? 0.6 : 1
