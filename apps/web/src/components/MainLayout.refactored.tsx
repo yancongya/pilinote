@@ -51,15 +51,18 @@ function MainLayout() {
     const dragHandle = dragRef.current
     if (!dragHandle) return
 
+    let isCurrentlyDragging = false
+
     const handleMouseDown = (e: MouseEvent) => {
       e.preventDefault()
+      isCurrentlyDragging = true
       setIsDragging(true)
       document.body.style.cursor = 'col-resize'
       document.body.style.userSelect = 'none'
     }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return
+      if (!isCurrentlyDragging) return
       
       const newWidth = e.clientX
       const minWidth = 180
@@ -72,6 +75,7 @@ function MainLayout() {
     }
 
     const handleMouseUp = () => {
+      isCurrentlyDragging = false
       setIsDragging(false)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
@@ -86,7 +90,7 @@ function MainLayout() {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isDragging])
+  }, [])
 
   useEffect(() => {
     if (!user) return

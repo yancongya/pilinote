@@ -326,29 +326,70 @@ export const Sidebar = styled.aside<{ $width?: number; $collapsed?: boolean }>`
  */
 export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
   position: absolute;
-  right: -6px;
+  right: -8px;
   top: 0;
   bottom: 0;
-  width: 12px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: col-resize;
   z-index: 60;
-  opacity: 0;
+  background: transparent;
   ${SmoothTransition}
   
+  /* 视觉提示线 */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 20%;
+    bottom: 20%;
+    width: 2px;
+    background: var(--color-border);
+    border-radius: 1px;
+    transition: all 0.2s ease;
+  }
+  
   &:hover {
-    opacity: 1;
-    background: rgba(37, 99, 235, 0.1);
+    background: rgba(37, 99, 235, 0.05);
+    
+    &::before {
+      background: var(--color-primary-600);
+      width: 3px;
+      left: 6.5px;
+    }
   }
   
   ${(props) => props.$isDragging && css`
-    opacity: 1;
-    background: rgba(37, 99, 235, 0.2);
+    background: rgba(37, 99, 235, 0.1);
+    
+    &::before {
+      background: var(--color-primary-600);
+      width: 4px;
+      left: 6px;
+    }
   `}
   
-  color: var(--color-text-tertiary);
+  /* 拖拽图标样式 */
+  svg {
+    color: var(--color-text-tertiary);
+    opacity: 0;
+    transition: all 0.2s ease;
+    pointer-events: none;
+  }
+  
+  &:hover svg {
+    opacity: 1;
+    color: var(--color-primary-600);
+  }
+  
+  ${(props) => props.$isDragging && css`
+    svg {
+      opacity: 1;
+      color: var(--color-primary-600);
+    }
+  `}
 `;
 
 /**
