@@ -113,6 +113,70 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
 
   const responsiveStyle = getResponsiveStyle()
 
+  // 添加自定义拟态滚动条样式
+  useEffect(() => {
+    // 创建样式元素
+    const style = document.createElement('style')
+    style.textContent = `
+      /* 隐藏原生滚动条 */
+      .video-detail-page::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      .video-detail-page::-webkit-scrollbar-track {
+        background: transparent;
+        border-radius: 3px;
+      }
+
+      .video-detail-page::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, 
+          rgba(110, 90, 255, 0.3) 0%, 
+          rgba(106, 90, 205, 0.4) 100%);
+        border-radius: 3px;
+        border: 1px solid rgba(110, 90, 255, 0.1);
+        box-shadow: 
+          0 2px 4px rgba(0, 0, 0, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+      }
+
+      .video-detail-page::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, 
+          rgba(110, 90, 255, 0.5) 0%, 
+          rgba(106, 90, 205, 0.6) 100%);
+        box-shadow: 
+          0 2px 8px rgba(0, 0, 0, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      }
+
+      .video-detail-page::-webkit-scrollbar-thumb:active {
+        background: linear-gradient(180deg, 
+          rgba(110, 90, 255, 0.7) 0%, 
+          rgba(106, 90, 205, 0.8) 100%);
+      }
+
+      /* 暗色模式下的滚动条 */
+      .dark .video-detail-page::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, 
+          rgba(139, 127, 255, 0.3) 0%, 
+          rgba(138, 127, 255, 0.4) 100%);
+        border-color: rgba(139, 127, 255, 0.2);
+      }
+
+      .dark .video-detail-page::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, 
+          rgba(139, 127, 255, 0.5) 0%, 
+          rgba(138, 127, 255, 0.6) 100%);
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      document.head.removeChild(style)
+    }
+  }, [])
+
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
@@ -562,17 +626,19 @@ const handleReDownloadConfirm = async () => {
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      background: 'var(--color-bg-primary)',
-      overflowY: 'auto',
-      WebkitOverflowScrolling: 'touch',
-      zIndex: 9999
-    }}>
+    <div 
+      className="video-detail-page"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'var(--color-bg-primary)',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        zIndex: 9999
+      }}>
       {/* 内容容器 - 用于居中 */}
       <div style={{
         maxWidth: responsiveStyle.maxWidth,
