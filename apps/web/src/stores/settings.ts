@@ -45,10 +45,18 @@ export interface FolderScanConfig {
   max_videos: number  // 最大扫描视频数
 }
 
+export interface VideoLibraryConfig {
+  cacheTTL: number              // 缓存过期时间（分钟）
+  autoRefreshDelay: number      // 自动刷新延迟（秒）
+  maxConcurrentChecks: number   // 最大并发检查数
+  enableSmartRefresh: boolean   // 启用智能刷新
+}
+
 export interface Settings {
   download: DownloadSettings
   storage: IStorageSettings
   general: IGeneralSettings
+  video_library: VideoLibraryConfig
   auto_download: {
     enabled: boolean
     trigger_type: 'interval' | 'cron'
@@ -75,6 +83,7 @@ interface SettingsState {
   error: string | null
   fetchSettings: () => Promise<void>
   updateSettings: (updates: Partial<Settings>) => Promise<void>
+  updateVideoLibrarySettings: (settings: Partial<VideoLibraryConfig>) => void
   resetSettings: (category?: string) => Promise<void>
   exportSettings: () => Promise<string>
   importSettings: (data: string) => Promise<void>
@@ -227,11 +236,27 @@ export const useSettingsStore = create<SettingsState>()(
         await get().fetchSettings()
         set({ loading: false })
       } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Unknown error',
-          loading: false
-        })
-      }
-    },
-  })
-)
+              set({ 
+                error: error instanceof Error ? error.message : 'Unknown error',
+                loading: false
+              })
+            }
+          },
+      
+          updateVideoLibrarySettings: (settings: Partial<VideoLibraryConfig>) => {
+            const currentSettings = get().settings
+            if (!currentSettings) {
+              return
+            }
+            
+            set((state) => ({
+              settings: {
+                ...state.settings,
+                video_library: {
+                  ...state.settings.video_library,
+                  ...settings
+                }
+              }
+            }))
+          },
+        }))
