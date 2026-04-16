@@ -1,15 +1,17 @@
-# VideoLibrary - 视频库组件
+# VideoLibrary - 媒体库组件
 
 ## 概述
 
-`VideoLibrary` 是PiliNote本地视频库的前端展示组件，用于浏览和管理已下载的视频文件。它支持按文件夹组织视频、显示视频元数据、搜索排序等功能，并集成了NFO文件的解析和展示。
+`VideoLibrary` 是 PiliNote 本地媒体库的前端展示组件，用于浏览和管理已下载的视频与图文目录。它支持按一级文件夹组织媒体、显示 NFO 元数据、搜索排序，以及批量刷新 NFO。
 
 ## 特性
 
-- ✅ **动态扫描**：实时扫描本地下载目录，自动识别视频文件
-- ✅ **文件夹组织**：按一级文件夹组织视频系列
+- ✅ **动态扫描**：实时扫描本地下载目录，自动识别视频与图文目录
+- ✅ **媒体类型识别**：根据 NFO 中的 `bvid` 或 `opus_id` 判断视频/图文
+- ✅ **文件夹组织**：按一级文件夹组织媒体目录
 - ✅ **元数据显示**：显示封面、头像、统计信息等
 - ✅ **多视频支持**：支持展开/折叠多视频文件夹
+- ✅ **图文卡片支持**：图文目录显示为独立卡片，可跳转图文详情页
 - ✅ **搜索排序**：支持关键词搜索和多种排序方式
 - ✅ **NFO集成**：解析并显示NFO文件中的元数据
 - ✅ **统计数据**：显示播放量、点赞数、投币数等
@@ -60,11 +62,11 @@ const [nfoUpdateProgress, setNfoUpdateProgress] = useState({              // NFO
 
 ## 核心功能
 
-### 1. 动态扫描视频库
+### 1. 动态扫描媒体库
 
 **函数**：`scanLibrary()`
 
-**描述**：调用后端API扫描本地下载目录，获取视频文件和元数据。
+**描述**：调用后端 API 扫描本地下载目录，获取视频文件、图文目录和元数据。
 
 ```typescript
 const scanLibrary = async () => {
@@ -86,27 +88,19 @@ const scanLibrary = async () => {
       if (result.success) {
         setScanResult(result.data)
         
-        // 按文件夹组织视频
-        const folderMap = new Map<string, Task[]>()
-        result.data.folder_videos?.forEach((item: any) => {
-          const folderName = item.folder_name
-          if (!folderMap.has(folderName)) {
-            folderMap.set(folderName, [])
-          }
-          folderMap.get(folderName)?.push(...item.videos)
-        })
-        
-        setFolderVideos(folderMap)
+        // 转换为媒体卡片任务
+        const convertedTasks = convertScanDataToMediaTasks(result.data)
+        setTasks(convertedTasks)
         
         showToast(
-          `扫描完成：发现 ${result.data.total_files} 个文件，${result.data.folder_count} 个文件夹`,
+          `扫描完成：发现 ${result.data.total_files} 个视频文件，${result.data.folder_count} 个媒体目录`,
           'success'
         )
       }
     }
   } catch (error) {
-    console.error('扫描视频库失败:', error)
-    showToast('扫描视频库失败', 'error')
+    console.error('扫描媒体库失败:', error)
+    showToast('扫描媒体库失败', 'error')
   } finally {
     setIsRefreshing(false)
   }
@@ -124,7 +118,7 @@ const scanLibrary = async () => {
 | 值 | 标签 | 说明 |
 |------|------|------|
 | `created` | 按创建时间 | 按文件夹创建时间排序 |
-| `size` | 按大小 | 按文件夹总大小排序 |
+| `size` | 按大小 | 按媒体目录总大小排序 |
 | `name` | 按命名首字母 | 按文件夹名称首字母排序 |
 | `author` | 按作者 | 按UP主名称排序 |
 
@@ -192,7 +186,28 @@ const getFilteredAndSortedFolders = () => {
 
 **函数**：`handleBatchUpdateNfo()`
 
-**描述**：批量更新下载目录下的NFO文件，从B站API获取最新的统计数据。
+**描述**：批量更新下载目录下的 NFO 文件，从 B 站 API 获取最新统计数据。视频 NFO 通过 `bvid` 刷新，图文 NFO 通过 `opus_id` 刷新。
+
+### 4. 媒体类型与大小口径
+
+当前媒体库统一复用同一套卡片，但会根据媒体类型切换展示逻辑：
+
+- **视频目录**
+  - 点击跳转 `/video/{bvid}`
+  - 可展开多视频文件夹
+  - 显示播放量、弹幕、时长、评分
+  - 大小文案：`视频: X | 元数据: Y`
+
+- **图文目录**
+  - 点击跳转 `/opus/{cv数字}`
+  - 不显示时长和多视频展开
+  - 显示点赞、投币、收藏、分享、评论
+  - 大小文案：`文档/图片: X | 元数据: Y`
+
+图文大小统计口径：
+
+- `文档/图片`：`*.md` 与 `images/` 目录内文件
+- `元数据`：`*.nfo`、封面、头像等其余非正文资源
 
 ```typescript
 const handleBatchUpdateNfo = async () => {

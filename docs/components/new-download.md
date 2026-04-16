@@ -2,7 +2,7 @@
 
 ## 概述
 
-`NewDownload` 是PiliNote的新下载管理页面，提供下载列表、任务管理、视频库浏览等功能。该组件完全适配暗色模式，支持主题切换。
+`NewDownload` 是PiliNote的新下载管理页面，提供下载列表、任务管理、媒体库浏览等功能。该组件完全适配暗色模式，支持主题切换。
 
 ## 组件结构
 
@@ -12,7 +12,7 @@ NewDownload/
 ├── DownloadsList.tsx      # 下载列表组件
 ├── TaskCard.tsx           # 任务卡片组件
 ├── SchedulerCard.tsx      # 调度器卡片组件
-├── VideoLibrary.tsx       # 视频库组件
+├── VideoLibrary.tsx       # 媒体库组件
 ├── ScanResultContent.tsx  # 扫描结果内容组件
 └── index.css              # 统一样式文件（完全适配暗色模式）
 ```
@@ -44,7 +44,7 @@ NewDownload/
    - 按钮背景：`white` → `var(--color-bg-primary)`
    - 按钮文字和图标颜色适配
 
-3. **视频库卡片** (`#library-panel > div > div.task-list`)
+3. **媒体库卡片** (`#library-panel > div > div.task-list`)
    - 卡片背景：`white` → `var(--color-bg-primary)`
    - 卡片悬停效果适配
 
@@ -129,9 +129,13 @@ NewDownload/
 - **主要修复**：卡片背景、进度条、控制按钮等
 
 ### VideoLibrary
-- **功能**：视频库浏览
+- **功能**：媒体库浏览
 - **适配状态**：✅ 完全适配暗色模式
 - **主要修复**：卡片背景、封面、统计信息等
+- **当前行为**：
+  - 统一展示视频与图文目录
+  - Tab 文案已从“视频库”调整为“媒体库”
+  - 刷新操作会先尝试批量更新 NFO，再扫描本地媒体目录
 
 ### ScanResultContent
 - **功能**：扫描结果显示

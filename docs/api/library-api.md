@@ -933,7 +933,7 @@ async def update_nfo_file(
 
 **端点**：`POST /api/library/nfo/batch-update`
 
-**描述**：批量更新指定目录下的NFO文件，从B站API获取最新的统计数据并更新到NFO文件中
+**描述**：批量更新指定目录下的 NFO 文件，从 B 站 API 获取最新统计数据并更新回本地 NFO。当前同时支持视频 NFO 与图文 NFO。
 
 #### 请求体
 
@@ -1064,6 +1064,7 @@ async def batch_update_nfo_files(
 2. **同步最新数据**：从B站API获取最新的互动数据，保持NFO文件的时效性
 3. **数据补全**：为缺少统计数据的老视频补全NFO信息
 4. **评论数据更新**：同步最新的评论数据到NFO文件中
+5. **图文元数据刷新**：当 NFO 中存在 `opus_id` 时，会调用图文详情接口刷新标题、作者、点赞/评论/分享等统计信息
 
 ---
 
@@ -2078,21 +2079,23 @@ class LibraryScanResult:
 
 ## 前端集成
 
-### 视频库组件
+### 媒体库组件
 
 **文件**：`apps/web/src/components/NewDownload/VideoLibrary.tsx`
 
 **功能**：
-- 动态扫描和刷新视频库
-- 按文件夹显示视频系列
+- 动态扫描和刷新媒体库
+- 按文件夹显示视频与图文目录
 - 支持展开/折叠多视频文件夹
 - 显示封面、头像、元数据
 - 响应式布局设计
+- 根据 `bvid` / `opus_id` 自动跳转视频或图文详情页
+- 图文目录大小按“文档/图片 + 元数据”展示
 
 **使用示例**：
 
 ```typescript
-// 扫描视频库
+// 扫描媒体库
 const scanLibrary = async () => {
   const response = await fetch('http://localhost:8000/api/library/scan', {
     method: 'POST'
@@ -2108,10 +2111,10 @@ const getLocalImageUrl = (filePath: string): string => {
   return `http://localhost:8000/api/library/image?file_path=${encodeURIComponent(filePath)}`
 }
 
-// 刷新视频库
+// 刷新媒体库
 const handleRefreshLibrary = async () => {
   const result = await scanLibrary()
-  alert(`视频库刷新完成！\n文件夹: ${result.folder_count}\n扫描文件: ${result.total_files}`)
+  alert(`媒体库刷新完成！\n目录: ${result.folder_count}\n视频文件: ${result.total_files}`)
 }
 ```
 
@@ -2120,24 +2123,24 @@ const handleRefreshLibrary = async () => {
 **文件**：`apps/web/src/components/NewDownload/DownloadsList.tsx`
 
 **功能**：
-- 提供视频库刷新菜单
+- 提供媒体库刷新菜单
 - 支持自动导入和同步
-- 显示视频库统计信息
+- 显示媒体库统计信息
 
 **使用示例**：
 
 ```typescript
-// 刷新本地视频库
+// 刷新本地媒体库
 const handleRefreshLibrary = async () => {
   const response = await fetch(
     'http://localhost:8000/api/library/sync?auto_import=true&auto_cleanup=false',
     { method: 'POST' }
   )
   const result = await response.json()
-  alert(`视频库刷新完成！\n扫描文件: ${result.data.scan_result.total_files}\n新文件: ${result.data.imported_count}`)
+  alert(`媒体库刷新完成！\n扫描文件: ${result.data.scan_result.total_files}\n新文件: ${result.data.imported_count}`)
 }
 
-// 获取视频库统计信息
+// 获取媒体库统计信息
 const fetchLibraryStats = async () => {
   const response = await fetch('http://localhost:8000/api/library/statistics')
   const result = await response.json()
