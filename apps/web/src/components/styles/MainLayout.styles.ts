@@ -329,52 +329,44 @@ export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
   right: 0;
   top: 0;
   bottom: 0;
-  width: 20px;
+  width: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: col-resize;
   z-index: 100;
   background: transparent;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   
-  /* 视觉提示线 - 更明显 */
+  /* 视觉提示线 */
   &::before {
     content: '';
     position: absolute;
     right: 0;
-    top: 15%;
-    bottom: 15%;
-    width: 4px;
+    top: 20%;
+    bottom: 20%;
+    width: 2px;
     background: var(--color-border);
-    border-radius: 2px;
-    transition: all 0.2s ease;
-    opacity: 0.7;
+    border-radius: 1px;
+    transition: all 0.15s ease;
+    opacity: 0.4;
   }
   
   /* 悬停效果 */
   &:hover {
-    background: rgba(37, 99, 235, 0.1);
-    
     &::before {
       background: var(--color-primary-600);
-      width: 5px;
-      right: 0;
-      opacity: 1;
-      box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
+      width: 3px;
+      opacity: 0.8;
     }
   }
   
   /* 拖拽状态 */
   ${(props) => props.$isDragging && css`
-    background: rgba(37, 99, 235, 0.15);
-    
     &::before {
       background: var(--color-primary-600);
-      width: 6px;
-      right: 0;
+      width: 3px;
       opacity: 1;
-      box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
     }
   `}
   
@@ -382,22 +374,20 @@ export const SidebarDragHandle = styled.div<{ $isDragging?: boolean }>`
   svg {
     color: var(--color-text-tertiary);
     opacity: 0;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     pointer-events: none;
     z-index: 101;
   }
   
   &:hover svg {
-    opacity: 1;
+    opacity: 0.7;
     color: var(--color-primary-600);
-    transform: scale(1.1);
   }
   
   ${(props) => props.$isDragging && css`
     svg {
       opacity: 1;
       color: var(--color-primary-600);
-      transform: scale(1.2);
     }
   `}
   
