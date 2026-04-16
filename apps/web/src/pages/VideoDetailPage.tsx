@@ -854,7 +854,7 @@ const handleReDownloadConfirm = async () => {
         <div style={{
           position: 'relative',
           width: '100%',
-          paddingTop: video.isOpus ? '0' : (responsiveStyle.layout === 'two-column' ? '56.25%' : '56.25%'),
+          paddingTop: video.isOpus ? '0' : '56.25%',
           background: 'var(--color-bg-tertiary)',
           overflow: 'hidden',
           display: video.isOpus ? 'block' : 'relative',
@@ -932,7 +932,7 @@ const handleReDownloadConfirm = async () => {
 
       {/* 图文内容或视频信息 */}
       <div className="video-detail-content" style={{
-        padding: responsiveStyle.layout === 'two-column' ? '0' : responsiveStyle.padding,
+        padding: responsiveStyle.layout === 'two-column' ? '24px 0 0 0' : responsiveStyle.padding,
         maxWidth: '100%',
         margin: '0 auto'
       }}>
