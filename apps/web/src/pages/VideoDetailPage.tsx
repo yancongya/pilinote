@@ -566,19 +566,21 @@ const handleReDownloadConfirm = async () => {
       position: 'fixed',
       top: 0,
       left: 0,
-      right: 0,
-      bottom: 0,
       width: '100vw',
-      maxWidth: responsiveStyle.maxWidth,
       height: '100vh',
       background: 'var(--color-bg-primary)',
       overflowY: 'auto',
       WebkitOverflowScrolling: 'touch',
-      zIndex: 9999,
-      // 确保在所有屏幕尺寸下居中
-      marginLeft: 'auto',
-      marginRight: 'auto'
+      zIndex: 9999
     }}>
+      {/* 内容容器 - 用于居中 */}
+      <div style={{
+        maxWidth: responsiveStyle.maxWidth,
+        margin: '0 auto',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
       {/* 顶部导航 */}
       <div style={{
         position: 'sticky',
@@ -1090,6 +1092,7 @@ const handleReDownloadConfirm = async () => {
             }}
           />
         )}
+        </div>
       </div>
     </div>
   )
