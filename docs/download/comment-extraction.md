@@ -13,6 +13,7 @@ PiliNote 支持从B站提取视频评论数据并保存到NFO文件中，让用�
 - **NFO文件存储**：将评论数据保存到NFO文件中，支持离线查看
 - **批量更新**：支持批量更新多个视频的评论数据
 - **API集成**：通过B站评论API获取实时数据
+- **前端详情页显示**：视频详情页优先显示本地 NFO 中的评论数据
 
 ### 数据结构
 
@@ -258,6 +259,30 @@ def _parse_nfo_file(self, nfo_path: str) -> Dict:
                 comments.append(comment)
             
             nfo_data["comments"] = comments
+
+### 4. 视频详情页评论显示
+
+评论数据不仅用于写入 NFO，也会直接驱动前端视频详情页的评论区展示。
+
+**后端读取逻辑**：
+
+1. `apps/api/src/routers/video.py` 的 `get_video_detail()` 会先调用 `get_local_comments(bvid)`
+2. `get_local_comments()` 会扫描 `downloads/` 目录中的 `.nfo` 文件
+3. 命中当前 `bvid` 后解析 `<comments>` 节点
+4. 如果本地评论不存在，再回退到 `media_info.nfo.comments`
+
+**前端显示逻辑**：
+
+1. `apps/web/src/pages/VideoDetailPage.tsx` 调用 `apiService.getVideoDetail()`
+2. 将返回的 `data.comments` 写入页面状态
+3. 当 `video.comments.length > 0` 时显示“热门评论”区域
+4. 当前只展示前 3 条评论，包含作者、点赞数、回复数和正文
+
+### 5. 使用场景
+
+- 离线浏览已下载视频时，仍可查看写入到 NFO 中的热门评论
+- NFO 更新后，详情页可直接复用本地评论而不依赖实时评论接口
+- 评论区展示和 NFO 存储使用同一份结构，便于维护和排查
         
         return nfo_data
         

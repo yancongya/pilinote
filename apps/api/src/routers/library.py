@@ -271,6 +271,50 @@ async def get_local_image(file_path: str = Query(..., description="本地图片�
         )
 
 
+@router.get("/video")
+async def get_local_video(file_path: str = Query(..., description="本地视频文件路径")):
+    """
+    获取本地视频文件
+    """
+    try:
+        if not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"文件不存在: {file_path}"
+            )
+
+        media_types = {
+            '.mp4': 'video/mp4',
+            '.m4v': 'video/mp4',
+            '.webm': 'video/webm',
+            '.mkv': 'video/x-matroska',
+            '.flv': 'video/x-flv',
+            '.avi': 'video/x-msvideo',
+            '.mov': 'video/quicktime',
+            '.wmv': 'video/x-ms-wmv'
+        }
+        file_ext = os.path.splitext(file_path)[1].lower()
+
+        if file_ext not in media_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的视频类型: {file_ext}"
+            )
+
+        return FileResponse(
+            file_path,
+            media_type=media_types[file_ext]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取视频失败: {str(e)}"
+        )
+
+
 @router.post("/nfo/update")
 async def update_nfo_file(
     nfo_path: str = Body(..., embed=True),

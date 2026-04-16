@@ -7,8 +7,15 @@ import { useVideoDownload } from '../hooks/useVideoDownload'
 import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, Film, User, ThumbsUp, Star, MessageCircle, MessageSquare, Share2, Coins, Eye } from 'lucide-react'
-import { getAvatarProxyUrl } from '../config/api'
+import { ArrowLeft, Film, Play, User } from 'lucide-react'
+import { getAvatarProxyUrl, getLocalVideoUrl } from '../config/api'
+import {
+  buildPlayablePages,
+  getPlayableEntries,
+  selectInitialPlayableEntry,
+  type LocalPlaybackEntry,
+  type LocalPlaybackMap
+} from './videoDetailPlayback'
 
 interface VideoDetailPageProps {
   type?: 'video' | 'opus'
@@ -64,6 +71,9 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [downloading, setDownloading] = useState(false)
   const [downloadedCids, setDownloadedCids] = useState<Set<number>>(new Set())
   const [downloadedVideoStatus, setDownloadedVideoStatus] = useState<Record<number, 'none' | 'in_list' | 'downloaded'>>({})
+  const [localPlayback, setLocalPlayback] = useState<LocalPlaybackMap | null>(null)
+  const [mediaMode, setMediaMode] = useState<'poster' | 'local-video'>('poster')
+  const [activePlaybackEntry, setActivePlaybackEntry] = useState<LocalPlaybackEntry | null>(null)
   const [showReDownloadDialog, setShowReDownloadDialog] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [alertModal, setAlertModal] = useState<{
@@ -316,7 +326,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               rights: data.rights || {},
               descV2: data.descV2 || [],
               staff: data.staff || null,
-              ugcSeason: data.ugcSeason || null
+              ugcSeason: data.ugcSeason || null,
+              comments: data.comments || []
             })
           }
         } else {
@@ -331,6 +342,35 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
 
     fetchMediaDetail()
   }, [mediaId, sessdata, type])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function fetchLocalPlayback() {
+      setLocalPlayback(null)
+      setActivePlaybackEntry(null)
+      setMediaMode('poster')
+
+      if (!video || video.isOpus || !video.bvid) {
+        return
+      }
+
+      try {
+        const response = await apiService.getLocalPlaybackMap(video.bvid)
+        if (!cancelled && response.success && response.data) {
+          setLocalPlayback(response.data)
+        }
+      } catch (playbackError) {
+        console.error('[VideoDetail] 获取本地播放映射失败:', playbackError)
+      }
+    }
+
+    fetchLocalPlayback()
+
+    return () => {
+      cancelled = true
+    }
+  }, [video?.bvid, video?.isOpus])
 
   // 同步任务数据
   useEffect(() => {
@@ -506,6 +546,37 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const playableEntries = getPlayableEntries(localPlayback)
+  const hasLocalPlayback = playableEntries.length > 0
+  const playablePages = video?.pages && video.pages.length > 1
+    ? buildPlayablePages(video.pages, localPlayback)
+    : []
+  const activeLocalVideoUrl = activePlaybackEntry ? getLocalVideoUrl(activePlaybackEntry.path) : ''
+
+  const startLocalPlayback = (entry: LocalPlaybackEntry) => {
+    setActivePlaybackEntry(entry)
+    setMediaMode('local-video')
+  }
+
+  const handleCoverPlay = () => {
+    if (!video || video.isOpus || !hasLocalPlayback) {
+      return
+    }
+
+    const initialEntry = selectInitialPlayableEntry(localPlayback, video.cid)
+    if (initialEntry) {
+      startLocalPlayback(initialEntry)
+      return
+    }
+
+    setAlertModal({
+      show: true,
+      title: '无法直接播放',
+      message: '当前封面对应的分P未下载，请从下方已下载的视频列表中选择播放。',
+      type: 'error'
+    })
   }
 
   // 解析文本中的URL并转换为可点击的链接
@@ -869,8 +940,16 @@ const handleReDownloadConfirm = async () => {
           background: 'var(--color-bg-tertiary)',
           overflow: 'hidden',
           display: video.isOpus ? 'block' : 'relative',
-          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0'
-        }}>
+          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0',
+          cursor: !video.isOpus && hasLocalPlayback && mediaMode === 'poster' ? 'pointer' : 'default'
+        }}
+        onClick={() => {
+          if (!video.isOpus && mediaMode === 'poster') {
+            handleCoverPlay()
+          }
+        }}
+        title={!video.isOpus && hasLocalPlayback ? '点击播放本地视频' : undefined}
+        >
           {video.isOpus ? (
             video.cover ? (
               <img
@@ -880,7 +959,26 @@ const handleReDownloadConfirm = async () => {
               />
             ) : null
           ) : (
-            video.cover ? (
+            mediaMode === 'local-video' && activeLocalVideoUrl ? (
+              <video
+                key={activeLocalVideoUrl}
+                src={activeLocalVideoUrl}
+                controls
+                autoPlay
+                playsInline
+                poster={video.cover ? getProxyImageUrl(video.cover) : undefined}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  background: '#000',
+                  borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0'
+                }}
+              />
+            ) : video.cover ? (
               <img
                 src={getProxyImageUrl(video.cover)}
                 alt={video.title}
@@ -938,6 +1036,50 @@ const handleReDownloadConfirm = async () => {
             }}>
               {formatDuration(video.duration)}
             </div>
+          )}
+
+          {!video.isOpus && mediaMode === 'poster' && hasLocalPlayback && (
+            <div style={{
+              position: 'absolute',
+              right: '12px',
+              bottom: '44px',
+              width: '38px',
+              height: '38px',
+              borderRadius: '999px',
+              background: 'rgba(15, 15, 15, 0.78)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 10px 24px rgba(0, 0, 0, 0.24)',
+              pointerEvents: 'none'
+            }}>
+              <Play size={18} fill="currentColor" style={{ marginLeft: '2px' }} />
+            </div>
+          )}
+
+          {!video.isOpus && mediaMode === 'local-video' && activePlaybackEntry && (
+            <button
+              onClick={(event) => {
+                event.stopPropagation()
+                setMediaMode('poster')
+              }}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '8px 12px',
+                background: 'rgba(15, 15, 15, 0.78)',
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 600
+              }}
+            >
+              返回封面
+            </button>
           )}
         </div>
 
@@ -1167,14 +1309,26 @@ const handleReDownloadConfirm = async () => {
             maxHeight: responsiveStyle.layout === 'two-column' ? '400px' : '300px',
             overflowY: 'auto'
           }}>
-            {video.pages.map((page: any, index: number) => {
+            {playablePages.map((page: any, index: number) => {
               const isInList = downloadedCids.has(page.cid)
               const status = downloadedVideoStatus[page.cid] || 'none'
               const isDownloaded = status === 'downloaded'
+              const isPlayable = page.playable
+              const isActivePlayback = mediaMode === 'local-video' && activePlaybackEntry?.cid === page.cid
 
               return (
                 <div
                   key={page.cid || index}
+                  onClick={() => {
+                    if (isPlayable && page.localPath) {
+                      startLocalPlayback({
+                        cid: page.cid,
+                        path: page.localPath,
+                        exists: true,
+                        title: page.part
+                      })
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1182,7 +1336,10 @@ const handleReDownloadConfirm = async () => {
                     background: 'var(--color-bg-primary)',
                     borderRadius: responsiveStyle.layout === 'two-column' ? '8px' : '6px',
                     marginBottom: index < video.pages.length - 1 ? (responsiveStyle.layout === 'two-column' ? '10px' : '8px') : '0',
-                    opacity: (isInList || isDownloaded) ? 0.6 : 1
+                    opacity: isInList && !isDownloaded ? 0.6 : 1,
+                    cursor: isPlayable ? 'pointer' : 'default',
+                    border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
+                    boxShadow: isActivePlayback ? '0 0 0 3px rgba(59, 130, 246, 0.12)' : 'none'
                   }}
                 >
                   <div style={{ flex: 1 }}>
@@ -1193,7 +1350,20 @@ const handleReDownloadConfirm = async () => {
                       {formatDuration(page.duration)}
                     </div>
                   </div>
-                  {isDownloaded && (
+                  {isPlayable && (
+                    <span style={{
+                      fontSize: '11px',
+                      color: 'var(--color-primary-700)',
+                      background: 'var(--color-primary-50)',
+                      padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
+                      borderRadius: '4px',
+                      fontWeight: '600',
+                      marginRight: '8px'
+                    }}>
+                      {isActivePlayback ? '正在播放' : '播放本地'}
+                    </span>
+                  )}
+                  {isDownloaded && !isPlayable && (
                     <span style={{
                       fontSize: '11px',
                       color: 'var(--color-success-600)',

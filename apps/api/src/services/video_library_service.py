@@ -18,9 +18,11 @@
 - 不依赖任务数据库
 """
 
+import os
 from typing import List, Dict, Any, Set
 from sqlalchemy.orm import Session
 from src.services.local_library_service import LocalLibraryService
+from src.models.download import Download
 
 
 class VideoLibraryService:
@@ -116,4 +118,76 @@ class VideoLibraryService:
             "total_videos": total_videos,
             "total_size_mb": round(total_size / (1024 * 1024), 2),
             "last_scan_time": 0  # scan_library目前没有返回扫描时间，设为0
+        }
+
+    def get_local_playback_map(self, bvid: str) -> Dict[str, Any]:
+        """
+        获取视频的本地可播放文件映射
+
+        Args:
+            bvid: 视频 BVID
+
+        Returns:
+            {
+                "bvid": "BVxxx",
+                "has_local_video": True,
+                "entries": [
+                    {"cid": 123, "path": "...", "exists": True, "title": "..."}
+                ]
+            }
+        """
+        library_data = self.local_library.scan_library()
+        folder_match = None
+
+        for folder in library_data.folders:
+            nfo_data = folder.get('nfo_data') or {}
+            if nfo_data.get('bvid') == bvid:
+                folder_match = folder
+                break
+
+        entries: List[Dict[str, Any]] = []
+        seen_paths: Set[str] = set()
+
+        downloads = (
+            self.db.query(Download)
+            .filter(Download.bvid == bvid, Download.status == "completed")
+            .order_by(Download.cid.asc(), Download.created_at.asc())
+            .all()
+        )
+
+        for download in downloads:
+            if not download.file_path or not os.path.exists(download.file_path):
+                continue
+
+            if download.file_path in seen_paths:
+                continue
+
+            entries.append({
+                "cid": download.cid,
+                "path": download.file_path,
+                "exists": True,
+                "title": download.title or os.path.basename(download.file_path)
+            })
+            seen_paths.add(download.file_path)
+
+        folder_videos = getattr(library_data, 'folder_videos', {})
+        if not entries and folder_match:
+            folder_data = folder_videos.get(folder_match.get('name', ''), {})
+            for video_file in folder_data.get('files', []):
+                if not os.path.exists(video_file.path) or video_file.path in seen_paths:
+                    continue
+
+                entries.append({
+                    "cid": None,
+                    "path": video_file.path,
+                    "exists": True,
+                    "title": video_file.title
+                })
+                seen_paths.add(video_file.path)
+
+        return {
+            "bvid": bvid,
+            "has_local_video": len(entries) > 0,
+            "entries": entries,
+            "folder_path": folder_match.get('path') if folder_match else None
         }

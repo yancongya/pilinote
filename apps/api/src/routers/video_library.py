@@ -139,3 +139,26 @@ async def get_library_status(db: Session = Depends(get_db)):
             status_code=500,
             detail=f"获取视频库状态失败: {str(e)}"
         )
+
+
+@router.get("/playback/{bvid}", response_model=dict)
+async def get_local_playback_map(
+    bvid: str,
+    db: Session = Depends(get_db)
+):
+    """
+    获取视频的本地可播放文件映射
+    """
+    try:
+        service = VideoLibraryService(db)
+        result = service.get_local_playback_map(bvid)
+
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取本地播放映射失败: {str(e)}"
+        )

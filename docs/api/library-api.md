@@ -78,6 +78,13 @@ http://localhost:8000
 - **NFO存储**：将评论数据保存到NFO文件中，支持离线查看
 - **API集成**：通过B站评论API获取实时评论数据
 
+### 6. 本地播放支持
+
+- **播放映射查询**：根据 `bvid` 返回本地可播放文件列表
+- **本地视频代理**：通过 API 代理本地视频文件，供前端 `<video>` 播放
+- **多P支持**：返回带 `cid` 的文件映射，供详情页选择当前分P
+- **兜底扫描**：当数据库没有下载记录时，可回退到本地视频库扫描结果
+
 ---
 
 ## 端点列表
@@ -298,6 +305,92 @@ async def scan_library(db: Session = Depends(get_db)):
             detail=f"扫描视频库失败: {str(e)}"
         )
 ```
+
+---
+
+### 3. 获取本地视频文件
+
+**端点**：`GET /api/library/video`
+
+**描述**：代理返回本地视频文件，供前端播放器直接播放。
+
+#### 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file_path` | string | 是 | 本地视频文件绝对路径 |
+
+#### 请求示例
+
+```bash
+curl -X GET "http://localhost:8000/api/library/video?file_path=/Users/tanyancong/工作/开发/pilinote/downloads/demo.mp4"
+```
+
+#### 响应说明
+
+- 成功时直接返回视频文件流
+- 支持格式：`.mp4`、`.m4v`、`.webm`、`.mkv`、`.flv`、`.avi`、`.mov`、`.wmv`
+- 不支持的文件扩展名会返回 `400`
+
+#### 使用场景
+
+- 视频详情页点击封面后原地切换到本地 `<video>` 播放器
+- 本地文件不直接暴露给前端，而是通过 API 代理访问
+
+---
+
+### 4. 获取本地播放映射
+
+**端点**：`GET /api/video-library/playback/{bvid}`
+
+**描述**：根据视频 `bvid` 返回本地可播放文件列表，用于视频详情页判断封面是否可播放，以及多 P 视频如何精确匹配当前分P。
+
+#### 请求示例
+
+```bash
+curl -X GET "http://localhost:8000/api/video-library/playback/BV1xx411c7mD"
+```
+
+#### 响应示例
+
+```json
+{
+  "success": true,
+  "data": {
+    "bvid": "BV1xx411c7mD",
+    "has_local_video": true,
+    "entries": [
+      {
+        "cid": 123456789,
+        "path": "/Users/tanyancong/工作/开发/pilinote/downloads/demo/P1.mp4",
+        "exists": true,
+        "title": "P1 标题"
+      }
+    ],
+    "folder_path": "/Users/tanyancong/工作/开发/pilinote/downloads/demo"
+  }
+}
+```
+
+#### 响应字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bvid` | string | 视频 BVID |
+| `has_local_video` | bool | 是否存在本地可播放文件 |
+| `entries` | array | 可播放文件列表 |
+| `entries[].cid` | int/null | 分P的 CID，单文件兜底扫描时可能为空 |
+| `entries[].path` | string | 本地视频文件绝对路径 |
+| `entries[].exists` | bool | 文件是否存在 |
+| `entries[].title` | string | 文件标题 |
+| `folder_path` | string/null | 匹配到的视频文件夹路径 |
+
+#### 匹配策略
+
+1. 优先读取 `downloads` 表中 `status=completed` 的记录
+2. 如果数据库里没有有效 `file_path`，回退到本地视频库扫描结果
+3. 多 P 视频优先依赖 `cid -> file_path` 映射
+4. 单文件视频允许返回无 `cid` 的兜底条目
 
 ---
 

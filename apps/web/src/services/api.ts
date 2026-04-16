@@ -184,6 +184,12 @@ class ApiService {
     return this.request<any>(url, { method: 'GET' });
   }
 
+  async getLocalPlaybackMap(bvid: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/video-library/playback/${encodeURIComponent(bvid)}`, {
+      method: 'GET'
+    });
+  }
+
   // 稍后再看相关API
   async getWatchLaterList(
     pn: number = 1,

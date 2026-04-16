@@ -16,7 +16,14 @@ def get_local_comments(bvid: str) -> list:
     comments = []
     try:
         # 查找 downloads 目录下匹配 bvid 的文件夹
-        downloads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "downloads")
+        # __file__ = /Users/tanyancong/工作/开发/pilinote/apps/api/src/routers/video.py
+        # 向上4层: routers -> src -> api -> apps -> pilinote根目录
+        routers_dir = os.path.dirname(__file__)  # /Users/tanyancong/工作/开发/pilinote/apps/api/src/routers
+        src_dir = os.path.dirname(routers_dir)   # /Users/tanyancong/工作/开发/pilinote/apps/api/src
+        api_dir = os.path.dirname(src_dir)       # /Users/tanyancong/工作/开发/pilinote/apps/api
+        apps_dir = os.path.dirname(api_dir)      # /Users/tanyancong/工作/开发/pilinote/apps
+        project_root = os.path.dirname(apps_dir) # /Users/tanyancong/工作/开发/pilinote
+        downloads_dir = os.path.join(project_root, "downloads")
         if not os.path.exists(downloads_dir):
             return comments
         
