@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getApiUrl } from '../config/api'
+import { videoLibraryService } from '../services/videoLibraryService'
 
 // 类型定义
 export type TaskState = 'backlog' | 'pending' | 'active' | 'completed' | 'paused' | 'failed' | 'cancelled'
@@ -223,7 +224,14 @@ forceClearCache: () => {
 
 
                 if (tasks[data.id]) {
-                  tasks[data.id] = { ...tasks[data.id], state: stateStr as TaskState }
+                  const oldState = tasks[data.id].state
+                  const newState = stateStr as TaskState
+                  tasks[data.id] = { ...tasks[data.id], state: newState }
+                  
+                  // 检测下载完成事件
+                  if (oldState !== 'completed' && newState === 'completed') {
+                    videoLibraryService.handleDownloadComplete(data.id)
+                  }
                 }
               }
               return { tasks }
