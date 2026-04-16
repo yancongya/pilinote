@@ -103,7 +103,7 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
     setLocalConfig(prev => ({ ...prev, [key]: value }))
   }
 
-  const getCacheStatusInfo = () => {
+  const cacheStatusInfo = (() => {
     switch (cacheStatus) {
       case 'empty':
         return { text: '缓存为空', color: 'text-gray-500' }
@@ -114,9 +114,7 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
       default:
         return { text: '未知状态', color: 'text-gray-500' }
     }
-  }
-
-  const cacheStatusInfo = getCacheStatusInfo()
+  })()
 
   return (
     <div className="stg-panel">
@@ -134,20 +132,18 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
               <Clock size={18} className="stg-item-icon" />
               <span className="stg-item-label">缓存过期时间</span>
             </div>
-            <div className="stg-item-content">
-              <select
-                value={localConfig.cacheTTL}
-                onChange={(e) => handleConfigChange('cacheTTL', parseInt(e.target.value) || 1)}
-                className="stg-select"
-              >
-                <option value={1}>1 分钟</option>
-                <option value={5}>5 分钟</option>
-                <option value={10}>10 分钟</option>
-                <option value={30}>30 分钟</option>
-                <option value={60}>60 分钟</option>
-              </select>
-              <p className="stg-hint">视频库缓存的过期时间，超过此时间后首次查询会刷新缓存</p>
-            </div>
+            <select
+              value={localConfig.cacheTTL}
+              onChange={(e) => handleConfigChange('cacheTTL', parseInt(e.target.value) || 1)}
+              className="stg-select"
+            >
+              <option value={1}>1 分钟</option>
+              <option value={5}>5 分钟</option>
+              <option value={10}>10 分钟</option>
+              <option value={30}>30 分钟</option>
+              <option value={60}>60 分钟</option>
+            </select>
+            <p className="stg-hint">视频库缓存的过期时间，超过此时间后首次查询会刷新缓存</p>
           </div>
 
           {/* 自动刷新延迟 */}
@@ -156,20 +152,18 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
               <Zap size={18} className="stg-item-icon" />
               <span className="stg-item-label">自动刷新延迟</span>
             </div>
-            <div className="stg-item-content">
-              <select
-                value={localConfig.autoRefreshDelay}
-                onChange={(e) => handleConfigChange('autoRefreshDelay', parseInt(e.target.value) || 1)}
-                className="stg-select"
-              >
-                <option value={1}>1 秒</option>
-                <option value={5}>5 秒</option>
-                <option value={10}>10 秒</option>
-                <option value={15}>15 秒</option>
-                <option value={30}>30 秒</option>
-              </select>
-              <p className="stg-hint">下载完成后自动刷新视频库的延迟时间，避免频繁刷新</p>
-            </div>
+            <select
+              value={localConfig.autoRefreshDelay}
+              onChange={(e) => handleConfigChange('autoRefreshDelay', parseInt(e.target.value) || 1)}
+              className="stg-select"
+            >
+              <option value={1}>1 秒</option>
+              <option value={5}>5 秒</option>
+              <option value={10}>10 秒</option>
+              <option value={15}>15 秒</option>
+              <option value={30}>30 秒</option>
+            </select>
+            <p className="stg-hint">下载完成后自动刷新视频库的延迟时间，避免频繁刷新</p>
           </div>
 
           {/* 最大并发检查数 */}
@@ -178,20 +172,18 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
               <CheckCircle size={18} className="stg-item-icon" />
               <span className="stg-item-label">最大并发检查数</span>
             </div>
-            <div className="stg-item-content">
-              <select
-                value={localConfig.maxConcurrentChecks}
-                onChange={(e) => handleConfigChange('maxConcurrentChecks', parseInt(e.target.value) || 1)}
-                className="stg-select"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={30}>30</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <p className="stg-hint">批量检查视频状态时的最大并发请求数，避免后端压力过大</p>
-            </div>
+            <select
+              value={localConfig.maxConcurrentChecks}
+              onChange={(e) => handleConfigChange('maxConcurrentChecks', parseInt(e.target.value) || 1)}
+              className="stg-select"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={30}>30</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <p className="stg-hint">批量检查视频状态时的最大并发请求数，避免后端压力过大</p>
           </div>
 
           {/* 启用智能刷新 */}
@@ -222,8 +214,8 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
               <RefreshCw size={18} className="stg-item-icon" />
               <span className="stg-item-label">当前状态</span>
             </div>
-            <div className="stg-item-content">
-              <span className={`stg-item-sublabel ${cacheStatusInfo.color}`}>
+            <div className="stg-meta">
+              <span className={cacheStatusInfo.color}>
                 {cacheStatusInfo.text}
               </span>
             </div>
@@ -235,10 +227,8 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
                 <CheckCircle size={18} className="stg-item-icon" />
                 <span className="stg-item-label">缓存视频数</span>
               </div>
-              <div className="stg-item-content">
-                <span className="stg-item-sublabel">
-                  {cachedVideoCount} 个视频
-                </span>
+              <div className="stg-meta">
+                {cachedVideoCount} 个视频
               </div>
             </div>
           )}
@@ -249,10 +239,8 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
                 <Clock size={18} className="stg-item-icon" />
                 <span className="stg-item-label">最后刷新时间</span>
               </div>
-              <div className="stg-item-content">
-                <span className="stg-item-sublabel">
-                  {lastRefreshTime.toLocaleString('zh-CN')}
-                </span>
+              <div className="stg-meta">
+                {lastRefreshTime.toLocaleString('zh-CN')}
               </div>
             </div>
           )}
