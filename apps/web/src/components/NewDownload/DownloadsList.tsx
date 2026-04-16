@@ -61,7 +61,7 @@ export default function DownloadsList() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // 获取视频库统计信息
+  // 获取媒体库统计信息
   const fetchLibraryStats = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/library/statistics')
@@ -70,11 +70,11 @@ export default function DownloadsList() {
         setLibraryStats(result.data)
       }
     } catch (error) {
-      console.error('获取视频库统计信息失败:', error)
+      console.error('获取媒体库统计信息失败:', error)
     }
   }
 
-  // 刷新本地视频库
+  // 刷新本地媒体库
   const handleRefreshLibrary = async () => {
     if (isRefreshing) return
     setIsRefreshing(true)
@@ -85,7 +85,7 @@ export default function DownloadsList() {
       })
       if (response.ok) {
         const result = await response.json()
-        showToast(`视频库刷新完成！${result.data.scan_result.total_files} 个文件，${result.data.imported_count} 个新文件`, 'success')
+        showToast(`媒体库刷新完成！${result.data.scan_result.total_files} 个文件，${result.data.imported_count} 个新文件`, 'success')
         // 刷新任务列表
         await fetchTasks()
         // 更新统计信息
@@ -95,8 +95,8 @@ export default function DownloadsList() {
         throw new Error(errorResult.detail || '刷新失败')
       }
     } catch (error) {
-      console.error('刷新视频库失败:', error)
-      showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+      console.error('刷新媒体库失败:', error)
+      showToast(`刷新媒体库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
     } finally {
       setIsRefreshing(false)
     }
@@ -233,7 +233,7 @@ export default function DownloadsList() {
               >
                 <FolderOpen size={16} />
                 <div className="refresh-menu-item-content">
-                  <span>刷新本地视频库</span>
+                  <span>刷新本地媒体库</span>
                   <span className="refresh-menu-item-desc">
                     {libraryStats ? `扫描 ${libraryStats.file_count} 个文件，${(libraryStats.total_size_gb).toFixed(2)} GB` : '扫描下载目录并同步'}
                   </span>

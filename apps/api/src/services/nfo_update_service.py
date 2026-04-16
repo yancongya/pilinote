@@ -11,6 +11,7 @@ from datetime import datetime
 
 from src.services.bilibili import BilibiliService
 from src.services.queue.handlers.nfo import SingleNfoHandler
+from src.services.opus_archive_service import build_opus_meta, generate_opus_nfo, normalize_opus_id
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +34,65 @@ class NFOUpdateService:
             Dict: 更新结果
         """
         try:
-            # 1. 读取现有NFO文件，提取BVID
+            # 1. 读取现有NFO文件，提取媒体ID
             existing_data = self._parse_nfo_file(nfo_path)
             bvid = existing_data.get('bvid')
+            opus_id = existing_data.get('opus_id')
+
+            if opus_id:
+                normalized_opus_id = normalize_opus_id(opus_id)
+                logger.info(f"开始更新图文NFO文件: {nfo_path}, opus_id: {normalized_opus_id}")
+
+                result = await self.bilibili_service.get_opus_details(normalized_opus_id.replace("cv", ""))
+                if not result.get("success"):
+                    return {
+                        "success": False,
+                        "message": f"获取图文信息失败: {result.get('message', '未知错误')}",
+                        "nfo_path": nfo_path,
+                        "opus_id": normalized_opus_id,
+                    }
+
+                opus_data = result["data"] or {}
+                author = opus_data.get("author", {}) or {}
+                stat = opus_data.get("stat", {}) or {}
+                meta = build_opus_meta(
+                    normalized_opus_id,
+                    {
+                        "id": opus_data.get("id"),
+                        "title": opus_data.get("title", ""),
+                        "paragraphs": opus_data.get("paragraphs", []),
+                        "image_urls": opus_data.get("image_urls", []),
+                        "author": {
+                            "name": author.get("name", ""),
+                            "mid": author.get("mid", 0),
+                            "avatar_url": existing_data.get("avatar") or "",
+                        },
+                        "stat": {
+                            "like": (stat.get("like", {}) or {}).get("count", 0),
+                            "reply": (stat.get("comment", {}) or {}).get("count", 0),
+                            "share": (stat.get("forward", {}) or {}).get("count", 0),
+                            "favorite": (stat.get("favorite", {}) or {}).get("count", 0),
+                            "coin": (stat.get("coin", {}) or {}).get("count", 0),
+                        },
+                        "pubdate": author.get("pub_ts", 0),
+                        "basic": opus_data.get("basic", {}) or {},
+                    },
+                )
+
+                nfo_content = generate_opus_nfo(meta)
+                backup_path = self._backup_nfo_file(nfo_path)
+
+                with open(nfo_path, 'w', encoding='utf-8') as f:
+                    f.write(nfo_content)
+
+                return {
+                    "success": True,
+                    "message": "图文NFO文件更新成功",
+                    "nfo_path": nfo_path,
+                    "opus_id": normalized_opus_id,
+                    "backup_path": backup_path,
+                    "updated_fields": list(meta.keys()),
+                }
 
             if not bvid:
                 # 尝试从文件名中提取BVID
@@ -205,6 +262,10 @@ class NFOUpdateService:
             bvid_elem = root.find('bvid')
             if bvid_elem is not None and bvid_elem.text:
                 metadata['bvid'] = bvid_elem.text
+
+            opus_id_elem = root.find('opus_id')
+            if opus_id_elem is not None and opus_id_elem.text:
+                metadata['opus_id'] = opus_id_elem.text
 
             # 提取其他可能需要的信息
             title_elem = root.find('title')

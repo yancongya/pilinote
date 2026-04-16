@@ -3,38 +3,11 @@ import { useNewQueueStore, Task } from '../../stores/newQueue'
 import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
-import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle } from 'lucide-react'
+import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
-
-interface VideoFile {
-  path: string
-  title: string
-  size: number
-  size_mb: number
-  modified_time: number
-  modified_date: string
-}
-
-interface FolderMetadata {
-  name: string
-  title: string
-  path: string
-  file_count: number
-  size: number
-  metadata_size: number
-  total_size: number
-  size_mb: number
-  size_gb: number
-  cover?: string
-  cover_path?: string
-  avatar?: string
-  avatar_path?: string
-  studio?: string
-  nfo_data?: any
-  created_time: number
-}
+import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
 
 interface LibraryCardProps {
   task: Task
@@ -47,15 +20,16 @@ interface LibraryCardProps {
 // LibraryCard组件 - 显示文件夹卡片
 function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileSize }: LibraryCardProps) {
   const navigate = useNavigate()
-  const hasMultipleVideos = task.meta?.file_count > 1
+  const isOpus = task.media_type === 'opus'
+  const hasMultipleVideos = !isOpus && task.meta?.file_count > 1
   const hasCover = task.cover && task.cover.trim()
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
 
   // 点击卡片跳转到详情页
   const handleCardClick = () => {
-    const bvid = task.meta?.nfo_data?.bvid
-    if (bvid) {
-      navigate(`/video/${bvid}`)
+    const route = getMediaLibraryRoute(task)
+    if (route) {
+      navigate(route)
     }
   }
   
@@ -132,22 +106,32 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               />
             ) : (
               <div className="cover-placeholder">
-                <Film size={32} color="var(--color-primary-500)" />
+                {isOpus ? (
+                  <FileText size={32} color="var(--color-primary-500)" />
+                ) : (
+                  <Film size={32} color="var(--color-primary-500)" />
+                )}
               </div>
             )}
             
             {/* 时长显示 */}
-            {task.meta?.runtime && (
+            {!isOpus && task.meta?.runtime && (
               <div className="library-folder-duration">
                 {formatDuration(task.meta.runtime)}
               </div>
             )}
             
             {/* 评分显示 */}
-            {task.meta?.rating && (
+            {!isOpus && task.meta?.rating && (
               <div className="library-folder-rating">
                 <Star size={12} color="var(--color-warning-400)" fill="var(--color-warning-400)" />
                 <span>{task.meta.rating}</span>
+              </div>
+            )}
+
+            {isOpus && (
+              <div className="library-folder-duration" style={{ background: 'var(--color-primary-600)' }}>
+                图文
               </div>
             )}
             
@@ -183,8 +167,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             {/* 统计数据 */}
             {task.meta?.statistics && (
               <div className="library-folder-stats">
-                <Eye size={12} />
-                <span>{formatNumber(task.meta.statistics.play)}</span>
+                {!isOpus && (
+                  <>
+                    <Eye size={12} />
+                    <span>{formatNumber(task.meta.statistics.play)}</span>
+                  </>
+                )}
                 <ThumbsUp size={12} />
                 <span>{formatNumber(task.meta.statistics.like)}</span>
                 <Coins size={12} />
@@ -197,7 +185,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                     <span>{formatNumber(task.meta.statistics.share)}</span>
                   </>
                 )}
-                {task.meta.statistics.danmaku !== undefined && (
+                {!isOpus && task.meta.statistics.danmaku !== undefined && (
                   <>
                     <MessageSquare size={12} />
                     <span>{formatNumber(task.meta.statistics.danmaku)}</span>
@@ -254,9 +242,9 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           {/* 大小行：文件大小 */}
           <div className="library-folder-size-row">
             <div className="library-folder-size">
-              {formatFileSize(task.meta.total_size + task.meta.metadata_size)}
-              {task.meta.metadata_size > 0 && task.meta.total_size > 0 && ' | '}
-              {task.meta.total_size > 0 && `视频: ${formatFileSize(task.meta.total_size)}`}
+              {formatFileSize(task.meta.total_size)}
+              {task.meta.metadata_size > 0 && task.meta.primary_size > 0 && ' | '}
+              {task.meta.primary_size > 0 && `${task.meta.primary_size_label}: ${formatFileSize(task.meta.primary_size)}`}
               {task.meta.metadata_size > 0 && ` | 元数据: ${formatFileSize(task.meta.metadata_size)}`}
             </div>
           </div>
@@ -266,7 +254,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
       {/* 展开的视频列表（仅多视频文件夹） */}
       {hasMultipleVideos && isExpanded && task.meta?.files && (
         <div className="library-folder-videos">
-          {task.meta.files.map((file: VideoFile, index: number) => (
+          {task.meta.files.map((file: MediaLibraryFile, index: number) => (
             <div key={`${file.path}-${index}`} className="library-folder-video-item">
               <div className="library-video-info">
                 <div className="library-video-title">{file.title}</div>
@@ -321,8 +309,8 @@ export default function VideoLibrary() {
       case 'size':
         // 按大小排序
         sorted.sort((a, b) => {
-          const sizeA = a.meta?.total_size + a.meta?.metadata_size || 0
-          const sizeB = b.meta?.total_size + b.meta?.metadata_size || 0
+          const sizeA = a.meta?.total_size || 0
+          const sizeB = b.meta?.total_size || 0
           return sortDirection === 'desc' ? sizeB - sizeA : sizeA - sizeB
         })
         break
@@ -393,8 +381,8 @@ export default function VideoLibrary() {
       case 'views':
         // 按播放量排序
         sorted.sort((a, b) => {
-          const viewsA = a.meta?.statistics?.play || 0
-          const viewsB = b.meta?.statistics?.play || 0
+          const viewsA = a.media_type === 'opus' ? 0 : (a.meta?.statistics?.play || 0)
+          const viewsB = b.media_type === 'opus' ? 0 : (b.meta?.statistics?.play || 0)
           return sortDirection === 'desc' ? viewsB - viewsA : viewsA - viewsB
         })
         break
@@ -431,77 +419,6 @@ export default function VideoLibrary() {
     return sortTasks(filtered)
   }
 
-  // 将扫描的文件转换为Task格式
-  const convertFilesToTasks = (scanData: any): Task[] => {
-    const tasks: Task[] = []
-    
-    if (!scanData || !scanData.folders) {
-      return tasks
-    }
-
-    // 遍历所有文件夹
-    scanData.folders.forEach((folder: FolderMetadata) => {
-      // 获取该文件夹的视频文件
-      const folderVideos = scanData.folder_videos?.[folder.name]?.files
-      
-      if (!folderVideos || folderVideos.length === 0) {
-        return
-      }
-
-      // 创建一个任务代表整个文件夹
-      const task: Task = {
-        id: `folder-${folder.name}`,
-        ts: Date.now(),
-        seq: 0,
-        title: folder.title,
-        cover: folder.cover_path || '',
-        desc: folder.nfo_data?.plot || '',
-        duration: 0,
-        pubtime: folder.created_time * 1000,
-        media_type: 'video',
-        url: '',
-        media_id: folder.name,
-        schedulerId: undefined,
-        state: 'completed' as const,
-        status: {
-          progress: 100,
-          speed: 0,
-          eta: 0,
-          stage: 'completed' as const,
-          downloaded: folder.size,
-          total: folder.size
-        },
-        meta: {
-          folder_name: folder.name,
-          folder_path: folder.path,
-          file_count: folder.file_count,
-          total_size: folder.total_size,
-          metadata_size: folder.metadata_size,
-          studio: folder.studio,
-          cover_path: folder.cover_path,
-          avatar_path: folder.avatar_path,
-          nfo_data: folder.nfo_data,
-          files: folderVideos,
-          // 从NFO提取额外信息
-          statistics: folder.nfo_data?.statistics,
-          tags: folder.nfo_data?.tags || [],
-          runtime: folder.nfo_data?.runtime ? folder.nfo_data.runtime : undefined,
-          rating: folder.nfo_data?.rating,
-          premiered: folder.nfo_data?.premiered
-        },
-        prepare: {},
-        subtasks: [],
-        subtaskStatus: {},
-        created_at: folder.created_time * 1000,
-        updated_at: Date.now()
-      }
-
-      tasks.push(task)
-    })
-
-    return tasks
-  }
-
   // 展开/折叠文件夹
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
@@ -515,7 +432,7 @@ export default function VideoLibrary() {
     })
   }
 
-  // 扫描视频库
+  // 扫描媒体库
   const scanLibrary = async () => {
     try {
       const response = await fetch('http://localhost:8000/api/library/scan', {
@@ -526,19 +443,19 @@ export default function VideoLibrary() {
         setScanResult(result.data)
         
         // 转换为Task格式
-        const convertedTasks = convertFilesToTasks(result.data)
+        const convertedTasks = convertScanDataToMediaTasks(result.data)
         setTasks(convertedTasks)
         
         return result.data
       }
       throw new Error('扫描失败')
     } catch (error) {
-      console.error('扫描视频库失败:', error)
+      console.error('扫描媒体库失败:', error)
       throw error
     }
   }
 
-  // 刷新视频库（优先NFO更新，然后扫描）
+  // 刷新媒体库（优先NFO更新，然后扫描）
   const handleRefreshLibrary = async () => {
     if (isRefreshing || isUpdatingNfo) return
     
@@ -618,7 +535,7 @@ export default function VideoLibrary() {
       
     } catch (error) {
       console.error('NFO更新失败:', error)
-      showToast('NFO更新失败，继续扫描视频库...', 'warning')
+      showToast('NFO更新失败，继续扫描媒体库...', 'warning')
     } finally {
       setIsUpdatingNfo(false)
     }
@@ -626,26 +543,26 @@ export default function VideoLibrary() {
     // 第二阶段：执行扫描
     setIsRefreshing(true)
     try {
-      showToast('开始扫描视频库...', 'info')
+      showToast('开始扫描媒体库...', 'info')
       
       const result = await scanLibrary()
       
       if (result) {
-        // 刷新视频库缓存
+        // 刷新媒体库缓存
         try {
           await videoLibraryService.refreshCache()
-          console.log('[VideoLibrary] 视频库缓存已刷新')
+          console.log('[VideoLibrary] 媒体库缓存已刷新')
         } catch (error) {
           console.warn('[VideoLibrary] 刷新缓存失败:', error)
         }
         
         // 延迟2秒后显示扫描结果
         setTimeout(() => {
-          showToast(`视频库刷新完成！${result.folder_count} 个系列，${result.total_files} 个视频`, 'success')
+          showToast(`媒体库刷新完成！${result.folder_count} 个目录，${result.total_files} 个视频文件`, 'success')
         }, 2000)
       }
     } catch (error) {
-      showToast(`刷新视频库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+      showToast(`刷新媒体库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
     } finally {
       setIsRefreshing(false)
     }
@@ -658,7 +575,7 @@ export default function VideoLibrary() {
     }
   }, [connected])
 
-  // 监听下载完成事件，延迟刷新视频库
+  // 监听下载完成事件，延迟刷新媒体库
   useEffect(() => {
     if (!connected) return
 
@@ -668,11 +585,11 @@ export default function VideoLibrary() {
         
         // 监听任务完成事件
         if (data.type === 'task_completed' || data.type === 'task.state' && data.state === 'completed') {
-          console.log('检测到下载完成，5秒后刷新视频库')
+          console.log('检测到下载完成，5秒后刷新媒体库')
           
-          // 延迟5秒后刷新视频库
+          // 延迟5秒后刷新媒体库
           const timer = setTimeout(() => {
-            console.log('刷新视频库')
+            console.log('刷新媒体库')
             scanLibrary()
           }, 5000)
           
@@ -791,11 +708,11 @@ export default function VideoLibrary() {
 
             <EmptyIcon size={48} color="var(--color-text-secondary)" />
 
-            <p>暂无视频文件</p>
+            <p>暂无媒体文件</p>
 
             <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
 
-              点击刷新按钮扫描本地视频库
+              点击刷新按钮扫描本地媒体库
 
             </p>
 
@@ -861,7 +778,7 @@ export default function VideoLibrary() {
 
                 <EmptyIcon size={48} color="var(--color-text-secondary)" />
 
-                <p>未找到匹配的视频</p>
+                <p>未找到匹配的媒体</p>
 
                 <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
 

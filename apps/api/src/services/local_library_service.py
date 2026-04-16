@@ -100,6 +100,7 @@ class LibraryScanResult:
                 "path": folder["path"],
                 "file_count": folder["file_count"],
                 "size": folder["size"],
+                "content_size": folder.get("content_size", folder["size"]),
                 "metadata_size": folder.get("metadata_size", 0),
                 "total_size": folder.get("total_size", folder["size"]),
                 "size_mb": folder["size_mb"],
@@ -568,6 +569,7 @@ class LocalLibraryService:
                     
                     folder_file_count = 0
                     folder_size = 0
+                    content_size = 0
                     folder_files = []
                     metadata_size = 0  # 元数据文件大小
                     
@@ -593,8 +595,20 @@ class LocalLibraryService:
                                     
                                     logger.debug(f"发现视频文件: {filename} ({file_size} bytes)")
                                 else:
-                                    # 非视频文件（如nfo、图片等），计入元数据大小
-                                    metadata_size += file_size
+                                    relative_path = os.path.relpath(file_path, folder_path)
+                                    normalized_relative = relative_path.replace(os.sep, '/').lower()
+                                    lower_filename = filename.lower()
+
+                                    is_opus_content_file = (
+                                        normalized_relative.startswith('images/')
+                                        or lower_filename.endswith('.md')
+                                    )
+
+                                    if is_opus_content_file:
+                                        content_size += file_size
+                                    else:
+                                        # 非视频文件（如nfo、封面、头像等），计入元数据大小
+                                        metadata_size += file_size
                                     
                             except (OSError, FileNotFoundError) as e:
                                 error_msg = f"无法读取文件 {file_path}: {e}"
@@ -610,6 +624,7 @@ class LocalLibraryService:
                             'files': folder_files,
                             'metadata': folder_metadata,
                             'total_size': folder_size,
+                            'content_size': content_size,
                             'metadata_size': metadata_size
                         }
                         result.folder_count += 1
@@ -621,8 +636,9 @@ class LocalLibraryService:
                             "path": folder_path,
                             "file_count": folder_file_count,
                             "size": folder_size,
+                            "content_size": content_size,
                             "metadata_size": metadata_size,
-                            "total_size": folder_size + metadata_size,
+                            "total_size": folder_size + content_size + metadata_size,
                             "size_mb": round(folder_size / (1024 * 1024), 2),
                             "size_gb": round(folder_size / (1024 * 1024 * 1024), 2),
                             "cover": folder_metadata['cover'],
@@ -642,8 +658,9 @@ class LocalLibraryService:
                             "path": folder_path,
                             "file_count": 0,
                             "size": 0,
+                            "content_size": content_size,
                             "metadata_size": metadata_size,
-                            "total_size": metadata_size,
+                            "total_size": content_size + metadata_size,
                             "size_mb": 0,
                             "size_gb": 0,
                             "cover": folder_metadata['cover'],

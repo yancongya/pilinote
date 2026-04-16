@@ -53,7 +53,7 @@ export default function NewDownloadContent() {
           onClick={() => setActiveTab('library')}
           tabIndex={activeTab === 'library' ? 0 : -1}
         >
-          视频库
+          媒体库
         </button>
         <button
           role="tab"
