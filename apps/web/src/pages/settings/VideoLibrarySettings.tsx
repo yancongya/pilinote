@@ -1,5 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { RefreshCw, Clock, Zap, CheckCircle, XCircle, Settings2 } from 'lucide-react'
+import { RefreshCw, Clock, Zap, CheckCircle } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { useToast } from '../../components/Toast'
@@ -103,19 +103,6 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
     setLocalConfig(prev => ({ ...prev, [key]: value }))
   }
 
-  const getStatusIcon = () => {
-    switch (savedStatus) {
-      case 'saving':
-        return <RefreshCw className="spinning" size={16} />
-      case 'saved':
-        return <CheckCircle size={16} />
-      case 'error':
-        return <XCircle size={16} />
-      default:
-        return null
-    }
-  }
-
   const getCacheStatusInfo = () => {
     switch (cacheStatus) {
       case 'empty':
@@ -132,180 +119,162 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
   const cacheStatusInfo = getCacheStatusInfo()
 
   return (
-    <div className="settings-content">
+    <div className="stg-panel">
       {/* 视频库设置部分 */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div className="settings-section-header-left">
-            <Settings2 size={20} className="settings-section-icon" />
-            <h2 className="settings-section-title">视频库配置</h2>
-          </div>
-          {getStatusIcon()}
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">视频库配置</span>
+          <span className="stg-group-subtitle">缓存和刷新设置</span>
         </div>
 
-        <div className="settings-section-content">
+        <div className="stg-list">
           {/* 缓存过期时间 */}
-          <div className="settings-item">
-            <div className="settings-item-left">
-              <Clock size={18} className="settings-item-icon" />
-              <div className="settings-item-info">
-                <div className="settings-item-label">缓存过期时间</div>
-                <div className="settings-item-desc">
-                  视频库缓存的过期时间（分钟），超过此时间后首次查询会刷新缓存
-                </div>
-              </div>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Clock size={18} className="stg-item-icon" />
+              <span className="stg-item-label">缓存过期时间</span>
             </div>
-            <div className="settings-item-right">
-              <input
-                type="number"
-                min="1"
-                max="60"
+            <div className="stg-item-content">
+              <select
                 value={localConfig.cacheTTL}
                 onChange={(e) => handleConfigChange('cacheTTL', parseInt(e.target.value) || 1)}
-                className="settings-number-input"
-              />
+                className="stg-select"
+              >
+                <option value={1}>1 分钟</option>
+                <option value={5}>5 分钟</option>
+                <option value={10}>10 分钟</option>
+                <option value={30}>30 分钟</option>
+                <option value={60}>60 分钟</option>
+              </select>
+              <p className="stg-hint">视频库缓存的过期时间，超过此时间后首次查询会刷新缓存</p>
             </div>
           </div>
 
           {/* 自动刷新延迟 */}
-          <div className="settings-item">
-            <div className="settings-item-left">
-              <Zap size={18} className="settings-item-icon" />
-              <div className="settings-item-info">
-                <div className="settings-item-label">自动刷新延迟</div>
-                <div className="settings-item-desc">
-                  下载完成后自动刷新视频库的延迟时间（秒），避免频繁刷新
-                </div>
-              </div>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <Zap size={18} className="stg-item-icon" />
+              <span className="stg-item-label">自动刷新延迟</span>
             </div>
-            <div className="settings-item-right">
-              <input
-                type="number"
-                min="1"
-                max="30"
+            <div className="stg-item-content">
+              <select
                 value={localConfig.autoRefreshDelay}
                 onChange={(e) => handleConfigChange('autoRefreshDelay', parseInt(e.target.value) || 1)}
-                className="settings-number-input"
-              />
+                className="stg-select"
+              >
+                <option value={1}>1 秒</option>
+                <option value={5}>5 秒</option>
+                <option value={10}>10 秒</option>
+                <option value={15}>15 秒</option>
+                <option value={30}>30 秒</option>
+              </select>
+              <p className="stg-hint">下载完成后自动刷新视频库的延迟时间，避免频繁刷新</p>
             </div>
           </div>
 
           {/* 最大并发检查数 */}
-          <div className="settings-item">
-            <div className="settings-item-left">
-              <CheckCircle size={18} className="settings-item-icon" />
-              <div className="settings-item-info">
-                <div className="settings-item-label">最大并发检查数</div>
-                <div className="settings-item-desc">
-                  批量检查视频状态时的最大并发请求数，避免后端压力过大
-                </div>
-              </div>
+          <div className="stg-item stg-item-col">
+            <div className="stg-item-label-row">
+              <CheckCircle size={18} className="stg-item-icon" />
+              <span className="stg-item-label">最大并发检查数</span>
             </div>
-            <div className="settings-item-right">
-              <input
-                type="number"
-                min="1"
-                max="50"
+            <div className="stg-item-content">
+              <select
                 value={localConfig.maxConcurrentChecks}
                 onChange={(e) => handleConfigChange('maxConcurrentChecks', parseInt(e.target.value) || 1)}
-                className="settings-number-input"
-              />
+                className="stg-select"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <p className="stg-hint">批量检查视频状态时的最大并发请求数，避免后端压力过大</p>
             </div>
           </div>
 
           {/* 启用智能刷新 */}
-          <div className="settings-item">
-            <div className="settings-item-left">
-              <RefreshCw size={18} className="settings-item-icon" />
-              <div className="settings-item-info">
-                <div className="settings-item-label">启用智能刷新</div>
-                <div className="settings-item-desc">
-                  如果缓存时间小于配置时间的30%，则跳过刷新，减少不必要的扫描
-                </div>
-              </div>
+          <label className="stg-toggle">
+            <div className="stg-toggle-content">
+              <span className="stg-toggle-label">启用智能刷新</span>
             </div>
-            <div className="settings-item-right">
-              <label className="settings-switch">
-                <input
-                  type="checkbox"
-                  checked={localConfig.enableSmartRefresh}
-                  onChange={(e) => handleConfigChange('enableSmartRefresh', e.target.checked)}
-                  className="settings-switch-input"
-                />
-                <span className="settings-switch-slider" />
-              </label>
-            </div>
-          </div>
+            <input
+              type="checkbox"
+              checked={localConfig.enableSmartRefresh}
+              onChange={(e) => handleConfigChange('enableSmartRefresh', e.target.checked)}
+              className="stg-toggle-input"
+            />
+          </label>
         </div>
       </div>
 
       {/* 缓存状态部分 */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div className="settings-section-header-left">
-            <RefreshCw size={20} className="settings-section-icon" />
-            <h2 className="settings-section-title">缓存状态</h2>
-          </div>
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <span className="stg-group-title">缓存状态</span>
+          <span className="stg-group-subtitle">当前缓存信息</span>
         </div>
 
-        <div className="settings-section-content">
-          <div className="settings-item">
-            <div className="settings-item-left">
-              <div className="settings-item-info">
-                <div className="settings-item-label">当前状态</div>
-                <div className={`settings-item-desc ${cacheStatusInfo.color}`}>
-                  {cacheStatusInfo.text}
-                </div>
-              </div>
+        <div className="stg-list">
+          <div className="stg-item">
+            <div className="stg-item-label-row">
+              <RefreshCw size={18} className="stg-item-icon" />
+              <span className="stg-item-label">当前状态</span>
+            </div>
+            <div className="stg-item-content">
+              <span className={`stg-item-sublabel ${cacheStatusInfo.color}`}>
+                {cacheStatusInfo.text}
+              </span>
             </div>
           </div>
 
           {cachedVideoCount > 0 && (
-            <div className="settings-item">
-              <div className="settings-item-left">
-                <div className="settings-item-info">
-                  <div className="settings-item-label">缓存视频数</div>
-                  <div className="settings-item-desc">
-                    {cachedVideoCount} 个视频
-                  </div>
-                </div>
+            <div className="stg-item">
+              <div className="stg-item-label-row">
+                <CheckCircle size={18} className="stg-item-icon" />
+                <span className="stg-item-label">缓存视频数</span>
+              </div>
+              <div className="stg-item-content">
+                <span className="stg-item-sublabel">
+                  {cachedVideoCount} 个视频
+                </span>
               </div>
             </div>
           )}
 
           {lastRefreshTime && (
-            <div className="settings-item">
-              <div className="settings-item-left">
-                <div className="settings-item-info">
-                  <div className="settings-item-label">最后刷新时间</div>
-                  <div className="settings-item-desc">
-                    {lastRefreshTime.toLocaleString('zh-CN')}
-                  </div>
-                </div>
+            <div className="stg-item">
+              <div className="stg-item-label-row">
+                <Clock size={18} className="stg-item-icon" />
+                <span className="stg-item-label">最后刷新时间</span>
+              </div>
+              <div className="stg-item-content">
+                <span className="stg-item-sublabel">
+                  {lastRefreshTime.toLocaleString('zh-CN')}
+                </span>
               </div>
             </div>
           )}
 
-          <div className="settings-item">
-            <div className="settings-item-left">
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="settings-button"
-              >
-                {refreshing ? (
-                  <>
-                    <RefreshCw size={18} className="spinning" />
-                    刷新中...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={18} />
-                    刷新视频库
-                  </>
-                )}
-              </button>
-            </div>
+          <div className="stg-actions">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="stg-btn stg-btn-primary"
+            >
+              {refreshing ? (
+                <>
+                  <RefreshCw size={16} className="stg-btn-icon stg-spin" />
+                  刷新中...
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={16} className="stg-btn-icon" />
+                  刷新视频库
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
