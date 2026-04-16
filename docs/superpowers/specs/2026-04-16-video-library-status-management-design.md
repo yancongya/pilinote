@@ -1,6 +1,6 @@
 # 视频库状态管理系统设计文档
 
-**文档版本**: 1.0.0  
+**文档版本**: 1.1.0  
 **创建日期**: 2026-04-16  
 **最后更新**: 2026-04-16  
 **设计目标**: 解决下载状态判断不准确、重复添加下载等问题
@@ -583,9 +583,49 @@ interface VideoLibrarySettings {
 
 ### 待完成任务
 
-- [ ] 更新文档
 - [ ] 清理代码
 - [ ] 运行验收测试
+
+### 已修复问题
+
+#### 逻辑偏离修复 (2026-04-16)
+
+**问题**：
+在实施过程中出现了逻辑偏离，从原始的文件系统扫描逻辑误用了数据库任务检查逻辑：
+
+- ❌ 错误实现：基于数据库任务 + 文件系统存在性检查
+- ✅ 正确实现：基于文件系统nfo文件的直接扫描
+
+**具体问题**：
+1. 只能识别通过任务下载的视频，无法识别非任务方式下载的视频
+2. 增加了不必要的复杂性和性能开销
+3. 违背了"以文件系统为基准"的设计原则
+
+**修复方案**：
+1. **后端修复** (`apps/api/src/services/video_library_service.py`)
+   - 改回基于文件系统nfo文件的扫描逻辑
+   - 从`library_data.folders`中提取nfo文件的bvid
+   - 移除了数据库任务查询和文件存在性检查
+   - 简化为直接的bvid列表对比
+
+2. **前端修复** (`apps/web/src/services/videoLibraryService.ts`)
+   - 改回使用文件系统的bvid列表构建缓存
+   - 从`response.data.folders`和`downloaded_bvids`构建缓存
+   - 移除了TaskState、taskCache等任务队列相关逻辑
+   - 简化状态判断：`bvid in cached_bvids`
+
+3. **清理工作**
+   - 移除了所有任务队列检查逻辑
+   - 简化了`isVideoDownloaded()`方法
+   - 简化了`checkLibraryCache()`方法
+   - 简化了`checkBeforeAdd()`方法
+   - 移除了`checkTaskState()`, `_refreshTaskCache()`, `_mapTaskState()`等方法
+
+**修复后的优势**：
+- 准确反映所有已下载视频，不限于任务方式
+- 简单直接的对比逻辑：`bvid in cached_bvids`
+- 性能更好（只需扫描一次文件系统）
+- 不依赖任务数据库，避免状态不一致问题
 
 ### 已知问题
 
