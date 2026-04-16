@@ -565,15 +565,19 @@ const handleReDownloadConfirm = async () => {
     <div style={{
       position: 'fixed',
       top: 0,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      width: '100%',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100vw',
       maxWidth: responsiveStyle.maxWidth,
       height: '100vh',
       background: 'var(--color-bg-primary)',
       overflowY: 'auto',
       WebkitOverflowScrolling: 'touch',
-      zIndex: 1000
+      zIndex: 9999,
+      // 确保在所有屏幕尺寸下居中
+      marginLeft: 'auto',
+      marginRight: 'auto'
     }}>
       {/* 顶部导航 */}
       <div style={{
