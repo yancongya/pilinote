@@ -828,18 +828,6 @@ const handleReDownloadConfirm = async () => {
         >
           <ArrowLeft size={responsiveStyle.layout === 'two-column' ? 24 : 20} />
         </button>
-        <h1 style={{
-          fontSize: responsiveStyle.layout === 'two-column' ? '18px' : '16px',
-          fontWeight: '600',
-          color: 'var(--color-text-primary)',
-          margin: 0,
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
-          {video.title}
-        </h1>
       </div>
 
       {/* 主内容区 - 桌面模式为左右布局 */}
