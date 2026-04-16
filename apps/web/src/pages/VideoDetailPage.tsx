@@ -1290,10 +1290,6 @@ const handleReDownloadConfirm = async () => {
           })}
         </div>
       )}
-          </div>
-        )}
-      </div>
-
 
       {/* AlertModal */}
       <AlertModal
@@ -1319,5 +1315,4 @@ const handleReDownloadConfirm = async () => {
       </div>
     </div>
   )
-}
 }
