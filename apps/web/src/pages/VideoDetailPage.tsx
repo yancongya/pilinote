@@ -842,20 +842,18 @@ const handleReDownloadConfirm = async () => {
         </h1>
       </div>
 
-      {/* 双列布局容器 */}
+      {/* 主内容区 - 桌面模式为左右布局 */}
       <div style={{
         display: 'flex',
         flexDirection: responsiveStyle.layout === 'two-column' ? 'row' : 'column',
-        gap: responsiveStyle.layout === 'two-column' ? '32px' : '0'
+        gap: responsiveStyle.layout === 'two-column' ? '32px' : '24px',
+        marginBottom: '32px'
       }}>
-      {/* 左侧主要内容列 */}
+      {/* 左侧 - 视频封面 */}
       <div style={{
-        flex: 1,
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column'
+        flex: responsiveStyle.layout === 'two-column' ? 1 : 'auto',
+        minWidth: 0
       }}>
-        {/* 视频/图文封面区域 */}
         <div style={{
           position: 'relative',
           width: '100%',
@@ -863,137 +861,438 @@ const handleReDownloadConfirm = async () => {
           background: 'var(--color-bg-tertiary)',
           overflow: 'hidden',
           display: video.isOpus ? 'block' : 'relative',
-          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0',
-          marginBottom: responsiveStyle.layout === 'two-column' ? '24px' : '0'
+          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0'
         }}>
-        {video.isOpus ? (
-          video.cover ? (
-            <img 
-              src={getProxyImageUrl(video.cover)} 
-              alt={video.title}
-              style={{ width: '100%', borderRadius: '0' }}
-            />
-          ) : null
-        ) : (
-          video.cover ? (
-            <img 
-              src={getProxyImageUrl(video.cover)} 
-              alt={video.title}
-              style={{
+          {video.isOpus ? (
+            video.cover ? (
+              <img
+                src={getProxyImageUrl(video.cover)}
+                alt={video.title}
+                style={{ width: '100%', borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0' }}
+              />
+            ) : null
+          ) : (
+            video.cover ? (
+              <img
+                src={getProxyImageUrl(video.cover)}
+                alt={video.title}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0'
+                }}
+              />
+            ) : (
+              <div style={{
                 position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-            />
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                color: '#999'
+              }}>
+                <Film size={48} />
+              </div>
+            )
+          )}
+
+          {/* 视频时长或图文标记 */}
+          {video.isOpus ? (
+            <div style={{
+              position: 'absolute',
+              bottom: '12px',
+              right: '12px',
+              background: 'var(--color-primary-600)',
+              color: 'var(--color-white)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: '600'
+            }}>
+              图文
+            </div>
           ) : (
             <div style={{
               position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              color: '#999'
+              bottom: '12px',
+              right: '12px',
+              background: 'rgba(0, 0, 0, 0.8)',
+              color: '#fff',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: '600',
+              textAlign: 'right',
+              lineHeight: '1.3'
             }}>
-              <Film />
+              {formatDuration(video.duration)}
             </div>
-          )
-        )}
-
-        {/* 视频时长或图文标记 */}
-        {video.isOpus ? (
-          <div style={{
-            position: 'absolute',
-            bottom: '12px',
-            right: '12px',
-            background: 'var(--color-primary-600)',
-            color: 'var(--color-white)',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '600'
-          }}>
-            图文
-          </div>
-        ) : (
-          <div style={{
-            position: 'absolute',
-            bottom: '12px',
-            right: '12px',
-            background: 'rgba(0, 0, 0, 0.8)',
-            color: '#fff',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '600',
-            textAlign: 'right',
-            lineHeight: '1.3'
-          }}>
-            {formatDuration(video.duration)}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* 图文内容或视频信息 */}
-      <div className="video-detail-content" style={{
-        padding: responsiveStyle.layout === 'two-column' ? '24px 0 0 0' : responsiveStyle.padding,
-        maxWidth: '100%',
-        margin: '0 auto'
+      {/* 右侧 - 视频信息和状态 */}
+      <div style={{
+        flex: responsiveStyle.layout === 'two-column' ? 1 : 'auto',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px'
       }}>
         {/* 视频标题 */}
         <h2 className="video-detail-title" style={{
           fontSize: responsiveStyle.fontSize.title,
           fontWeight: '600',
-          margin: `0 0 ${responsiveStyle.spacing.element}px 0`,
-          lineHeight: '1.4'
+          margin: 0,
+          lineHeight: '1.4',
+          color: 'var(--color-text-primary)'
         }}>
           {video.isOpus ? (
-          <a
-            href={`https://www.bilibili.com/opus/${mediaId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: 'var(--color-text-primary)',
-              textDecoration: 'none',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}
-          >
-            {video.title}
-          </a>
-        ) : (
-          <a
-            href={`https://www.bilibili.com/video/${video.bvid}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: 'var(--color-text-primary)',
-              textDecoration: 'none',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              transition: 'color 0.2s ease',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--color-primary-600)'
-              e.currentTarget.style.textDecoration = 'underline'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--color-text-primary)'
-              e.currentTarget.style.textDecoration = 'none'
-            }}
-          >
-            {video.title}
-          </a>
-        )}
+            <a
+              href={`https://www.bilibili.com/opus/${mediaId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                transition: 'color 0.2s ease',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-primary-600)'
+                e.currentTarget.style.textDecoration = 'underline'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--color-text-primary)'
+                e.currentTarget.style.textDecoration = 'none'
+              }}
+            >
+              {video.title}
+            </a>
+          ) : (
+            <a
+              href={`https://www.bilibili.com/video/${video.bvid}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                transition: 'color 0.2s ease',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-primary-600)'
+                e.currentTarget.style.textDecoration = 'underline'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--color-text-primary)'
+                e.currentTarget.style.textDecoration = 'none'
+              }}
+            >
+              {video.title}
+            </a>
+          )}
         </h2>
+
+        {/* UP主信息 */}
+        {!video.isOpus && (
+          <div className="video-detail-uploader" style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '12px',
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px'
+          }}>
+            <div className="video-detail-avatar" style={{
+              width: responsiveStyle.layout === 'two-column' ? '56px' : '48px',
+              height: responsiveStyle.layout === 'two-column' ? '56px' : '48px',
+              borderRadius: '50%',
+              background: 'var(--color-bg-tertiary)',
+              overflow: 'hidden',
+              flexShrink: 0,
+              border: '2px solid var(--color-border)'
+            }}>
+              {video.uploader.avatar ? (
+                <img
+                  src={getProxyImageUrl(video.uploader.avatar)}
+                  alt={video.uploader.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <User size={responsiveStyle.layout === 'two-column' ? 32 : 24} />
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="video-detail-uploader-name" style={{
+                fontSize: responsiveStyle.fontSize.uploader,
+                fontWeight: '600',
+                color: 'var(--color-text-primary)',
+                marginBottom: '4px',
+                lineHeight: '1.3'
+              }}>
+                {video.uploader.name}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                {formatTime(video.pubtime)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 视频统计信息 */}
+        {!video.isOpus && (
+          <div className="video-detail-stats" style={{
+            display: 'grid',
+            gridTemplateColumns: responsiveStyle.layout === 'two-column' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+            gap: '16px',
+            padding: '16px',
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px'
+          }}>
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                播放量
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                {formatNumber(video.view)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                弹幕
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                {formatNumber(video.danmaku)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                点赞
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                {formatNumber(video.like)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                投币
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                {formatNumber(video.coin)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                收藏
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                {formatNumber(video.favorite)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                评论
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                {formatNumber(video.reply)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 分P信息 */}
+        {video.pages && video.pages.length > 1 && (
+          <div style={{
+            padding: '12px',
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            fontSize: responsiveStyle.fontSize.small,
+            color: 'var(--color-text-primary)'
+          }}>
+            共{video.pages.length}个视频，总时长：{formatDuration(video.pages.reduce((total: number, p: any) => total + p.duration, 0))}
+          </div>
+        )}
+
+        {/* 分P列表（仅多P视频显示） */}
+        {video.pages && video.pages.length > 1 && (
+          <div style={{
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+            maxHeight: responsiveStyle.layout === 'two-column' ? '400px' : '300px',
+            overflowY: 'auto'
+          }}>
+            {video.pages.map((page: any, index: number) => {
+              const isInList = downloadedCids.has(page.cid)
+              const status = downloadedVideoStatus[page.cid] || 'none'
+              const isDownloaded = status === 'downloaded'
+
+              return (
+                <div
+                  key={page.cid || index}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: responsiveStyle.layout === 'two-column' ? '12px' : '10px',
+                    background: 'var(--color-bg-primary)',
+                    borderRadius: responsiveStyle.layout === 'two-column' ? '8px' : '6px',
+                    marginBottom: index < video.pages.length - 1 ? (responsiveStyle.layout === 'two-column' ? '10px' : '8px') : '0',
+                    opacity: (isInList || isDownloaded) ? 0.6 : 1
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: responsiveStyle.fontSize.small, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                      P{page.page}: {page.part || `第${page.page}个视频`}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                      {formatDuration(page.duration)}
+                    </div>
+                  </div>
+                  {isDownloaded && (
+                    <span style={{
+                      fontSize: '11px',
+                      color: 'var(--color-success-600)',
+                      background: 'var(--color-success-50)',
+                      padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
+                      borderRadius: '4px',
+                      fontWeight: '500'
+                    }}>
+                      已下载
+                    </span>
+                  )}
+                  {isInList && !isDownloaded && (
+                    <span style={{
+                      fontSize: '11px',
+                      color: 'var(--color-primary-600)',
+                      background: 'var(--color-primary-50)',
+                      padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
+                      borderRadius: '4px',
+                      fontWeight: '500'
+                    }}>
+                      队列中
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* 下载按钮 */}
+        <button
+          onClick={handleAddToDownload}
+          disabled={downloading}
+          style={{
+            width: '100%',
+            padding: responsiveStyle.layout === 'two-column' ? '16px' : '14px',
+            background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
+            color: 'var(--color-white)',
+            border: 'none',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            fontSize: responsiveStyle.layout === 'two-column' ? '17px' : '16px',
+            fontWeight: '600',
+            cursor: downloading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            if (!downloading) {
+              e.currentTarget.style.background = 'var(--color-primary-700)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!downloading) {
+              e.currentTarget.style.background = 'var(--color-primary-600)'
+            }
+          }}
+        >
+          {getButtonText()}
+        </button>
+      </div>
+      </div>
+
+      {/* 视频简介 - 底部区域 */}
+      {!video.isOpus && video.description && video.description !== '-' && video.description.trim() && (
+        <div style={{
+          padding: responsiveStyle.layout === 'two-column' ? '24px' : '16px',
+          background: 'var(--color-bg-tertiary)',
+          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+          fontSize: responsiveStyle.fontSize.body,
+          color: 'var(--color-text-primary)',
+          lineHeight: '1.6',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word'
+        }}>
+          <h3 style={{
+            fontSize: responsiveStyle.fontSize.uploader,
+            fontWeight: '600',
+            color: 'var(--color-text-primary)',
+            marginBottom: responsiveStyle.spacing.element
+          }}>
+            视频简介
+          </h3>
+          {parseLinks(video.description)}
+        </div>
+      )}
+
+      {/* 图文内容 - 仅图文显示 */}
+      {video.isOpus && video.opusParagraphs && video.opusParagraphs.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          {video.opusParagraphs.map((para: any, index: number) => {
+            if (para.para_type === 1) {
+              const textData = para.text?.nodes?.[0]?.word
+              if (textData?.words) {
+                return (
+                  <p key={index} style={{
+                    fontSize: '15px',
+                    lineHeight: '1.6',
+                    color: 'var(--color-text-primary)',
+                    marginBottom: '12px'
+                  }}>
+                    {textData.words}
+                  </p>
+                )
+              }
+            }
+            if (para.para_type === 2) {
+              const pics = para.pic?.pics || []
+              return pics.map((pic: any, picIndex: number) => (
+                <img
+                  key={`${index}-${picIndex}`}
+                  src={getProxyImageUrl(pic.url)}
+                  alt={`${video.title} - ${index + 1}`}
+                  style={{
+                    width: '100%',
+                    borderRadius: '8px',
+                    marginBottom: '8px'
+                  }}
+                />
+              ))
+            }
+            return null
+          })}
+        </div>
+      )}
+          </div>
+        )}
+      </div>
 
         {/* 图文作者信息 - 在图文内容上方 */}
         {video.isOpus ? (
