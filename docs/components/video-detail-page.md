@@ -182,7 +182,66 @@ import VideoDetailPage from './pages/VideoDetailPage'
 | `videoId` | 视频BV号 | `BV1xx411c7mD` |
 | `opusId` | 图文CV号 | `123456789` |
 
-## 更新日志
+## 最新更新
+
+### 2026-04-17 - 视频详情页全面优化
+
+#### 新增功能
+- **点击导航功能**: 视频库卡片可以点击跳转到详情页
+  - 从 NFO 文件获取 bvid，跳转到 `/video/{bvid}`
+  - 使用 `position: fixed` 占据整个视口
+  - 支持返回按钮导航
+
+#### 主题支持
+- **完整主题系统**: 添加了暗色/亮色主题支持
+  - 使用 CSS 变量替换所有固定颜色
+  - 背景色、文字色都支持主题切换
+  - 完美适配系统主题切换
+
+#### 滚动功能
+- **双层容器架构**: 修复了页面滚动问题
+  - 外层视口容器：`position: fixed` + `overflow-y: auto`
+  - 内层内容容器：用于居中和响应式布局
+  - 支持移动端和桌面端滚动
+  - 启用 `-webkit-overflow-scrolling: touch` 优化移动端体验
+
+#### 响应式布局
+- **三级响应式设计**: 实现移动端、平板、桌面端的响应式设计
+  - Mobile (< 768px): 紧凑布局，最大宽度100%
+  - Tablet (768px-1023px): 中等布局，最大宽度900px
+  - Desktop (≥ 1024px): 宽敞布局，最大宽度1000px
+  - 根据屏幕尺寸动态调整样式
+
+#### 拟态滚动条
+- **自定义滚动条样式**: 替换原生滚动条为拟态设计
+  - 使用渐变色和阴影效果
+  - 支持悬停和激活状态
+  - 完美适配亮色和暗色主题
+  - 6px宽度，圆角设计
+
+#### 下载状态检查
+- **智能状态识别**: 修复了下载状态识别问题
+  - 支持视频库、下载队列、完成状态的检查
+  - 为单个视频和多分P视频分别实现状态检查
+  - 显示"已下载"、"队列中"等状态标签
+  - 集成 VideoLibraryService 进行状态检查
+
+#### 调试日志
+- **详细日志记录**: 添加了详细的调试日志
+  - 帮助诊断下载状态检查问题
+  - 记录状态检查的全过程
+  - 使用 `console.log` 输出关键状态信息
+
+#### 技术优化
+- **状态管理优化**: 使用 `newQueueStore` 和 `videoLibraryService`
+  - 统一的状态管理
+  - 避免重复请求
+  - 实时状态更新
+  - 缓存优化
+
+---
+
+## 历史更新
 
 ### 2026-04-12 - 图文详情页优化
 
@@ -206,6 +265,318 @@ import VideoDetailPage from './pages/VideoDetailPage'
   - 替换原有 `any` 类型
   - 包含所有视频/图文字段类型声明
   - 提高代码可维护性和类型检查能力
+
+---
+
+## 技术实现细节
+
+### 1. 页面布局架构
+
+#### 双层容器设计
+```tsx
+// 外层视口容器 - 固定定位，全屏滚动
+<div style={{
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  width: '100vw',
+  height: '100vh',
+  background: 'var(--color-bg-primary)',
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  zIndex: 9999
+}}>
+  {/* 内层内容容器 - 居中和响应式 */}
+  <div style={{
+    maxWidth: responsiveStyle.maxWidth,
+    margin: '0 auto',
+    minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column'
+  }}>
+    {/* 页面内容 */}
+  </div>
+</div>
+```
+
+### 2. 响应式布局实现
+
+#### 屏幕尺寸检测
+```tsx
+const [isMobile, setIsMobile] = useState(false)
+const [isTablet, setIsTablet] = useState(false)
+
+useEffect(() => {
+  const checkScreenSize = () => {
+    const width = window.innerWidth
+    setIsMobile(width < 768)
+    setIsTablet(width >= 768 && width < 1024)
+  }
+
+  checkScreenSize()
+  window.addEventListener('resize', checkScreenSize)
+  return () => window.removeEventListener('resize', checkScreenSize)
+}, [])
+```
+
+#### 响应式样式
+```tsx
+const getResponsiveStyle = () => {
+  if (isMobile) {
+    return { padding: '12px 16px', maxWidth: '100%' }
+  } else if (isTablet) {
+    return { padding: '16px 24px', maxWidth: '900px' }
+  } else {
+    return { padding: '20px 32px', maxWidth: '1000px' }
+  }
+}
+```
+
+### 3. 主题系统
+
+#### CSS 变量使用
+```tsx
+// 所有颜色都使用 CSS 变量，支持主题切换
+style={{
+  background: 'var(--color-bg-primary)',
+  color: 'var(--color-text-primary)',
+  borderColor: 'var(--color-border)',
+  // 暗色模式自动适配
+}}
+```
+
+#### 拟态滚动条主题适配
+```css
+/* 亮色主题 */
+.video-detail-page::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, 
+    rgba(110, 90, 255, 0.3) 0%, 
+    rgba(106, 90, 205, 0.4) 100%);
+}
+
+/* 暗色主题 */
+.dark .video-detail-page::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, 
+    rgba(139, 127, 255, 0.3) 0%, 
+    rgba(138, 127, 255, 0.4) 100%);
+}
+```
+
+### 4. 下载状态检查
+
+#### 状态检查逻辑
+```tsx
+// 检查单个视频的下载状态
+const checkSingleVideoStatus = async () => {
+  if (!video) return
+  
+  try {
+    const result = await videoLibraryService.checkBeforeAdd({
+      bvid: video.bvid,
+      cid: video.cid,
+      title: video.title || ''
+    })
+    
+    const tasks = newQueueStore.tasks
+    const newSystemTasks = Object.values(tasks)
+    
+    // 检查是否在新下载系统队列中或已完成
+    const hasInNewQueue = newSystemTasks.some(task =>
+      task.media_id === video.bvid &&
+      !['completed', 'cancelled'].includes(task.state)
+    )
+    
+    const hasCompleted = newSystemTasks.some(task =>
+      task.media_id === video.bvid &&
+      task.state === 'completed'
+    )
+    
+    let status: 'none' | 'in_list' | 'downloaded' = 'none'
+    
+    if (result.action === 'skip' || result.action === 'show_confirm') {
+      status = 'downloaded'
+    } else if (hasInNewQueue) {
+      status = 'in_list'
+    } else if (hasCompleted) {
+      status = 'downloaded'
+    }
+    
+    setDownloadedVideoStatus({ [video.cid]: status })
+  } catch (error) {
+    console.error('检查单个视频下载状态失败:', error)
+  }
+}
+```
+
+#### 多分P视频状态检查
+```tsx
+// 检查多分P视频的下载状态
+video.pages.forEach((page: any) => {
+  const hasInNewQueue = newSystemTasks.some(task =>
+    task.media_id === video.bvid &&
+    task.meta?.cid === page.cid &&
+    !['completed', 'cancelled'].includes(task.state)
+  )
+  
+  const hasCompleted = newSystemTasks.some(task =>
+    task.media_id === video.bvid &&
+    task.meta?.cid === page.cid &&
+    task.state === 'completed'
+  )
+  
+  if (hasInNewQueue) {
+    downloadedStatus[page.cid] = 'in_list'
+  } else if (hasCompleted) {
+    downloadedStatus[page.cid] = 'downloaded'
+  } else {
+    downloadedStatus[page.cid] = 'none'
+  }
+})
+```
+
+### 5. 调试和故障排除
+
+#### 调试日志输出
+```tsx
+// 按钮文本计算时的调试日志
+console.log('[VideoDetail] 按钮文本计算:', {
+  videoBvid: video?.bvid,
+  videoCid: video?.cid,
+  addedCount,
+  status,
+  downloadedVideoStatus,
+  buttonText: /* ... */
+})
+
+// 单个视频状态检查日志
+console.log('[VideoDetail] 单个视频状态检查:', {
+  bvid: video.bvid,
+  cid: video.cid,
+  status,
+  hasInNewQueue,
+  hasCompleted,
+  videoLibraryResult: result.action
+})
+
+// 数据同步错误日志
+console.error('[VideoDetail] 同步数据失败:', error)
+```
+
+#### 常见问题排查
+
+**问题1: 下载状态不显示**
+- 检查 `newQueueStore` 数据是否正确加载
+- 验证 `videoLibraryService` 缓存是否有效
+- 检查任务状态字段是否正确
+
+**问题2: 页面滚动不流畅**
+- 确认双层容器架构是否正确实现
+- 检查 `position: fixed` 和 `overflow-y: auto` 是否设置
+- 验证 `WebkitOverflowScrolling: touch` 是否启用
+
+**问题3: 主题切换不生效**
+- 检查 CSS 变量是否正确定义
+- 确认 `.dark` 类是否正确应用到根元素
+- 验证所有颜色都使用了 CSS 变量
+
+**问题4: 响应式布局异常**
+- 检查屏幕尺寸检测逻辑
+- 验证 `window.addEventListener('resize')` 是否正确设置
+- 确认断点值是否正确（768px, 1024px）
+
+---
+
+## API 依赖
+
+### 使用的 API 端点
+
+| 端点 | 方法 | 用途 |
+|------|------|------|
+| `/api/video/detail/{bvid}` | GET | 获取视频详情 |
+| `/api/download/parse` | POST | 解析下载链接（图文） |
+
+### 使用的服务
+
+| 服务 | 用途 |
+|------|------|
+| `apiService` | API 请求封装 |
+| `videoLibraryService` | 视频库状态检查 |
+| `newQueueStore` | 下载队列状态管理 |
+| `useVideoDownload` | 下载功能 Hook |
+| `useAuthStore` | 用户认证状态 |
+
+---
+
+## 性能优化
+
+### 1. 缓存策略
+- 视频库状态缓存（10分钟 TTL）
+- 避免重复的状态检查
+- 智能刷新机制
+
+### 2. 状态管理
+- 使用 Zustand 进行状态管理
+- 支持 persist 中间件，离线可用
+- 避免不必要的重渲染
+
+### 3. 滚动优化
+- 使用 `WebkitOverflowScrolling: touch` 优化移动端
+- 双层容器减少重排
+- 虚拟化长列表（如有需要）
+
+---
+
+## 可访问性
+
+### 语义化 HTML
+- 使用 `<button>` 而非 `<div>` 实现按钮
+- 使用 `<a>` 标签实现链接
+- 使用 `<h1>`, `<h2>` 等语义化标题
+
+### 键盘导航
+- 支持返回按钮键盘操作
+- 支持下载按钮键盘操作
+- 适当的焦点管理
+
+### 屏幕阅读器
+- 图片添加 `alt` 属性
+- 链接添加 `aria-label`（如需要）
+- 使用 `rel="noopener noreferrer"` 提高安全性
+
+---
+
+## 浏览器兼容性
+
+### 支持的浏览器
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+### 使用的现代特性
+- CSS Variables
+- `position: fixed`
+- `overflow-y: auto`
+- CSS Gradients
+- ES6+ 语法
+
+---
+
+## 未来改进计划
+
+### 待实现功能
+1. 视频预览功能
+2. 评论显示功能
+3. 相关推荐视频
+4. 分享功能增强
+5. 下载质量选择
+6. 批量下载优化
+
+### 性能优化
+1. 虚拟滚动（长列表）
+2. 图片懒加载
+3. 代码分割
+4. Service Worker 缓存
 
 ---
 
