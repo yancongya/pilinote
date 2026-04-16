@@ -15,7 +15,7 @@ const navItems = [
   { id: 'home', label: '首页', path: '/home', icon: Home },
   { id: 'favorites', label: '收藏', path: '/favorites', icon: Heart },
   { id: 'watch-later', label: '稍后再看', path: '/watch-later', icon: Clock },
-  { id: 'new-downloads', label: '新下载', path: '/new-downloads', icon: Download },
+  { id: 'downloads', label: '新下载', path: '/downloads', icon: Download },
 ]
 
 function MainLayout() {
@@ -112,7 +112,7 @@ function MainLayout() {
     const path = location.pathname
     if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
     if (path === '/watch-later') return 'watch-later'
-    if (path === '/new-downloads') return 'new-downloads'
+    if (path === '/downloads') return 'downloads'
     return 'home'
   }
 
@@ -268,7 +268,7 @@ function MainLayout() {
                 <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
               )}
             </div>
-            <div className={activeTab === 'new-downloads' ? 'block' : 'hidden'}>
+            <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
               <NewDownloadContent />
             </div>
           </div>
@@ -362,7 +362,7 @@ export function WatchLaterPage() {
   )
 }
 
-export function NewDownloadsPage() {
+export function DownloadsPage() {
   return <NewDownloadContent />
 }
 
