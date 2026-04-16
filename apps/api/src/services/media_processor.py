@@ -194,7 +194,8 @@ class MediaDataProcessor:
                 stat=stat,
                 thumbs=[MediaThumbnail(id="cover", url=video_data.get("pic", ""))],
                 premiered=_format_timestamp(video_data.get("pubdate", 0)),
-                upper=upper
+                upper=upper,
+                comments=video_data.get("comments", [])
             )
             
             # 构建媒体项目列表

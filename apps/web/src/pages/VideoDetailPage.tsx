@@ -40,6 +40,14 @@ interface VideoDetailData {
   descV2?: any[];
   staff?: any;
   ugcSeason?: any;
+  comments?: Array<{
+    type: string;
+    content: string;
+    like: number;
+    reply: number;
+    author: string;
+    time: number;
+  }>;
 }
 
 export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps) {
@@ -955,6 +963,69 @@ const handleReDownloadConfirm = async () => {
               视频简介
             </h3>
             {parseLinks(video.description)}
+          </div>
+        )}
+
+        {/* 评论展示区域 */}
+        {video.comments && video.comments.length > 0 && (
+          <div style={{
+            marginTop: '16px',
+            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+            background: 'var(--color-bg-tertiary)',
+            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px'
+          }}>
+            <h3 style={{
+              fontSize: responsiveStyle.fontSize.small,
+              fontWeight: '600',
+              color: 'var(--color-text-primary)',
+              marginBottom: '12px'
+            }}>
+              热门评论 ({video.comments.length})
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {video.comments.slice(0, 3).map((comment, index) => (
+                <div key={index} style={{
+                  padding: '10px',
+                  background: 'var(--color-bg-secondary)',
+                  borderRadius: '8px',
+                  borderLeft: comment.type === 'top' ? '3px solid var(--color-primary-600)' : '3px solid var(--color-primary-400)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '6px'
+                  }}>
+                    <span style={{
+                      fontSize: responsiveStyle.fontSize.small,
+                      fontWeight: '600',
+                      color: 'var(--color-primary-600)'
+                    }}>
+                      {comment.author}
+                    </span>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '12px',
+                      color: 'var(--color-text-secondary)'
+                    }}>
+                      <span>👍 {comment.like}</span>
+                      {comment.reply > 0 && <span>💬 {comment.reply}</span>}
+                    </div>
+                  </div>
+                  <p style={{
+                    fontSize: responsiveStyle.fontSize.body,
+                    color: 'var(--color-text-primary)',
+                    lineHeight: '1.5',
+                    margin: 0,
+                    wordBreak: 'break-word'
+                  }}>
+                    {comment.content}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@
 提供统一的媒体信息数据结构，解决当前数据格式不一致的问题。
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from enum import Enum
 
 
@@ -152,6 +152,7 @@ class MediaNfo(BaseModel):
     stat: Optional[MediaStats] = None
     thumbs: List[MediaThumbnail] = Field(default_factory=list)
     upper: Optional[MediaUpper] = None
+    comments: List[Dict[str, Any]] = Field(default_factory=list)
 
     model_config = {
         "json_schema_extra": {
