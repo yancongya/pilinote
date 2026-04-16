@@ -5,6 +5,7 @@ import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 
 interface VideoFile {
@@ -45,9 +46,18 @@ interface LibraryCardProps {
 
 // LibraryCard组件 - 显示文件夹卡片
 function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileSize }: LibraryCardProps) {
+  const navigate = useNavigate()
   const hasMultipleVideos = task.meta?.file_count > 1
   const hasCover = task.cover && task.cover.trim()
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
+
+  // 点击卡片跳转到详情页
+  const handleCardClick = () => {
+    const bvid = task.meta?.nfo_data?.bvid
+    if (bvid) {
+      navigate(`/video/${bvid}`)
+    }
+  }
   
   // 格式化创建时间
   const formatDate = (timestamp: number) => {
@@ -102,7 +112,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   }
 
   return (
-    <div className="library-folder-card">
+    <div className="library-folder-card" onClick={handleCardClick} style={{ cursor: 'pointer' }}>
 {/* 文件夹头部 */}
         <div className="library-folder-header">
           {/* 封面 */}
@@ -142,7 +152,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             )}
             
             {hasMultipleVideos && (
-              <div className="library-folder-expand-icon" onClick={onToggle}>
+              <div className="library-folder-expand-icon" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
                 <span className="library-folder-video-count">{task.meta?.file_count || 0}</span>
                 <Film size={20} color="white" />
               </div>
