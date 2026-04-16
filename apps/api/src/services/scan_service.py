@@ -19,6 +19,7 @@ from src.schemas.auto_download import (
 )
 from src.schemas.task import TaskCreate, MediaType
 from src.services.bilibili import BilibiliService
+from src.services.video_library_service import VideoLibraryService
 
 
 logger = logging.getLogger(__name__)
@@ -26,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 class ScanService:
     """扫描服务"""
-    
+
     def __init__(self, db: Session):
         self.db = db
+        self.video_library_service = VideoLibraryService(db)
     
     def _get_library_size_gb(self) -> float:
         """
@@ -728,40 +730,56 @@ class ScanService:
     
     async def add_videos_to_queue(self, videos: List[ScanVideoInfo], source_type: str) -> tuple[int, List[str]]:
         """
-        将新视频添加到队列
-        
+        将新视频添加到队列（增强版：检查是否已下载）
+
         Args:
             videos: 新视频列表
             source_type: 视频源类型
-            
+
         Returns:
             (实际添加到队列的视频数量, 任务ID列表)
         """
         if not videos:
             return 0, []
-        
+
         logger.info(f"准备将 {len(videos)} 个新视频添加到队列")
-        
+
+        # 调用视频库API检查已下载视频
+        try:
+            bvids = [v.bvid for v in videos]
+            library_check_result = self.video_library_service.check_videos_in_library(bvids)
+            downloaded_bvids = set(library_check_result.get('downloaded', []))
+        except Exception as e:
+            logger.warning(f"视频库检查失败: {e}")
+            downloaded_bvids = set()
+
+        # 过滤已下载的视频
+        videos_to_add = [v for v in videos if v.bvid not in downloaded_bvids]
+        skipped_count = len(videos) - len(videos_to_add)
+
+        if skipped_count > 0:
+            logger.info(f"跳过 {skipped_count} 个已下载的视频")
+
         # 延迟导入避免循环依赖
         from src.services.queue.manager import queue_manager
-        
+
         added_count = 0
         task_ids = []
-        
-        for video in videos:
+
+        for video in videos_to_add:
             try:
                 # 转换为任务创建请求
                 task_create = self._convert_video_to_task_create(video, source_type)
-                
+
                 # 提交到队列
                 task = await queue_manager.submit_backlog(task_create)
                 task_ids.append(task.id)
                 added_count += 1
                 logger.info(f"✓ 视频已添加到队列: {video.title} (BV: {video.bvid}, Task ID: {task.id})")
-                
+
             except Exception as e:
                 logger.error(f"✗ 添加视频到队列失败: {video.title} - {e}")
                 continue
-        
+
         logger.info(f"✓ 成功将 {added_count}/{len(videos)} 个视频添加到队列")
         return added_count, task_ids
