@@ -66,14 +66,31 @@ export interface Settings {
       video: number
       page: number
     }
-    // 自定义扫描配置
     custom_scan: {
-      enabled: boolean  // 是否启用自定义扫描
-      folder_list: FolderScanConfig[]  // 收藏夹扫描列表
+      enabled: boolean
+      folder_list: FolderScanConfig[]
     }
-    watch_later_max: number  // 稍后再看最大扫描数量，0表示不扫描
-    auto_start_after_scan: boolean  // 扫描完成后是否自动开始下载
-    storage_threshold_gb: number  // 存储空间阈值（GB），超过此阈值时不触发自动下载
+    watch_later_max: number
+    auto_start_after_scan: boolean
+    storage_threshold_gb: number
+  }
+  ai_note: {
+    llm: {
+      provider: string
+      model: string
+      api_key: string
+      temperature: number
+    }
+    style: {
+      style: string
+      length: number
+    }
+    format: {
+      format: string
+      include_timestamp: boolean
+      include_summary: boolean
+    }
+    auto_analyze: boolean
   }
 }
 

@@ -9,7 +9,8 @@ import {
   Save,
   RefreshCw,
   Cloud,
-  Clock
+  Clock,
+  Sparkles
 } from 'lucide-react'
 import AccountsSettings from './settings/AccountsSettings'
 import DownloadSettings from './settings/DownloadSettings'
@@ -17,10 +18,11 @@ import StorageSettings from './settings/StorageSettings'
 import BackupSettings from './settings/BackupSettings'
 import AutoDownloadSettings from './settings/AutoDownloadSettings'
 import VideoLibrarySettings from './settings/VideoLibrarySettings'
+import AiNoteSettings from './settings/AiNoteSettings'
 import { useToast } from '../components/Toast'
 import '../settings-page.css'
 
-type TabType = 'accounts' | 'download' | 'storage' | 'backup' | 'auto-download' | 'video-library'
+type TabType = 'accounts' | 'download' | 'storage' | 'backup' | 'auto-download' | 'video-library' | 'ai-note'
 
 // 定义ref类型
 interface SettingsComponentRef {
@@ -41,7 +43,8 @@ function SettingsPage() {
     { id: 'storage' as TabType, label: '数据', icon: Database },
     { id: 'backup' as TabType, label: '备份', icon: Cloud },
     { id: 'auto-download' as TabType, label: '定时', icon: Clock },
-    { id: 'video-library' as TabType, label: '视频库', icon: Database }
+    { id: 'video-library' as TabType, label: '视频库', icon: Database },
+    { id: 'ai-note' as TabType, label: 'AI笔记', icon: Sparkles }
   ]
 
   // 从hash初始化activeTab
@@ -59,6 +62,7 @@ function SettingsPage() {
   const backupSettingsRef = useRef<SettingsComponentRef>(null)
   const autoDownloadSettingsRef = useRef<SettingsComponentRef>(null)
   const videoLibrarySettingsRef = useRef<SettingsComponentRef>(null)
+  const aiNoteSettingsRef = useRef<SettingsComponentRef>(null)
   const tabBarRef = useRef<HTMLDivElement>(null)
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
   
@@ -121,6 +125,9 @@ function SettingsPage() {
     if (targetTab === 'video-library' && videoLibrarySettingsRef.current) {
       return videoLibrarySettingsRef.current.hasUnsavedChanges()
     }
+    if (targetTab === 'ai-note' && aiNoteSettingsRef.current) {
+      return aiNoteSettingsRef.current.hasUnsavedChanges()
+    }
     return false
   }
 
@@ -139,6 +146,8 @@ function SettingsPage() {
         await autoDownloadSettingsRef.current.saveSettings()
       } else if (activeTab === 'video-library' && videoLibrarySettingsRef.current) {
         await videoLibrarySettingsRef.current.saveSettings()
+      } else if (activeTab === 'ai-note' && aiNoteSettingsRef.current) {
+        await aiNoteSettingsRef.current.saveSettings()
       }
       
       showToast('设置已保存', 'success')
@@ -219,10 +228,11 @@ function SettingsPage() {
         {activeTab === 'backup' && <BackupSettings ref={backupSettingsRef} />}
         {activeTab === 'auto-download' && <AutoDownloadSettings ref={autoDownloadSettingsRef} />}
         {activeTab === 'video-library' && <VideoLibrarySettings ref={videoLibrarySettingsRef} />}
+        {activeTab === 'ai-note' && <AiNoteSettings ref={aiNoteSettingsRef} />}
       </div>
 
       {/* 悬浮保存按钮 */}
-      {(activeTab === 'storage' || activeTab === 'download' || activeTab === 'backup' || activeTab === 'auto-download' || activeTab === 'video-library') && (
+      {(activeTab === 'storage' || activeTab === 'download' || activeTab === 'backup' || activeTab === 'auto-download' || activeTab === 'video-library' || activeTab === 'ai-note') && (
         <button
           className={`settings-fab-save-btn ${hasUnsavedChanges() ? 'has-changes' : ''} ${saving ? 'saving' : ''}`}
           onClick={handleSave}
