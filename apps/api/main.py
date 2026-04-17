@@ -22,6 +22,7 @@ from src.routers.auto_download import router as auto_download_router
 from src.routers.concurrency import router as concurrency_router
 from src.routers.library import router as library_router
 from src.routers.video_library import router as video_library_router
+from src.routers.note import router as note_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
 from src.services.cache.video_cache import video_cache
@@ -30,16 +31,17 @@ from src.services.tool_initializer import initialize_tools_on_startup, ToolIniti
 
 # 配置日志级别
 import os
+
 # 确保logs目录存在
-os.makedirs('logs', exist_ok=True)
+os.makedirs("logs", exist_ok=True)
 
 logging.basicConfig(
     level=logging.DEBUG,  # 设置为 DEBUG 级别
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler('logs/app.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler("logs/app.log", encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 
 logger = logging.getLogger(__name__)
@@ -52,41 +54,43 @@ async def update_tool_paths_in_database():
     from src.database import SessionLocal
     from src.models.setting import Setting
     import json
-    
+
     db = SessionLocal()
     try:
         initializer = ToolInitializer()
-        
+
         # 获取项目内工具路径
-        ffmpeg_path = initializer.get_tool_path('ffmpeg')
-        aria2c_path = initializer.get_tool_path('aria2c')
-        
+        ffmpeg_path = initializer.get_tool_path("ffmpeg")
+        aria2c_path = initializer.get_tool_path("aria2c")
+
         if not ffmpeg_path and not aria2c_path:
             logger.info("No bundled tools found, skipping database update")
             return
-        
+
         # 获取当前设置
-        sidecar_setting = db.query(Setting).filter_by(key='storage.sidecar').first()
+        sidecar_setting = db.query(Setting).filter_by(key="storage.sidecar").first()
         if not sidecar_setting:
             logger.info("Sidecar setting not found, skipping update")
             return
-        
+
         try:
             current_value = json.loads(sidecar_setting.value)
-            
+
             # 更新工具路径
             updated = False
             if ffmpeg_path:
-                current_value['ffmpeg'] = ffmpeg_path
+                current_value["ffmpeg"] = ffmpeg_path
                 updated = True
             if aria2c_path:
-                current_value['aria2c'] = aria2c_path
+                current_value["aria2c"] = aria2c_path
                 updated = True
-            
+
             if updated:
                 sidecar_setting.value = json.dumps(current_value)
                 db.commit()
-                logger.info(f"Updated tool paths in database: ffmpeg={ffmpeg_path}, aria2c={aria2c_path}")
+                logger.info(
+                    f"Updated tool paths in database: ffmpeg={ffmpeg_path}, aria2c={aria2c_path}"
+                )
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse sidecar setting: {e}")
     except Exception as e:
@@ -119,6 +123,7 @@ async def lifespan(app: FastAPI):
             if getattr(settings, "ENABLE_COOKIES_SYNC", True):
                 from src.database import SessionLocal
                 from src.models.user import User
+
                 db = SessionLocal()
                 try:
                     active_users = db.query(User).filter(User.is_active == True).all()
@@ -197,6 +202,7 @@ app.include_router(auto_download_router)
 app.include_router(concurrency_router)
 app.include_router(library_router)
 app.include_router(video_library_router)
+app.include_router(note_router)
 
 
 @app.websocket("/ws/queue")
@@ -206,10 +212,9 @@ async def websocket_queue(websocket: WebSocket):
 
     try:
         # 发送连接确认
-        await websocket.send_json({
-            "type": "connected",
-            "message": "WebSocket connection established"
-        })
+        await websocket.send_json(
+            {"type": "connected", "message": "WebSocket connection established"}
+        )
 
         # 保持连接活跃
         while True:
@@ -237,7 +242,7 @@ async def root():
     return {
         "name": settings.app_name,
         "version": settings.app_version,
-        "status": "running"
+        "status": "running",
     }
 
 
@@ -248,9 +253,7 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        "main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug
+        "main:app", host=settings.host, port=settings.port, reload=settings.debug
     )
