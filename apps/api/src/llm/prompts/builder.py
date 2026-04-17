@@ -1,57 +1,78 @@
-from typing import List, Optional
-from .base import build_base_prompt
-from .formats import get_all_format_templates
-from .styles import get_style_template
+from typing import Any, Dict, List, Optional
+
 from .constants import DEFAULT_FORMATS, DEFAULT_STYLE
+from ...services.prompt_template_service import get_prompt_template_service
 
 
 class PromptBuilder:
     """Prompt 构建器"""
 
     @staticmethod
+    def _get_templates() -> Dict[str, Any]:
+        return get_prompt_template_service().get_templates()
+
+    @staticmethod
+    def _render_section(template: str, content: str) -> str:
+        return template.replace("{content}", content.strip() or "无")
+
+    @staticmethod
     def build(
-        video_title: str,
-        segment_text: str,
-        tags: str = "",
-        formats: Optional[List[str]] = None,
+        t0_text: str,
+        t1_text: str,
+        level: str = "detailed",
         style: str = DEFAULT_STYLE,
+        formats: Optional[List[str]] = None,
         extras: Optional[str] = None,
         system_prompt: Optional[str] = None,
     ) -> str:
-        """
-        构建完整的 Prompt
+        """Build a layered prompt for AI note generation."""
+        templates = PromptBuilder._get_templates()
+        layers = templates.get("layers", {})
+        base = templates.get("base", {})
+        prompt_parts = []
 
-        Args:
-            video_title: 视频标题
-            segment_text: 视频转写内容
-            tags: 视频标签
-            formats: 启用的格式列表
-            style: 笔记风格
-            extras: 额外提示词
-            system_prompt: 自定义系统提示词
-
-        Returns:
-            完整的 prompt 字符串
-        """
-        # 使用自定义系统提示或默认基础提示
         if system_prompt:
-            prompt = system_prompt
+            prompt_parts.append(system_prompt.strip())
         else:
-            prompt = build_base_prompt(video_title, segment_text, tags)
+            prompt_parts.append(base.get("system") or "你是一位专业的视频内容分析师，请基于以下分层输入生成结构化 Markdown 笔记。")
 
-        # 添加格式模板
+        prompt_parts.append(PromptBuilder._render_section(layers.get("t0", "## T0 视频信息\n{content}"), t0_text))
+        prompt_parts.append(PromptBuilder._render_section(layers.get("t1", "## T1 视频文本\n{content}"), t1_text))
+
+        if level == "simple":
+            t2_template = layers.get("t2", {}).get("simple", "## T2 详细程度\n请输出简单版本：只保留核心观点、关键结论和必要结构，压缩背景和重复信息。")
+        else:
+            t2_template = layers.get("t2", {}).get("detailed", "## T2 详细程度\n请输出详细版本：保留上下文、因果关系、关键细节、例子和章节组织，并补足必要分析。")
+        prompt_parts.append(t2_template)
+
+        t3_template = layers.get("t3", {}).get(
+            style, "保持清晰、结构化、可读。"
+        )
+        prompt_parts.append("## T3 风格\n" + t3_template)
+
         if formats:
-            prompt += "\n" + get_all_format_templates(formats)
+            format_templates = layers.get("formats", {})
+            selected_formats = [
+                format_templates.get(format_name, "")
+                for format_name in formats
+                if format_templates.get(format_name)
+            ]
+            if selected_formats:
+                prompt_parts.append("## 高级功能预留\n" + "\n".join(selected_formats))
 
-        # 添加风格模板
-        if style:
-            prompt += "\n" + get_style_template(style)
-
-        # 添加额外内容
         if extras:
-            prompt += f"\n{extras}"
+            extras_template = layers.get("extras", "## 额外要求\n{content}")
+            prompt_parts.append(PromptBuilder._render_section(extras_template, extras))
 
-        return prompt
+        final_requirements = base.get("final") or [
+            "仅输出 Markdown 正文。",
+            "不要解释你做了什么。",
+            "不要输出调试信息。",
+            "确保内容与输入信息一致。",
+        ]
+        prompt_parts.append("## 最终要求\n" + "\n".join(f"- {line}" for line in final_requirements))
+
+        return "\n\n".join(prompt_parts).strip()
 
     @staticmethod
     def build_for_transcribe_only(video_title: str, language: str = "zh") -> str:

@@ -16,13 +16,16 @@ export interface AnalyzeResponse {
   message?: string;
 }
 
+export type AiNoteStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 export interface NoteStatusResponse {
   success: boolean;
   note_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: AiNoteStatus;
   progress?: number;
   message?: string;
   error?: string;
+  trace?: AiTraceStep[];
 }
 
 export interface NoteResponse {
@@ -33,45 +36,59 @@ export interface NoteResponse {
   summary?: string;
   style?: string;
   formats?: string[];
-  status: string;
+  status: AiNoteStatus | 'not_found';
   model_provider?: string;
   model_name?: string;
   error?: string;
+  meta?: Record<string, any>;
   created_at: string;
   updated_at: string;
   completed_at?: string;
 }
 
+export interface NoteLookupResponse {
+  success: boolean;
+  found: boolean;
+  note: NoteResponse | null;
+  message?: string;
+}
+
+export interface AiTraceStep {
+  stage: string;
+  title: string;
+  summary: string;
+  detail?: Record<string, any>;
+  progress?: number;
+  ts?: string;
+}
+
 export const aiNoteService = {
-  async analyze(request: AnalyzeRequest): Promise<any> {
-    const response = await apiService.request<any>('/api/note/analyze', {
+  async analyze(request: AnalyzeRequest): Promise<AnalyzeResponse> {
+    const response = await apiService.request<AnalyzeResponse>('/api/note/analyze', {
       method: 'POST',
       body: JSON.stringify(request),
     });
-    return response.data || response;
+    return (response.data ?? response) as AnalyzeResponse;
   },
 
-  async getStatus(noteId: string): Promise<any> {
-    const response = await apiService.request<any>(`/api/note/status/${noteId}`);
-    return response.data || response;
+  async getStatus(noteId: string): Promise<NoteStatusResponse> {
+    const response = await apiService.request<NoteStatusResponse>(`/api/note/status/${noteId}`);
+    return (response.data ?? response) as NoteStatusResponse;
   },
 
-  async getNote(noteId: string): Promise<any> {
-    const response = await apiService.request<any>(`/api/note/${noteId}`);
-    return response.data || response;
+  async getNote(noteId: string): Promise<NoteResponse> {
+    const response = await apiService.request<NoteResponse>(`/api/note/${noteId}`);
+    return (response.data ?? response) as NoteResponse;
   },
 
-  async getNoteByVideo(videoId: string): Promise<any> {
-    try {
-      const response = await apiService.request<any>(`/api/note/by-video/${videoId}`);
-      return response.data || response;
-    } catch (error: any) {
-      // 404 表示没有笔记，这是正常情况
-      if (error?.status === 404 || error?.response?.status === 404) {
-        return { success: true, content: null, status: 'not_found' };
-      }
-      throw error;
-    }
+  async lookupNoteByVideo(videoId: string): Promise<NoteLookupResponse> {
+    const response = await apiService.request<NoteLookupResponse>(`/api/note/by-video?video_id=${encodeURIComponent(videoId)}`);
+    return (response.data ?? response) as NoteLookupResponse;
+  },
+
+  async getNoteByVideo(videoId: string): Promise<NoteResponse | null> {
+    const payload = await this.lookupNoteByVideo(videoId);
+    return payload.found ? payload.note : null;
   },
 };
 
@@ -88,10 +105,10 @@ export const NOTE_STYLES = [
 ] as const;
 
 export const NOTE_FORMATS = [
-  { label: '目录', value: 'toc', description: '自动生成目录' },
-  { label: '原片跳转', value: 'link', description: '添加时间戳跳转' },
-  { label: '原片截图', value: 'screenshot', description: '插入关键帧截图' },
-  { label: 'AI 总结', value: 'summary', description: '末尾添加 AI 总结' },
+  { label: '目录', value: 'toc', description: '高级功能预留：自动生成目录' },
+  { label: '原片跳转', value: 'link', description: '高级功能预留：添加时间戳跳转' },
+  { label: '原片截图', value: 'screenshot', description: '高级功能预留：插入关键帧截图' },
+  { label: 'AI 总结', value: 'summary', description: '默认启用：末尾添加 AI 总结' },
 ] as const;
 
 export const DEFAULT_STYLE = 'detailed';

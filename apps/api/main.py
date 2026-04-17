@@ -23,6 +23,8 @@ from src.routers.concurrency import router as concurrency_router
 from src.routers.library import router as library_router
 from src.routers.video_library import router as video_library_router
 from src.routers.note import router as note_router
+from src.routers.ai import router as ai_router
+from src.routers.ai_prompt_templates import router as ai_prompt_templates_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
 from src.services.cache.video_cache import video_cache
@@ -203,6 +205,8 @@ app.include_router(concurrency_router)
 app.include_router(library_router)
 app.include_router(video_library_router)
 app.include_router(note_router)
+app.include_router(ai_router)
+app.include_router(ai_prompt_templates_router)
 
 
 @app.websocket("/ws/queue")

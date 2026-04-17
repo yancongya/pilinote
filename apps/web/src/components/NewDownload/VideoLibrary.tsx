@@ -29,35 +29,51 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
 
   // AI 笔记状态
-  const [aiNoteStatus, setAiNoteStatus] = useState<'none' | 'processing' | 'completed'>('none')
+  const [aiNoteStatus, setAiNoteStatus] = useState<'none' | 'processing' | 'completed' | 'failed'>('none')
   const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isLoadingStatus, setIsLoadingStatus] = useState(false)
 
-  // 获取视频文件路径（本地路径）
-  const videoFilePath = task.meta?.folder_path
+  const folderPath = task.meta?.folder_path
+  const videoIdForNote = task.meta?.nfo_data?.bvid
 
-  // 检查是否有有效的本地文件路径
-  const hasLocalFile = videoFilePath && !isOpus
+  // 仅对可识别的 B 站视频提供 AI 笔记（统一使用 BV 号进行查找/触发分析）
+  const canUseAiNote = Boolean(folderPath) && Boolean(videoIdForNote) && !isOpus
 
-  // 检查 AI 笔记状态（基于文件路径）
+  // 检查 AI 笔记状态（统一基于 videoIdForNote）
   useEffect(() => {
     const checkAiNoteStatus = async () => {
-      if (!hasLocalFile) return
+      if (!canUseAiNote || !videoIdForNote) return
       
       setIsLoadingStatus(true)
       try {
-        // TODO: 后续可以添加基于文件路径的笔记查询
-        // 暂时跳过检查
+        const lookup = await aiNoteService.lookupNoteByVideo(videoIdForNote)
+        if (!lookup.success || !lookup.found || !lookup.note) {
+          setAiNoteStatus('none')
+          setExistingNote(null)
+          return
+        }
+
+        setExistingNote(lookup.note)
+        if (lookup.note.status === 'processing') {
+          setAiNoteStatus('processing')
+        } else if (lookup.note.status === 'completed') {
+          setAiNoteStatus('completed')
+        } else if (lookup.note.status === 'failed') {
+          setAiNoteStatus('failed')
+        } else {
+          setAiNoteStatus('none')
+        }
       } catch (err) {
-        // 没有笔记是正常的
+        setAiNoteStatus('none')
+        setExistingNote(null)
       } finally {
         setIsLoadingStatus(false)
       }
     }
     
     checkAiNoteStatus()
-  }, [hasLocalFile, videoFilePath])
+  }, [canUseAiNote, videoIdForNote])
 
   const handleAiNoteClick = () => {
     setShowModal(true)
@@ -186,8 +202,8 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             )}
 
             {/* AI 笔记按钮 - 仅视频显示，有本地文件 */}
-            {!isOpus && hasLocalFile && !isLoadingStatus && (
-              <AiNoteButton
+            {!isOpus && canUseAiNote && !isLoadingStatus && (
+            <AiNoteButton
                 status={aiNoteStatus}
                 onClick={handleAiNoteClick}
               />
@@ -195,9 +211,9 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           </div>
 
         {/* AI 笔记弹窗 */}
-        {showModal && hasLocalFile && (
+        {showModal && canUseAiNote && videoIdForNote && (
           <AiNoteModal
-            videoId={videoFilePath}
+            videoId={videoIdForNote}
             videoTitle={task.title}
             existingNote={existingNote}
             isOpen={showModal}

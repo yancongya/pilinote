@@ -20,6 +20,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
+import AiPromptTemplates from './AiPromptTemplates'
 
 interface LLMProvider {
   id: string
@@ -43,6 +44,18 @@ interface AiNoteSettingsRef {
   saveSettings: () => Promise<void>
   getSavedStatus: () => 'idle' | 'saving' | 'saved' | 'error'
 }
+
+const SETTINGS_STYLE_CARDS: NoteStyle[] = [
+  { value: 'minimal', label: '精简', description: '仅记录最重要的内容', prompt: '请简洁总结视频要点' },
+  { value: 'detailed', label: '详细', description: '包含完整内容和详细讨论', prompt: '请详细总结视频内容' },
+  { value: 'academic', label: '学术', description: '正式结构化，适合学术报告', prompt: '请以学术风格总结' },
+  { value: 'tutorial', label: '教程', description: '详细记录关键点和结论', prompt: '请以教程风格总结关键点' },
+  { value: 'xiaohongshu', label: '小红书', description: '爆款标题、emoji表达', prompt: '请以小红书风格总结' },
+  { value: 'life_journal', label: '生活向', description: '情感化表达，记录生活感悟', prompt: '请以生活感悟风格总结' },
+  { value: 'task_oriented', label: '任务导向', description: '强调任务和目标', prompt: '请以任务导向风格总结' },
+  { value: 'business', label: '商业风格', description: '正式精准，适合商业报告', prompt: '请以商业风格总结' },
+  { value: 'meeting_minutes', label: '会议纪要', description: '突出决策和行动项', prompt: '请以会议纪要格式总结' },
+]
 
 const STORAGE_KEY_PROVIDERS = 'pilinote_llm_providers'
 const STORAGE_KEY_STYLES = 'pilinote_custom_styles'
@@ -89,13 +102,14 @@ const providerIconMap: Record<string, ReactElement> = {
 }
 
 const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
-  const { settings, updateSettings } = useSettingsStore()
+  const { settings, updateSettings, fetchSettings } = useSettingsStore()
   const { showToast } = useToast()
   
   const [localSettings, setLocalSettings] = useState({
     llm: {
       provider: 'openai',
       model: 'gpt-4o-mini',
+      api_key: '',
       temperature: 0.7,
     },
     style: {
@@ -124,9 +138,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [editingStyle, setEditingStyle] = useState<NoteStyle | null>(null)
   const [styleForm, setStyleForm] = useState({ label: '', description: '', prompt: '' })
   const [showStyleModal, setShowStyleModal] = useState(false)
+  const [showPromptTemplatesModal, setShowPromptTemplatesModal] = useState(false)
   const [modelEditIndex, setModelEditIndex] = useState<number | null>(null)
   const [modelDraft, setModelDraft] = useState('')
   const [modelTestStatus, setModelTestStatus] = useState<Record<string, boolean | 'loading'>>({})
+  const [testedModels, setTestedModels] = useState<Record<string, string[]>>({})
   const providerTabsRef = useRef<HTMLDivElement | null>(null)
   const providerBarRef = useRef<HTMLDivElement | null>(null)
   const providerThumbDragState = useRef({
@@ -160,10 +176,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
       const currentAiNote = settings?.ai_note
       if (currentAiNote) {
-        setLocalSettings({
+          setLocalSettings({
           llm: {
             provider: currentAiNote.llm.provider,
             model: currentAiNote.llm.model,
+            api_key: currentAiNote.llm.api_key,
             temperature: currentAiNote.llm.temperature,
           },
           style: {
@@ -176,10 +193,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             include_summary: currentAiNote.format.include_summary,
           },
           auto_analyze: currentAiNote.auto_analyze,
-        })
-        setActiveProviderId(currentAiNote.llm.provider || 'openai')
-        setActiveStyleId(currentAiNote.style.style || 'detailed')
-      }
+          })
+          setTestedModels(currentAiNote.llm.tested_models || {})
+          setActiveProviderId(currentAiNote.llm.provider || 'openai')
+          setActiveStyleId(currentAiNote.style.style || 'detailed')
+        }
     } catch (e) {
       setProviders(DEFAULT_PROVIDERS)
     }
@@ -227,8 +245,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
   const resolveStyles = () => {
     const customMap = new Map(customStyles.map(style => [style.value, style]))
-    return DEFAULT_STYLES.map(style => customMap.get(style.value) || style).concat(
-      customStyles.filter(style => !DEFAULT_STYLES.some(defaultStyle => defaultStyle.value === style.value))
+    return SETTINGS_STYLE_CARDS.map(style => customMap.get(style.value) || style).concat(
+      customStyles.filter(style => !SETTINGS_STYLE_CARDS.some(defaultStyle => defaultStyle.value === style.value))
     )
   }
 
@@ -407,6 +425,42 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         throw new Error(err.detail || '测试失败')
       }
       setModelTestStatus(prev => ({ ...prev, [modelName]: true }))
+      setLocalSettings(prev => ({
+        ...prev,
+        llm: {
+          ...prev.llm,
+          provider: provider.id,
+          model: modelName,
+        },
+      }))
+      const nextTestedModels = {
+        ...testedModels,
+        [provider.id]: Array.from(new Set([...(testedModels[provider.id] || []), modelName])),
+      }
+      setTestedModels(nextTestedModels)
+      await updateSettings({
+        ai_note: {
+          ...(settings?.ai_note || {}),
+          llm: {
+            ...(settings?.ai_note?.llm || {}),
+            provider: provider.id,
+            model: modelName,
+            api_key: localSettings.llm.api_key,
+            temperature: localSettings.llm.temperature,
+            tested_models: nextTestedModels,
+          },
+          style: {
+            ...(settings?.ai_note?.style || {}),
+            ...localSettings.style,
+          },
+          format: {
+            ...(settings?.ai_note?.format || {}),
+            ...localSettings.format,
+          },
+          auto_analyze: localSettings.auto_analyze,
+        },
+      })
+      await fetchSettings()
       showToast(`模型测试通过: ${modelName}`, 'success')
     } catch (error) {
       setModelTestStatus(prev => ({ ...prev, [modelName]: false }))
@@ -486,10 +540,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         await updateSettings({
           ai_note: {
             ...currentAiNote,
-            llm: {
-              ...currentAiNote.llm,
-              ...localSettings.llm,
-            },
+          llm: {
+            ...currentAiNote.llm,
+            ...localSettings.llm,
+            tested_models: testedModels,
+          },
             style: {
               ...currentAiNote.style,
               ...localSettings.style,
@@ -501,8 +556,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             auto_analyze: localSettings.auto_analyze,
           },
         })
-        setActiveProviderId(localSettings.llm.provider)
-        setActiveStyleId(localSettings.style.style)
+        await fetchSettings()
+      setActiveProviderId(localSettings.llm.provider)
+      setActiveStyleId(localSettings.style.style)
         setSavedStatus('saved')
         setTimeout(() => setSavedStatus('idle'), 2000)
       } catch (error) {
@@ -522,10 +578,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             <Brain size={18} />
             AI 服务商
           </h3>
-          <button className="settings-add-btn" onClick={handleAddProvider}>
-            <Plus size={16} />
-            新建
-          </button>
+          <div className="settings-group-actions">
+            <button className="settings-add-btn settings-secondary-btn" onClick={() => setShowPromptTemplatesModal(true)}>
+              <Sparkles size={16} />
+              提示词模板
+            </button>
+            <button className="settings-add-btn" onClick={handleAddProvider}>
+              <Plus size={16} />
+              新建
+            </button>
+          </div>
         </div>
         
         {/* 服务商Tabs */}
@@ -849,6 +911,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         )}
       </div>
 
+      <AiPromptTemplates
+        isOpen={showPromptTemplatesModal}
+        onClose={() => setShowPromptTemplatesModal(false)}
+      />
+
       {/* 自动功能 */}
       <div className="settings-group">
         <h3 className="settings-group-title">
@@ -885,6 +952,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           margin-bottom: 12px;
         }
 
+        .settings-group-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .settings-group-title {
           display: flex;
           align-items: center;
@@ -910,6 +983,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           color: white;
           border: none;
           cursor: pointer;
+        }
+
+        .settings-secondary-btn {
+          background: var(--color-bg-tertiary);
+          color: var(--color-text-primary);
         }
 
         /* Provider Tabs */

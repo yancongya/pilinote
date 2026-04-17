@@ -4,6 +4,7 @@ from .providers import LLMProvider, BaseLLMClient
 from .openai_client import OpenAIClient
 from .claude_client import ClaudeClient
 from .deepseek_client import DeepSeekClient
+from .ollama_client import OllamaClient
 
 
 class LLMClientFactory:
@@ -13,6 +14,7 @@ class LLMClientFactory:
         LLMProvider.OPENAI: OpenAIClient,
         LLMProvider.CLAUDE: ClaudeClient,
         LLMProvider.DEEPSEEK: DeepSeekClient,
+        LLMProvider.OLLAMA: OllamaClient,
     }
 
     @staticmethod
@@ -31,5 +33,6 @@ class LLMClientFactory:
             api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         elif provider == LLMProvider.DEEPSEEK:
             api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+        # Ollama 不需要 api_key
 
         return client_class(api_key=api_key, **kwargs)

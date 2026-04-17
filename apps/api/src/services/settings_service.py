@@ -314,7 +314,14 @@ class SettingsService:
             "temperature": float(
                 self._get_setting_value(all_settings, "ai_note.llm.temperature", 0.7)
             ),
+            "tested_models": {},
         }
+        tested_models_setting = all_settings.get("ai_note.llm.tested_models")
+        if tested_models_setting:
+            try:
+                llm_dict["tested_models"] = json.loads(tested_models_setting.value)
+            except json.JSONDecodeError:
+                llm_dict["tested_models"] = {}
         style_dict = {
             "style": self._get_setting_value(
                 all_settings, "ai_note.style.style", "concise"
@@ -383,6 +390,16 @@ class SettingsService:
     def update_settings(self, settings_dict: Dict[str, Any]) -> bool:
         """Update multiple settings"""
         try:
+            # AI 笔记 LLM 里的 tested_models 需要作为整体 JSON 存储，不能被通用嵌套遍历拆开
+            if "ai_note" in settings_dict and "llm" in settings_dict["ai_note"]:
+                llm_dict = settings_dict["ai_note"]["llm"]
+                if isinstance(llm_dict, dict) and "tested_models" in llm_dict:
+                    self._update_single_setting(
+                        "ai_note.llm.tested_models",
+                        llm_dict["tested_models"],
+                    )
+                    del llm_dict["tested_models"]
+
             # 预先处理 custom_scan，将其作为JSON存储
             if (
                 "auto_download" in settings_dict
@@ -425,6 +442,12 @@ class SettingsService:
                 if isinstance(category_dict, dict):
                     for sub_key, value in category_dict.items():
                         if isinstance(value, dict):
+                            if category == "ai_note" and sub_key == "llm":
+                                for llm_key, llm_value in value.items():
+                                    self._update_single_setting(
+                                        f"{category}.{sub_key}.{llm_key}", llm_value
+                                    )
+                                continue
                             # 处理二级嵌套（如download.video和download.metadata，以及storage.sidecar）
                             for nested_key, nested_value in value.items():
                                 self._update_single_setting(
@@ -583,6 +606,7 @@ class SettingsService:
                 "ai_note.llm.model": "gpt-4o-mini",
                 "ai_note.llm.api_key": "",
                 "ai_note.llm.temperature": "0.7",
+                "ai_note.llm.tested_models": json.dumps({}),
                 "ai_note.style.style": "concise",
                 "ai_note.style.length": "500",
                 "ai_note.format.format": "markdown",

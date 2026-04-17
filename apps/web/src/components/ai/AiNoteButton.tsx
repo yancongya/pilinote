@@ -1,7 +1,7 @@
 import { Sparkles, Loader2 } from 'lucide-react';
 
 interface AiNoteButtonProps {
-  status?: 'none' | 'processing' | 'completed';
+  status?: 'none' | 'processing' | 'completed' | 'failed';
   onClick: () => void;
 }
 
@@ -23,9 +23,23 @@ export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
       <div
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         className="library-ai-note-btn library-ai-note-btn-completed"
-        title="查看笔记"
+        title="已生成，点击查看"
       >
         <Sparkles size={16} className="library-ai-note-btn-icon" />
+        <span className="library-ai-note-btn-text">已生成</span>
+      </div>
+    );
+  }
+
+  if (status === 'failed') {
+    return (
+      <div
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="library-ai-note-btn library-ai-note-btn-failed"
+        title="分析失败，点击重试"
+      >
+        <Sparkles size={16} className="library-ai-note-btn-icon" />
+        <span className="library-ai-note-btn-text">失败重试</span>
       </div>
     );
   }
@@ -37,6 +51,7 @@ export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
       title="生成 AI 笔记"
     >
       <Sparkles size={16} className="library-ai-note-btn-icon" />
+      <span className="library-ai-note-btn-text">未生成</span>
     </div>
   );
 }

@@ -3,7 +3,9 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
-import subprocess
+
+from .asr_backends import AudioExtractor, ASRBackend, FFmpegAudioExtractor
+from .whisper_backend import OpenAIWhisperBackend
 
 logger = logging.getLogger(__name__)
 
@@ -88,24 +90,31 @@ class BiliSubtitleTranscriber(TranscriberBase):
         return "\n".join(lines)
 
 
-class WhisperTranscriber(TranscriberBase):
-    """Whisper API 转写器"""
+class ASRTranscriber(TranscriberBase):
+    """通用 ASR 转写编排器。
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY is required for Whisper")
+    当前默认组合是 FFmpegAudioExtractor + OpenAIWhisperBackend。
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        audio_extractor: Optional[AudioExtractor] = None,
+        asr_backend: Optional[ASRBackend] = None,
+    ):
+        self.audio_extractor = audio_extractor or FFmpegAudioExtractor()
+        self.asr_backend = asr_backend or OpenAIWhisperBackend(api_key=api_key)
 
     def transcribe(self, video_path: str, video_id: str) -> Optional[str]:
-        """使用 Whisper API 转写视频"""
+        """使用当前默认 ASR 流程转写视频"""
         try:
-            # 提取音频
-            audio_path = self._extract_audio(video_path)
+            audio_path = self.audio_extractor.extract(video_path)
             if not audio_path:
-                return None
+                raise ValueError("未能提取音频")
 
-            # 调用 Whisper API
-            transcript = self._call_whisper_api(audio_path)
+            transcript = self.asr_backend.transcribe_audio(audio_path)
+            if not transcript:
+                raise ValueError("ASR 未返回转写内容")
 
             # 清理临时音频文件
             if audio_path != video_path and os.path.exists(audio_path):
@@ -113,55 +122,11 @@ class WhisperTranscriber(TranscriberBase):
 
             return transcript
         except Exception as e:
-            logger.error(f"Whisper 转写失败: {e}")
+            logger.error(f"ASR 转写失败: {e}")
             return None
 
-    def _extract_audio(self, video_path: str) -> Optional[str]:
-        """使用 FFmpeg 提取音频"""
-        audio_path = video_path.rsplit(".", 1)[0] + ".mp3"
-
-        if os.path.exists(audio_path):
-            return audio_path
-
-        try:
-            subprocess.run(
-                [
-                    "ffmpeg",
-                    "-i",
-                    video_path,
-                    "-vn",
-                    "-acodec",
-                    "libmp3lame",
-                    "-q:a",
-                    "2",
-                    audio_path,
-                    "-y",
-                ],
-                capture_output=True,
-                check=True,
-            )
-            return audio_path
-        except Exception as e:
-            logger.error(f"提取音频失败: {e}")
-            # 尝试保留原视频路径（可能有内置音频）
-            return video_path if os.path.exists(video_path) else None
-
-    def _call_whisper_api(self, audio_path: str) -> str:
-        """调用 OpenAI Whisper API"""
-        try:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=self.api_key)
-
-            with open(audio_path, "rb") as audio_file:
-                response = client.audio.transcriptions.create(
-                    model="whisper-1", file=audio_file, response_format="text"
-                )
-
-            return response.text if hasattr(response, "text") else str(response)
-        except Exception as e:
-            logger.error(f"Whisper API 调用失败: {e}")
-            return ""
+    def get_pipeline_name(self) -> str:
+        return "ffmpeg + OpenAI Whisper"
 
 
 class TranscriberFactory:
@@ -172,45 +137,45 @@ class TranscriberFactory:
         """创建转写器实例"""
         if transcriber_type == "bilibili" or transcriber_type == "subtitle":
             return BiliSubtitleTranscriber(**kwargs)
-        elif transcriber_type == "whisper":
-            return WhisperTranscriber(**kwargs)
+        elif transcriber_type in {"whisper", "asr"}:
+            return ASRTranscriber(**kwargs)
         elif transcriber_type == "auto":
-            # 自动选择：优先字幕，无字幕用 Whisper
-            return AutoTranscriber(**kwargs)
+            # 自动选择：默认直接使用 ASR（当前实现为 OpenAI Whisper），避免误用错误字幕
+            return ASRTranscriber(**kwargs)
         else:
             raise ValueError(f"Unknown transcriber type: {transcriber_type}")
 
 
 class AutoTranscriber(TranscriberBase):
-    """自动转写器 - 优先字幕，无则 Whisper"""
+    """自动转写器 - 默认使用 ASR。"""
 
     def __init__(self, **kwargs):
         self.subtitle_transcriber = BiliSubtitleTranscriber(**kwargs)
         self.whisper_transcriber = None
         try:
-            self.whisper_transcriber = WhisperTranscriber(**kwargs)
+            self.whisper_transcriber = ASRTranscriber(**kwargs)
         except ValueError:
-            logger.warning("Whisper API 未配置，将仅使用字幕")
+            logger.warning("ASR 配置未就绪，将仅使用字幕")
 
     def transcribe(self, video_path: str, video_id: str) -> Optional[str]:
-        """自动转写：字幕优先，无则 Whisper"""
-        # 先尝试字幕
-        result = self.subtitle_transcriber.transcribe(video_path, video_id)
-        if result:
-            logger.info(f"使用字幕转写成功 for video: {video_id}")
-            return result
-
-        # 降级到 Whisper
+        """自动转写：默认使用 ASR，字幕仅作为显式兼容实现保留。"""
         if self.whisper_transcriber:
             result = self.whisper_transcriber.transcribe(video_path, video_id)
             if result:
-                logger.info(f"使用 Whisper 转写成功 for video: {video_id}")
+                logger.info(f"使用 ASR 转写成功 for video: {video_id}")
                 return result
 
         logger.error(f"所有转写方式均失败 for video: {video_id}")
         return None
 
+    def get_pipeline_name(self) -> str:
+        return "ffmpeg + OpenAI Whisper"
+
 
 def get_transcriber(transcriber_type: str = "auto", **kwargs) -> TranscriberBase:
     """便捷函数：获取转写器"""
     return TranscriberFactory.create(transcriber_type, **kwargs)
+
+
+# 保留旧名兼容，便于渐进迁移
+WhisperTranscriber = ASRTranscriber

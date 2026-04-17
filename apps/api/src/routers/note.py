@@ -14,6 +14,33 @@ from src.models.download import Download
 router = APIRouter(prefix="/api/note", tags=["note"])
 
 
+def _run_ai_analysis_background(
+    note_id: str,
+    video_id: str,
+    file_path: str,
+    style: str,
+    formats: List[str],
+    model_provider: str,
+    model_name: str,
+    extras: Optional[str],
+):
+    service = AiNoteService()
+    try:
+        service.analyze_note(
+            note_id=note_id,
+            video_id=video_id,
+            file_path=file_path,
+            style=style,
+            formats=formats,
+            model_provider=model_provider,
+            model_name=model_name,
+            extras=extras,
+        )
+    finally:
+        if service.db:
+            service.db.close()
+
+
 class AnalyzeRequest(BaseModel):
     """AI 分析请求"""
 
@@ -45,6 +72,7 @@ class NoteStatusResponse(BaseModel):
     progress: Optional[float] = None
     message: Optional[str] = None
     error: Optional[str] = None
+    trace: Optional[List[Dict[str, Any]]] = None
 
 
 class NoteResponse(BaseModel):
@@ -61,9 +89,19 @@ class NoteResponse(BaseModel):
     model_provider: Optional[str] = None
     model_name: Optional[str] = None
     error: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
+
+
+class NoteLookupResponse(BaseModel):
+    """按视频查找笔记响应"""
+
+    success: bool = True
+    found: bool = False
+    note: Optional[NoteResponse] = None
+    message: Optional[str] = None
 
 
 class ErrorResponse(BaseModel):
@@ -74,7 +112,7 @@ class ErrorResponse(BaseModel):
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_video(request: AnalyzeRequest):
+async def analyze_video(request: AnalyzeRequest, background_tasks: BackgroundTasks):
     """触发 AI 分析"""
     try:
         # 支持三种方式：1) file_path（本地文件路径）2) downloads.id  3) bvid
@@ -114,23 +152,33 @@ async def analyze_video(request: AnalyzeRequest):
             # 使用文件路径作为 ID
             video_id = file_path
 
-        # 创建笔记记录并执行分析
         service = AiNoteService()
-        note = service.analyze_video(
+        note = service.create_note_record(
             video_id=video_id,
-            file_path=file_path,
             style=request.style or "detailed",
             formats=request.formats or ["summary"],
             model_provider=request.model_provider or "openai",
             model_name=request.model_name or "gpt-4o-mini",
-            extras=request.extras,
+        )
+        service.db.close()
+
+        background_tasks.add_task(
+            _run_ai_analysis_background,
+            note.id,
+            video_id,
+            file_path,
+            request.style or "detailed",
+            request.formats or ["summary"],
+            request.model_provider or "openai",
+            request.model_name or "gpt-4o-mini",
+            request.extras,
         )
 
         return AnalyzeResponse(
             note_id=note.id,
             status=note.status,
             success=True,
-            message="分析完成" if note.status == "completed" else None,
+            message="分析已启动",
         )
 
     except HTTPException:
@@ -148,8 +196,11 @@ async def get_note_status(note_id: str):
     if not note:
         raise HTTPException(status_code=404, detail="笔记不存在")
 
+    trace = (note.meta or {}).get("trace", [])
     progress = None
-    if note.status == "processing":
+    if trace:
+        progress = float(trace[-1].get("progress", 0.0))
+    elif note.status == "processing":
         progress = 50.0
     elif note.status == "completed":
         progress = 100.0
@@ -161,60 +212,39 @@ async def get_note_status(note_id: str):
         progress=progress,
         message="处理中" if note.status == "processing" else None,
         error=note.error,
+        trace=trace,
     )
 
 
-@router.get("/{note_id}", response_model=NoteResponse)
-async def get_note(note_id: str):
-    """获取笔记详情"""
-    service = AiNoteService()
-    note = service.get_note(note_id)
-
-    if not note:
-        raise HTTPException(status_code=404, detail="笔记不存在")
-
-    return NoteResponse(
-        success=True,
-        id=note.id,
-        video_id=note.video_id,
-        content=note.content,
-        summary=note.summary,
-        style=note.style,
-        formats=note.formats,
-        status=note.status,
-        model_provider=note.model_provider,
-        model_name=note.model_name,
-        error=note.error,
-        created_at=note.created_at,
-        updated_at=note.updated_at,
-        completed_at=note.completed_at,
-    )
-
-
-@router.get("/by-video/{video_id}", response_model=NoteResponse)
-async def get_note_by_video(video_id: str):
+@router.get("/by-video", response_model=NoteLookupResponse)
+async def get_note_by_video(video_id: str = Query(..., description="视频 ID 或文件路径")):
     """根据视频 ID 获取笔记"""
     service = AiNoteService()
     note = service.get_note_by_video(video_id)
 
     if not note:
-        raise HTTPException(status_code=404, detail="该视频暂无笔记")
+        return NoteLookupResponse(success=True, found=False, note=None, message="该视频暂无笔记")
 
-    return NoteResponse(
+    return NoteLookupResponse(
         success=True,
-        id=note.id,
-        video_id=note.video_id,
-        content=note.content,
-        summary=note.summary,
-        style=note.style,
-        formats=note.formats,
-        status=note.status,
-        model_provider=note.model_provider,
-        model_name=note.model_name,
-        error=note.error,
-        created_at=note.created_at,
-        updated_at=note.updated_at,
-        completed_at=note.completed_at,
+        found=True,
+        note=NoteResponse(
+            success=True,
+            id=note.id,
+            video_id=note.video_id,
+            content=note.content,
+            summary=note.summary,
+            style=note.style,
+            formats=note.formats,
+            status=note.status,
+            model_provider=note.model_provider,
+            model_name=note.model_name,
+            error=note.error,
+            meta=note.meta,
+            created_at=note.created_at,
+            updated_at=note.updated_at,
+            completed_at=note.completed_at,
+        ),
     )
 
 
@@ -256,4 +286,32 @@ async def export_note(note_id: str):
         temp_path,
         media_type="text/markdown",
         filename=filename,
+    )
+
+
+@router.get("/{note_id}", response_model=NoteResponse)
+async def get_note(note_id: str):
+    """获取笔记详情"""
+    service = AiNoteService()
+    note = service.get_note(note_id)
+
+    if not note:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+
+    return NoteResponse(
+        success=True,
+        id=note.id,
+        video_id=note.video_id,
+        content=note.content,
+        summary=note.summary,
+        style=note.style,
+        formats=note.formats,
+        status=note.status,
+        model_provider=note.model_provider,
+        model_name=note.model_name,
+        error=note.error,
+        meta=note.meta,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+        completed_at=note.completed_at,
     )

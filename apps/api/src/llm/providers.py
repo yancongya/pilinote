@@ -11,6 +11,7 @@ class LLMProvider(str, Enum):
     CLAUDE = "claude"
     DEEPSEEK = "deepseek"
     QWEN = "qwen"
+    OLLAMA = "ollama"
     CUSTOM = "custom"
 
 

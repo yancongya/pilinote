@@ -4165,12 +4165,14 @@
   position: absolute;
   bottom: 8px;
   right: 8px;
-  width: 32px;
+  min-width: 32px;
   height: 32px;
-  border-radius: 50%;
+  padding: 0 10px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
   z-index: 10;
@@ -4200,8 +4202,21 @@
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
 }
 
+.library-ai-note-btn-failed {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  border: 2px solid rgba(239, 68, 68, 0.45);
+  color: white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+
 .library-ai-note-btn-icon {
   flex-shrink: 0;
+}
+
+.library-ai-note-btn-text {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .library-folder-expand-icon:hover {

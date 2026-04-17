@@ -41,15 +41,25 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     const checkExistingNote = async () => {
       setIsLoadingExisting(true);
       try {
-        const existingNote = await aiNoteService.getNoteByVideo(videoId);
-        // 检查有笔记内容 或 状态为 completed
-        if (existingNote.success && (existingNote.content || existingNote.status === 'completed')) {
-          setNote(existingNote);
-          setStyle(existingNote.style || DEFAULT_STYLE);
-          setFormats(existingNote.formats || DEFAULT_FORMATS);
+        const lookup = await aiNoteService.lookupNoteByVideo(videoId);
+        if (!lookup.success || !lookup.found || !lookup.note) {
+          setNote(null);
+          setNoteId(null);
+          setViewMode('form');
+          return;
+        }
+
+        setNote(lookup.note);
+        setStyle(lookup.note.style || DEFAULT_STYLE);
+        setFormats(lookup.note.formats || DEFAULT_FORMATS);
+
+        if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
+          setNoteId(lookup.note.id);
+          setViewMode('loading');
+        } else {
+          setNoteId(null);
           setViewMode('result');
         }
-        // success: false 表示没有笔记，这是正常的
       } catch (err) {
         // 无笔记，正常情况
       } finally {

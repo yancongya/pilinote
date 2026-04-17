@@ -57,3 +57,4 @@ class AiNoteStatusResponse(BaseModel):
     status: str
     progress: Optional[float] = None
     message: Optional[str] = None
+    trace: Optional[List[Dict[str, Any]]] = None

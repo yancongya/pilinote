@@ -158,6 +158,10 @@ class LLMSettings(BaseModel):
     model: str = Field(default="gpt-4o-mini", description="模型名称")
     api_key: str = Field(default="", description="API Key（留空则使用环境变量）")
     temperature: float = Field(default=0.7, ge=0, le=2, description="温度参数")
+    tested_models: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="已测试通过的模型列表，按 provider 分组",
+    )
 
 
 class NoteStyleSettings(BaseModel):
