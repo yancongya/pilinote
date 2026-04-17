@@ -4160,6 +4160,50 @@
   line-height: 1;
 }
 
+/* AI笔记按钮 */
+.library-ai-note-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.library-ai-note-btn-default {
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+}
+
+.library-ai-note-btn-default:hover {
+  background: var(--color-primary-600);
+  opacity: 1;
+}
+
+.library-ai-note-btn-processing {
+  background: rgba(59, 130, 246, 0.9);
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  color: white;
+  cursor: wait;
+}
+
+.library-ai-note-btn-completed {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  color: white;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.library-ai-note-btn-icon {
+  flex-shrink: 0;
+}
+
 .library-folder-expand-icon:hover {
   background: rgba(0, 0, 0, 0.8);
 }

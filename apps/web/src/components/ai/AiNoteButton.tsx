@@ -6,16 +6,14 @@ interface AiNoteButtonProps {
 }
 
 export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
-  const baseClass = 'ai-note-btn'
-  
   if (status === 'processing') {
     return (
       <div
         onClick={(e) => { e.stopPropagation(); }}
-        className={`${baseClass} ${baseClass}-processing`}
+        className="library-ai-note-btn library-ai-note-btn-processing"
         title="分析中..."
       >
-        <Loader2 size={16} className="ai-note-btn-icon spinning" />
+        <Loader2 size={16} className="library-ai-note-btn-icon spinning" />
       </div>
     );
   }
@@ -24,10 +22,10 @@ export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
     return (
       <div
         onClick={(e) => { e.stopPropagation(); onClick(); }}
-        className={`${baseClass} ${baseClass}-completed`}
+        className="library-ai-note-btn library-ai-note-btn-completed"
         title="查看笔记"
       >
-        <Sparkles size={16} className="ai-note-btn-icon" />
+        <Sparkles size={16} className="library-ai-note-btn-icon" />
       </div>
     );
   }
@@ -35,10 +33,10 @@ export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className={`${baseClass} ${baseClass}-default`}
+      className="library-ai-note-btn library-ai-note-btn-default"
       title="生成 AI 笔记"
     >
-      <Sparkles size={16} className="ai-note-btn-icon" />
+      <Sparkles size={16} className="library-ai-note-btn-icon" />
     </div>
   );
 }
