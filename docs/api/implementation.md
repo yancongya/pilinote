@@ -110,6 +110,33 @@ class DownloadService:
         """取消下载"""
 ```
 
+### 字幕下载链路
+
+字幕下载由下载服务和队列子任务共同完成，核心行为与 `Pilipala` 的字幕处理方式一致：
+
+1. 通过播放器接口获取 `subtitle.subtitles`
+2. 过滤出实际存在 `subtitle_url` 的条目
+3. 仅保留中英双语字幕：
+   - `ai-zh` / `zh-CN` / `zh-Hans` 统一按中文处理
+   - `ai-en` / `en-US` 统一按英文处理
+4. 将字幕 JSON 转成 `.srt`
+5. 写入视频目录同级位置
+
+### 字幕下载结果判定
+
+- `downloaded > 0`：至少有一个字幕文件成功落盘
+- `downloadable > 0`：存在可下载字幕
+- `skipped_no_url > 0`：接口返回了字幕记录，但没有可下载地址
+
+### 调试建议
+
+如果字幕没有落盘，优先检查：
+
+- 播放器接口是否返回 `subtitle.subtitles`
+- 每个字幕条目是否有 `subtitle_url`
+- 当前账号是否带有有效登录态
+- 任务是否走到了字幕子任务处理器
+
 ### SettingsService
 
 负责设置管理：
@@ -160,6 +187,19 @@ class HeadersManager:
     def get_headers(self):
         """获取请求头"""
 ```
+
+### 本地鉴权测试说明
+
+后端启动后会优先从 `apps/api/data/pilinote.db` 读取当前活跃账号的认证信息。开发联调时，测试需要登录态的接口可以直接复用这份数据，不需要重新扫码登录。
+
+常用的验证路径：
+
+- `GET /api/auth/status`
+- `GET /api/favorites/folders`
+- `GET /api/watch-later/list`
+- `GET /api/history/list`
+
+如果要在脚本里显式复用登录态，优先调用 `HeadersManager.sync_cookies_from_db(user_id)`，不要手写复制一份 Cookie 逻辑。
 
 ## 数据库模型
 

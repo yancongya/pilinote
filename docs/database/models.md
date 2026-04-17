@@ -44,6 +44,22 @@ class Download(Base):
     completed_at = Column(DateTime)
 ```
 
+#### 下载附属文件
+
+下载任务完成后，除了主体视频，还可能在同一目录下生成附属文件：
+
+- `cover.jpg` 或 `cover.png`：封面
+- `avatar.jpg` / `avatar.png`：UP 主头像
+- `<视频名>.<语言>.<来源>.srt`：字幕文件
+- `video.nfo` 或同类 NFO 文件：元数据文件
+
+字幕文件的写入规则：
+
+- 仅保存播放器接口返回且带 `subtitle_url` 的字幕
+- 仅保留中英双语字幕
+- 官方 AI 字幕与普通字幕统一处理
+- 如果只有字幕元数据没有可下载地址，不会写入空文件
+
 ### Scheduler
 
 ```python
@@ -95,6 +111,34 @@ class Cookie(Base):
     updated_at = Column(DateTime)
 ```
 
+## 认证信息保存
+
+### 登录态复用
+
+项目运行时会把当前活跃账号的认证信息保存到数据库，开发调试和接口联调时可以直接复用。
+
+常见字段：
+
+- `users.sessdata`
+- `users.bili_jct`
+- `cookies.name = SESSDATA`
+- `cookies.name = bili_jct`
+
+常见用途：
+
+- 测试 `/api/auth/status`
+- 测试收藏夹、稍后再看、历史记录等需要登录态的接口
+- 为视频下载、字幕下载、NFO 生成提供认证上下文
+
+### 认证数据读取路径
+
+后端服务层会从活跃用户记录读取登录态：
+
+1. 读取 `users` 表中的 `is_active = true` 账号
+2. 通过 `CookieManager.load_from_db(user_id)` 载入 `cookies` 表
+3. 通过 `HeadersManager.sync_cookies_from_db(user_id)` 注入请求头
+4. BilibiliService 使用同一套认证信息访问接口
+
 ---
 
 ## 关联关系
@@ -122,6 +166,7 @@ settings 表使用 `key-value` 模式存储配置，支持嵌套配置：
 | download.video.codec | avc | string | download |
 | download.max_concurrent | 3 | integer | download |
 | download.metadata.enable_nfo | true | boolean | download |
+| download.metadata.enable_subtitle | true | boolean | download |
 | storage.download_path | ./downloads | string | storage |
 | storage.temp_path | ./temp | string | storage |
 | storage.sidecar | {"ffmpeg":"ffmpeg"} | object | storage |
@@ -161,6 +206,7 @@ download.default_quality = 80
 download.max_concurrent = 3
 download.speed_limit = 0
 download.output_format = mp4
+download.metadata.enable_subtitle = true
 
 # 存储设置
 storage.download_path = ./downloads

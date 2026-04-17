@@ -13,6 +13,8 @@
 - Scheduler 模型（定时任务）
 - Setting 模型（系统设置）
 - Cookie 模型（Cookie 存储）
+- 下载附属文件与字幕落盘规则
+- 登录态复用与认证信息保存
 
 ### 2. API Schema
 **文件**: [schemas.md](schemas.md)
@@ -47,6 +49,7 @@ SELECT key, value, type, category FROM settings;
 | key | value | type | category |
 |-----|-------|------|----------|
 | download.video.default_quality | 64 | integer | download |
+| download.metadata.enable_subtitle | true | boolean | download |
 | storage.download_path | ./downloads | string | storage |
 | general.theme | auto | string | general |
 

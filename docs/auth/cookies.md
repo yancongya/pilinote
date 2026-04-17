@@ -74,6 +74,49 @@ Cookies 管理模块负责用户认证信息的持久化存储，支持多账号
 └────────────────────────────────────────────┘
 ```
 
+### 使用已有认证信息测试 API
+
+开发和联调时，优先复用当前项目数据库里的活跃账号认证信息，而不是手工重新登录。
+
+#### 方式一：让后端自动带上登录态
+
+如果后端从 `apps/api` 目录启动，默认会读取 `apps/api/data/pilinote.db`。`HeadersManager` 会在初始化时调用 `CookieManager.load_from_db(user_id)`，把当前活跃账号的 `SESSDATA`、`bili_jct` 等 cookie 注入请求头。
+
+这样下面这些接口可以直接测试：
+
+- `GET /api/auth/status`
+- `GET /api/favorites/folders`
+- `GET /api/watch-later/list`
+- `GET /api/history/list`
+
+#### 方式二：直接用 curl 复现认证请求
+
+如果你想绕过后端服务层，直接测某个鉴权接口，可以先从数据库里取出 cookie，再手动拼接请求头：
+
+```bash
+cd apps/api
+
+sqlite3 data/pilinote.db "select name || '=' || value
+from cookies
+where user_id = (select id from users where is_active = 1)
+  and name in ('SESSDATA', 'bili_jct');"
+
+curl -H 'Cookie: SESSDATA=...; bili_jct=...' \
+  http://localhost:8000/api/auth/status
+```
+
+#### 方式三：在服务代码里复用
+
+如果你写的是后端调试脚本或临时工具，优先直接调用：
+
+```python
+headers_manager = HeadersManager()
+await headers_manager.sync_cookies_from_db(active_user_id)
+headers = headers_manager.get_headers()
+```
+
+这样可以保证和正式下载、收藏夹、稍后再看、历史记录等流程使用同一套认证信息。
+
 ---
 
 ## 数据库存储

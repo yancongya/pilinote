@@ -1,5 +1,30 @@
 # 开发日志
 
+## 2026.04.17
+
+### 文档更新：字幕下载逻辑 API 说明
+
+- `docs/api/endpoints.md`: 新增字幕下载说明，补充双语规则、落盘命名和不可下载字幕的处理方式
+- `docs/api/implementation.md`: 补充字幕下载链路说明，明确与 `Pilipala` 同款的处理方式和调试建议
+
+### 文档更新：设置与数据库说明
+
+- `docs/settings/download.md`: 补充字幕下载规则、AI 字幕处理和落盘命名
+- `docs/settings/README.md`: 增加字幕下载规则的索引说明
+- `docs/database/models.md`: 补充下载附属文件、字幕落盘和登录态复用说明
+- `docs/database/README.md`: 补充 settings 表里的字幕开关和认证信息保存说明
+
+## 2026.04.17
+
+### 文档更新：复用已有认证信息测试 API
+
+- `AGENTS.md`: 补充本地调试时如何复用 `apps/api/data/pilinote.db` 里的登录态来测试鉴权 API
+- `docs/auth/cookies.md`: 增加“使用已有认证信息测试 API”的完整说明，包含后端自动带 Cookie、curl 直测和脚本复用三种方式
+- `docs/auth/README.md`: 更新 Cookies 管理索引，明确包含鉴权 API 测试说明
+- `docs/api/implementation.md`: 补充本地鉴权测试说明，标注常用验证接口
+- `docs/api/endpoints.md`: 在认证接口入口增加复用现有登录态的说明
+- `docs/dev/README.md`: 增加开发文档入口，指向认证 API 测试说明
+
 ## 2026.04.12
 
 ### 修复：图文详情页发布时间为空

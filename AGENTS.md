@@ -56,6 +56,21 @@ To test manually:
 curl http://localhost:8000/api/health
 ```
 
+### 认证 API 测试（复用已有登录态）
+
+本项目后端默认会从 `apps/api/data/pilinote.db` 读取认证信息。开发时测试需要登录态的接口，优先复用这份数据库里的活跃账号。
+
+1. 从 `apps/api` 目录启动后端，确保配置实际指向 `sqlite:///./data/pilinote.db`。
+2. 后端会通过 `HeadersManager.sync_cookies_from_db(user_id)` / `CookieManager.load_from_db(user_id)` 读取 `users` 和 `cookies` 表中的 `SESSDATA`、`bili_jct` 等信息。
+3. 调用收藏夹、稍后再看、历史记录、账号状态等接口时，后端会自动带上这份登录态，不需要每次手动重新登录。
+4. 如果要直接用 `curl` 测试，可先从数据库里取出 cookie，再手动加到请求头：
+```bash
+cd apps/api
+sqlite3 data/pilinote.db "select name || '=' || value from cookies where user_id=(select id from users where is_active=1) and name in ('SESSDATA','bili_jct');"
+curl -H 'Cookie: SESSDATA=...; bili_jct=...' http://localhost:8000/api/auth/status
+```
+5. 常用的鉴权测试接口：`/api/auth/status`、`/api/favorites/folders`、`/api/watch-later/list`、`/api/history/list`
+
 ## Linting & Formatting
 
 ### Frontend

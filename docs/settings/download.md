@@ -29,6 +29,24 @@
 | metadata.enable_cover | 下载封面 | true |
 | metadata.enable_avatar | 下载UP主头像 | false |
 
+### 字幕下载规则
+
+当前字幕下载逻辑与视频下载任务联动，默认复用已登录账号的认证信息。
+
+- 只下载 B 站播放器接口返回的可用字幕
+- 仅保留中英双语
+  - `zh-CN`
+  - `en-US`
+- 官方 AI 字幕与普通字幕统一处理
+- 只处理带 `subtitle_url` 的条目
+- 若只有字幕元数据但没有 `subtitle_url`，会提示“已检测到字幕，但不可下载”
+- 字幕文件保存到视频目录下，文件名格式为 `<视频名>.<语言>.<来源>.srt`
+
+示例：
+
+- `BV1WrQ5BGEEN.zh-CN.ai.srt`
+- `BV1WrQ5BGEEN.en-US.ai.1.srt`
+
 ---
 
 ## 数据流
