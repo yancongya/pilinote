@@ -365,7 +365,7 @@ export default function VideoListCard({
               <span>{likes !== undefined ? likes : '0'}</span>
               <Coins size={12} />
               <span>{coins !== undefined ? coins : '0'}</span>
-              <Star size={12} />
+              <Star size={12} color="#f59e0b" fill="#f59e0b" />
               <span>{favorites !== undefined ? favorites : '0'}</span>
               <MessageCircle size={12} />
               <span>{comments !== undefined ? comments : '0'}</span>

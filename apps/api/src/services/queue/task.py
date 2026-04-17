@@ -854,14 +854,36 @@ class TaskService:
             else:
                 pub_date_str = 'Unknown'
             
-            # 计算评分 (基于互动率)
+            # 计算评分（五分制）
             rating = 0.0
             view_count = stat.get('view', 0)
             if view_count > 0:
-                interaction_score = (stat.get('like', 0) + stat.get('coin', 0) * 2 + stat.get('favorite', 0) * 3) / view_count
-                rating = round(interaction_score * 100, 1)
-                if rating > 10:
-                    rating = 10.0
+                like = stat.get('like', 0) or 0
+                coin = stat.get('coin', 0) or 0
+                favorite = stat.get('favorite', 0) or 0
+                share = stat.get('share', 0) or 0
+                danmaku = stat.get('danmaku', 0) or 0
+                reply = stat.get('reply', 0) or 0
+
+                interaction_score = (
+                    like * 0.4 +
+                    coin * 0.4 +
+                    favorite * 0.3 +
+                    share * 0.6 +
+                    danmaku * 0.4 +
+                    reply * 0.4
+                )
+
+                interaction_rate = interaction_score / view_count
+                import math
+                smoothed_rate = math.log(1 + interaction_rate * 1000) / math.log(1001)
+                base_rating = smoothed_rate * 5
+                m = 5000
+                C = 2.0
+                v = view_count
+                rating = (v / (v + m)) * base_rating + (m / (v + m)) * C
+                rating = min(max(rating, 0), 5)
+                rating = round(rating, 1)
 
             # 获取时长 (转换为MM:SS格式)
             duration = meta_data.get('duration', 0)

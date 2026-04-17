@@ -120,8 +120,8 @@ export const VideoDurationOverlay = styled.div`
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.75);
-  color: white;
+  background: rgba(17, 24, 39, 0.78);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
   padding: 4px 8px;
@@ -138,8 +138,8 @@ export const VideoSeriesCountOverlay = styled.div`
   position: absolute;
   bottom: 8px;
   left: 8px;
-  background: rgba(0, 0, 0, 0.75);
-  color: white;
+  background: rgba(17, 24, 39, 0.78);
+  color: #fff;
   font-size: 11px;
   font-weight: 600;
   padding: 4px 8px;

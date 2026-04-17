@@ -119,24 +119,26 @@ NFO文件包含以下信息：
 | 字段 | 说明 | 示例 |
 |------|------|------|
 | `runtime` | 视频时长 | `12:34` |
-| `rating` | 评分（基于互动率） | `8.5` |
+| `rating` | 评分（五分制） | `4.2` |
 | `tags/tag` | 标签（从统计数据生成） | `弹幕:100` |
 
 ### 评分计算
 
-评分基于互动率计算（10分制）：
+评分基于互动率计算（5分制）：
 
 ```python
-interaction_score = (like * 0.4 + coin * 0.3 + favorite * 0.3)
+interaction_score = (like * 0.4 + coin * 0.4 + favorite * 0.3 + share * 0.6 + danmaku * 0.4 + reply * 0.4)
 interaction_rate = interaction_score / play
-rating = min(interaction_rate * 500, 10)
+smoothed_rate = log(1 + interaction_rate * 1000) / log(1001)
+base_rating = smoothed_rate * 5
+rating = clamp_bayes(base_rating, play, 5000, 2.0, 0, 5)
 ```
 
 **说明**：
 - 播放量`play`作为基数
-- 点赞`like`权重40%，投币`coin`权重30%，收藏`favorite`权重30%
-- 互动率乘以500得到10分制评分
-- 最高不超过10分
+- 点赞`like`、投币`coin`、收藏`favorite`、分享`share`、弹幕`danmaku`、评论`reply`共同参与计算
+- 先将互动率做对数平滑，再映射到5分制
+- 最终评分限制在0-5分
 
 ### 标签生成
 

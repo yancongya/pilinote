@@ -124,7 +124,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             {/* 评分显示 */}
             {!isOpus && task.meta?.rating && (
               <div className="library-folder-rating">
-                <Star size={12} color="var(--color-warning-400)" fill="var(--color-warning-400)" />
+                <Star size={12} color="#f59e0b" fill="#f59e0b" />
                 <span>{task.meta.rating}</span>
               </div>
             )}

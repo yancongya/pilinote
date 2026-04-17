@@ -152,20 +152,22 @@ runtime = f"{minutes}:{seconds:02d}"
 
 ### rating
 
-**说明**：基于互动率计算的评分（10分制）。
+**说明**：基于互动率计算的评分（5分制）。
 
 **计算公式**：
 ```python
-interaction_score = (like * 0.4 + coin * 0.3 + favorite * 0.3)
+interaction_score = (like * 0.4 + coin * 0.4 + favorite * 0.3 + share * 0.6 + danmaku * 0.4 + reply * 0.4)
 interaction_rate = interaction_score / play
-rating = min(interaction_rate * 500, 10)
+smoothed_rate = log(1 + interaction_rate * 1000) / log(1001)
+base_rating = smoothed_rate * 5
+rating = clamp_bayes(base_rating, play, 5000, 2.0, 0, 5)
 ```
 
 **说明**：
 - 播放量`play`作为基数
-- 点赞`like`权重40%，投币`coin`权重30%，收藏`favorite`权重30%
-- 互动率乘以500得到10分制评分
-- 最高不超过10分
+- 点赞`like`、投币`coin`、收藏`favorite`、分享`share`、弹幕`danmaku`、评论`reply`共同参与计算
+- 先将互动率做对数平滑，再映射到5分制
+- 最终评分限制在0-5分
 
 **示例**：
 - 播放量：10000
@@ -174,7 +176,7 @@ rating = min(interaction_rate * 500, 10)
 - 收藏：100 → 得分 = 100 * 0.3 = 30
 - 互动总分 = 290
 - 互动率 = 290 / 10000 = 0.029
-- 评分 = 0.029 * 500 = 14.5 → 限制为10.0
+- 评分被限制在 5.0 以内
 
 ### statistics
 
@@ -381,16 +383,32 @@ class SingleNfoHandler(BaseHandler):
             like = stats.get('like', 0) or 0
             coin = stats.get('coin', 0) or 0
             favorite = stats.get('favorite', 0) or 0
-            
+            share = stats.get('share', 0) or 0
+            danmaku = stats.get('danmaku', 0) or 0
+            reply = stats.get('reply', 0) or 0
+
             # 计算互动得分
-            interaction_score = (like * 0.4 + coin * 0.3 + favorite * 0.3)
-            
+            interaction_score = (
+                like * 0.4 +
+                coin * 0.4 +
+                favorite * 0.3 +
+                share * 0.6 +
+                danmaku * 0.4 +
+                reply * 0.4
+            )
+
             # 计算互动率
             interaction_rate = interaction_score / play
-            
-            # 互动率转换评分（10分制，最高不超过10分）
-            rating = min(interaction_rate * 500, 10)
-            
+
+            # 对数平滑并映射到5分制
+            import math
+            smoothed_rate = math.log(1 + interaction_rate * 1000) / math.log(1001)
+            base_rating = smoothed_rate * 5
+            m = 5000
+            C = 2.0
+            rating = (play / (play + m)) * base_rating + (m / (play + m)) * C
+            rating = min(max(rating, 0), 5)
+
             return round(rating, 1)
         except Exception as e:
             logger.warning(f"计算评分失败: {e}")
