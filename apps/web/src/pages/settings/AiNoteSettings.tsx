@@ -1,22 +1,23 @@
-import { useState, forwardRef, useImperativeHandle, useEffect } from 'react'
+import { useState, useRef, forwardRef, useImperativeHandle, useEffect, useMemo } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { NOTE_STYLES, NOTE_FORMATS } from '../../services/aiNote'
 import { 
   Brain, 
   Key, 
-  Thermometer, 
-  FileText, 
   Clock, 
   Sparkles,
   Plus,
   Trash2,
   Edit2,
-  Save,
   X,
-  ChevronRight,
   RotateCcw,
-  ExternalLink,
-  Check
+  Check,
+  Bot,
+  Cpu,
+  Cloud,
+  Server,
+  CheckCircle,
+  Loader2
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 
@@ -51,6 +52,13 @@ const DEFAULT_PROVIDERS: LLMProvider[] = [
   { id: 'claude', name: 'Claude', baseUrl: 'https://api.anthropic.com', apiKey: '', models: ['claude-sonnet-4-20250614', 'claude-opus-4-20250514', 'claude-haiku-3-20250620'], isDefault: true },
   { id: 'deepseek', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', apiKey: '', models: ['deepseek-chat', 'deepseek-coder'], isDefault: true },
   { id: 'qwen', name: 'Qwen', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', apiKey: '', models: ['qwen-turbo', 'qwen-plus', 'qwen-max'], isDefault: true },
+  { id: 'volcengine', name: '火山引擎', baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', apiKey: '', models: ['doubao-seed-1-6', 'doubao-pro-32k', 'doubao-lite-32k'], isDefault: true },
+  { id: 'modelscope', name: '魔搭社区', baseUrl: 'https://api.modelscope.cn/v1', apiKey: '', models: ['qwen-turbo', 'qwen-plus', 'qwen-max'], isDefault: true },
+  { id: 'openrouter', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', apiKey: '', models: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat'], isDefault: true },
+  { id: 'moonshot', name: 'Moonshot', baseUrl: 'https://api.moonshot.cn/v1', apiKey: '', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'], isDefault: true },
+  { id: 'zhipu', name: '智谱清言', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKey: '', models: ['glm-4-plus', 'glm-4-air', 'glm-4-flash'], isDefault: true },
+  { id: 'minimax', name: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', apiKey: '', models: ['abab6.5s-chat', 'abab6.5-chat', 'abab6.5t-chat'], isDefault: true },
+  { id: 'baidu', name: '文心一言', baseUrl: 'https://qianfan.baidubce.com/v2', apiKey: '', models: ['ernie-4.0', 'ernie-3.5-128k', 'ernie-lite-8k'], isDefault: true },
 ]
 
 const DEFAULT_STYLES: NoteStyle[] = [
@@ -65,61 +73,182 @@ const DEFAULT_STYLES: NoteStyle[] = [
   { value: 'meeting_minutes', label: '会议纪要', description: '突出决策和行动项', prompt: '请以会议纪要格式总结' },
 ]
 
+const providerIconMap: Record<string, ReactElement> = {
+  openai: <Bot size={16} />,
+  claude: <Brain size={16} />,
+  deepseek: <Cpu size={16} />,
+  qwen: <Cloud size={16} />,
+  ollama: <Server size={16} />,
+  volcengine: <Cloud size={16} />,
+  modelscope: <Server size={16} />,
+  openrouter: <Bot size={16} />,
+  moonshot: <Bot size={16} />,
+  zhipu: <Cpu size={16} />,
+  minimax: <Cloud size={16} />,
+  baidu: <Brain size={16} />,
+}
+
 const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const { settings, updateSettings } = useSettingsStore()
   const { showToast } = useToast()
   
-  const [localSettings, setLocalSettings] = useState<Record<string, any>>({
-    llm: {},
-    style: {},
-    format: {}
+  const [localSettings, setLocalSettings] = useState({
+    llm: {
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      temperature: 0.7,
+    },
+    style: {
+      style: 'detailed',
+      length: 500,
+    },
+    format: {
+      format: 'markdown',
+      include_timestamp: true,
+      include_summary: true,
+    },
+    auto_analyze: false,
   })
   const [savedStatus, setSavedStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   
   // 服务商列表
   const [providers, setProviders] = useState<LLMProvider[]>([])
   const [activeProviderId, setActiveProviderId] = useState('openai')
-  const [showProviderEditor, setShowProviderEditor] = useState(false)
   const [editingProvider, setEditingProvider] = useState<LLMProvider | null>(null)
   const [providerForm, setProviderForm] = useState({ name: '', baseUrl: '', apiKey: '', models: '' })
+  const [showApiKey, setShowApiKey] = useState(false)
   
   // 风格列表
   const [customStyles, setCustomStyles] = useState<NoteStyle[]>([])
   const [activeStyleId, setActiveStyleId] = useState('detailed')
-  const [showStyleEditor, setShowStyleEditor] = useState(false)
   const [editingStyle, setEditingStyle] = useState<NoteStyle | null>(null)
   const [styleForm, setStyleForm] = useState({ label: '', description: '', prompt: '' })
+  const [showStyleModal, setShowStyleModal] = useState(false)
+  const [modelEditIndex, setModelEditIndex] = useState<number | null>(null)
+  const [modelDraft, setModelDraft] = useState('')
+  const [modelTestStatus, setModelTestStatus] = useState<Record<string, boolean | 'loading'>>({})
+  const providerTabsRef = useRef<HTMLDivElement | null>(null)
+  const providerBarRef = useRef<HTMLDivElement | null>(null)
+  const providerThumbDragState = useRef({
+    isDragging: false,
+    startX: 0,
+    startScrollLeft: 0,
+  })
+  const [providerScrollState, setProviderScrollState] = useState({
+    scrollLeft: 0,
+    scrollWidth: 0,
+    clientWidth: 0,
+  })
 
   // 加载数据
   useEffect(() => {
     try {
       const savedProviders = localStorage.getItem(STORAGE_KEY_PROVIDERS)
-      setProviders(savedProviders ? JSON.parse(savedProviders) : DEFAULT_PROVIDERS)
+      const parsedProviders: LLMProvider[] = savedProviders ? JSON.parse(savedProviders) : []
+      const providerMap = new Map<string, LLMProvider>()
+
+      DEFAULT_PROVIDERS.forEach(provider => {
+        providerMap.set(provider.id, provider)
+      })
+      parsedProviders.forEach(provider => {
+        providerMap.set(provider.id, provider)
+      })
+      setProviders(Array.from(providerMap.values()))
       
       const savedStyles = localStorage.getItem(STORAGE_KEY_STYLES)
       setCustomStyles(savedStyles ? JSON.parse(savedStyles) : [])
+
+      const currentAiNote = settings?.ai_note
+      if (currentAiNote) {
+        setLocalSettings({
+          llm: {
+            provider: currentAiNote.llm.provider,
+            model: currentAiNote.llm.model,
+            temperature: currentAiNote.llm.temperature,
+          },
+          style: {
+            style: currentAiNote.style.style,
+            length: currentAiNote.style.length,
+          },
+          format: {
+            format: currentAiNote.format.format,
+            include_timestamp: currentAiNote.format.include_timestamp,
+            include_summary: currentAiNote.format.include_summary,
+          },
+          auto_analyze: currentAiNote.auto_analyze,
+        })
+        setActiveProviderId(currentAiNote.llm.provider || 'openai')
+        setActiveStyleId(currentAiNote.style.style || 'detailed')
+      }
     } catch (e) {
       setProviders(DEFAULT_PROVIDERS)
     }
-  }, [])
+  }, [settings?.ai_note])
+
+  useEffect(() => {
+    const container = providerTabsRef.current
+    if (!container) return
+
+    const syncScrollState = () => {
+      setProviderScrollState({
+        scrollLeft: container.scrollLeft,
+        scrollWidth: container.scrollWidth,
+        clientWidth: container.clientWidth,
+      })
+    }
+
+    syncScrollState()
+    container.addEventListener('scroll', syncScrollState, { passive: true })
+
+    const resizeObserver = new ResizeObserver(syncScrollState)
+    resizeObserver.observe(container)
+
+    return () => {
+      container.removeEventListener('scroll', syncScrollState)
+      resizeObserver.disconnect()
+    }
+  }, [providers])
 
   // 保存服务商
   const saveProviders = (newProviders: LLMProvider[]) => {
-    setProviders(newProviders)
-    localStorage.setItem(STORAGE_KEY_PROVIDERS, JSON.stringify(newProviders))
+    const providerMap = new Map<string, LLMProvider>()
+
+    DEFAULT_PROVIDERS.forEach(provider => {
+      providerMap.set(provider.id, provider)
+    })
+    newProviders.forEach(provider => {
+      providerMap.set(provider.id, provider)
+    })
+
+    const mergedProviders = Array.from(providerMap.values())
+    setProviders(mergedProviders)
+    localStorage.setItem(STORAGE_KEY_PROVIDERS, JSON.stringify(mergedProviders))
+  }
+
+  const resolveStyles = () => {
+    const customMap = new Map(customStyles.map(style => [style.value, style]))
+    return DEFAULT_STYLES.map(style => customMap.get(style.value) || style).concat(
+      customStyles.filter(style => !DEFAULT_STYLES.some(defaultStyle => defaultStyle.value === style.value))
+    )
   }
 
   // 添加/编辑服务商
   const handleAddProvider = () => {
-    setEditingProvider(null)
-    setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' })
-    setShowProviderEditor(true)
-  }
-
-  const handleEditProvider = (p: LLMProvider) => {
-    setEditingProvider(p)
-    setProviderForm({ name: p.name, baseUrl: p.baseUrl, apiKey: p.apiKey, models: p.models.join(', ') })
-    setShowProviderEditor(true)
+    const id = `custom_${Date.now()}`
+    const newProvider: LLMProvider = {
+      id,
+      name: '新服务商',
+      baseUrl: '',
+      apiKey: '',
+      models: [],
+      isCustom: true,
+    }
+    const newProviders = [...providers, newProvider]
+    saveProviders(newProviders)
+    setActiveProviderId(id)
+    setEditingProvider(newProvider)
+    setProviderForm({ name: newProvider.name, baseUrl: '', apiKey: '', models: '' })
+    setShowApiKey(false)
   }
 
   const handleDeleteProvider = (id: string) => {
@@ -153,9 +282,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     }
     
     saveProviders(newProviders)
-    setShowProviderEditor(false)
     setEditingProvider(null)
     setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' })
+    setShowApiKey(false)
     showToast(editingProvider ? '已更新' : '已添加', 'success')
   }
 
@@ -170,21 +299,25 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
   // 风格管理
   const handleAddStyle = () => {
-    setEditingStyle(null)
+    setEditingStyle({ value: `custom_${Date.now()}`, label: '', description: '', prompt: '' })
     setStyleForm({ label: '', description: '', prompt: '' })
-    setShowStyleEditor(true)
+    setShowStyleModal(true)
   }
 
   const handleEditStyle = (s: NoteStyle) => {
     setEditingStyle(s)
     setStyleForm({ label: s.label, description: s.description, prompt: s.prompt || '' })
-    setShowStyleEditor(true)
+    setShowStyleModal(true)
+  }
+
+  const saveStyles = (newStyles: NoteStyle[]) => {
+    setCustomStyles(newStyles)
+    localStorage.setItem(STORAGE_KEY_STYLES, JSON.stringify(newStyles))
   }
 
   const handleDeleteStyle = (value: string) => {
     const newStyles = customStyles.filter(s => s.value !== value)
-    setCustomStyles(newStyles)
-    localStorage.setItem(STORAGE_KEY_STYLES, JSON.stringify(newStyles))
+    saveStyles(newStyles)
     showToast('已删除', 'success')
   }
 
@@ -202,37 +335,175 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       prompt: styleForm.prompt.trim()
     }
     
+    const existingIndex = customStyles.findIndex(s => s.value === editingStyle?.value)
     let newStyles: NoteStyle[]
-    if (editingStyle) {
+    if (editingStyle && existingIndex >= 0) {
       newStyles = customStyles.map(s => s.value === editingStyle.value ? newStyle : s)
+    } else if (editingStyle) {
+      newStyles = [...customStyles.filter(s => s.value !== editingStyle.value), newStyle]
     } else {
-      newStyles = [...customStyles, newStyle]
+      newStyles = [...customStyles.filter(s => s.value !== newStyle.value), newStyle]
     }
     
-    setCustomStyles(newStyles)
-    localStorage.setItem(STORAGE_KEY_STYLES, JSON.stringify(newStyles))
-    setShowStyleEditor(false)
+    saveStyles(newStyles)
     setEditingStyle(null)
     setStyleForm({ label: '', description: '', prompt: '' })
+    setShowStyleModal(false)
     showToast(editingStyle ? '已更新' : '已添加', 'success')
   }
 
   const currentProvider = providers.find(p => p.id === activeProviderId)
-  const allStyles = [...DEFAULT_STYLES, ...customStyles]
+  const allStyles = resolveStyles()
+
+  const beginEditModel = (index: number, currentValue: string) => {
+    setModelEditIndex(index)
+    setModelDraft(currentValue)
+  }
+
+  const commitModel = (providerId: string, index: number, value: string) => {
+    const trimmed = value.trim()
+    const provider = providers.find(p => p.id === providerId)
+    if (!provider) return
+
+    const nextModels = [...provider.models]
+    if (!trimmed) {
+      nextModels.splice(index, 1)
+    } else {
+      nextModels[index] = trimmed
+    }
+
+    const newProviders = providers.map(p => p.id === providerId ? { ...p, models: nextModels } : p)
+    saveProviders(newProviders)
+    setModelEditIndex(null)
+    setModelDraft('')
+  }
+
+  const addModelToProvider = (providerId: string) => {
+    const provider = providers.find(p => p.id === providerId)
+    if (!provider) return
+    const nextModels = [...provider.models, `model_${provider.models.length + 1}`]
+    const newProviders = providers.map(p => p.id === providerId ? { ...p, models: nextModels } : p)
+    saveProviders(newProviders)
+    beginEditModel(nextModels.length - 1, nextModels[nextModels.length - 1])
+  }
+
+  const testModel = async (providerId: string, modelName: string) => {
+    const provider = providers.find(p => p.id === providerId)
+    if (!provider) return
+    setModelTestStatus(prev => ({ ...prev, [modelName]: 'loading' }))
+    try {
+      const response = await fetch('/api/ai/test-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: provider.id,
+          model: modelName,
+          baseUrl: provider.baseUrl,
+          apiKey: provider.apiKey,
+        }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.detail || '测试失败')
+      }
+      setModelTestStatus(prev => ({ ...prev, [modelName]: true }))
+      showToast(`模型测试通过: ${modelName}`, 'success')
+    } catch (error) {
+      setModelTestStatus(prev => ({ ...prev, [modelName]: false }))
+      showToast(`测试失败: ${error instanceof Error ? error.message : '无法连接'}`, 'error')
+    }
+  }
+
+  const providerThumbWidth = useMemo(() => {
+    const { scrollWidth, clientWidth } = providerScrollState
+    if (!scrollWidth || scrollWidth <= clientWidth) return 0
+    return Math.max(28, (clientWidth / scrollWidth) * clientWidth)
+  }, [providerScrollState])
+
+  const providerThumbLeft = useMemo(() => {
+    const { scrollLeft, scrollWidth, clientWidth } = providerScrollState
+    const maxScrollLeft = Math.max(0, scrollWidth - clientWidth)
+    const maxThumbLeft = Math.max(0, clientWidth - providerThumbWidth)
+    if (!maxScrollLeft || !maxThumbLeft) return 0
+    return (scrollLeft / maxScrollLeft) * maxThumbLeft
+  }, [providerScrollState, providerThumbWidth])
+
+  const handleProviderBarPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const container = providerTabsRef.current
+    const bar = providerBarRef.current
+    if (!container || !bar || event.button !== 0) return
+    const rect = bar.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const thumbLeft = providerThumbLeft
+    const thumbRight = providerThumbLeft + providerThumbWidth
+    const withinThumb = clickX >= thumbLeft && clickX <= thumbRight
+    providerThumbDragState.current = {
+      isDragging: withinThumb,
+      startX: event.clientX,
+      startScrollLeft: container.scrollLeft,
+    }
+    if (withinThumb) {
+      bar.setPointerCapture(event.pointerId)
+      bar.classList.add('dragging')
+      return
+    }
+    const { scrollWidth, clientWidth } = container
+    const maxScrollLeft = Math.max(0, scrollWidth - clientWidth)
+    const maxThumbLeft = Math.max(1, clientWidth - providerThumbWidth)
+    const nextScrollLeft = ((clickX - providerThumbWidth / 2) / maxThumbLeft) * maxScrollLeft
+    container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft))
+  }
+
+  const handleProviderBarPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const container = providerTabsRef.current
+    const bar = providerBarRef.current
+    if (!container || !bar || !providerThumbDragState.current.isDragging) return
+    const { scrollWidth, clientWidth } = container
+    const maxScrollLeft = Math.max(0, scrollWidth - clientWidth)
+    const maxThumbLeft = Math.max(1, clientWidth - providerThumbWidth)
+    const deltaX = event.clientX - providerThumbDragState.current.startX
+    const scrollDelta = (deltaX / maxThumbLeft) * maxScrollLeft
+    container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, providerThumbDragState.current.startScrollLeft + scrollDelta))
+  }
+
+  const handleProviderBarPointerUp = () => {
+    const bar = providerBarRef.current
+    if (!bar) return
+    providerThumbDragState.current.isDragging = false
+    bar.classList.remove('dragging')
+  }
 
   useImperativeHandle(ref, () => ({
-    hasUnsavedChanges: () => Object.keys(localSettings.llm || {}).length > 0,
+    hasUnsavedChanges: () => false,
     saveSettings: async () => {
-      if (!Object.keys(localSettings.llm || {}).length) {
-        setSavedStatus('idle')
-        return
-      }
-      setSavedStatus('saving')
       try {
-        const currentAiNote = settings?.ai_note || { llm: { provider: 'openai', model: 'gpt-4o-mini', api_key: '', temperature: 0.7 } }
-        await updateSettings({ ai_note: { ...currentAiNote, llm: { ...currentAiNote.llm, ...localSettings.llm } } })
+        const currentAiNote = settings?.ai_note || {
+          llm: { provider: 'openai', model: 'gpt-4o-mini', api_key: '', temperature: 0.7 },
+          style: { style: 'detailed', length: 500 },
+          format: { format: 'markdown', include_timestamp: true, include_summary: true },
+          auto_analyze: false,
+        }
+        await updateSettings({
+          ai_note: {
+            ...currentAiNote,
+            llm: {
+              ...currentAiNote.llm,
+              ...localSettings.llm,
+            },
+            style: {
+              ...currentAiNote.style,
+              ...localSettings.style,
+            },
+            format: {
+              ...currentAiNote.format,
+              ...localSettings.format,
+            },
+            auto_analyze: localSettings.auto_analyze,
+          },
+        })
+        setActiveProviderId(localSettings.llm.provider)
+        setActiveStyleId(localSettings.style.style)
         setSavedStatus('saved')
-        setLocalSettings({ llm: {}, style: {}, format: {} })
         setTimeout(() => setSavedStatus('idle'), 2000)
       } catch (error) {
         setSavedStatus('error')
@@ -241,13 +512,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     },
     getSavedStatus: () => savedStatus
   }))
-
-  const updateLocal = (category: string, key: string, value: any) => {
-    setLocalSettings(prev => ({
-      ...prev,
-      [category]: { ...prev[category], [key]: value }
-    }))
-  }
 
   return (
     <div className="settings-section">
@@ -265,17 +529,37 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         </div>
         
         {/* 服务商Tabs */}
-        <div className="settings-provider-tabs">
+        <div
+          className="settings-provider-tabs"
+          ref={providerTabsRef}
+        >
           {providers.map(p => (
             <button
               key={p.id}
               className={`settings-provider-tab ${activeProviderId === p.id ? 'active' : ''}`}
-              onClick={() => setActiveProviderId(p.id)}
+              onClick={() => {
+                setActiveProviderId(p.id)
+                setLocalSettings(prev => ({
+                  ...prev,
+                  llm: { ...prev.llm, provider: p.id }
+                }))
+              }}
             >
-              {p.name}
-              {p.isCustom && <span className="settings-tag">自定义</span>}
+              <span className="settings-provider-icon">
+                {providerIconMap[p.id] || <Key size={16} />}
+              </span>
+              <span className="settings-provider-name-text">{p.name}</span>
             </button>
           ))}
+        </div>
+        <div className="settings-provider-bar" ref={providerBarRef} onPointerDown={handleProviderBarPointerDown} onPointerMove={handleProviderBarPointerMove} onPointerUp={handleProviderBarPointerUp} onPointerCancel={handleProviderBarPointerUp}>
+          <div
+            className={`settings-provider-bar-thumb ${providerScrollState.scrollWidth <= providerScrollState.clientWidth ? 'hidden' : ''}`}
+            style={{
+              width: `${providerThumbWidth}px`,
+              transform: `translateX(${providerThumbLeft}px)`,
+            }}
+          />
         </div>
         
         {/* 服务商配置 */}
@@ -289,9 +573,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     <RotateCcw size={14} />
                   </button>
                 )}
-                <button onClick={() => handleEditProvider(currentProvider)} title="编辑">
-                  <Edit2 size={14} />
-                </button>
                 {currentProvider.isCustom && (
                   <button onClick={() => handleDeleteProvider(currentProvider.id)} title="删除">
                     <Trash2 size={14} />
@@ -299,38 +580,149 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 )}
               </div>
             </div>
-            
-            <div className="settings-item">
-              <label className="settings-label">Base URL</label>
-              <input
-                type="text"
-                className="settings-input"
-                placeholder="API地址"
-                value={currentProvider.baseUrl}
-                readOnly
-              />
+            <div className="settings-provider-edit">
+              <div className="settings-item">
+                <label className="settings-label">服务商名称</label>
+                <input
+                  type="text"
+                  className="settings-input"
+                  placeholder="如：OpenAI"
+                  value={editingProvider?.id === currentProvider.id ? providerForm.name : currentProvider.name}
+                  onChange={(e) => {
+                    if (editingProvider?.id !== currentProvider.id) return
+                    setProviderForm(prev => ({ ...prev, name: e.target.value }))
+                  }}
+                />
+              </div>
+
+              <div className="settings-item">
+                <label className="settings-label">Base URL</label>
+                <input
+                  type="text"
+                  className="settings-input"
+                  placeholder="API地址"
+                  value={editingProvider?.id === currentProvider.id ? providerForm.baseUrl : currentProvider.baseUrl}
+                  onChange={(e) => {
+                    if (editingProvider?.id !== currentProvider.id) return
+                    setProviderForm(prev => ({ ...prev, baseUrl: e.target.value }))
+                  }}
+                />
+              </div>
+              
+              <div className="settings-item">
+                <div className="settings-label-row">
+                  <label className="settings-label">
+                    <Key size={14} />
+                    API Key
+                  </label>
+                  <button
+                    type="button"
+                    className="settings-visibility-btn"
+                    onClick={() => setShowApiKey(prev => !prev)}
+                    title={showApiKey ? '隐藏' : '显示'}
+                  >
+                    {showApiKey ? '隐藏' : '显示'}
+                  </button>
+                </div>
+                <div className="settings-api-row">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    className="settings-input"
+                    placeholder="留空使用环境变量"
+                    value={editingProvider?.id === currentProvider.id ? providerForm.apiKey : currentProvider.apiKey}
+                    onChange={(e) => {
+                      if (editingProvider?.id !== currentProvider.id) return
+                      setProviderForm(prev => ({ ...prev, apiKey: e.target.value }))
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="settings-api-test-btn"
+                    onClick={() => testModel(currentProvider.id, currentProvider.models[0] || '')}
+                    disabled={!currentProvider.models[0]}
+                  >
+                    测试联通
+                  </button>
+                </div>
+              </div>
+              
+              {editingProvider?.id === currentProvider.id && (
+                <div className="settings-inline-actions">
+                  <button className="settings-btn-secondary" onClick={() => { setEditingProvider(null); setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' }) }}>取消</button>
+                  <button className="settings-btn-primary" onClick={handleSaveProvider}>保存</button>
+                </div>
+              )}
             </div>
             
             <div className="settings-item">
-              <label className="settings-label">
-                <Key size={14} />
-                API Key
-              </label>
-              <input
-                type="password"
-                className="settings-input"
-                placeholder="留空使用环境变量"
-                value={currentProvider.apiKey}
-                readOnly
-              />
-            </div>
-            
-            <div className="settings-item">
-              <label className="settings-label">模型列表</label>
-              <div className="settings-model-tags">
-                {currentProvider.models.map(m => (
-                  <span key={m} className="settings-model-tag">{m}</span>
+              <div className="settings-label-row">
+                <label className="settings-label">模型列表</label>
+                <button
+                  type="button"
+                  className="settings-add-btn-inline"
+                  onClick={() => addModelToProvider(currentProvider.id)}
+                >
+                  <Plus size={12} />
+                  添加
+                </button>
+              </div>
+              <div className="settings-model-list">
+                {currentProvider.models.map((m, index) => (
+                  <div key={`${currentProvider.id}-${m}-${index}`} className="settings-model-row">
+                    {modelEditIndex === index ? (
+                      <input
+                        className="settings-input settings-model-input"
+                        value={modelDraft}
+                        autoFocus
+                        onChange={(e) => setModelDraft(e.target.value)}
+                        onBlur={() => commitModel(currentProvider.id, index, modelDraft)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitModel(currentProvider.id, index, modelDraft)
+                          if (e.key === 'Escape') {
+                            setModelEditIndex(null)
+                            setModelDraft('')
+                          }
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className={`settings-model-btn ${modelTestStatus[m] === true ? 'tested' : ''}`}
+                        onClick={() => testModel(currentProvider.id, m)}
+                      >
+                        <span>{m}</span>
+                        <span className="model-btn-status">
+                          {modelTestStatus[m] === 'loading' ? (
+                            <Loader2 size={12} className="spin" />
+                          ) : modelTestStatus[m] === true ? (
+                            <CheckCircle size={12} />
+                          ) : null}
+                        </span>
+                      </button>
+                    )}
+                    <div className="settings-model-actions">
+                      <button
+                        type="button"
+                        className="settings-model-action-btn"
+                        onClick={() => beginEditModel(index, m)}
+                        title="编辑"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        className="settings-model-action-btn danger"
+                        onClick={() => commitModel(currentProvider.id, index, '')}
+                        title="删除"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
                 ))}
+                {currentProvider.models.length === 0 && (
+                  <div className="settings-empty">暂无模型，点击添加</div>
+                )}
               </div>
             </div>
           </div>
@@ -355,78 +747,106 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             <div 
               key={s.value} 
               className={`settings-style-card ${activeStyleId === s.value ? 'active' : ''}`}
-              onClick={() => setActiveStyleId(s.value)}
+              onClick={() => handleEditStyle(s)}
             >
+              <div className="settings-style-card-top">
+                <span className="settings-style-card-badge">
+                  {s.value.startsWith('custom_') ? '自定义' : '默认'}
+                </span>
+                <div className="settings-style-card-meta">
+                  {s.value.startsWith('custom_') ? (
+                    <button
+                      type="button"
+                      className="settings-style-card-action danger"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteStyle(s.value); }}
+                      title="删除"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="settings-style-card-action danger"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const defaultStyle = DEFAULT_STYLES.find(d => d.value === s.value)
+                        if (!defaultStyle) return
+                        const newStyles = customStyles.filter(style => style.value !== s.value)
+                        saveStyles(newStyles)
+                        setActiveStyleId(defaultStyle.value)
+                        setLocalSettings(prev => ({
+                          ...prev,
+                          style: { ...prev.style, style: defaultStyle.value }
+                        }))
+                        showToast('已重置', 'success')
+                      }}
+                      title="重置"
+                    >
+                      <RotateCcw size={11} />
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="settings-style-card-header">
                 <span className="settings-style-card-label">{s.label}</span>
                 {activeStyleId === s.value && <Check size={14} className="settings-check" />}
               </div>
               <p className="settings-style-card-desc">{s.description}</p>
-              <div className="settings-style-card-actions">
-                <button onClick={(e) => { e.stopPropagation(); handleEditStyle(s); }}>
-                  <Edit2 size={12} />
-                </button>
-                {s.value.startsWith('custom_') && (
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteStyle(s.value); }}>
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* LLM使用设置 */}
-      <div className="settings-group">
-        <h3 className="settings-group-title">
-          <Key size={18} />
-          当前使用
-        </h3>
-        
-        <div className="settings-item">
-          <label className="settings-label">选择服务商</label>
-          <select
-            className="settings-select"
-            value={localSettings.llm?.provider || activeProviderId}
-            onChange={(e) => updateLocal('llm', 'provider', e.target.value)}
-          >
-            {providers.map(p => (
-              <option key={p.value} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="settings-item">
-          <label className="settings-label">选择模型</label>
-          <select
-            className="settings-select"
-            value={localSettings.llm?.model || ''}
-            onChange={(e) => updateLocal('llm', 'model', e.target.value)}
-          >
-            {(providers.find(p => p.id === (localSettings.llm?.provider || activeProviderId))?.models || []).map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="settings-item">
-          <label className="settings-label">
-            <Thermometer size={14} />
-            温度
-          </label>
-          <div className="settings-range">
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={localSettings.llm?.temperature ?? 0.7}
-              onChange={(e) => updateLocal('llm', 'temperature', parseFloat(e.target.value))}
-            />
-            <span className="settings-range-value">{localSettings.llm?.temperature ?? 0.7}</span>
+        {showStyleModal && editingStyle && (
+          <div className="settings-modal-overlay" onClick={() => { setShowStyleModal(false); setEditingStyle(null); setStyleForm({ label: '', description: '', prompt: '' }) }}>
+            <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="settings-modal-header">
+                <h4>{editingStyle.value.startsWith('custom_') ? '编辑风格' : '修改风格'}</h4>
+                <button
+                  type="button"
+                  className="settings-modal-close"
+                  onClick={() => { setShowStyleModal(false); setEditingStyle(null); setStyleForm({ label: '', description: '', prompt: '' }) }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="settings-modal-body">
+                <div className="settings-item">
+                  <label className="settings-label">风格名称</label>
+                  <input
+                    type="text"
+                    className="settings-input"
+                    value={styleForm.label}
+                    onChange={(e) => setStyleForm(prev => ({ ...prev, label: e.target.value }))}
+                  />
+                </div>
+                <div className="settings-item">
+                  <label className="settings-label">描述</label>
+                  <textarea
+                    className="settings-textarea"
+                    value={styleForm.description}
+                    onChange={(e) => setStyleForm(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+                <div className="settings-item">
+                  <label className="settings-label">Prompt提示词</label>
+                  <textarea
+                    className="settings-textarea"
+                    value={styleForm.prompt}
+                    onChange={(e) => setStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="settings-modal-footer">
+                <button className="settings-btn-secondary" onClick={() => { setShowStyleModal(false); setEditingStyle(null); setStyleForm({ label: '', description: '', prompt: '' }) }}>
+                  取消
+                </button>
+                <button className="settings-btn-primary" onClick={handleSaveStyle}>
+                  保存
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 自动功能 */}
@@ -440,123 +860,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           <label className="settings-checkbox-label">
             <input
               type="checkbox"
-              checked={localSettings.auto_analyze ?? false}
+              checked={localSettings.auto_analyze}
               onChange={(e) => setLocalSettings(prev => ({ ...prev, auto_analyze: e.target.checked }))}
             />
             下载完成后自动生成AI笔记
           </label>
         </div>
       </div>
-
-      {/* 服务商编辑器 */}
-      {showProviderEditor && (
-        <div className="settings-modal-overlay" onClick={() => setShowProviderEditor(false)}>
-          <div className="settings-modal" onClick={e => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h4>{editingProvider ? '编辑服务商' : '新建服务商'}</h4>
-              <button onClick={() => setShowProviderEditor(false)}><X size={20} /></button>
-            </div>
-            <div className="settings-modal-body">
-              <div className="settings-item">
-                <label className="settings-label">服务商名称</label>
-                <input
-                  type="text"
-                  className="settings-input"
-                  placeholder="如：OpenAI"
-                  value={providerForm.name}
-                  onChange={(e) => setProviderForm(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div className="settings-item">
-                <label className="settings-label">Base URL</label>
-                <input
-                  type="text"
-                  className="settings-input"
-                  placeholder="https://api.xxx.com/v1"
-                  value={providerForm.baseUrl}
-                  onChange={(e) => setProviderForm(prev => ({ ...prev, baseUrl: e.target.value }))}
-                />
-              </div>
-              <div className="settings-item">
-                <label className="settings-label">API Key</label>
-                <input
-                  type="password"
-                  className="settings-input"
-                  placeholder="sk-xxx"
-                  value={providerForm.apiKey}
-                  onChange={(e) => setProviderForm(prev => ({ ...prev, apiKey: e.target.value }))}
-                />
-              </div>
-              <div className="settings-item">
-                <label className="settings-label">模型列表（逗号分隔）</label>
-                <input
-                  type="text"
-                  className="settings-input"
-                  placeholder="gpt-4o, gpt-4o-mini"
-                  value={providerForm.models}
-                  onChange={(e) => setProviderForm(prev => ({ ...prev, models: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="settings-modal-footer">
-              <button className="settings-btn-secondary" onClick={() => setShowProviderEditor(false)}>取消</button>
-              <button className="settings-btn-primary" onClick={handleSaveProvider}>
-                <Save size={16} />
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 风格编辑器 */}
-      {showStyleEditor && (
-        <div className="settings-modal-overlay" onClick={() => setShowStyleEditor(false)}>
-          <div className="settings-modal" onClick={e => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h4>{editingStyle ? '编辑风格' : '新建风格'}</h4>
-              <button onClick={() => setShowStyleEditor(false)}><X size={20} /></button>
-            </div>
-            <div className="settings-modal-body">
-              <div className="settings-item">
-                <label className="settings-label">风格名称</label>
-                <input
-                  type="text"
-                  className="settings-input"
-                  placeholder="如：教程风"
-                  value={styleForm.label}
-                  onChange={(e) => setStyleForm(prev => ({ ...prev, label: e.target.value }))}
-                />
-              </div>
-              <div className="settings-item">
-                <label className="settings-label">描述</label>
-                <textarea
-                  className="settings-textarea"
-                  placeholder="描述这个风格的特点"
-                  value={styleForm.description}
-                  onChange={(e) => setStyleForm(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-              <div className="settings-item">
-                <label className="settings-label">Prompt提示词</label>
-                <textarea
-                  className="settings-textarea"
-                  placeholder="AI生成笔记时使用的提示词模板"
-                  value={styleForm.prompt}
-                  onChange={(e) => setStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div className="settings-modal-footer">
-              <button className="settings-btn-secondary" onClick={() => setShowStyleEditor(false)}>取消</button>
-              <button className="settings-btn-primary" onClick={handleSaveStyle}>
-                <Save size={16} />
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         .settings-section {
@@ -610,11 +920,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           background: var(--color-bg-secondary);
           border-radius: 12px;
           margin-bottom: 16px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          -ms-overflow-style: none;
+          user-select: none;
+        }
+
+        .settings-provider-tabs::-webkit-scrollbar {
+          display: none;
         }
 
         .settings-provider-tab {
-          flex: 1;
-          padding: 10px 12px;
+          flex: 0 0 auto;
+          min-width: 96px;
+          padding: 10px 14px;
           border-radius: 10px;
           font-size: 13px;
           font-weight: 500;
@@ -627,6 +947,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           align-items: center;
           justify-content: center;
           gap: 6px;
+          white-space: nowrap;
         }
 
         .settings-provider-tab.active {
@@ -635,18 +956,93 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        .settings-tag {
-          font-size: 9px;
-          padding: 2px 5px;
-          background: var(--color-primary-600);
-          color: white;
-          border-radius: 4px;
+        .settings-provider-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .settings-provider-name-text {
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .settings-provider-config {
           padding: 16px;
           background: var(--color-bg-secondary);
           border-radius: 12px;
+        }
+
+        .settings-provider-edit {
+          margin-bottom: 16px;
+        }
+
+        .settings-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          background: rgba(10, 12, 16, 0.18);
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 72px 20px 20px;
+          backdrop-filter: blur(4px);
+        }
+
+        .settings-modal {
+          width: min(560px, 100%);
+          max-height: min(78vh, 720px);
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          padding: 16px;
+          border-radius: 16px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+          overflow: hidden;
+        }
+
+        .settings-modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .settings-modal-header h4 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+
+        .settings-modal-close {
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          border-radius: 10px;
+          background: var(--color-bg-tertiary);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+
+        .settings-modal-body {
+          display: grid;
+          gap: 16px;
+          overflow-y: auto;
+          padding-right: 4px;
+        }
+
+        .settings-modal-footer {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          padding-top: 4px;
+          border-top: 1px solid var(--color-border);
         }
 
         .settings-provider-header {
@@ -680,43 +1076,226 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           color: var(--color-text-primary);
         }
 
-        .settings-model-tags {
+        .settings-label-row {
           display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 8px;
         }
 
-        .settings-model-tag {
-          padding: 4px 10px;
-          background: var(--color-bg-tertiary);
-          border-radius: 6px;
+        .settings-api-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .settings-api-row .settings-input {
+          flex: 1;
+        }
+
+        .settings-visibility-btn,
+        .settings-api-test-btn {
+          border: none;
+          border-radius: 8px;
+          padding: 8px 10px;
+          cursor: pointer;
           font-size: 12px;
+          background: var(--color-bg-tertiary);
           color: var(--color-text-secondary);
+        }
+
+        .settings-api-test-btn {
+          white-space: nowrap;
+        }
+
+        .settings-inline-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          margin-top: 12px;
+        }
+
+        .settings-add-btn-inline {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border: none;
+          border-radius: 8px;
+          background: var(--color-primary-600);
+          color: white;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
+        .settings-model-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .settings-model-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .settings-provider-bar {
+          position: relative;
+          height: 6px;
+          margin: 2px 12px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+          cursor: pointer;
+          overflow: hidden;
+        }
+
+        .settings-provider-bar-thumb {
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 4px;
+          border-radius: 999px;
+          background: rgba(76, 131, 255, 0.6);
+          box-shadow: none;
+          transition: transform 0.12s ease, width 0.12s ease, opacity 0.12s ease;
+        }
+
+        .settings-provider-bar:hover .settings-provider-bar-thumb {
+          background: rgba(76, 131, 255, 0.78);
+        }
+
+        .settings-provider-bar.dragging .settings-provider-bar-thumb {
+          transition: none;
+        }
+
+        .settings-provider-bar-thumb.hidden {
+          opacity: 0;
+        }
+
+        .settings-model-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 10px 12px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-tertiary);
+          color: var(--color-text-primary);
+          border-radius: 10px;
+          cursor: pointer;
+          text-align: left;
+        }
+
+        .settings-model-btn.tested {
+          border-color: var(--color-success);
+        }
+
+        .settings-model-input {
+          flex: 1;
+        }
+
+        .settings-model-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .settings-model-action-btn {
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          border-radius: 8px;
+          background: var(--color-bg-tertiary);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+
+        .settings-model-action-btn.danger {
+          color: var(--color-error);
+        }
+
+        .settings-empty {
+          padding: 10px 12px;
+          border: 1px dashed var(--color-border);
+          border-radius: 10px;
+          color: var(--color-text-tertiary);
+          font-size: 12px;
         }
 
         /* Style Grid */
         .settings-style-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 10px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px;
         }
 
         .settings-style-card {
-          padding: 14px;
+          padding: 8px 9px 7px;
           background: var(--color-bg-secondary);
-          border-radius: 12px;
-          border: 2px solid transparent;
+          border-radius: 9px;
+          border: 1px solid transparent;
           cursor: pointer;
           transition: all 0.15s;
+          min-height: 68px;
         }
 
         .settings-style-card:hover {
           border-color: var(--color-primary-300);
+          transform: translateY(-0.5px);
         }
 
         .settings-style-card.active {
           border-color: var(--color-primary-600);
-          background: var(--color-primary-50);
+          background: linear-gradient(180deg, rgba(67, 110, 238, 0.06), rgba(67, 110, 238, 0.02));
+        }
+
+        .settings-style-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 6px;
+        }
+
+        .settings-style-card-badge {
+          display: inline-flex;
+          align-items: center;
+          height: 18px;
+          padding: 0 6px;
+          border-radius: 999px;
+          font-size: 10px;
+          color: var(--color-text-tertiary);
+          background: rgba(255,255,255,0.04);
+        }
+
+        .settings-style-card-meta {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .settings-style-card-action {
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          border-radius: 6px;
+          background: transparent;
+          color: var(--color-text-tertiary);
+          cursor: pointer;
+        }
+
+        .settings-style-card-action.danger {
+          color: var(--color-error);
         }
 
         .settings-style-card-header {
@@ -726,7 +1305,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-style-card-label {
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 500;
           color: var(--color-text-primary);
         }
@@ -736,27 +1315,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-style-card-desc {
-          font-size: 12px;
+          font-size: 10px;
           color: var(--color-text-tertiary);
-          margin-top: 4px;
-        }
-
-        .settings-style-card-actions {
-          display: flex;
-          gap: 4px;
-          margin-top: 8px;
-        }
-
-        .settings-style-card-actions button {
-          padding: 4px;
-          border: none;
-          background: transparent;
-          color: var(--color-text-tertiary);
-          cursor: pointer;
-        }
-
-        .settings-style-card-actions button:hover {
-          color: var(--color-text-primary);
+          margin-top: 2px;
+          line-height: 1.35;
+          min-height: 2.6em;
         }
 
         /* Form Elements */
@@ -790,6 +1353,15 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           resize: vertical;
         }
 
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
         .settings-range {
           display: flex;
           align-items: center;
@@ -813,77 +1385,20 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           height: 18px;
         }
 
-        /* Modal */
-        .settings-modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 100;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 16px;
-          background: rgba(0,0,0,0.6);
-        }
-
-        .settings-modal {
-          width: 100%;
-          max-width: 420px;
-          background: var(--color-bg-primary);
-          border-radius: 16px;
-          overflow: hidden;
-        }
-
-        .settings-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 16px 20px;
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .settings-modal-header h4 {
-          margin: 0;
-          font-size: 16px;
-        }
-
-        .settings-modal-header button {
-          padding: 4px;
-          border: none;
-          background: transparent;
-          color: var(--color-text-secondary);
-        }
-
-        .settings-modal-body {
-          padding: 20px;
-        }
-
-        .settings-modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 12px;
-          padding: 16px 20px;
-          border-top: 1px solid var(--color-border);
-        }
-
-        .settings-btn-primary,
-        .settings-btn-secondary {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 10px 20px;
-          border-radius: 10px;
-          font-size: 14px;
-          cursor: pointer;
-        }
-
-        .settings-btn-primary {
-          background: var(--color-primary-600);
-          color: white;
-        }
-
-        .settings-btn-secondary {
-          background: var(--color-bg-tertiary);
-          color: var(--color-text-primary);
+        @media (max-width: 720px) {
+          .settings-provider-tabs {
+            flex-wrap: nowrap;
+          }
+          .settings-provider-tab {
+            min-width: 88px;
+          }
+          .settings-provider-bar {
+            margin-inline: 4px;
+          }
+          .settings-api-row {
+            flex-direction: column;
+            align-items: stretch;
+          }
         }
       `}</style>
     </div>
