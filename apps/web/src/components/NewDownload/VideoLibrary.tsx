@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
+import { AiNoteButton } from '../ai/AiNoteButton'
+import { AiNoteModal } from '../ai/AiNoteModal'
+import { aiNoteService, type NoteResponse } from '../../services/aiNote'
 
 interface LibraryCardProps {
   task: Task
@@ -24,6 +27,46 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const hasMultipleVideos = !isOpus && task.meta?.file_count > 1
   const hasCover = task.cover && task.cover.trim()
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
+
+  // AI 笔记状态
+  const [aiNoteStatus, setAiNoteStatus] = useState<'none' | 'processing' | 'completed'>('none')
+  const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false)
+
+  // 获取视频文件路径（本地路径）
+  const videoFilePath = task.meta?.folder_path
+
+  // 检查是否有有效的本地文件路径
+  const hasLocalFile = videoFilePath && !isOpus
+
+  // 检查 AI 笔记状态（基于文件路径）
+  useEffect(() => {
+    const checkAiNoteStatus = async () => {
+      if (!hasLocalFile) return
+      
+      setIsLoadingStatus(true)
+      try {
+        // TODO: 后续可以添加基于文件路径的笔记查询
+        // 暂时跳过检查
+      } catch (err) {
+        // 没有笔记是正常的
+      } finally {
+        setIsLoadingStatus(false)
+      }
+    }
+    
+    checkAiNoteStatus()
+  }, [hasLocalFile, videoFilePath])
+
+  const handleAiNoteClick = () => {
+    setShowModal(true)
+  }
+
+  const handleAiNoteComplete = (note: NoteResponse) => {
+    setExistingNote(note)
+    setAiNoteStatus('completed')
+  }
 
   // 点击卡片跳转到详情页
   const handleCardClick = () => {
@@ -141,7 +184,27 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                 <Film size={20} color="white" />
               </div>
             )}
+
+            {/* AI 笔记按钮 - 仅视频显示，有本地文件 */}
+            {!isOpus && hasLocalFile && !isLoadingStatus && (
+              <AiNoteButton
+                status={aiNoteStatus}
+                onClick={handleAiNoteClick}
+              />
+            )}
           </div>
+
+        {/* AI 笔记弹窗 */}
+        {showModal && hasLocalFile && (
+          <AiNoteModal
+            videoId={videoFilePath}
+            videoTitle={task.title}
+            existingNote={existingNote}
+            isOpen={showModal}
+            onClose={() => setShowModal(false)}
+            onComplete={handleAiNoteComplete}
+          />
+        )}
 
         {/* 文件夹信息 */}
         <div className="library-folder-info">

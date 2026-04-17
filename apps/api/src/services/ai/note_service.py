@@ -22,6 +22,7 @@ class AiNoteService:
     def analyze_video(
         self,
         video_id: str,
+        file_path: Optional[str] = None,
         style: str = DEFAULT_STYLE,
         formats: Optional[List[str]] = None,
         model_provider: str = "openai",
@@ -32,7 +33,8 @@ class AiNoteService:
         分析视频并生成笔记
 
         Args:
-            video_id: 视频 ID (downloads.id)
+            video_id: 视频 ID (downloads.id 或文件路径)
+            file_path: 可选的直接文件路径
             style: 笔记风格
             formats: 格式列表
             model_provider: LLM 提供商
@@ -43,13 +45,24 @@ class AiNoteService:
             AiNote: 生成的笔记记录
         """
         # 获取视频信息
-        download = self.db.query(Download).filter(Download.id == video_id).first()
-        if not download:
-            raise ValueError(f"Video not found: {video_id}")
+        download = None
+        actual_file_path = file_path
+
+        if file_path and os.path.exists(file_path):
+            # 直接使用文件路径
+            actual_file_path = file_path
+            video_title = os.path.splitext(os.path.basename(file_path))[0]
+        else:
+            # 从数据库查找
+            download = self.db.query(Download).filter(Download.id == video_id).first()
+            if not download:
+                raise ValueError(f"Video not found: {video_id}")
+            actual_file_path = download.file_path
+            video_title = download.title
 
         # 检查文件是否存在
-        if not download.file_path or not os.path.exists(download.file_path):
-            raise ValueError(f"Video file not found: {download.file_path}")
+        if not actual_file_path or not os.path.exists(actual_file_path):
+            raise ValueError(f"Video file not found: {actual_file_path}")
 
         # 创建 AiNote 记录
         note = AiNote(
@@ -67,13 +80,12 @@ class AiNoteService:
         try:
             # Step 1: 转写视频
             logger.info(f"开始转写视频: {video_id}")
-            transcript = self._transcribe_video(download.file_path, video_id)
-            note.transcript = transcript  # 注意: AiNote 模型暂无此字段
+            transcript = self._transcribe_video(actual_file_path, video_id)
 
             # Step 2: 生成笔记
             logger.info(f"开始生成笔记: {note.id}")
             markdown = self._generate_note(
-                title=download.title or "未知标题",
+                title=video_title or "未知标题",
                 transcript=transcript,
                 style=style,
                 formats=formats or DEFAULT_FORMATS,

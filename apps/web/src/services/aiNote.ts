@@ -62,8 +62,16 @@ export const aiNoteService = {
   },
 
   async getNoteByVideo(videoId: string): Promise<any> {
-    const response = await apiService.request<any>(`/api/note/by-video/${videoId}`);
-    return response.data || response;
+    try {
+      const response = await apiService.request<any>(`/api/note/by-video/${videoId}`);
+      return response.data || response;
+    } catch (error: any) {
+      // 404 表示没有笔记，这是正常情况
+      if (error?.status === 404 || error?.response?.status === 404) {
+        return { success: true, content: null, status: 'not_found' };
+      }
+      throw error;
+    }
   },
 };
 

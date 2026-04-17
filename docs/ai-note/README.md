@@ -7,8 +7,42 @@
 ## 功能架构
 
 ```
-用户提交视频 → 下载视频 → 提取音频转写 → LLM 生成笔记 → 前端展示 Markdown + 思维导图
+媒体库卡片 → [✨ AI按钮] → 设置弹窗(风格/格式/LLM) → 开始分析 → 卡片状态更新
+                                                                          ↓
+详情页 → 垂直显示笔记结果 ←───────────────────────────── 获取结果
 ```
+
+## 简化逻辑
+
+**核心改进**：直接使用本地文件路径进行分析，不需要通过 bvid 查找数据库记录。
+
+1. 媒体库卡片通过 `task.meta.folder_path` 获取本地视频路径
+2. 直接将文件路径传给后端 API
+3. 后端直接读取本地文件进行转写和分析
+
+## UI 设计
+
+### 1. 媒体库卡片 - AI 按钮
+
+**位置**：卡片右下角（覆盖在封面上）
+
+**状态**：
+- 默认：灰色/半透明背景 + ✨图标
+- 进行中：蓝色边框 + 旋转加载动画
+- 已完成：渐变紫色背景 + ✨图标高亮
+
+### 2. 设置弹窗
+
+**Tab 结构**（3个）：
+1. **风格 Tab**：笔记风格选择
+2. **格式 Tab**：输出格式开关
+3. **LLM Tab**：提供商 + 模型选择
+
+### 3. 详情页
+
+**布局**：垂直排列
+- 视频信息在上方
+- AI 笔记结果在下方（无分析则不显示）
 
 ## 核心特性
 
@@ -35,14 +69,13 @@
 | 商业风格 (business) | 适合商业报告、会议纪要，正式且精准 |
 | 会议纪要 (meeting_minutes) | 适合会议记录，重点突出决策和行动项 |
 
-### 3. 视频类型识别
+### 3. LLM 提供商
 
-根据视频的标签、标题、分类自动推荐合适的 Prompt 风格：
-- 教程/技能类 → 推荐 "教程" 或 "详细" 风格
-- 知识科普类 → 推荐 "学术" 风格
-- 生活 Vlog → 推荐 "生活向" 风格
-- 商业/职场类 → 推荐 "商业风格" 或 "会议纪要"
-- 娱乐/社交媒体 → 推荐 "小红书" 风格
+| 提供商 | 模型 |
+|--------|------|
+| OpenAI | gpt-4o, gpt-4o-mini, gpt-4-turbo |
+| Claude | claude-sonnet-4, claude-opus-4, claude-haiku-3 |
+| DeepSeek | deepseek-chat, deepseek-coder |
 
 ## 技术方案
 
@@ -51,23 +84,25 @@
 | 模块 | 路径 | 功能描述 |
 |------|------|----------|
 | AI 分析服务 | `src/services/ai/note_service.py` | 核心分析服务：读取本地视频 → 转写 → LLM 生成 |
-| Prompt 管理器 | `src/services/ai/prompt_builder.py` | 根据风格构建 prompt |
-| LLM 客户端 | `src/services/ai/llm_client.py` | 多提供商支持 |
-| 转写服务 | `src/services/ai/transcriber.py` | 音频转文字 |
+| Prompt 管理器 | `src/llm/prompts/` | 根据风格构建 prompt |
+| LLM 客户端 | `src/llm/` | 多提供商支持（OpenAI/Claude/DeepSeek） |
+| 转写服务 | `src/services/ai/transcriber.py` | 音频转文字（Whisper API） |
+| 截图服务 | `src/services/ai/screenshot.py` | 视频关键帧截图 |
 | API 路由 | `src/routers/note.py` | 分析触发、状态查询、获取结果 |
 
-### 触发方式
-- 媒体库视频详情页：点击 "AI 分析" 按钮
-- 需要视频已下载到本地（有文件路径）
+### 前端组件
 
-### 前端模块
-
-| 模块 | 路径 | 功能描述 |
+| 组件 | 路径 | 功能描述 |
 |------|------|----------|
-| 笔记面板 | `src/components/ai/NotePanel.tsx` | 视频详情页的 AI 分析面板 |
-| 风格选择器 | `src/components/ai/StyleSelector.tsx` | 选择笔记风格 |
-| Markdown 预览 | `src/components/ai/MarkdownViewer.tsx` | 渲染生成的笔记 |
-| 思维导图 | `src/components/ai/MindMap.tsx` | markmap 展示导图 |
+| AiNoteButton | `src/components/ai/AiNoteButton.tsx` | 媒体库卡片 AI 按钮 |
+| AiNoteModal | `src/components/ai/AiNoteModal.tsx` | 设置弹窗（3个Tab） |
+| MarkdownViewer | `src/components/ai/MarkdownViewer.tsx` | 渲染生成的笔记 |
+| MindMapViewer | `src/components/ai/MindMapViewer.tsx` | 思维导图展示 |
+
+### 触发方式
+
+- **媒体库卡片**：点击右下角 AI 按钮 → 弹窗设置 → 开始分析
+- **文件路径**：使用 `task.meta.folder_path` 直接获取本地路径
 
 ## API 设计
 
@@ -78,9 +113,15 @@ POST /api/note/analyze
 ```
 
 请求参数：
-- `video_id`: 视频 ID（媒体库中已下载的视频）
+- `video_id`: 视频 ID（支持文件路径/bvid/downloads.id）
 - `style`: 笔记风格 (minimal/detailed/academic/tutorial/...)
-- `formats`: 格式列表 ['toc', 'link', 'summary']
+- `formats`: 格式列表 ['toc', 'link', 'screenshot', 'summary']
+- `model_provider`: LLM 提供商 (openai/claude/deepseek)
+- `model_name`: 模型名称
+
+简化逻辑：
+1. 如果 `video_id` 是有效的本地文件路径 → 直接使用
+2. 否则尝试通过 bvid 或 downloads.id 查找
 
 ### 查询状态
 
@@ -89,7 +130,7 @@ GET /api/note/status/{note_id}
 ```
 
 返回：
-- `task_status`: pending → processing → completed / failed
+- `status`: pending → processing → completed / failed
 - `progress`: 处理进度百分比
 
 ### 获取结果
@@ -99,59 +140,68 @@ GET /api/note/{note_id}
 ```
 
 返回：
-- `markdown`: 完整笔记
+- `content`: 完整笔记 (Markdown)
 - `summary`: AI 总结
 - `style`: 使用的风格
 
+### 根据视频获取笔记
+
+```
+GET /api/note/by-video/{bvid}
+```
+
+返回：指定视频的笔记（如果有）
+
 ## 数据模型
 
-### 使用场景
-媒体库点击视频 → 触发 AI 分析 → 生成笔记
+### 1. ai_notes 表（新建）
 
-### 表结构
-
-#### 1. ai_notes 表（新建）
 存储 AI 生成的笔记
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | String(UUID) | 笔记 ID |
-| task_id | String | 关联的任务 ID |
-| video_id | String | 关联的视频 ID (downloads.id) |
-| content | Text | 生成的笔记内容 |
+| video_id | String | 关联的视频 ID (downloads.id 或文件路径) |
+| content | Text | 生成的笔记内容 (Markdown) |
+| summary | Text | AI 总结摘要 |
 | style | String | 使用的风格 |
 | formats | JSON | 启用的格式 |
 | status | Enum | pending/processing/completed/failed |
 | model_provider | String | LLM 提供商 |
 | model_name | String | 模型名称 |
-| meta | JSON | 元数据 |
 | error | Text | 错误信息 |
 | created_at | TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | 更新时间 |
+| completed_at | TIMESTAMP | 完成时间 |
 
-#### 2. downloads 表（扩展）
+### 2. downloads 表（扩展）
+
 在现有 downloads 表添加 AI 相关字段
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| ai_note_id | String | 关联的 AI 笔记 |
+| ai_note_id | String | 关联的 AI 笔记 ID |
 | ai_summary | Text | AI 总结摘要 |
 | ai_markdown | Text | 完整 Markdown |
 | ai_style | String | 使用的风格 |
-| ai_status | String | pending/processing/completed/failed |
+| ai_status | Enum | pending/processing/completed/failed |
 | ai_error | Text | 错误信息 |
 | transcript | Text | 字幕转写文本 |
 | transcript_lang | String | 转写语言 |
 
-### 工作流程
+## 工作流程
 
-1. 用户在媒体库点击视频的 "AI 分析" 按钮
-2. 创建 `ai_notes` 记录，状态设为 `pending`
-3. 后台处理：读取本地视频 → 转写 → LLM 生成
-4. 前端轮询状态，更新 UI
-5. 完成后将 markdown 存入 `ai_notes.markdown`
-
-> 注意：视频文件需要已下载到本地才能进行分析
+```
+1. 媒体库卡片加载 → 获取 task.meta.folder_path（本地路径）
+2. 用户点击 AI 按钮 → 打开设置弹窗
+3. 选择风格/格式/LLM → 点击"开始分析"
+4. 后端接收文件路径 → 直接读取本地视频
+5. 转写音频 → Whisper API
+6. LLM 生成笔记 → 返回 note_id
+7. 前端轮询状态 → 卡片按钮显示加载动画
+8. 完成 → 按钮状态变为已完成
+9. 详情页垂直显示笔记结果
+```
 
 ## 依赖项
 
@@ -161,13 +211,22 @@ GET /api/note/{note_id}
 - anthropic (Claude)
 - openai-whisper / faster-whisper
 - ffmpeg-python
-- aiohttp
 
 ### 前端
 
 - react-markdown
 - remark-gfm
 - markmap (思维导图)
-- react-syntax-highlighter
+
+## 文件变更
+
+| 文件 | 修改 |
+|------|------|
+| `apps/api/src/routers/note.py` | 支持文件路径直接传入 |
+| `apps/api/src/services/ai/note_service.py` | 支持文件路径参数 |
+| `apps/api/migrate_add_ai_note_fields.py` | 新增数据库迁移脚本 |
+| `apps/web/src/components/ai/AiNoteButton.tsx` | 新增卡片按钮组件 |
+| `apps/web/src/components/ai/AiNoteModal.tsx` | 新增设置弹窗组件 |
+| `apps/web/src/components/NewDownload/VideoLibrary.tsx` | 集成 AI 按钮 |
 
 > 参考：`.planning/ROADMAP.md`

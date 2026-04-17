@@ -42,12 +42,14 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
       setIsLoadingExisting(true);
       try {
         const existingNote = await aiNoteService.getNoteByVideo(videoId);
-        if (existingNote.success && existingNote.content) {
+        // 检查有笔记内容 或 状态为 completed
+        if (existingNote.success && (existingNote.content || existingNote.status === 'completed')) {
           setNote(existingNote);
           setStyle(existingNote.style || DEFAULT_STYLE);
           setFormats(existingNote.formats || DEFAULT_FORMATS);
           setViewMode('result');
         }
+        // success: false 表示没有笔记，这是正常的
       } catch (err) {
         // 无笔记，正常情况
       } finally {

@@ -5,6 +5,8 @@ from datetime import datetime
 from fastapi.responses import FileResponse
 import tempfile
 
+import os
+
 from src.services.ai import AiNoteService
 from src.database import SessionLocal
 from src.models.download import Download
@@ -75,21 +77,48 @@ class ErrorResponse(BaseModel):
 async def analyze_video(request: AnalyzeRequest):
     """触发 AI 分析"""
     try:
-        # 检查视频是否存在
-        db = SessionLocal()
-        download = db.query(Download).filter(Download.id == request.video_id).first()
-        db.close()
+        # 支持三种方式：1) file_path（本地文件路径）2) downloads.id  3) bvid
+        file_path = request.video_id
 
-        if not download:
-            raise HTTPException(status_code=404, detail="视频不存在")
+        # 检查是否是有效的本地文件路径
+        if not file_path or not os.path.exists(file_path):
+            # 如果不是文件路径，尝试查找数据库记录
+            db = SessionLocal()
+            download = (
+                db.query(Download).filter(Download.id == request.video_id).first()
+            )
 
-        if not download.file_path:
-            raise HTTPException(status_code=400, detail="视频文件路径不存在")
+            if not download:
+                # 尝试通过 bvid 查找
+                download = (
+                    db.query(Download)
+                    .filter(
+                        Download.bvid == request.video_id,
+                        Download.status == "completed",
+                    )
+                    .first()
+                )
+
+            if not download:
+                db.close()
+                raise HTTPException(status_code=404, detail="视频不存在或未下载")
+
+            if not download.file_path:
+                db.close()
+                raise HTTPException(status_code=400, detail="视频文件路径不存在")
+
+            file_path = download.file_path
+            video_id = download.id
+            db.close()
+        else:
+            # 使用文件路径作为 ID
+            video_id = file_path
 
         # 创建笔记记录并执行分析
         service = AiNoteService()
         note = service.analyze_video(
-            video_id=request.video_id,
+            video_id=video_id,
+            file_path=file_path,
             style=request.style or "detailed",
             formats=request.formats or ["summary"],
             model_provider=request.model_provider or "openai",
