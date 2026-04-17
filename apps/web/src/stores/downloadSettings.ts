@@ -79,7 +79,6 @@ export interface PostDownloadSettings {
 // 元数据下载设置
 export interface MetadataSettings {
   enable_subtitle: boolean               // 下载字幕
-  subtitle_languages: string[]           // 字幕语言
   subtitle_format: string                // 字幕格式 (srt, ass, json)
   enable_cover: boolean                  // 下载封面
   cover_format: string                   // 封面格式 (jpg, png, webp)
@@ -192,7 +191,6 @@ const DEFAULT_POST_DOWNLOAD: PostDownloadSettings = {
 
 const DEFAULT_METADATA: MetadataSettings = {
   enable_subtitle: true,
-  subtitle_languages: ['zh-CN', 'en-US'],
   subtitle_format: 'srt',
   enable_cover: true,
   cover_format: 'jpg',

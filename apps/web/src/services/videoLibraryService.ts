@@ -358,13 +358,14 @@ class VideoLibraryService {
   /**
    * Schedule a library refresh with delay
    * @param delay - Delay in milliseconds (default 5000)
+   * @param force - Whether to bypass smart cache freshness checks
    */
-  scheduleLibraryRefresh(delay: number = 5000): void {
-    console.log(`[VideoLibrary] Scheduling refresh in ${delay}ms`)
+  scheduleLibraryRefresh(delay: number = 5000, force: boolean = false): void {
+    console.log(`[VideoLibrary] Scheduling refresh in ${delay}ms${force ? ' (forced)' : ''}`)
 
     setTimeout(async () => {
       // Skip if cache is still fresh
-      if (this.config.enableSmartRefresh && this.isCacheFresh(180000)) { // 3 minutes
+      if (!force && this.config.enableSmartRefresh && this.isCacheFresh(180000)) { // 3 minutes
         console.log('[VideoLibrary] Cache is still fresh, skipping refresh')
         return
       }
@@ -381,7 +382,7 @@ class VideoLibraryService {
     console.log(`[VideoLibrary] Task ${taskId} completed, scheduling library refresh`)
     
     // Schedule refresh
-    this.scheduleLibraryRefresh(this.config.autoRefreshDelay)
+    this.scheduleLibraryRefresh(this.config.autoRefreshDelay, true)
   }
 
   // ============== Duplicate Check ==============

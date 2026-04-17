@@ -1100,10 +1100,7 @@ class BilibiliService:
         if sessdata:
             await self.headers_manager.update_cookie("SESSDATA", sessdata)
 
-        # 使用B站播放器API（参考BiliTools）
-        url = f"{self.api_base}/x/player/wbi/v2"
-        headers = await self.headers_manager.get_headers()
-
+        # 优先尝试 WBI 版本，失败时回退到公开播放器接口
         try:
             # 1. 获取nav API数据（用于获取WBI密钥）
             nav_url = f"{self.api_base}/x/web-interface/nav"
@@ -1130,18 +1127,31 @@ class BilibiliService:
 
             # 4. 使用签名后的参数发送请求
             from urllib.parse import urlencode
+            url = f"{self.api_base}/x/player/wbi/v2"
             signed_url = f"{url}?{urlencode(signed_params)}"
 
             response = await self._request("GET", signed_url)
+
+            if response.status_code in (403, 412):
+                logger.warning(
+                    "WBI播放器接口被拦截，回退到公开播放器接口: status=%s aid=%s cid=%s",
+                    response.status_code,
+                    aid,
+                    cid,
+                )
+                return await self._get_player_info_plain(aid, cid, sessdata)
 
             # 尝试解析JSON
             try:
                 data = response.json()
             except Exception as json_error:
-                return {
-                    "success": False,
-                    "message": f"解析响应数据失败: {str(json_error)}"
-                }
+                logger.warning(
+                    "解析WBI播放器响应失败，回退到公开播放器接口: aid=%s cid=%s error=%s",
+                    aid,
+                    cid,
+                    json_error,
+                )
+                return await self._get_player_info_plain(aid, cid, sessdata)
 
             if data.get("code") == 0:
                 player_data = data.get("data", {})
@@ -1149,6 +1159,61 @@ class BilibiliService:
                     "success": True,
                     "data": player_data
                 }
+
+            if data.get("code") in (-352, -403, -412) or "banned" in str(data.get("message", "")).lower():
+                logger.warning(
+                    "WBI播放器接口返回风控/拦截，回退到公开播放器接口: code=%s aid=%s cid=%s message=%s",
+                    data.get("code"),
+                    aid,
+                    cid,
+                    data.get("message", "unknown"),
+                )
+                return await self._get_player_info_plain(aid, cid, sessdata)
+
+            return {
+                "success": False,
+                "message": data.get("message", "获取播放器信息失败"),
+                "code": data.get("code")
+            }
+        except Exception as e:
+            logger.warning(
+                "获取WBI播放器信息异常，回退到公开播放器接口: aid=%s cid=%s error=%s",
+                aid,
+                cid,
+                e,
+            )
+            fallback_result = await self._get_player_info_plain(aid, cid, sessdata)
+            if fallback_result.get("success"):
+                return fallback_result
+            return {
+                "success": False,
+                "message": f"获取播放器信息异常: {str(e)}"
+            }
+
+    async def _get_player_info_plain(self, aid: int, cid: int, sessdata: str = "") -> Dict:
+        """使用公开播放器接口获取字幕信息，作为 WBI 回退路径"""
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        url = f"{self.api_base}/x/player/v2"
+
+        try:
+            response = await self._request("GET", url, params={"aid": aid, "cid": cid})
+
+            try:
+                data = response.json()
+            except Exception as json_error:
+                return {
+                    "success": False,
+                    "message": f"解析公开播放器响应失败: {str(json_error)}"
+                }
+
+            if data.get("code") == 0:
+                return {
+                    "success": True,
+                    "data": data.get("data", {})
+                }
+
             return {
                 "success": False,
                 "message": data.get("message", "获取播放器信息失败"),
@@ -1157,8 +1222,12 @@ class BilibiliService:
         except Exception as e:
             return {
                 "success": False,
-                "message": f"获取播放器信息异常: {str(e)}"
+                "message": f"获取公开播放器信息异常: {str(e)}"
             }
+
+    async def get_player_info_public(self, aid: int, cid: int, sessdata: str = "") -> Dict:
+        """直接使用公开播放器接口获取字幕信息。"""
+        return await self._get_player_info_plain(aid, cid, sessdata)
 
     async def get_opus_details(self, opus_id: str, sessdata: str = "") -> Dict:
         """获取图文详情（使用HTML解析方法）

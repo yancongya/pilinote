@@ -296,7 +296,7 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
       <div className="stg-group">
         <div className="stg-group-header">
           <span className="stg-group-title">元数据</span>
-          <span className="stg-group-subtitle">字幕、弹幕和封面</span>
+          <span className="stg-group-subtitle">字幕、封面和头像</span>
         </div>
         
         <div className="stg-toggles">

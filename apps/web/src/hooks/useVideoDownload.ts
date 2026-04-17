@@ -73,12 +73,18 @@ export function useVideoDownload() {
     e.stopPropagation()
 
     // 防止重复点击
-    const button = e.currentTarget as HTMLButtonElement
-    if (button.disabled) return {success: false, message: '操作进行中'}
-    button.disabled = true
+    const button = e.currentTarget as HTMLButtonElement | null
+    if (button && button.disabled) {
+      return {success: false, message: '操作进行中'}
+    }
+    if (button) {
+      button.disabled = true
+    }
 
     const resetButton = () => {
-      button.disabled = false
+      if (button) {
+        button.disabled = false
+      }
     }
 
     try {
@@ -288,7 +294,9 @@ export function useVideoDownload() {
       }
     } finally {
       // 恢复按钮状态
-      button.disabled = false
+      if (button) {
+        button.disabled = false
+      }
     }
   }, [newQueueStore])
 

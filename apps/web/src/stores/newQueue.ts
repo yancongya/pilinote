@@ -63,6 +63,121 @@ export interface SubTaskStatus {
   chunk: number
 }
 
+const DEFAULT_TASK_STATUS: TaskStatus = {
+  progress: 0,
+  speed: 0,
+  eta: 0,
+  stage: 'preparing',
+  downloaded: 0,
+  total: 0,
+}
+
+const TASK_STATE_MAP: Record<number, TaskState> = {
+  0: 'backlog',
+  1: 'pending',
+  2: 'active',
+  3: 'completed',
+  4: 'paused',
+  5: 'failed',
+  6: 'cancelled',
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function isRecord(value: unknown): value is Record<string, any> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (value === null || value === undefined) return undefined
+  return String(value)
+}
+
+export function normalizeTaskState(state: unknown): TaskState {
+  if (typeof state === 'string') {
+    if (state.startsWith('TaskState.')) {
+      const enumValue = state.split('.')[1]?.toLowerCase()
+      return (enumValue as TaskState) || 'backlog'
+    }
+
+    if (/^\d+$/.test(state)) {
+      const stateNum = parseInt(state, 10)
+      return TASK_STATE_MAP[stateNum] || 'backlog'
+    }
+
+    const allowedStates: TaskState[] = ['backlog', 'pending', 'active', 'completed', 'paused', 'failed', 'cancelled']
+    return allowedStates.includes(state as TaskState) ? (state as TaskState) : 'backlog'
+  }
+
+  return TASK_STATE_MAP[Number(state)] || 'backlog'
+}
+
+export function normalizeTaskStatus(status: unknown): TaskStatus {
+  const taskStatus = isRecord(status) ? status : {}
+  return {
+    progress: toNumber(taskStatus.progress, DEFAULT_TASK_STATUS.progress),
+    speed: toNumber(taskStatus.speed, DEFAULT_TASK_STATUS.speed),
+    eta: toNumber(taskStatus.eta, DEFAULT_TASK_STATUS.eta),
+    stage: (taskStatus.stage as DownloadStage) || DEFAULT_TASK_STATUS.stage,
+    downloaded: toNumber(taskStatus.downloaded, DEFAULT_TASK_STATUS.downloaded),
+    total: toNumber(taskStatus.total, DEFAULT_TASK_STATUS.total),
+  }
+}
+
+function normalizeSubTaskStatus(subtaskStatus: unknown): Record<string, SubTaskStatus> {
+  if (!isRecord(subtaskStatus)) return {}
+
+  const normalized: Record<string, SubTaskStatus> = {}
+  Object.entries(subtaskStatus).forEach(([key, value]) => {
+    const record = isRecord(value) ? value : {}
+    normalized[key] = {
+      content: toNumber(record.content, 0),
+      chunk: toNumber(record.chunk, 0),
+    }
+  })
+
+  return normalized
+}
+
+export function normalizeTask(task: unknown): Task {
+  const data = isRecord(task) ? task : {}
+
+  return {
+    id: String(data.id ?? ''),
+    ts: toNumber(data.ts, Date.now()),
+    seq: toNumber(data.seq, 0),
+    title: typeof data.title === 'string' ? data.title : '',
+    cover: typeof data.cover === 'string' ? data.cover : '',
+    desc: typeof data.desc === 'string' ? data.desc : '',
+    duration: toNumber(data.duration, 0),
+    pubtime: toNumber(data.pubtime, 0),
+    media_type: typeof data.media_type === 'string' ? data.media_type : 'video',
+    url: typeof data.url === 'string' ? data.url : '',
+    media_id: typeof data.media_id === 'string' ? data.media_id : '',
+    schedulerId: toOptionalString(data.schedulerId ?? data.scheduler_id),
+    state: normalizeTaskState(data.state),
+    status: normalizeTaskStatus(data.status),
+    meta: isRecord(data.meta) ? data.meta : {},
+    prepare: isRecord(data.prepare) ? data.prepare : {},
+    subtasks: Array.isArray(data.subtasks) ? data.subtasks : [],
+    subtaskStatus: normalizeSubTaskStatus(data.subtaskStatus),
+    created_at: toNumber(data.created_at, Date.now()),
+    updated_at: toNumber(data.updated_at, Date.now()),
+  }
+}
+
+function normalizeTaskMap(tasks: Record<string, unknown> | undefined): Record<string, Task> {
+  if (!tasks) return {}
+
+  return Object.fromEntries(
+    Object.entries(tasks).map(([id, task]) => [id, normalizeTask(task)])
+  )
+}
+
 interface NewQueueState {
   // 数据
   tasks: Record<string, Task>
@@ -162,22 +277,7 @@ forceClearCache: () => {
             set((state) => {
               const tasks = { ...state.tasks }
               if (data.task) {
-                // 转换状态数字为字符串，并映射字段名
-                const stateMap: Record<number, string> = {
-                  0: 'backlog',
-                  1: 'pending',
-                  2: 'active',
-                  3: 'completed',
-                  4: 'paused',
-                  5: 'failed',
-                  6: 'cancelled'
-                }
-                const taskWithState = {
-                  ...data.task,
-                  state: stateMap[data.task.state as number] || data.task.state,
-                  schedulerId: data.task.scheduler_id
-                }
-                tasks[data.task.id] = taskWithState
+                tasks[data.task.id] = normalizeTask(data.task)
               }
               return { tasks }
             })
@@ -191,42 +291,10 @@ forceClearCache: () => {
                 delete tasks[data.id]
               } else if (data.id) {
                 // 更新任务状态
-                const stateMap: Record<number, string> = {
-                  0: 'backlog',
-                  1: 'pending',
-                  2: 'active',
-                  3: 'completed',
-                  4: 'paused',
-                  5: 'failed',
-                  6: 'cancelled'
-                }
-
-                // 处理不同类型的状态值
-                let stateStr: string
-                if (typeof data.state === 'string') {
-                  // 如果是字符串，检查是否是枚举值（如 'TaskState.ACTIVE'）还是数字字符串（如 '2'）
-                  if (data.state.startsWith('TaskState.')) {
-                    // 枚举值，提取实际状态名
-                    const enumValue = data.state.split('.')[1]?.toLowerCase()
-                    stateStr = enumValue || data.state
-                  } else if (/^\d+$/.test(data.state)) {
-                    // 数字字符串，转换为数字后映射
-                    const stateNum = parseInt(data.state, 10)
-                    stateStr = stateMap[stateNum] || data.state
-                  } else {
-                    // 其他字符串，直接使用
-                    stateStr = data.state
-                  }
-                } else {
-                  // 数字，映射为字符串
-                  stateStr = stateMap[data.state as number] || String(data.state)
-                }
-
-
                 if (tasks[data.id]) {
                   const oldState = tasks[data.id].state
-                  const newState = stateStr as TaskState
-                  tasks[data.id] = { ...tasks[data.id], state: newState }
+                  const newState = normalizeTaskState(data.state)
+                  tasks[data.id] = normalizeTask({ ...tasks[data.id], state: newState })
                   
                   // 检测下载完成事件
                   if (oldState !== 'completed' && newState === 'completed') {
@@ -262,16 +330,23 @@ forceClearCache: () => {
             set((state) => {
               const task = state.tasks[data.id]
               if (task) {
+                const currentStatus = normalizeTaskStatus(task.status)
+                const hasDownloaded = Object.prototype.hasOwnProperty.call(data, 'downloaded')
+                const hasTotal = Object.prototype.hasOwnProperty.call(data, 'total')
+                const hasSpeed = Object.prototype.hasOwnProperty.call(data, 'speed')
+                const hasEta = Object.prototype.hasOwnProperty.call(data, 'eta')
+                const hasProgress = Object.prototype.hasOwnProperty.call(data, 'progress')
+                const hasStage = Object.prototype.hasOwnProperty.call(data, 'stage')
                 const updatedTask = {
                   ...task,
                   status: {
-                    ...task.status,
-                    progress: data.progress,
-                    speed: data.speed,
-                    eta: data.eta,
-                    stage: data.stage || (task.status as TaskStatus).stage,
-                    downloaded: data.downloaded || (task.status as TaskStatus).downloaded,
-                    total: data.total || (task.status as TaskStatus).total
+                    ...currentStatus,
+                    progress: hasProgress ? data.progress : currentStatus.progress,
+                    speed: hasSpeed ? data.speed : currentStatus.speed,
+                    eta: hasEta ? data.eta : currentStatus.eta,
+                    stage: hasStage ? (data.stage || currentStatus.stage) : currentStatus.stage,
+                    downloaded: hasDownloaded ? data.downloaded : currentStatus.downloaded,
+                    total: hasTotal ? data.total : currentStatus.total
                   }
                 }
 
@@ -323,27 +398,11 @@ forceClearCache: () => {
           const response = await fetch(getApiUrl('/api/queue/tasks'))
           if (response.ok) {
             const result = await response.json()
-            const stateMap: Record<number, string> = {
-              0: 'backlog',
-              1: 'pending',
-              2: 'active',
-              3: 'completed',
-              4: 'paused',
-              5: 'failed',
-              6: 'cancelled'
-            }
             // 从新的API响应格式中获取数据
             const taskList = result.data || []
             const tasks: Record<string, Task> = {}
             taskList.forEach((task: any) => {
-              // 转换状态数字为字符串，并映射字段名
-              const taskWithState = {
-                ...task,
-                state: stateMap[task.state as number] || task.state,
-                schedulerId: task.scheduler_id  // 映射 scheduler_id -> schedulerId
-              }
-              
-              tasks[task.id] = taskWithState
+              tasks[task.id] = normalizeTask(task)
             })
             
             // 检查并清理缓存中不存在的任务（防止缓存不一致）
@@ -635,6 +694,15 @@ forceClearCache: () => {
     }),
     {
       name: 'new-queue-storage',
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<NewQueueState> | undefined
+        return {
+          ...currentState,
+          ...persisted,
+          tasks: normalizeTaskMap(persisted?.tasks as Record<string, unknown> | undefined),
+          schedulers: persisted?.schedulers ?? currentState.schedulers,
+        }
+      },
       partialize: (state) => ({
         tasks: state.tasks,
         schedulers: state.schedulers,

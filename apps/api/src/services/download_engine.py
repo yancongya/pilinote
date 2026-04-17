@@ -181,9 +181,14 @@ class DownloadEngine:
         })
         
         # 构建yt-dlp配置
+        if page_num:
+            outtmpl = str(output_dir / '%(title)s-P%(playlist_index)s.%(ext)s')
+        else:
+            outtmpl = str(output_dir / '%(title)s.%(ext)s')
+
         ydl_opts = {
             'format': format_str,
-            'outtmpl': str(output_dir / '%(title)s-P%(playlist_index)s.%(ext)s'),
+            'outtmpl': outtmpl,
             'quiet': False,
             'no_warnings': True,
             'merge_output_format': output_format,

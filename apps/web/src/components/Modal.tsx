@@ -67,7 +67,7 @@ export default function Modal({
 
   return (
     <div 
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
+      className="settings-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
@@ -75,19 +75,19 @@ export default function Modal({
     >
       <div 
         ref={modalRef}
-        className={`dark:bg-slate-800 dark:border-slate-700 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] w-full overflow-hidden animate-in zoom-in-95 duration-200 ease-out max-h-[calc(100vh-40px)] flex flex-col ${sizeClasses[size]} ${className}`}
+        className={`settings-modal-panel dark:bg-slate-800 dark:border-slate-700 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] w-full overflow-hidden animate-in zoom-in-95 duration-200 ease-out max-h-[calc(100vh-40px)] flex flex-col ${sizeClasses[size]} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-5 border-b dark:border-slate-700 border-slate-200 flex-shrink-0">
+          <div className="settings-modal-header flex items-center justify-between p-5 border-b dark:border-slate-700 border-slate-200 flex-shrink-0">
             {title && (
-              <h3 id="modal-title" className="text-lg font-bold dark:text-slate-100 text-slate-800 leading-tight">{title}</h3>
+              <h3 id="modal-title" className="settings-modal-title text-lg font-bold dark:text-slate-100 text-slate-800 leading-tight">{title}</h3>
             )}
             {showCloseButton && (
               <button
                 ref={firstFocusableRef}
-                className="w-8 h-8 min-w-[32px] min-h-[32px] border-none dark:bg-secondary-700 dark:hover:bg-secondary-600 dark:text-secondary-300 dark:hover:text-secondary-100 bg-secondary-100 rounded-lg cursor-pointer flex items-center justify-center text-secondary-500 transition-all duration-150 ease-out hover:bg-secondary-200 hover:text-secondary-800 active:scale-95 focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2"
+                className="w-8 h-8 min-w-[32px] min-h-[32px] border-none dark:bg-secondary-700 dark:hover:bg-secondary-600 dark:text-secondary-300 dark:hover:text-secondary-100 bg-secondary-100 rounded-lg cursor-pointer flex items-center justify-center text-secondary-500 transition-all duration-150 ease-out hover:bg-secondary-200 hover:text-secondary-800 active:scale-95 focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2 settings-modal-close"
                 onClick={onClose}
                 aria-label="关闭"
                 tabIndex={0}
@@ -99,13 +99,13 @@ export default function Modal({
         )}
 
         {/* 内容 */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="settings-modal-body p-6 overflow-y-auto flex-1">
           {children}
         </div>
 
         {/* 底部 */}
         {footer && (
-          <div className="flex gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0">
+          <div className="settings-modal-footer flex gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0">
             {footer}
           </div>
         )}

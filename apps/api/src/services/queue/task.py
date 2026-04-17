@@ -213,7 +213,7 @@ class TaskService:
         subtasks.append({
             'type': SubTaskType.SUBTITLES,
             'bvid': self.task.media_id,
-            'filename': f"{info.get('title', 'video')}.zh.srt"
+            'filename': f"{info.get('title', 'video')}.srt"
         })
 
         # 封面下载
@@ -799,97 +799,21 @@ class TaskService:
 
         # 处理字幕下载
         elif subtask_type == SubTaskType.SUBTITLES:
-            bvid = subtask_data.get('bvid', self.task.media_id)
-            filename = subtask_data.get('filename', 'subtitles.srt')
-            output_file = output_dir / filename
-            
-            # 检查文件是否已存在且有内容
-            if output_file.exists() and output_file.stat().st_size > 50:
-                logger.info(f"字幕文件已存在: {filename}")
+            from src.services.queue.handlers import SubTaskHandler
+
+            handler = SubTaskHandler.get_handler(SubTaskType.SUBTITLES)
+            if not handler:
+                logger.warning("未找到字幕处理器，跳过")
                 return
-            
-            logger.info(f"开始下载字幕: {bvid}")
-            
+
+            logger.info(f"开始下载字幕: {self.task.media_id}")
+
             try:
-                from src.services.bilibili import BilibiliService
-                from src.services.download_service import DownloadService
-                
-                bilibili_service = BilibiliService()
-                download_service = DownloadService()
-                
-                try:
-                    # 获取视频信息（获取aid和cid）
-                    video_info_result = await bilibili_service.get_video_info(bvid)
-                    if not video_info_result.get('success'):
-                        logger.warning(f"获取视频信息失败: {video_info_result.get('message')}")
-                        return
-                    
-                    video_info = video_info_result.get('data', {})
-                    aid = video_info.get('aid')
-                    cid = video_info.get('cid')
-                    pages = video_info.get('pages', [])
-                    
-                    if not aid or not cid:
-                        logger.warning(f"视频信息中缺少aid或cid: aid={aid}, cid={cid}")
-                        return
-                    
-                    logger.info(f"视频信息: aid={aid}, cid={cid}, pages={len(pages)}")
-                    
-                    # 获取字幕列表
-                    from src.models.download import Download
-                    temp_download = Download(
-                        id=f"temp_{self.task.id}",
-                        aid=aid,
-                        cid=cid,
-                        sessdata=bilibili_service.headers_manager.cookie_manager.get_cookies().get('SESSDATA', '')
-                    )
-                    
-                    subtitles = await download_service._get_subtitles(temp_download)
-                    logger.info(f"找到 {len(subtitles)} 个字幕")
-                    
-                    if not subtitles:
-                        logger.warning("没有找到字幕")
-                        return
-                    
-                    # 下载中文字幕（优先）或其他可用字幕
-                    downloaded = False
-                    for subtitle in subtitles:
-                        subtitle_lan = subtitle.get('lan')
-                        subtitle_url = subtitle.get('subtitle_url')
-                        
-                        logger.info(f"尝试下载字幕: {subtitle_lan}")
-                        
-                        if subtitle_lan and subtitle_url:
-                            # 下载字幕
-                            success = await download_service._download_subtitle(
-                                temp_download,
-                                output_dir,
-                                subtitle_lan
-                            )
-                            
-                            if success:
-                                logger.info(f"字幕下载成功: {subtitle_lan}")
-                                downloaded = True
-                                break  # 只下载第一个成功的字幕
-                            else:
-                                logger.warning(f"字幕下载失败: {subtitle_lan}")
-                    
-                    if not downloaded:
-                        logger.warning("所有字幕下载失败")
-                        # 创建占位文件
-                        content = f"1\n00:00:00,000 --> 00:00:05,000\n字幕下载失败: {bvid}\n"
-                        output_file.write_text(content, encoding='utf-8')
-                    
-                finally:
-                    bilibili_service.close()
-                    
+                await handler.handle(subtask_data, temp_dir, output_dir, self.task.meta)
             except Exception as e:
                 logger.error(f"字幕下载异常: {e}")
                 import traceback
                 logger.error(f"Traceback: {traceback.format_exc()}")
-                # 创建占位文件
-                content = f"1\n00:00:00,000 --> 00:00:05,000\n字幕下载异常: {bvid}\n"
-                output_file.write_text(content, encoding='utf-8')
 
         # 处理 NFO 文件生成
         elif subtask_type == SubTaskType.SINGLE_NFO:

@@ -152,7 +152,7 @@ class SchedulerService:
         subtasks.append({
             'type': SubTaskType.SUBTITLES,
             'bvid': task.media_id,
-            'filename': f"{info.get('title', 'video')}.zh.srt"
+            'filename': f"{info.get('title', 'video')}.srt"
         })
 
         # 弹幕下载

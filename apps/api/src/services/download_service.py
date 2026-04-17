@@ -854,34 +854,46 @@ class DownloadService:
                             if download.enable_subtitle:
                                 logger.info(f"Starting subtitle download...")
 
-                                # 获取字幕列表
-                                subtitles = await self._get_subtitles(download)
-                                if subtitles:
-                                    logger.info(f"Found {len(subtitles)} subtitles")
-
-                                    # 下载所有可用字幕
-                                    subtitle_count = 0
-                                    for subtitle in subtitles:
-                                        subtitle_lan = subtitle.get("lan")
-                                        if subtitle_lan:
-                                            logger.info(f"Downloading subtitle: {subtitle_lan}")
-                                            success = await self._download_subtitle(
-                                                download,
-                                                video_dir,
-                                                subtitle_lan
-                                            )
-                                            if success:
-                                                subtitle_count += 1
-                                            else:
-                                                logger.warning(f"Failed to download subtitle: {subtitle_lan}")
-
-                                    logger.info(f"Subtitle download completed: {subtitle_count}/{len(subtitles)}")
-                                else:
-                                    logger.info("No subtitles found for this video")
+                                result = await self._download_preferred_subtitles(
+                                    download,
+                                    video_dir,
+                                )
+                                logger.info(
+                                    f"Subtitle download completed: "
+                                    f"{result['downloaded']}/{result['attempted']} "
+                                    f"({', '.join(result['languages']) if result['languages'] else 'no-matches'})"
+                                )
                             else:
                                 logger.info(f"Subtitle download disabled: enable_subtitle={download.enable_subtitle}")
                 except Exception as e:
                     logger.error(f"Failed to download subtitle: {e}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+
+            else:
+                # 即使没识别到视频文件，也尽量把附属文件放到最终目录根目录
+                video_dir = final_dir
+                logger.warning(f"No video files detected, fallback metadata output dir: {video_dir}")
+
+                with SessionLocal() as db:
+                    download = db.query(Download).filter(Download.id == download_id).first()
+                    if download:
+                        download.temp_file_path = None
+                        db.commit()
+
+                try:
+                    logger.info(f"=== Checking subtitle download (fallback dir) ===")
+                    with SessionLocal() as db:
+                        download = db.query(Download).filter(Download.id == download_id).first()
+                        if download and download.enable_subtitle:
+                            result = await self._download_preferred_subtitles(download, video_dir)
+                            logger.info(
+                                f"Subtitle download completed: "
+                                f"{result['downloaded']}/{result['attempted']} "
+                                f"({', '.join(result['languages']) if result['languages'] else 'no-matches'})"
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to download subtitle in fallback dir: {e}")
                     import traceback
                     logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -1085,7 +1097,7 @@ class DownloadService:
 
     async def _get_subtitles(self, download: Download) -> list:
         """
-        获取字幕列表（参考BiliTools getSubtitle实现）
+        获取字幕列表（优先复用 Pilipala 同款公开播放器接口）
 
         Args:
             download: 下载任务对象
@@ -1103,21 +1115,64 @@ class DownloadService:
 
             try:
                 logger.info(f"Getting subtitles for aid={download.aid}, cid={download.cid}")
-                # 获取播放器信息（包含字幕列表）
-                player_info = await bilibili_service.get_player_info(
-                    download.aid,
-                    download.cid,
-                    download.sessdata or ""
-                )
+                preferred_languages = {"zh-CN", "en-US"}
+                collected: list[dict] = []
+                collected_keys: set[tuple[str, str]] = set()
+                seen_languages: set[str] = set()
 
-                if player_info.get("success"):
+                for attempt in range(3):
+                    player_info = await bilibili_service.get_player_info_public(
+                        download.aid,
+                        download.cid,
+                        download.sessdata or ""
+                    )
+
+                    if not player_info.get("success"):
+                        logger.warning(
+                            "Failed to get public player info on attempt %s: %s",
+                            attempt + 1,
+                            player_info.get("message"),
+                        )
+                        continue
+
                     player_data = player_info.get("data", {})
-                    subtitles = player_data.get("subtitle", {}).get("subtitles", [])
-                    logger.info(f"Found {len(subtitles)} subtitles")
-                    return subtitles
-                else:
-                    logger.warning(f"Failed to get player info: {player_info.get('message')}")
-                    return []
+                    subtitle_data = player_data.get("subtitle", {}) or {}
+                    subtitles = subtitle_data.get("subtitles") or subtitle_data.get("list") or []
+                    attempt_downloadable = 0
+
+                    for subtitle in subtitles:
+                        subtitle_url = self._extract_subtitle_url(subtitle)
+                        if not subtitle_url:
+                            continue
+
+                        language = self._normalize_subtitle_language(subtitle)
+                        if language not in preferred_languages:
+                            continue
+
+                        attempt_downloadable += 1
+                        key = (language, subtitle_url)
+                        if key in collected_keys:
+                            continue
+
+                        collected_keys.add(key)
+                        collected.append(subtitle)
+                        seen_languages.add(language)
+
+                    logger.info(
+                        "Subtitle fetch attempt %s returned %s subtitles (%s preferred/downloadable)",
+                        attempt + 1,
+                        len(subtitles),
+                        attempt_downloadable,
+                    )
+
+                    if preferred_languages.issubset(seen_languages):
+                        break
+
+                    if attempt < 2:
+                        await asyncio.sleep(0.3)
+
+                logger.info(f"Found {len(collected)} preferred subtitles")
+                return collected
             finally:
                 bilibili_service.close()
         except Exception as e:
@@ -1176,6 +1231,108 @@ class DownloadService:
 
         return "\n".join(srt_lines)
 
+    def _classify_subtitle_source(self, subtitle: dict) -> str:
+        """归一化字幕来源类型：user / ai / unknown"""
+        lan = (subtitle.get("lan") or "").lower()
+        lan_doc = (subtitle.get("lan_doc") or "").lower()
+        subtitle_url = (self._extract_subtitle_url(subtitle) or "").lower()
+        ai_type = subtitle.get("ai_type")
+        type_value = subtitle.get("type")
+        is_lock = subtitle.get("is_lock")
+
+        if "aisubtitle.hdslb.com" in subtitle_url:
+            return "ai"
+        if lan.startswith("ai-") or "自动生成" in lan_doc or ai_type is not None or type_value == 1:
+            return "ai"
+        if is_lock is False:
+            return "user"
+        if is_lock is True:
+            return "user"
+        return "unknown"
+
+    def _subtitle_source_priority(self, subtitle: dict) -> int:
+        """字幕来源优先级：用户字幕优先，其次 AI，最后 unknown"""
+        source = self._classify_subtitle_source(subtitle)
+        if source == "user":
+            return 0
+        if source == "ai":
+            return 1
+        return 2
+
+    def _extract_subtitle_url(self, subtitle: dict) -> str:
+        """提取字幕下载地址，兼容不同字段命名。"""
+        for key in ("subtitle_url", "subtitleUrl", "url", "subtitleURL"):
+            value = subtitle.get(key)
+            if value:
+                return value
+        return ""
+
+    def _normalize_subtitle_language(self, subtitle: dict) -> str:
+        """归一化字幕语言，用于目标语言匹配和文件命名"""
+        lan = subtitle.get("lan") or ""
+        lan_lower = lan.lower()
+        if lan_lower in {"ai-zh", "ai-hans", "ai-zh-cn", "ai-zh-hans"}:
+            return "zh-CN"
+        if lan_lower in {"ai-en", "ai-en-us", "ai-en-gb"}:
+            return "en-US"
+        if lan_lower in {"zh", "zh-cn", "zh-hans", "zh-hant", "zh-sg", "zh-tw"}:
+            return "zh-CN" if "hant" not in lan_lower and "tw" not in lan_lower else "zh-TW"
+        if lan_lower in {"en", "en-us", "en-gb", "en-au"}:
+            return "en-US"
+        return lan or "unknown"
+
+    def _get_subtitle_candidates(self, subtitles: list, target_languages: list[str]) -> list[dict]:
+        """
+        选择目标语言的字幕候选，按“用户字幕优先，其次 AI”返回每种语言 1 条。
+        """
+        normalized_targets = []
+        for language in target_languages:
+            fake_subtitle = {"lan": language}
+            normalized = self._normalize_subtitle_language(fake_subtitle)
+            if normalized not in normalized_targets:
+                normalized_targets.append(normalized)
+
+        chosen: dict[str, dict] = {}
+        for subtitle in subtitles:
+            if not self._extract_subtitle_url(subtitle):
+                continue
+
+            language = self._normalize_subtitle_language(subtitle)
+            if language not in normalized_targets:
+                continue
+
+            source = self._classify_subtitle_source(subtitle)
+            candidate = {
+                "raw": subtitle,
+                "language": language,
+                "source": source,
+            }
+            existing = chosen.get(language)
+            if existing is None:
+                chosen[language] = candidate
+                continue
+
+            if self._subtitle_source_priority(subtitle) < self._subtitle_source_priority(existing["raw"]):
+                chosen[language] = candidate
+
+        return [chosen[language] for language in normalized_targets if language in chosen]
+
+    def _build_subtitle_filename(
+        self,
+        output_dir: Path,
+        subtitle: dict,
+        subtitle_index: int = 0
+    ) -> Path:
+        """生成字幕文件路径"""
+        video_files = [f for f in output_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
+        base_name = video_files[0].stem if video_files else "subtitle"
+        language = subtitle.get("language") or self._normalize_subtitle_language(subtitle.get("raw", {}))
+        source = subtitle.get("source") or self._classify_subtitle_source(subtitle.get("raw", {}))
+        suffix = f"{language}.{source}"
+        if subtitle_index > 0:
+            suffix = f"{suffix}.{subtitle_index}"
+        return output_dir / f"{base_name}.{suffix}.srt"
+
     async def _download_subtitle(
         self,
         download: Download,
@@ -1205,12 +1362,9 @@ class DownloadService:
                 logger.warning("No subtitles found")
                 return False
 
-            # 查找指定语言的字幕
-            subtitle_info = None
-            for subtitle in subtitles:
-                if subtitle.get("lan") == subtitle_lan:
-                    subtitle_info = subtitle
-                    break
+            # 查找指定语言的字幕，优先用户上传，其次 AI 字幕
+            subtitle_candidates = self._get_subtitle_candidates(subtitles, [subtitle_lan])
+            subtitle_info = subtitle_candidates[0]["raw"] if subtitle_candidates else None
 
             if not subtitle_info:
                 logger.warning(f"Subtitle with language '{subtitle_lan}' not found")
@@ -1244,17 +1398,14 @@ class DownloadService:
                     logger.warning("Empty subtitle content after conversion")
                     return False
 
-                # 确定文件名
-                video_files = [f for f in output_dir.glob('*') if f.is_file() and f.suffix in ['.mp4', '.flv', '.mkv', '.webm']]
-                if video_files:
-                    video_filename = video_files[0].stem
-                    # 字幕文件名：视频文件名.语言代码.srt
-                    subtitle_filename = f"{video_filename}.{subtitle_lan}.srt"
-                else:
-                    # 如果没有找到视频文件，使用默认文件名
-                    subtitle_filename = f"subtitle.{subtitle_lan}.srt"
-
-                subtitle_path = output_dir / subtitle_filename
+                subtitle_path = self._build_subtitle_filename(
+                    output_dir,
+                    {
+                        "raw": subtitle_info,
+                        "language": self._normalize_subtitle_language(subtitle_info),
+                        "source": self._classify_subtitle_source(subtitle_info)
+                    }
+                )
                 logger.info(f"Saving subtitle to: {subtitle_path}")
 
                 # 保存SRT文件
@@ -1268,6 +1419,107 @@ class DownloadService:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return False
+
+    async def _download_preferred_subtitles(
+        self,
+        download: Download,
+        output_dir: Path
+    ) -> dict:
+        """只下载中英双语字幕，返回成功/失败统计"""
+        subtitles = await self._get_subtitles(download)
+        if not subtitles:
+            logger.info(f"No subtitles found for this video: aid={download.aid}, cid={download.cid}")
+            return {"downloaded": 0, "attempted": 0, "languages": []}
+
+        preferred_languages = ["zh-CN", "en-US"]
+        downloadable_subtitles = self._get_subtitle_candidates(subtitles, preferred_languages)
+        skipped_subtitles = max(0, len(subtitles) - len(downloadable_subtitles))
+
+        if not downloadable_subtitles:
+            logger.info(
+                "Subtitles were returned but no preferred zh/en subtitles were exposed: aid=%s, cid=%s, total=%s, skipped=%s",
+                download.aid,
+                download.cid,
+                len(subtitles),
+                skipped_subtitles,
+            )
+            return {
+                "downloaded": 0,
+                "attempted": len(subtitles),
+                "downloadable": 0,
+                "skipped_no_url": skipped_subtitles,
+                "languages": [],
+            }
+
+        if skipped_subtitles:
+            logger.info(
+                "Skipped %s non-preferred subtitle entries: aid=%s, cid=%s",
+                skipped_subtitles,
+                download.aid,
+                download.cid,
+            )
+
+        downloaded = 0
+        languages = []
+        for index, subtitle in enumerate(downloadable_subtitles):
+            language = subtitle["language"]
+            source = subtitle["source"]
+            languages.append(f"{language}:{source}")
+            success = await self._download_subtitle_from_info(
+                download,
+                output_dir,
+                subtitle,
+                index
+            )
+            if success:
+                downloaded += 1
+
+        return {
+            "downloaded": downloaded,
+            "attempted": len(subtitles),
+            "downloadable": len(downloadable_subtitles),
+            "skipped_no_url": skipped_subtitles,
+            "languages": languages,
+        }
+
+    async def _download_subtitle_from_info(
+        self,
+        download: Download,
+        output_dir: Path,
+        subtitle: dict,
+        subtitle_index: int = 0
+    ) -> bool:
+        """基于已选中的字幕信息下载字幕"""
+        output_dir.mkdir(parents=True, exist_ok=True)
+        subtitle_info = subtitle.get("raw", subtitle)
+        subtitle_lan = subtitle_info.get("lan", "")
+        subtitle_url = self._extract_subtitle_url(subtitle_info)
+        if not subtitle_lan or not subtitle_url:
+            logger.warning("Subtitle info missing lan or url")
+            return False
+
+        if subtitle_url.startswith("//"):
+            subtitle_url = "https:" + subtitle_url
+        elif subtitle_url.startswith("http:"):
+            subtitle_url = subtitle_url.replace("http:", "https:")
+
+        logger.info(f"Downloading subtitle from: {subtitle_url}")
+
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(subtitle_url)
+            response.raise_for_status()
+
+            subtitle_data = response.json()
+            srt_content = self._convert_to_srt(subtitle_data)
+            if not srt_content:
+                logger.warning("Empty subtitle content after conversion")
+                return False
+
+            subtitle_path = self._build_subtitle_filename(output_dir, subtitle, subtitle_index)
+            logger.info(f"Saving subtitle to: {subtitle_path}")
+            subtitle_path.write_text(srt_content, encoding='utf-8')
+            logger.info(f"Successfully downloaded subtitle: {subtitle_path}")
+            return True
 
 
 # 全局下载服务实例
