@@ -1,0 +1,220 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-04-18T00:00:00Z",
+  "root": "docs",
+  "directories": {
+    "ai-note": {
+      "path": "ai-note",
+      "description": "AI笔记模块 - AI视频分析和笔记生成",
+      "readme": "ai-note/README.md",
+      "documents": [
+        {"name": "README.md", "type": "index"}
+      ],
+      "dependencies": ["components", "web"]
+    },
+    "api": {
+      "path": "api",
+      "description": "后端API接口文档",
+      "readme": "api/README.md",
+      "documents": [
+        {"name": "implementation.md", "type": "implementation"},
+        {"name": "endpoints.md", "type": "api"},
+        {"name": "library-api.md", "type": "api"},
+        {"name": "history-api.md", "type": "api"},
+        {"name": "favorites-api.md", "type": "api"},
+        {"name": "watchlater-api.md", "type": "api"}
+      ],
+      "dependencies": ["auth", "database"]
+    },
+    "architecture": {
+      "path": "architecture",
+      "description": "系统架构文档 - 整体架构、技术栈、模块结构",
+      "readme": "architecture/README.md",
+      "documents": [
+        {"name": "system.md", "type": "overview"},
+        {"name": "frontend-architecture.md", "type": "architecture"},
+        {"name": "backend-architecture.md", "type": "architecture"},
+        {"name": "error-classification.md", "type": "guide"},
+        {"name": "concurrency-control.md", "type": "guide"}
+      ],
+      "dependencies": []
+    },
+    "auth": {
+      "path": "auth",
+      "description": "认证模块 - 登录、Cookies、刷新、多账号",
+      "readme": "auth/README.md",
+      "documents": [
+        {"name": "login-flow.md", "type": "flow"},
+        {"name": "cookies.md", "type": "guide"},
+        {"name": "wbi-sign.md", "type": "guide"},
+        {"name": "multi-account.md", "type": "guide"}
+      ],
+      "dependencies": ["database"]
+    },
+    "base": {
+      "path": "base",
+      "description": "基础文档 - 技术栈、参考项目",
+      "readme": "base/README.md",
+      "documents": [],
+      "dependencies": []
+    },
+    "components": {
+      "path": "components",
+      "description": "组件文档 - 前后端共用组件和服务",
+      "readme": "components/README.md",
+      "documents": [
+        {"name": "ai-note-model.md", "type": "component"},
+        {"name": "llm-client.md", "type": "component"},
+        {"name": "prompt-builder.md", "type": "component"},
+        {"name": "ai-note-service.md", "type": "component"},
+        {"name": "transcriber-service.md", "type": "component"},
+        {"name": "screenshot-service.md", "type": "component"},
+        {"name": "video-classifier.md", "type": "component"},
+        {"name": "ai-note-panel.md", "type": "component"},
+        {"name": "home-content.md", "type": "component"},
+        {"name": "video-library.md", "type": "component"},
+        {"name": "video-detail-page.md", "type": "component"},
+        {"name": "history-list.md", "type": "component"},
+        {"name": "download-service.md", "type": "component"},
+        {"name": "new-download.md", "type": "component"},
+        {"name": "main-layout.md", "type": "component"},
+        {"name": "video-list-container.md", "type": "component"},
+        {"name": "video-list-controls.md", "type": "component"},
+        {"name": "modal.md", "type": "component"},
+        {"name": "alert-modal.md", "type": "component"},
+        {"name": "confirm-modal.md", "type": "component"},
+        {"name": "toast.md", "type": "component"},
+        {"name": "bilibili-service.md", "type": "component"},
+        {"name": "cookie-manager.md", "type": "component"},
+        {"name": "headers-manager.md", "type": "component"},
+        {"name": "download-manager.md", "type": "component"},
+        {"name": "download-engine.md", "type": "component"},
+        {"name": "settings-service.md", "type": "component"},
+        {"name": "scan-service.md", "type": "component"},
+        {"name": "media-processor.md", "type": "component"},
+        {"name": "video-cache-service.md", "type": "component"},
+        {"name": "favorites-data-transformer.md", "type": "component"},
+        {"name": "media-data-transformer.md", "type": "component"},
+        {"name": "toview-data-transformer.md", "type": "component"},
+        {"name": "batch-actions-bar.md", "type": "component"}
+      ],
+      "dependencies": ["auth", "download"]
+    },
+    "database": {
+      "path": "database",
+      "description": "数据库设计 - 数据模型、API Schema",
+      "readme": "database/README.md",
+      "documents": [
+        {"name": "models.md", "type": "model"},
+        {"name": "schemas.md", "type": "schema"},
+        {"name": "database-architecture.md", "type": "architecture"}
+      ],
+      "dependencies": []
+    },
+    "dev": {
+      "path": "dev",
+      "description": "开发笔记 - 开发记录、完善指南",
+      "readme": "dev/README.md",
+      "documents": [
+        {"name": "dev-log.md", "type": "log"},
+        {"name": "roadmap.md", "type": "roadmap"}
+      ],
+      "dependencies": []
+    },
+    "download": {
+      "path": "download",
+      "description": "下载系统 - 队列、任务、调度器、处理器",
+      "readme": "download/README.md",
+      "documents": [
+        {"name": "system-refactor.md", "type": "overview"},
+        {"name": "queue.md", "type": "guide"},
+        {"name": "tasks.md", "type": "guide"},
+        {"name": "scheduler.md", "type": "guide"},
+        {"name": "handlers.md", "type": "guide"},
+        {"name": "comment-extraction.md", "type": "guide"},
+        {"name": "add-to-download-queue.md", "type": "guide"},
+        {"name": "automation-features.md", "type": "guide"},
+        {"name": "favorites-download.md", "type": "guide"},
+        {"name": "watchlater-download.md", "type": "guide"},
+        {"name": "media-type-support.md", "type": "reference"},
+        {"name": "nfo-format.md", "type": "reference"}
+      ],
+      "dependencies": ["auth", "database", "video-sources"]
+    },
+    "metadata": {
+      "path": "metadata",
+      "description": "元数据系统 - NFO文件格式、评分算法、标签系统",
+      "readme": "metadata/README.md",
+      "documents": [],
+      "dependencies": ["download"]
+    },
+    "settings": {
+      "path": "settings",
+      "description": "设置管理 - 存储、备份、账号",
+      "readme": "settings/README.md",
+      "documents": [
+        {"name": "storage.md", "type": "guide"},
+        {"name": "backup.md", "type": "guide"},
+        {"name": "accounts.md", "type": "guide"},
+        {"name": "download.md", "type": "guide"},
+        {"name": "general.md", "type": "guide"},
+        {"name": "auto-download.md", "type": "guide"},
+        {"name": "video-library.md", "type": "guide"}
+      ],
+      "dependencies": ["auth", "database"]
+    },
+    "superpowers": {
+      "path": "superpowers",
+      "description": "功能设计和计划 - 规格文档、Roadmap",
+      "readme": null,
+      "documents": [],
+      "dependencies": []
+    },
+    "video-sources": {
+      "path": "video-sources",
+      "description": "视频源模块 - 收藏夹、稍后再看、观看历史",
+      "readme": "video-sources/README.md",
+      "documents": [
+        {"name": "favorites.md", "type": "guide"},
+        {"name": "watchlater.md", "type": "guide"},
+        {"name": "link-parser.md", "type": "guide"}
+      ],
+      "dependencies": ["auth", "api"]
+    },
+    "web": {
+      "path": "web",
+      "description": "前端实现 - React组件、状态管理、API服务",
+      "readme": "web/README.md",
+      "documents": [
+        {"name": "implementation.md", "type": "implementation"},
+        {"name": "theme-system.md", "type": "guide"},
+        {"name": "recent-updates.md", "type": "log"},
+        {"name": "downloads-list.md", "type": "component"},
+        {"name": "watchlater-page.md", "type": "component"},
+        {"name": "favorites-page.md", "type": "component"}
+      ],
+      "dependencies": ["components", "download"]
+    }
+  },
+  "availableSkills": {
+    "project": [
+      "brainstorming",
+      "doc-code-workflow",
+      "doc-debug",
+      "doc-map",
+      "project-documentation-workflow",
+      "requesting-code-review",
+      "systematic-debugging",
+      "test-driven-development",
+      "using-superpowers",
+      "writing-plans"
+    ],
+    "global": [
+      "doc-workflow",
+      "drawio",
+      "skill-creator",
+      "vercel-composition-patterns",
+      "web-design-guidelines"
+    ]
+  }
+}
