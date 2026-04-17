@@ -286,7 +286,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               <div className="settings-provider-actions">
                 {currentProvider.isDefault && (
                   <button onClick={() => handleResetProvider(currentProvider.id)} title="重置">
-                    <RotateCwc size={14} />
+                    <RotateCcw size={14} />
                   </button>
                 )}
                 <button onClick={() => handleEditProvider(currentProvider)} title="编辑">

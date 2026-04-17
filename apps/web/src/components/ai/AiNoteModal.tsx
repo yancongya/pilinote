@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Sparkles, Loader2, Copy, Download, RotateCwc, ChevronDown } from 'lucide-react';
+import { X, Sparkles, Loader2, Copy, Download, RotateCcw, ChevronDown } from 'lucide-react';
 import { aiNoteService, NOTE_STYLES, NOTE_FORMATS, type NoteResponse } from '../../services/aiNote';
 import { useToast } from '../Toast';
 
@@ -246,7 +246,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
             {/* Footer */}
             <div className="ai-note-modal-footer">
               <button onClick={handleReset} className="ai-note-modal-btn-secondary">
-                <RotateCwc size={16} />
+                <RotateCcw size={16} />
                 重置
               </button>
               <button onClick={handleAnalyze} disabled={isAnalyzing} className="ai-note-modal-btn-primary">
@@ -272,7 +272,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
               <div className="ai-note-modal-result-actions">
                 <button onClick={handleCopy}><Copy size={14} />复制</button>
                 <button onClick={handleExport}><Download size={14} />导出</button>
-                <button onClick={handleReset}><RotateCwc size={14} />重新分析</button>
+                <button onClick={handleReset}><RotateCcw size={14} />重新分析</button>
               </div>
               <div className="ai-note-modal-result-content">
                 <pre>{note.content}</pre>
