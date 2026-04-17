@@ -117,6 +117,22 @@ headers = headers_manager.get_headers()
 
 这样可以保证和正式下载、收藏夹、稍后再看、历史记录等流程使用同一套认证信息。
 
+#### 与字幕下载联动
+
+字幕下载也依赖同一套认证信息，尤其是官方 AI 字幕场景。当前实现会先通过活跃账号的登录态访问播放器接口，再读取 `subtitle.subtitles` 中的条目：
+
+1. `CookieManager.load_from_db(user_id)` 从数据库读取 `SESSDATA`、`bili_jct`
+2. `HeadersManager.sync_cookies_from_db(user_id)` 将 cookie 注入请求头
+3. `BilibiliService` 调用播放器接口获取字幕元数据
+4. `DownloadService` 过滤出带 `subtitle_url` 的条目
+5. 字幕文件按 `<视频名>.<语言>.<来源>.srt` 落到视频目录
+
+这条链路的结果是：
+
+- 登录态有效时，可以正常下载官方 AI 双语字幕
+- 只有字幕元数据但没有 `subtitle_url` 时，会提示“已检测到字幕，但不可下载”
+- 如果登录态失效，播放器接口可能拿不到完整字幕列表，字幕下载会退化为无可下载条目
+
 ---
 
 ## 数据库存储
