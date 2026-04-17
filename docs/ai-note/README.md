@@ -50,85 +50,108 @@
 
 | 模块 | 路径 | 功能描述 |
 |------|------|----------|
-| AI 服务层 | `src/services/ai/note_service.py` | 核心笔记生成服务，串联各模块 |
-| Prompt 管理器 | `src/services/ai/prompt_builder.py` | 根据视频类型构建不同风格的 prompt |
-| LLM 客户端 | `src/services/ai/llm_client.py` | 多提供商支持（OpenAI/Claude/DeepSeek 等） |
-| 转写服务 | `src/services/ai/transcriber.py` | 音频转文字（Whisper/Groq） |
-| 截图服务 | `src/services/ai/screenshot.py` | FFmpeg 提取关键帧 |
-| 数据模型 | `src/models/note.py` | 存储生成的笔记、任务状态、配置 |
-| API 路由 | `src/routers/note.py` | 笔记生成、状态查询、导出 |
+| AI 分析服务 | `src/services/ai/note_service.py` | 核心分析服务：读取本地视频 → 转写 → LLM 生成 |
+| Prompt 管理器 | `src/services/ai/prompt_builder.py` | 根据风格构建 prompt |
+| LLM 客户端 | `src/services/ai/llm_client.py` | 多提供商支持 |
+| 转写服务 | `src/services/ai/transcriber.py` | 音频转文字 |
+| API 路由 | `src/routers/note.py` | 分析触发、状态查询、获取结果 |
+
+### 触发方式
+- 媒体库视频详情页：点击 "AI 分析" 按钮
+- 需要视频已下载到本地（有文件路径）
 
 ### 前端模块
 
 | 模块 | 路径 | 功能描述 |
 |------|------|----------|
-| 笔记生成页面 | `src/pages/NotePage.tsx` | 主表单页面 |
-| 模型选择器 | `src/components/ai/ModelSelector.tsx` | 选择 LLM 提供商和模型 |
-| 格式/风格选择 | `src/components/ai/NoteOptions.tsx` | 选择笔记格式和风格 |
+| 笔记面板 | `src/components/ai/NotePanel.tsx` | 视频详情页的 AI 分析面板 |
+| 风格选择器 | `src/components/ai/StyleSelector.tsx` | 选择笔记风格 |
 | Markdown 预览 | `src/components/ai/MarkdownViewer.tsx` | 渲染生成的笔记 |
-| 思维导图组件 | `src/components/ai/MindMap.tsx` | 使用 markmap 展示导图 |
-| 任务状态轮询 | `src/hooks/useNoteTask.ts` | 轮询后端任务状态 |
+| 思维导图 | `src/components/ai/MindMap.tsx` | markmap 展示导图 |
 
 ## API 设计
 
-### 生成笔记
+### 触发分析
 
 ```
-POST /api/note/generate
+POST /api/note/analyze
 ```
 
 请求参数：
-- `video_url`: 视频链接
-- `platform`: 平台 (bilibili/youtube/douyin/kuaishou/local)
-- `quality`: 下载质量
-- `model_name`: LLM 模型名称
-- `provider_id`: LLM 提供商 ID
-- `format`: 笔记格式列表 ['toc', 'link', 'screenshot', 'summary']
-- `style`: 笔记风格
-- `extras`: 额外提示词
+- `video_id`: 视频 ID（媒体库中已下载的视频）
+- `style`: 笔记风格 (minimal/detailed/academic/tutorial/...)
+- `formats`: 格式列表 ['toc', 'link', 'summary']
 
-### 查询任务状态
+### 查询状态
 
 ```
-GET /api/note/task_status/{task_id}
+GET /api/note/status/{note_id}
 ```
 
 返回：
-- `status`: pending/processing/success/failed
-- `result`: 生成的笔记内容
-- `message`: 状态消息
+- `task_status`: pending → processing → completed / failed
+- `progress`: 处理进度百分比
 
-### 导出笔记
+### 获取结果
 
 ```
-GET /api/note/export/{task_id}?format=markdown
+GET /api/note/{note_id}
 ```
+
+返回：
+- `markdown`: 完整笔记
+- `summary`: AI 总结
+- `style`: 使用的风格
 
 ## 数据模型
 
-### NoteTask
+### 使用场景
+媒体库点击视频 → 触发 AI 分析 → 生成笔记
+
+### 表结构
+
+#### 1. ai_notes 表（新建）
+存储 AI 生成的笔记
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | UUID | 任务 ID |
-| video_url | string | 视频链接 |
-| platform | string | 平台 |
-| format | JSON | 格式配置 |
-| style | string | 风格 |
-| status | enum | 任务状态 |
-| result | JSON | 生成结果 |
-| created_at | timestamp | 创建时间 |
-| completed_at | timestamp | 完成时间 |
-
-### NoteConfig
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | int | 主键 |
-| user_id | int | 用户 ID |
+| id | String(UUID) | 笔记 ID |
+| task_id | String | 关联的任务 ID |
+| video_id | String | 关联的视频 ID (downloads.id) |
+| content | Text | 生成的笔记内容 |
+| style | String | 使用的风格 |
 | formats | JSON | 启用的格式 |
-| default_style | string | 默认风格 |
-| providers | JSON | LLM 提供商配置 |
+| status | Enum | pending/processing/completed/failed |
+| model_provider | String | LLM 提供商 |
+| model_name | String | 模型名称 |
+| meta | JSON | 元数据 |
+| error | Text | 错误信息 |
+| created_at | TIMESTAMP | 创建时间 |
+| updated_at | TIMESTAMP | 更新时间 |
+
+#### 2. downloads 表（扩展）
+在现有 downloads 表添加 AI 相关字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| ai_note_id | String | 关联的 AI 笔记 |
+| ai_summary | Text | AI 总结摘要 |
+| ai_markdown | Text | 完整 Markdown |
+| ai_style | String | 使用的风格 |
+| ai_status | String | pending/processing/completed/failed |
+| ai_error | Text | 错误信息 |
+| transcript | Text | 字幕转写文本 |
+| transcript_lang | String | 转写语言 |
+
+### 工作流程
+
+1. 用户在媒体库点击视频的 "AI 分析" 按钮
+2. 创建 `ai_notes` 记录，状态设为 `pending`
+3. 后台处理：读取本地视频 → 转写 → LLM 生成
+4. 前端轮询状态，更新 UI
+5. 完成后将 markdown 存入 `ai_notes.markdown`
+
+> 注意：视频文件需要已下载到本地才能进行分析
 
 ## 依赖项
 
@@ -147,8 +170,4 @@ GET /api/note/export/{task_id}?format=markdown
 - markmap (思维导图)
 - react-syntax-highlighter
 
-## 参考资料
-
-- 参考项目: `reference/BiliNote`
-- 后端 prompt 构建: `reference/BiliNote/backend/app/gpt/prompt_builder.py`
-- 前端组件: `reference/BiliNote/BillNote_frontend/src/pages/HomePage/`
+> 参考：`.planning/ROADMAP.md`

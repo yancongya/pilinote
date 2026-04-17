@@ -10,3 +10,5 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.20
 yt-dlp>=2024.1.1
 brotli==1.2.0
+openai>=1.0.0
+anthropic>=0.25.0
