@@ -82,18 +82,30 @@ src/
 │   ├── favorites.py
 │   ├── watchlater.py
 │   ├── settings.py
-│   └── queue.py
+│   ├── queue.py
+│   └── note.py         # AI 笔记路由 (Phase 1)
 ├── services/      # 业务逻辑
 │   ├── bilibili.py
 │   ├── download_service.py
 │   ├── settings_service.py
-│   └── scheduler_service.py
+│   ├── scheduler_service.py
+│   └── llm/           # LLM 模块 (Phase 1)
+│       ├── prompts/   # Prompt 构建器
+│       └── __init__.py
 ├── models/        # 数据模型
 │   ├── user.py
 │   ├── cookie.py
 │   ├── download.py
+│   ├── ai_note.py     # AI 笔记模型 (Phase 1)
 │   └── setting.py
 ├── schemas/       # Pydantic 模型
+│   └── ai_note.py     # AI 笔记 Schema (Phase 1)
+├── llm/           # LLM 客户端 (Phase 1)
+│   ├── providers.py
+│   ├── openai_client.py
+│   ├── claude_client.py
+│   ├── deepseek_client.py
+│   └── factory.py
 └── utils/        # 工具函数
 ```
 
@@ -118,6 +130,14 @@ src/
 ```
 前端修改 → /api/settings PUT → SettingsService 
 → Setting模型 → 数据库存储 → 返回确认
+```
+
+### 4. AI 笔记流程 (Phase 1)
+
+```
+媒体库点击视频 → /api/note/analyze → 创建 AiNote 记录
+→ 转写服务 (Whisper) → LLM 生成笔记 → 存储 Markdown
+→ 前端轮询状态 → 展示 Markdown + 思维导图
 ```
 
 ## 部署架构

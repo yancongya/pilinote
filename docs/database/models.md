@@ -265,4 +265,50 @@ const mergedSettings = {
 
 ---
 
+## AI 笔记模型 (Phase 1)
+
+### AiNote
+
+```python
+class AiNote(Base):
+    __tablename__ = "ai_notes"
+    
+    id = Column(String, primary_key=True)  # UUID
+    task_id = Column(String)               # 任务 ID
+    video_id = Column(String)              # 关联的 downloads.id
+    
+    content = Column(Text)                 # 生成的 Markdown
+    summary = Column(Text)                 # AI 总结
+    mindmap_json = Column(JSON)            # 思维导图数据
+    
+    style = Column(String(50))             # 笔记风格
+    formats = Column(JSON)                # 启用的格式
+    
+    status = Column(Enum)                  # pending/processing/completed/failed
+    model_provider = Column(String(50))   # LLM 提供商
+    model_name = Column(String(100))      # 模型名称
+    
+    error = Column(Text)                   # 错误信息
+    meta = Column(JSON)                    # 额外元数据
+    
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    completed_at = Column(DateTime)
+```
+
+### downloads 表扩展字段 (Phase 1)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| ai_note_id | String | 关联的 AI 笔记 ID |
+| ai_summary | Text | AI 总结摘要 |
+| ai_markdown | Text | 完整 Markdown |
+| ai_style | String | 使用的风格 |
+| ai_status | String | pending/processing/completed/failed |
+| ai_error | Text | 错误信息 |
+| transcript | Text | 字幕转写文本 |
+| transcript_lang | String | 转写语言 |
+
+---
+
 [返回上级](./README.md)
