@@ -1,7 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { X, Sparkles, FileText, Settings, Play, Check, Loader2, Copy, Download, RotateCcw } from 'lucide-react';
+import { X, Sparkles, Loader2, Copy, Download, RotateCcw, ChevronDown } from 'lucide-react';
 import { aiNoteService, NOTE_STYLES, NOTE_FORMATS, DEFAULT_STYLE, DEFAULT_FORMATS, type NoteResponse } from '../../services/aiNote';
 import { useToast } from '../Toast';
+
+interface NoteStyle {
+  value: string;
+  label: string;
+}
+
+interface NoteFormat {
+  value: string;
+  label: string;
+}
 
 interface AiNoteModalProps {
   videoId: string;
@@ -10,6 +20,9 @@ interface AiNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onComplete?: (note: NoteResponse) => void;
+  // 从设置中读取的默认值
+  defaultStyle?: string;
+  defaultFormats?: string[];
 }
 
 type ViewState = 'config' | 'loading' | 'result';
@@ -20,10 +33,10 @@ const LLM_PROVIDERS = [
   { label: 'DeepSeek', value: 'deepseek', models: ['deepseek-chat', 'deepseek-coder'] },
 ] as const;
 
-export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose, onComplete }: AiNoteModalProps) {
+export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose, onComplete, defaultStyle, defaultFormats }: AiNoteModalProps) {
   const [viewState, setViewState] = useState<ViewState>('config');
-  const [style, setStyle] = useState(existingNote?.style || DEFAULT_STYLE);
-  const [formats, setFormats] = useState<string[]>(existingNote?.formats || DEFAULT_FORMATS);
+  const [style, setStyle] = useState(existingNote?.style || defaultStyle || DEFAULT_STYLE);
+  const [formats, setFormats] = useState<string[]>(existingNote?.formats || defaultFormats || DEFAULT_FORMATS);
   const [provider, setProvider] = useState('openai');
   const [model, setModel] = useState('gpt-4o-mini');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -74,13 +87,13 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   useEffect(() => {
     if (isOpen && existingNote) {
       setNote(existingNote);
-      setStyle(existingNote.style || DEFAULT_STYLE);
-      setFormats(existingNote.formats || DEFAULT_FORMATS);
+      setStyle(existingNote.style || defaultStyle || DEFAULT_STYLE);
+      setFormats(existingNote.formats || defaultFormats || DEFAULT_FORMATS);
       if (existingNote.content) {
         setViewState('result');
       }
     }
-  }, [isOpen, existingNote]);
+  }, [isOpen, existingNote, defaultStyle, defaultFormats]);
 
   if (!isOpen) return null;
 
@@ -110,14 +123,6 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
       setViewState('config');
       setError(err instanceof Error ? err.message : '分析失败');
     }
-  };
-
-  const toggleFormat = (format: string) => {
-    setFormats(prev => 
-      prev.includes(format) 
-        ? prev.filter(f => f !== format)
-        : [...prev, format]
-    );
   };
 
   const handleProviderChange = (newProvider: string) => {
@@ -159,8 +164,23 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   const handleReset = () => {
     setViewState('config');
     setNote(null);
-    setStyle(DEFAULT_STYLE);
-    setFormats(DEFAULT_FORMATS);
+    setStyle(defaultStyle || DEFAULT_STYLE);
+    setFormats(defaultFormats || DEFAULT_FORMATS);
+  };
+
+  const handleStyleChange = (value: string) => {
+    const selectedStyle = NOTE_STYLES.find(s => s.value === value);
+    if (selectedStyle) {
+      setStyle(value);
+    }
+  };
+
+  const handleFormatChange = (value: string) => {
+    setFormats(prev => 
+      prev.includes(value) 
+        ? prev.filter(f => f !== value)
+        : [...prev, value]
+    );
   };
 
   return (
@@ -186,80 +206,59 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
         {viewState === 'config' && (
           <>
             <div className="ai-note-modal-content">
-              {/* Style Section */}
-              <div className="ai-note-modal-section">
-                <div className="ai-note-modal-section-title">
-                  <Sparkles size={16} />
-                  <span>笔记风格</span>
-                </div>
-                <div className="ai-note-style-list">
+              {/* 风格下拉选择 */}
+              <div className="ai-note-select-group">
+                <label className="ai-note-select-label">笔记风格</label>
+                <select
+                  value={style}
+                  onChange={(e) => handleStyleChange(e.target.value)}
+                  className="ai-note-select"
+                >
                   {NOTE_STYLES.map(s => (
-                    <button
-                      key={s.value}
-                      onClick={() => setStyle(s.value)}
-                      className={`ai-note-style-item ${style === s.value ? 'active' : ''}`}
-                    >
-                      <div className="ai-note-style-item-header">
-                        <span>{s.label}</span>
-                        {style === s.value && <Check size={14} />}
-                      </div>
-                      <p className="ai-note-style-item-desc">{s.description}</p>
-                    </button>
+                    <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
-                </div>
+                </select>
               </div>
 
-              {/* Format Section */}
-              <div className="ai-note-modal-section">
-                <div className="ai-note-modal-section-title">
-                  <FileText size={16} />
-                  <span>输出格式</span>
-                </div>
-                <div className="ai-note-format-list">
+              {/* 格式多选 */}
+              <div className="ai-note-select-group">
+                <label className="ai-note-select-label">输出格式</label>
+                <div className="ai-note-format-chips">
                   {NOTE_FORMATS.map(f => (
                     <button
                       key={f.value}
-                      onClick={() => toggleFormat(f.value)}
-                      className={`ai-note-format-item ${formats.includes(f.value) ? 'active' : ''}`}
+                      onClick={() => handleFormatChange(f.value)}
+                      className={`ai-note-format-chip ${formats.includes(f.value) ? 'active' : ''}`}
                     >
-                      <div className="ai-note-format-checkbox">
-                        {formats.includes(f.value) && <Check size={12} />}
-                      </div>
-                      <div className="ai-note-format-info">
-                        <span>{f.label}</span>
-                        <p>{f.description}</p>
-                      </div>
+                      {f.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* LLM Section */}
-              <div className="ai-note-modal-section">
-                <div className="ai-note-modal-section-title">
-                  <Settings size={16} />
-                  <span>LLM 模型</span>
+              {/* LLM选择 */}
+              <div className="ai-note-select-group">
+                <label className="ai-note-select-label">AI 模型</label>
+                <div className="ai-note-provider-select">
+                  <select
+                    value={provider}
+                    onChange={(e) => handleProviderChange(e.target.value)}
+                    className="ai-note-select-half"
+                  >
+                    {LLM_PROVIDERS.map(p => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="ai-note-select-half"
+                  >
+                    {LLM_PROVIDERS.find(p => p.value === provider)?.models.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
                 </div>
-                <div className="ai-note-provider-list">
-                  {LLM_PROVIDERS.map(p => (
-                    <button
-                      key={p.value}
-                      onClick={() => handleProviderChange(p.value)}
-                      className={`ai-note-provider-btn ${provider === p.value ? 'active' : ''}`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="ai-note-model-select"
-                >
-                  {LLM_PROVIDERS.find(p => p.value === provider)?.models.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
               </div>
             </div>
 
@@ -289,7 +288,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
                   </>
                 ) : (
                   <>
-                    <Play size={16} />
+                    <Sparkles size={16} />
                     开始分析
                   </>
                 )}
@@ -318,7 +317,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
                 </button>
                 <button onClick={handleExport} className="ai-note-modal-result-btn">
                   <Download size={14} />
-                  ��出
+                  导出
                 </button>
                 <button onClick={handleReset} className="ai-note-modal-result-btn">
                   <RotateCcw size={14} />
@@ -354,7 +353,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
 
         .ai-note-modal-panel {
           width: 100%;
-          max-width: 480px;
+          max-width: 440px;
           max-height: calc(100vh - 32px);
           background: var(--color-bg-primary);
           border-radius: 16px;
@@ -423,161 +422,90 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
         .ai-note-modal-content {
           flex: 1;
           overflow-y: auto;
-          padding: 16px 20px;
+          padding: 20px;
         }
 
-        .ai-note-modal-section {
+        .ai-note-select-group {
           margin-bottom: 20px;
         }
 
-        .ai-note-modal-section-title {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 14px;
-          font-weight: 600;
-          color: var(--color-text-primary);
-          margin-bottom: 12px;
-        }
-
-        .ai-note-style-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .ai-note-style-item {
-          padding: 12px;
-          border-radius: 10px;
-          background: var(--color-bg-secondary);
-          border: 2px solid transparent;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .ai-note-style-item:hover {
-          border-color: var(--color-primary-300);
-        }
-
-        .ai-note-style-item.active {
-          background: var(--color-primary-50);
-          border-color: var(--color-primary-500);
-        }
-
-        .ai-note-style-item-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--color-text-primary);
-        }
-
-        .ai-note-style-item-desc {
-          font-size: 12px;
-          color: var(--color-text-tertiary);
-          margin-top: 4px;
-        }
-
-        .ai-note-format-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .ai-note-format-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 12px;
-          border-radius: 10px;
-          background: var(--color-bg-secondary);
-          border: 2px solid transparent;
-          cursor: pointer;
-          transition: all 0.15s ease;
-          text-align: left;
-        }
-
-        .ai-note-format-item:hover {
-          border-color: var(--color-primary-300);
-        }
-
-        .ai-note-format-item.active {
-          background: var(--color-primary-50);
-          border-color: var(--color-primary-500);
-        }
-
-        .ai-note-format-checkbox {
-          width: 20px;
-          height: 20px;
-          border-radius: 6px;
-          border: 2px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          margin-top: 2px;
-        }
-
-        .ai-note-format-item.active .ai-note-format-checkbox {
-          background: var(--color-primary-500);
-          border-color: var(--color-primary-500);
-          color: white;
-        }
-
-        .ai-note-format-info span {
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--color-text-primary);
+        .ai-note-select-label {
           display: block;
-        }
-
-        .ai-note-format-info p {
-          font-size: 12px;
-          color: var(--color-text-tertiary);
-          margin-top: 2px;
-        }
-
-        .ai-note-provider-list {
-          display: flex;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-
-        .ai-note-provider-btn {
-          flex: 1;
-          padding: 10px;
-          border-radius: 8px;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 500;
-          background: var(--color-bg-secondary);
-          border: none;
           color: var(--color-text-primary);
-          cursor: pointer;
-          transition: all 0.15s ease;
+          margin-bottom: 8px;
         }
 
-        .ai-note-provider-btn:hover {
-          background: var(--color-bg-tertiary);
-        }
-
-        .ai-note-provider-btn.active {
-          background: var(--color-primary-600);
-          color: white;
-        }
-
-        .ai-note-model-select {
+        .ai-note-select {
           width: 100%;
-          padding: 10px 12px;
-          border-radius: 8px;
+          padding: 12px 16px;
+          border-radius: 10px;
           font-size: 14px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           color: var(--color-text-primary);
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          cursor: pointer;
         }
 
-        .ai-note-model-select:focus {
+        .ai-note-select:focus {
+          outline: none;
+          border-color: var(--color-primary-600);
+        }
+
+        .ai-note-format-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .ai-note-format-chip {
+          padding: 8px 14px;
+          border-radius: 20px;
+          font-size: 13px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .ai-note-format-chip:hover {
+          border-color: var(--color-primary-400);
+          color: var(--color-text-primary);
+        }
+
+        .ai-note-format-chip.active {
+          background: var(--color-primary-600);
+          border-color: var(--color-primary-600);
+          color: white;
+        }
+
+        .ai-note-provider-select {
+          display: flex;
+          gap: 10px;
+        }
+
+        .ai-note-select-half {
+          flex: 1;
+          padding: 12px 16px;
+          border-radius: 10px;
+          font-size: 14px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          color: var(--color-text-primary);
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          cursor: pointer;
+        }
+
+        .ai-note-select-half:focus {
           outline: none;
           border-color: var(--color-primary-600);
         }
@@ -748,10 +676,9 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
           margin: 0;
         }
 
-        /* Desktop */
         @media (min-width: 768px) {
           .ai-note-modal-panel {
-            max-width: 560px;
+            max-width: 480px;
           }
 
           .ai-note-modal-title {
