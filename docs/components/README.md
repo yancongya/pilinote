@@ -4,7 +4,7 @@
 
 ## 文档索引
 
-### AI 笔记模块 (Phase 1-3 已完成)
+### AI 笔记模块 (Phase 1-4 已完成)
 
 | 组件/服务 | 说明 | 文档 |
 |----------|------|------|
@@ -13,6 +13,8 @@
 | PromptBuilder | Prompt 构建器 | [prompt-builder.md](prompt-builder.md) |
 | AiNoteService | AI 分析服务 | [ai-note-service.md](ai-note-service.md) |
 | TranscriberService | 转写服务 | [transcriber-service.md](transcriber-service.md) |
+| ScreenshotService | 截图服务 | [screenshot-service.md](screenshot-service.md) |
+| VideoClassifier | 视频分类器 | [video-classifier.md](video-classifier.md) |
 | AiNotePanel | AI 分析面板 (前端) | [ai-note-panel.md](ai-note-panel.md) |
 
 ### 前端组件

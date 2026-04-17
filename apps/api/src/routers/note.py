@@ -1,7 +1,9 @@
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel, Field
 from datetime import datetime
+from fastapi.responses import FileResponse
+import tempfile
 
 from src.services.ai import AiNoteService
 from src.database import SessionLocal
@@ -184,4 +186,45 @@ async def get_note_by_video(video_id: str):
         created_at=note.created_at,
         updated_at=note.updated_at,
         completed_at=note.completed_at,
+    )
+
+
+@router.get("/recommend-style")
+async def recommend_style(
+    title: str = "",
+    tags: str = "",
+    description: str = "",
+):
+    """根据视频信息推荐笔记风格"""
+    from src.services.ai.video_classifier import VideoClassifier
+
+    result = VideoClassifier.classify(title, tags, description)
+    return {"success": True, **result}
+
+
+@router.get("/export/{note_id}")
+async def export_note(note_id: str):
+    """导出笔记为 Markdown 文件"""
+    service = AiNoteService()
+    note = service.get_note(note_id)
+
+    if not note:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+
+    if not note.content:
+        raise HTTPException(status_code=400, detail="笔记内容为空")
+
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".md", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(note.content)
+        temp_path = f.name
+
+    filename = f"ai_note_{note_id[:8]}.md"
+
+    return FileResponse(
+        temp_path,
+        media_type="text/markdown",
+        filename=filename,
     )
