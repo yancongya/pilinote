@@ -132,12 +132,12 @@ src/
 → Setting模型 → 数据库存储 → 返回确认
 ```
 
-### 4. AI 笔记流程 (Phase 1)
+### 4. AI 笔记流程 (Phase 2)
 
 ```
 媒体库点击视频 → /api/note/analyze → 创建 AiNote 记录
-→ 转写服务 (Whisper) → LLM 生成笔记 → 存储 Markdown
-→ 前端轮询状态 → 展示 Markdown + 思维导图
+→ 转写服务 (B站字幕优先 + Whisper) → LLM 生成笔记 → 存储 Markdown
+→ 前端轮询 /api/note/status/{note_id} → 展示 Markdown + 思维导图
 ```
 
 ## 部署架构

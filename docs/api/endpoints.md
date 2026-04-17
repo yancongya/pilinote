@@ -1200,6 +1200,85 @@ POST /api/downloads/{download_id}/cancel
 }
 ```
 
+## AI 笔记接口 (Phase 2)
+
+| 方法 | 路径 | 参数 | 说明 |
+|------|------|------|------|
+| POST | `/api/note/analyze` | video_id, style, formats, model_provider, model_name | 触发 AI 分析 |
+| GET | `/api/note/status/{note_id}` | - | 获取笔记状态 |
+| GET | `/api/note/{note_id}` | - | 获取笔记详情 |
+| GET | `/api/note/by-video/{video_id}` | - | 根据视频获取笔记 |
+
+### 触发 AI 分析
+
+**端点**：`POST /api/note/analyze`
+
+**请求体**：
+```json
+{
+  "video_id": "视频ID (downloads.id)",
+  "style": "detailed",        // 笔记风格
+  "formats": ["summary"],    // 格式列表
+  "model_provider": "openai", // LLM 提供商
+  "model_name": "gpt-4o-mini" // 模型名称
+}
+```
+
+**响应示例**：
+```json
+{
+  "note_id": "abc123...",
+  "status": "completed",
+  "success": true,
+  "message": "分析完成"
+}
+```
+
+### 获取笔记状态
+
+**端点**：`GET /api/note/status/{note_id}`
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "note_id": "abc123...",
+  "status": "completed",
+  "progress": 100.0,
+  "message": null,
+  "error": null
+}
+```
+
+### 获取笔记详情
+
+**端点**：`GET /api/note/{note_id}`
+
+**响应示例**：
+```json
+{
+  "success": true,
+  "id": "abc123...",
+  "video_id": "video456...",
+  "content": "# 笔记内容...",
+  "summary": "AI 总结...",
+  "style": "detailed",
+  "formats": ["summary"],
+  "status": "completed",
+  "model_provider": "openai",
+  "model_name": "gpt-4o-mini",
+  "created_at": "2026-04-17T10:00:00",
+  "updated_at": "2026-04-17T10:05:00",
+  "completed_at": "2026-04-17T10:05:00"
+}
+```
+
+### 根据视频获取笔记
+
+**端点**：`GET /api/note/by-video/{video_id}`
+
+**响应示例**：同上，如果无笔记返回 404
+
 ---
 
 [返回上级](./README.md)

@@ -4,13 +4,15 @@
 
 ## 文档索引
 
-### AI 笔记模块 (Phase 1 已完成)
+### AI 笔记模块 (Phase 1-2 已完成)
 
 | 组件/服务 | 说明 | 文档 |
 |----------|------|------|
 | AiNote | AI 笔记数据模型 | [ai-note-model.md](ai-note-model.md) |
 | LLMClientFactory | LLM 客户端工厂 | [llm-client.md](llm-client.md) |
 | PromptBuilder | Prompt 构建器 | [prompt-builder.md](prompt-builder.md) |
+| AiNoteService | AI 分析服务 | [ai-note-service.md](ai-note-service.md) |
+| TranscriberService | 转写服务 | [transcriber-service.md](transcriber-service.md) |
 
 ### 前端组件
 
