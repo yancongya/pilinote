@@ -15,6 +15,12 @@ apps/web/src/
 │   │   ├── DownloadsList.tsx   # 下载列表
 │   │   ├── ScanResultContent.tsx # 扫描结果
 │   │   └── index.tsx           # 主组件
+│   ├── ai/               # AI 笔记组件 (Phase 3)
+│   │   ├── AiNotePanel.tsx     # AI 分析面板
+│   │   ├── StyleSelector.tsx   # 风格选择器
+│   │   ├── FormatSelector.tsx  # 格式选择器
+│   │   ├── MarkdownViewer.tsx # Markdown 渲染
+│   │   └── MindMapViewer.tsx  # 思维导图
 │   ├── AlertModal.tsx   # 警告弹窗
 │   ├── BatchActionsBar.tsx # 批量操作栏
 │   ├── ConfirmModal.tsx # 确认弹窗
@@ -36,8 +42,11 @@ apps/web/src/
 │   ├── newQueue.ts     # 新下载队列状态
 │   └── settings.ts     # 设置状态
 ├── hooks/              # 自定义 Hooks
-│   └── useVideoDownload.ts # 视频下载Hook
+│   ├── useVideoDownload.ts # 视频下载Hook
+│   └── useNotePolling.ts  # AI 笔记轮询 (Phase 3)
 ├── services/           # API 服务
+│   ├── api.ts          # 通用 API 客户端
+│   └── aiNote.ts       # AI 笔记 API (Phase 3)
 │   └── api.ts          # API 客户端
 ├── utils/              # 工具函数
 │   └── cn.ts           # 类名合并工具

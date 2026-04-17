@@ -83,15 +83,17 @@ src/
 │   ├── watchlater.py
 │   ├── settings.py
 │   ├── queue.py
-│   └── note.py         # AI 笔记路由 (Phase 1)
+│   ├── note.py         # AI 笔记路由 (Phase 2)
+│   └── ...
 ├── services/      # 业务逻辑
 │   ├── bilibili.py
 │   ├── download_service.py
 │   ├── settings_service.py
 │   ├── scheduler_service.py
-│   └── llm/           # LLM 模块 (Phase 1)
-│       ├── prompts/   # Prompt 构建器
-│       └── __init__.py
+│   └── ai/           # AI 模块 (Phase 1-2)
+│       ├── __init__.py
+│       ├── transcriber.py  # 转写服务
+│       └── note_service.py # AI 分析服务
 ├── models/        # 数据模型
 │   ├── user.py
 │   ├── cookie.py
@@ -105,7 +107,13 @@ src/
 │   ├── openai_client.py
 │   ├── claude_client.py
 │   ├── deepseek_client.py
-│   └── factory.py
+│   ├── factory.py
+│   └── prompts/   # Prompt 管理器
+│       ├── constants.py
+│       ├── formats.py
+│       ├── styles.py
+│       ├── base.py
+│       └── builder.py
 └── utils/        # 工具函数
 ```
 
