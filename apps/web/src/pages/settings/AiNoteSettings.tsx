@@ -659,11 +659,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   }))
 
   return (
-    <div className="settings-section">
+    <div className="stg-panel">
       {/* 服务商管理 */}
-      <div className="settings-group">
-        <div className="settings-group-header">
-          <h3 className="settings-group-title">
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <h3 className="stg-group-title">
             <Brain size={18} />
             AI 服务商
           </h3>
@@ -728,11 +728,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               </div>
             </div>
             <div className="settings-provider-edit">
-              <div className="settings-item">
-                <label className="settings-label">服务商名称</label>
+              <div className="stg-item">
+                <label className="stg-label">服务商名称</label>
                 <input
                   type="text"
-                  className="settings-input"
+                  className="stg-input"
                   placeholder="如：OpenAI"
                   value={editingProvider?.id === currentProvider.id ? providerForm.name : currentProvider.name}
                   onChange={(e) => {
@@ -742,11 +742,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 />
               </div>
 
-              <div className="settings-item">
-                <label className="settings-label">Base URL</label>
+              <div className="stg-item">
+                <label className="stg-label">Base URL</label>
                 <input
                   type="text"
-                  className="settings-input"
+                  className="stg-input"
                   placeholder="API地址"
                   value={editingProvider?.id === currentProvider.id ? providerForm.baseUrl : currentProvider.baseUrl}
                   onChange={(e) => {
@@ -756,9 +756,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 />
               </div>
               
-              <div className="settings-item">
+              <div className="stg-item">
                 <div className="settings-label-row">
-                  <label className="settings-label">
+                  <label className="stg-label">
                     <Key size={14} />
                     API Key
                   </label>
@@ -774,7 +774,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 <div className="settings-api-row">
                   <input
                     type={showApiKey ? 'text' : 'password'}
-                    className="settings-input"
+                    className="stg-input"
                     placeholder="留空使用环境变量"
                     value={editingProvider?.id === currentProvider.id ? providerForm.apiKey : currentProvider.apiKey}
                     onChange={(e) => {
@@ -801,9 +801,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               )}
             </div>
             
-            <div className="settings-item">
+            <div className="stg-item">
               <div className="settings-label-row">
-                <label className="settings-label">模型列表</label>
+                <label className="stg-label">模型列表</label>
                 <button
                   type="button"
                   className="settings-add-btn-inline"
@@ -879,9 +879,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       <LocalAsrModelPanel />
 
       {/* prompt 管理 */}
-      <div className="settings-group">
-        <div className="settings-group-header">
-          <h3 className="settings-group-title">
+      <div className="stg-group">
+        <div className="stg-group-header">
+          <h3 className="stg-group-title">
             <Sparkles size={18} />
             prompt管理
           </h3>
@@ -987,25 +987,25 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               </button>
             </div>
             <div className="settings-modal-body">
-              <div className="settings-item">
-                <label className="settings-label">风格名称</label>
+              <div className="stg-item">
+                <label className="stg-label">风格名称</label>
                 <input
                   type="text"
-                  className="settings-input"
+                  className="stg-input"
                   value={createStyleForm.label}
                   onChange={(e) => setCreateStyleForm(prev => ({ ...prev, label: e.target.value }))}
                 />
               </div>
-              <div className="settings-item">
-                <label className="settings-label">描述</label>
+              <div className="stg-item">
+                <label className="stg-label">描述</label>
                 <textarea
                   className="settings-textarea"
                   value={createStyleForm.description}
                   onChange={(e) => setCreateStyleForm(prev => ({ ...prev, description: e.target.value }))}
                 />
               </div>
-              <div className="settings-item">
-                <label className="settings-label">Prompt</label>
+              <div className="stg-item">
+                <label className="stg-label">Prompt</label>
                 <textarea
                   className="settings-textarea"
                   value={createStyleForm.prompt}
@@ -1026,13 +1026,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       )}
 
       {/* 自动功能 */}
-      <div className="settings-group">
-        <h3 className="settings-group-title">
+      <div className="stg-group">
+        <h3 className="stg-group-title">
           <Clock size={18} />
           自动功能
         </h3>
         
-        <div className="settings-item">
+        <div className="stg-item">
           <label className="settings-checkbox-label">
             <input
               type="checkbox"
@@ -1824,6 +1824,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           font-size: 12px;
           font-weight: 500;
           color: var(--color-text-primary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .settings-check {
@@ -1836,6 +1839,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           margin-top: 2px;
           line-height: 1.35;
           min-height: 2.6em;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
         }
 
         /* Form Elements */

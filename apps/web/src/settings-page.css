@@ -758,9 +758,16 @@
 
 /* 分组标题 */
 .stg-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.stg-group-title svg {
+  flex-shrink: 0;
 }
 
 /* 分组副标题 */

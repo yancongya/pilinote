@@ -171,8 +171,8 @@ function SettingsPage() {
           {/* 返回按钮 */}
           <button
             className="s-back-btn"
-            onClick={() => navigate('/home')}
-            aria-label="返回首页"
+            onClick={() => navigate(-1)}
+            aria-label="返回"
           >
             <ArrowLeft size={22} />
           </button>
