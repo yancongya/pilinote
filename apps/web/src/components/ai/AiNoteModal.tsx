@@ -8,6 +8,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { localAsrModelService } from '../../services/localAsrModels'
 import { useAiRuntimeState } from '../../hooks/useAiRuntimeState'
 import { aiRuntimeStateService } from '../../services/aiRuntimeState'
+import Modal from '../Modal'
 
 interface AiNoteModalProps {
   videoId: string
@@ -26,7 +27,131 @@ interface StyleOption {
   description: string
 }
 
-const TRACE_EXPANDED_KEY = 'pilinote_ai_note_trace_expanded'
+type TraceDotStatus = 'pending' | 'running' | 'done' | 'error'
+
+interface TraceDotItem {
+  id: string
+  stage: string
+  title: string
+  summary: string
+  status: TraceDotStatus
+  statusLabel: string
+  detailText: string
+  progress?: number
+}
+
+interface TraceStageTemplate {
+  stage: string
+  title: string
+}
+
+const TRACE_STATUS_META: Record<TraceDotStatus, { label: string }> = {
+  pending: { label: '等待中' },
+  running: { label: '进行中' },
+  done: { label: '完成' },
+  error: { label: '错误' },
+}
+
+const TRACE_STAGE_ORDER: TraceStageTemplate[] = [
+  { stage: 'T0', title: 'NFO 读取' },
+  { stage: 'T1', title: '语音转写' },
+  { stage: 'T2', title: '详细程度' },
+  { stage: 'T3', title: '风格选择' },
+  { stage: 'PROMPT', title: 'Prompt 构建' },
+  { stage: 'LLM', title: '模型调用' },
+  { stage: 'DONE', title: '完成' },
+  { stage: 'ERROR', title: '错误' },
+]
+
+const normalizeStage = (stage: string): TraceStageTemplate['stage'] => {
+  const upper = stage.toUpperCase()
+  if (upper.startsWith('PREP.T0')) return 'T0'
+  if (upper.startsWith('PREP.T1')) return 'T1'
+  if (upper.startsWith('PREP.T2')) return 'T2'
+  if (upper.startsWith('PREP.T3')) return 'T3'
+  if (upper.startsWith('PROMPT')) return 'PROMPT'
+  if (upper.startsWith('LLM')) return 'LLM'
+  if (upper.startsWith('DONE')) return 'DONE'
+  return 'ERROR'
+}
+
+const getTraceStatus = (step: AiTraceStep): TraceDotStatus => {
+  const stage = step.stage.toUpperCase()
+  const content = `${step.title || ''} ${step.summary || ''} ${step.stage || ''}`
+  if (/失败|错误|未获取到文本内容/i.test(content)) return 'error'
+  if (stage.startsWith('ERROR') || stage.includes('FAIL')) return 'error'
+  if (stage.startsWith('DONE') || (typeof step.progress === 'number' && step.progress >= 100)) return 'done'
+  if (typeof step.progress === 'number' && step.progress > 0) return 'running'
+  if (stage.startsWith('PROMPT') || stage.startsWith('LLM') || stage.startsWith('PREP')) return 'running'
+  return 'pending'
+}
+
+const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
+  const grouped = new Map<string, AiTraceStep[]>()
+  TRACE_STAGE_ORDER.forEach(item => grouped.set(item.stage, []))
+
+  trace.forEach(step => {
+    const stage = normalizeStage(step.stage)
+    const items = grouped.get(stage)
+    if (items) {
+      items.push(step)
+    }
+  })
+
+  return TRACE_STAGE_ORDER.map((item, index) => {
+    const items = grouped.get(item.stage) || []
+    if (!items.length) {
+      return {
+        id: `${item.stage}-${index}`,
+        stage: item.stage,
+        title: item.title,
+        summary: '等待执行',
+        status: 'pending',
+        statusLabel: TRACE_STATUS_META.pending.label,
+        detailText: `阶段: ${item.stage}\n\n标题: ${item.title}\n\n状态: 等待执行`,
+        progress: 0,
+      }
+    }
+
+    const last = items[items.length - 1]
+    const summary = items
+      .map(step => step.summary?.trim())
+      .filter(Boolean)
+      .join('\n')
+
+    const detailText = items.map(step => [
+      `阶段: ${step.stage}`,
+      `标题: ${step.title || step.stage}`,
+      step.summary ? `摘要: ${step.summary}` : '',
+      step.detail ? `原始详情 JSON:\n${JSON.stringify(step.detail, null, 2)}` : '',
+    ].filter(Boolean).join('\n\n')).join('\n\n---\n\n')
+
+    const status = getTraceStatus(last)
+    return {
+      id: `${item.stage}-${index}`,
+      stage: item.stage,
+      title: item.title,
+      summary: summary || last.summary || '暂无摘要',
+      status,
+      statusLabel: TRACE_STATUS_META[status].label,
+      detailText: detailText || '暂无原始详情',
+      progress: last.progress,
+    }
+  })
+}
+
+const buildDefaultTraceDotItems = (): TraceDotItem[] => {
+  return TRACE_STAGE_ORDER.map((item, index) => ({
+    id: `${item.stage}-${index}`,
+    stage: item.stage,
+    title: item.title,
+    summary: '等待执行',
+    status: 'pending',
+    statusLabel: TRACE_STATUS_META.pending.label,
+    detailText: `阶段: ${item.stage}\n\n标题: ${item.title}\n\n状态: 等待执行`,
+    progress: 0,
+  }))
+}
 
 export function deriveAiNoteModalStateFromLookup(lookup: {
   success: boolean
@@ -90,9 +215,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [trace, setTrace] = useState<AiTraceStep[]>([])
   const [progress, setProgress] = useState(0)
-  const [traceExpanded, setTraceExpanded] = useState(false)
   const [localAsrReady, setLocalAsrReady] = useState(true)
   const [styleOptions, setStyleOptions] = useState<StyleOption[]>([])
+  const [selectedTraceItem, setSelectedTraceItem] = useState<TraceDotItem | null>(null)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -219,16 +344,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   }, [isOpen, videoId])
 
   useEffect(() => {
-    if (!isOpen) return
-    const saved = localStorage.getItem(TRACE_EXPANDED_KEY)
-    if (saved === 'true') {
-      setTraceExpanded(true)
-    } else if (saved === 'false') {
-      setTraceExpanded(false)
-    }
-  }, [isOpen])
-
-  useEffect(() => {
     if (initializedRef.current) return
     const ai = settings?.ai_note
     if (!ai) return
@@ -282,45 +397,21 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   }, [settings, styleOptions])
 
   const currentTrace = trace.length ? trace : ((note?.meta?.trace as AiTraceStep[]) || [])
-  const groupedTrace = useMemo(() => {
-    const groups: Record<string, AiTraceStep[]> = {
-      PREP: [],
-      PROMPT: [],
-      LLM: [],
-      DONE: [],
-      ERROR: [],
-      OTHER: [],
+  const traceDots = useMemo(() => {
+    return currentTrace.length ? buildTraceDotItems(currentTrace) : buildDefaultTraceDotItems()
+  }, [currentTrace])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedTraceItem(null)
     }
+  }, [isOpen])
 
-    currentTrace.forEach(step => {
-      const root = step.stage.split('.')[0]
-      if (root in groups) {
-        groups[root].push(step)
-      } else {
-        groups.OTHER.push(step)
-      }
-    })
-
-    return [
-      { key: 'PREP', label: '准备阶段', items: groups.PREP },
-      { key: 'PROMPT', label: 'Prompt 阶段', items: groups.PROMPT },
-      { key: 'LLM', label: '模型阶段', items: groups.LLM },
-      { key: 'DONE', label: '完成', items: groups.DONE },
-      { key: 'ERROR', label: '错误', items: groups.ERROR },
-      { key: 'OTHER', label: '其他', items: groups.OTHER },
-    ].filter(group => group.items.length > 0)
-  }, [currentTrace])
-
-  const promptSummary = useMemo(() => {
-    const prepOrder = ['PREP.T0', 'PREP.T1.1', 'PREP.T1.2', 'PREP.T1.3', 'PREP.T2', 'PREP.T3']
-    const promptOrder = ['PROMPT.BUILD']
-    const steps = currentTrace.filter(step => prepOrder.includes(step.stage) || promptOrder.includes(step.stage))
-    if (!steps.length) return []
-    return steps.map(step => ({
-      stage: step.stage,
-      title: step.title,
-    }))
-  }, [currentTrace])
+  useEffect(() => {
+    if (selectedTraceItem && !traceDots.some(item => item.id === selectedTraceItem.id)) {
+      setSelectedTraceItem(null)
+    }
+  }, [selectedTraceItem, traceDots])
 
   if (!isOpen) return null
 
@@ -331,8 +422,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     setLookupError(null)
     setTrace([])
     setProgress(0)
-    setTraceExpanded(false)
-    localStorage.setItem(TRACE_EXPANDED_KEY, 'false')
+    setSelectedTraceItem(null)
   }
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -433,65 +523,48 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     URL.revokeObjectURL(url)
   }
 
-  const renderTrace = () => {
-    if (!currentTrace.length) return null
+  const copyTraceItem = async (item: TraceDotItem) => {
+    const text = [
+      `阶段: ${item.stage}`,
+      `标题: ${item.title}`,
+      `状态: ${item.statusLabel}`,
+      item.summary ? `摘要: ${item.summary}` : '',
+      typeof item.progress === 'number' ? `进度: ${Math.round(item.progress)}%` : '',
+      item.detailText ? `原始详情 JSON:\n${item.detailText}` : '',
+    ].filter(Boolean).join('\n\n')
+
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast('已复制阶段日志', 'success')
+    } catch {
+      showToast('复制阶段日志失败', 'error')
+    }
+  }
+
+  const renderTraceBar = () => {
+    if (!traceDots.length) return null
+
     return (
-      <div className="ai-note-trace">
-        <button type="button" className="ai-note-trace-toggle" onClick={() => setTraceExpanded(prev => !prev)}>
-          <span className="ai-note-trace-title">链路调试</span>
-          <span className="ai-note-trace-toggle-text">
-            {currentTrace.length ? `${currentTrace.length} 条记录` : '查看调试详情'}
-          </span>
-          <span className="ai-note-trace-toggle-arrow">{traceExpanded ? '收起' : '展开'}</span>
-        </button>
-        {traceExpanded && (
-          <>
-            {promptSummary.length > 0 && (
-              <details className="ai-note-trace-prompt-summary" open={false}>
-                <summary className="ai-note-trace-prompt-summary-toggle">
-                  Prompt 结构摘要
-                </summary>
-                <div className="ai-note-trace-prompt-summary-body">
-                  {promptSummary.map(item => (
-                    <span key={`${item.stage}-${item.title}`} className="ai-note-trace-prompt-pill">
-                      {item.stage}: {item.title}
-                    </span>
-                  ))}
-                </div>
-              </details>
-            )}
-            <div className="ai-note-trace-groups">
-              {groupedTrace.map(group => (
-                <div key={group.key} className="ai-note-trace-group">
-                  <div className="ai-note-trace-group-title" data-group={group.key}>{group.label}</div>
-                  <div className="ai-note-trace-list">
-                    {group.items.map((step, index) => (
-                      <div key={`${step.stage}-${index}`} className="ai-note-trace-item">
-                        <div className="ai-note-trace-item-head">
-                          <span>{step.stage}</span>
-                          <span>{Math.round(step.progress || 0)}%</span>
-                        </div>
-                        <div className="ai-note-trace-item-title">{step.title}</div>
-                        <div className="ai-note-trace-item-summary">{step.summary}</div>
-                        {step.detail ? (
-                          <pre className="ai-note-trace-item-detail">{JSON.stringify(step.detail, null, 2)}</pre>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+      <div className="ai-note-trace-dots" aria-label="链路状态">
+        {traceDots.map(item => {
+          const isSelected = selectedTraceItem?.id === item.id
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className="ai-note-trace-dot"
+              data-status={item.status}
+              data-selected={isSelected ? 'true' : 'false'}
+              onClick={() => setSelectedTraceItem(item)}
+              title={`${item.stage} · ${item.title}`}
+              aria-label={`查看 ${item.title} 的日志`}
+              aria-pressed={isSelected}
+            />
+          )
+        })}
       </div>
     )
   }
-
-  useEffect(() => {
-    if (!isOpen) return
-    localStorage.setItem(TRACE_EXPANDED_KEY, String(traceExpanded))
-  }, [traceExpanded, isOpen])
 
   return (
     <div className="ai-note-modal-overlay" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
@@ -568,7 +641,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
 
             {error && <div className="ai-note-modal-error">{error}</div>}
 
-            {renderTrace()}
+            {renderTraceBar()}
 
             <div className="ai-note-modal-footer">
               <button onClick={resetState} className="ai-note-modal-btn-secondary">
@@ -587,7 +660,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         <div className="ai-note-modal-loading">
             <div className="ai-note-modal-loading-spinner" />
             <p>AI 正在分析中... {progress ? `${Math.round(progress)}%` : ''}</p>
-            {renderTrace()}
+            {renderTraceBar()}
           </div>
         )}
 
@@ -602,12 +675,20 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
               )}
               <div className="ai-note-modal-result-actions">
                 <button onClick={handleReanalyze}><Sparkles size={14} />重新分析</button>
-                <button onClick={handleCopy} disabled={!note?.content}><Copy size={14} />复制</button>
-                <button onClick={handleExport} disabled={!note?.content}><Download size={14} />导出</button>
+                {note?.content && (
+                  <>
+                    <button onClick={handleCopy}><Copy size={14} />复制</button>
+                    <button onClick={handleExport}><Download size={14} />导出</button>
+                  </>
+                )}
                 <button onClick={resetState}><RotateCcw size={14} />重置</button>
               </div>
               <div className="ai-note-modal-result-content">
-                <pre>{note?.content || '当前没有可展示的笔记内容。你可以点击上方“重新分析”重新生成。'}</pre>
+                {note?.content ? (
+                  <pre>{note.content}</pre>
+                ) : (
+                  <div className="ai-note-modal-result-empty">当前暂无笔记内容</div>
+                )}
               </div>
             </div>
             {note?.summary && (
@@ -616,10 +697,47 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
                 <p>{note.summary}</p>
               </div>
             )}
-            {renderTrace()}
+            {renderTraceBar()}
           </>
         )}
       </div>
+
+      <Modal
+        isOpen={Boolean(selectedTraceItem)}
+        onClose={() => setSelectedTraceItem(null)}
+        title={selectedTraceItem?.title || '阶段日志'}
+        size="lg"
+        footer={selectedTraceItem ? (
+          <>
+            <button type="button" className="ai-note-trace-detail-copy" onClick={() => { void copyTraceItem(selectedTraceItem) }}>
+              <Copy size={14} />
+              复制
+            </button>
+            <button type="button" className="ai-note-trace-detail-close" onClick={() => setSelectedTraceItem(null)}>
+              关闭
+            </button>
+          </>
+        ) : null}
+      >
+        {selectedTraceItem && (
+          <div className="ai-note-trace-detail">
+            <div className="ai-note-trace-detail-head">
+              <div className="ai-note-trace-detail-stage">{selectedTraceItem.stage}</div>
+              <span className="ai-note-trace-detail-status" data-status={selectedTraceItem.status}>
+                {selectedTraceItem.statusLabel}
+              </span>
+            </div>
+            <div className="ai-note-trace-detail-summary">{selectedTraceItem.summary}</div>
+            {typeof selectedTraceItem.progress === 'number' && (
+              <div className="ai-note-trace-detail-meta">进度 {Math.round(selectedTraceItem.progress)}%</div>
+            )}
+            <div className="ai-note-trace-detail-block">
+              <div className="ai-note-trace-detail-block-title">日志文本</div>
+              <pre className="ai-note-trace-detail-json">{selectedTraceItem.detailText}</pre>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <style>{`
         .ai-note-modal-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.4); pointer-events: auto; }
@@ -657,30 +775,34 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         .ai-note-modal-result-actions button { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px; font-size: 12px; background: var(--color-bg-secondary); border: none; color: var(--color-text-secondary); cursor: pointer; }
         .ai-note-modal-result-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
         .ai-note-modal-result-content pre { font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0; }
+        .ai-note-modal-result-empty { display: flex; align-items: center; justify-content: center; min-height: 120px; font-size: 13px; color: var(--color-text-tertiary); }
         .ai-note-modal-summary { padding: 12px 20px; border-top: 1px solid var(--color-border); }
         .ai-note-modal-summary h4 { margin: 0 0 6px; font-size: 14px; }
         .ai-note-modal-summary p { margin: 0; font-size: 13px; color: var(--color-text-secondary); }
-        .ai-note-trace { padding: 12px 20px 16px; border-top: 1px solid var(--color-border); }
-        .ai-note-trace-toggle { width: 100%; display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: transparent; cursor: pointer; text-align: left; }
-        .ai-note-trace-title { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); flex-shrink: 0; }
-        .ai-note-trace-toggle-text { flex: 1; min-width: 0; font-size: 12px; color: var(--color-text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ai-note-trace-toggle-arrow { font-size: 12px; color: var(--color-text-secondary); flex-shrink: 0; }
-        .ai-note-trace-prompt-summary { margin: 10px 0; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); overflow: hidden; }
-        .ai-note-trace-prompt-summary-toggle { list-style: none; cursor: pointer; padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--color-text-primary); }
-        .ai-note-trace-prompt-summary-toggle::-webkit-details-marker { display: none; }
-        .ai-note-trace-prompt-summary-body { padding: 0 10px 10px; display: flex; flex-wrap: wrap; gap: 6px; }
-        .ai-note-trace-prompt-pill { padding: 4px 8px; border-radius: 999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 11px; color: var(--color-text-secondary); }
-        .ai-note-trace-group-title[data-group="DONE"] { color: var(--color-success); }
-        .ai-note-trace-group-title[data-group="ERROR"] { color: var(--color-error-600); }
-        .ai-note-trace-groups { display: grid; gap: 12px; }
-        .ai-note-trace-group { display: grid; gap: 8px; }
-        .ai-note-trace-group-title { font-size: 12px; font-weight: 700; color: var(--color-text-primary); }
-        .ai-note-trace-list { display: grid; gap: 8px; }
-        .ai-note-trace-item { padding: 10px 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); }
-        .ai-note-trace-item-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 4px; }
-        .ai-note-trace-item-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-        .ai-note-trace-item-summary { font-size: 12px; color: var(--color-text-secondary); line-height: 1.45; }
-        .ai-note-trace-item-detail { margin: 8px 0 0; padding: 8px; border-radius: 8px; background: var(--color-bg-primary); border: 1px solid var(--color-border); font-size: 11px; line-height: 1.45; white-space: pre-wrap; color: var(--color-text-tertiary); }
+        .ai-note-trace-dots { display: flex; align-items: center; gap: 8px; padding: 10px 20px 14px; border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); justify-content: flex-start; overflow-x: auto; }
+        .ai-note-trace-dot { width: 10px; height: 10px; min-width: 10px; min-height: 10px; padding: 0; border-radius: 999px; border: 1px solid transparent; background: #9ca3af; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+        .ai-note-trace-dot[data-status="running"] { background: var(--color-primary-600); }
+        .ai-note-trace-dot[data-status="done"] { background: var(--color-success); }
+        .ai-note-trace-dot[data-status="error"] { background: var(--color-error-600); }
+        .ai-note-trace-dot[data-selected="true"] { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18); transform: scale(1.15); }
+        .ai-note-trace-dot:hover { transform: scale(1.15); }
+        .ai-note-trace-dot:focus-visible { outline: 2px solid var(--color-primary-600); outline-offset: 2px; }
+        .ai-note-trace-detail { display: grid; gap: 14px; }
+        .ai-note-trace-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .ai-note-trace-detail-stage { font-size: 14px; font-weight: 700; color: var(--color-text-primary); }
+        .ai-note-trace-detail-status { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+        .ai-note-trace-detail-status[data-status="running"] { color: var(--color-primary-600); border-color: rgba(59, 130, 246, 0.28); background: rgba(59, 130, 246, 0.08); }
+        .ai-note-trace-detail-status[data-status="done"] { color: var(--color-success); border-color: rgba(22, 163, 74, 0.28); background: rgba(22, 163, 74, 0.08); }
+        .ai-note-trace-detail-status[data-status="error"] { color: var(--color-error-600); border-color: rgba(220, 38, 38, 0.28); background: rgba(220, 38, 38, 0.08); }
+        .ai-note-trace-detail-summary { font-size: 14px; line-height: 1.6; color: var(--color-text-secondary); }
+        .ai-note-trace-detail-meta { font-size: 12px; color: var(--color-text-tertiary); }
+        .ai-note-trace-detail-block { display: grid; gap: 8px; }
+        .ai-note-trace-detail-block-title { font-size: 12px; font-weight: 700; color: var(--color-text-primary); }
+        .ai-note-trace-detail-json { margin: 0; padding: 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 12px; line-height: 1.55; white-space: pre-wrap; color: var(--color-text-secondary); overflow: auto; }
+        .ai-note-trace-detail-copy,.ai-note-trace-detail-close { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease; }
+        .ai-note-trace-detail-copy { display: inline-flex; align-items: center; gap: 6px; background: var(--color-primary-600); color: white; }
+        .ai-note-trace-detail-close { background: var(--color-bg-secondary); color: var(--color-text-primary); }
+        .ai-note-trace-detail-copy:hover,.ai-note-trace-detail-close:hover { transform: translateY(-1px); }
       `}</style>
     </div>
   )
