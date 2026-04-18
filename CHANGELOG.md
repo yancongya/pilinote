@@ -1,5 +1,69 @@
 # PiliNote 开发日志
 
+## 2026-04-18 AI 笔记模板优化和弹窗交互修复
+
+### 🎯 主要改进
+
+#### 1. AI 笔记模板优化（参考 BiliNote）
+
+优化了 `apps/api/data/ai_prompt_templates.default.json`，提升提示词质量：
+
+- **base.system**：添加语言要求、中英文处理规则、输出规则、防有序列表误解析、LaTeX 公式支持
+- **base.final**：添加4条核心原则（完整信息、去除无关、保留细节、可读布局）
+- **layers.t0/t1**：补充视频标题/标签/分段格式定义
+- **formats**：添加详细格式规则（编号、标记格式、标题要求）
+- **t3 风格**：按 BiliNote 优化提示词内容
+  - minimal/detailed/academic：添加序号和更详细描述
+  - xiaohongshu：添加爆款关键词、二极管标题法、写作技巧（完整移植）
+  - tutorial：重新命名为"教程笔记"，强调关键点和结论步骤
+  - business/meeting_minutes：添加序号，优化描述
+
+**优化后的风格提示词示例**：
+```json
+{
+  "minimal": "1. **精简信息**: 仅记录最重要的内容，简洁明了。",
+  "xiaohongshu": "4. **小红书风格**:\n### 擅长使用下面的爆款关键词：\n好用到哭，大数据，教科书般...",
+  "tutorial": "9. **教程笔记**: 尽可能详细的记录教程,特别是关键点和一些重要的结论步骤"
+}
+```
+
+#### 2. AI 笔记弹窗交互修复
+
+修复了 `apps/web/src/components/ai/AiNoteModal.tsx` 中的问题：
+
+- **移除视频标题**：删除了 `<div className="ai-note-modal-video-info">` 显示区域
+- **移除折叠组件**：删除"展开高级选项"按钮，高级功能改为直接显示
+- **修复多选问题**：修复高级功能按钮无法多选的问题
+  - 使用 `initializedRef` 标记防止 useEffect 重置状态
+  - 优化按钮样式（添加 `:active` 背景色反馈）
+
+**修复的核心代码**：
+```typescript
+const initializedRef = useRef(false)
+
+useEffect(() => {
+  if (initializedRef.current) return
+  initializedRef.current = true
+  setFormats(['summary'])
+}, [settings, runtimeState.testedModels, styleOptions])
+```
+
+### ✅ 测试结果
+
+- ✅ 风格模板提示词已更新，按 BiliNote 格式优化
+- ✅ AI 笔记弹窗高级功能支持多选
+- ✅ 视频标题显示已移除
+- ✅ 展开/折叠按钮已移除，高级选项直接显示
+
+### 📝 代码变更
+
+| 文件 | 变更 |
+|------|------|
+| apps/api/data/ai_prompt_templates.default.json | +更新风格提示词 |
+| apps/web/src/components/ai/AiNoteModal.tsx | +修复多选逻辑 |
+
+---
+
 ## 2026-04-16 下载系统整合优化完成
 
 ### 🎯 主要目标

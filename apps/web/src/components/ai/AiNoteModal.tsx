@@ -90,7 +90,7 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
   }
 }
 
-export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose, onComplete }: AiNoteModalProps) {
+export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, isOpen, onClose, onComplete }: AiNoteModalProps) {
   const { settings, fetchSettings } = useSettingsStore()
   const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
@@ -99,7 +99,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
   const [style, setStyle] = useState('detailed')
   const [formats, setFormats] = useState<string[]>(['summary'])
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const initializedRef = useRef(false)
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
   const [error, setError] = useState<string | null>(null)
   const [lookupError, setLookupError] = useState<string | null>(null)
@@ -236,8 +236,10 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   }, [isOpen])
 
   useEffect(() => {
+    if (initializedRef.current) return
     const ai = settings?.ai_note
     if (!ai) return
+    initializedRef.current = true
     const provider = ai.llm.provider || 'openai'
     const providerModels = runtimeState.testedModels[provider] || []
     const nextModel = providerModels.includes(ai.llm.model)
@@ -511,8 +513,6 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
           </button>
         </div>
 
-        <div className="ai-note-modal-video-info">{videoTitle}</div>
-
         {viewState === 'config' && (
           <>
             <div className="ai-note-modal-content">
@@ -547,30 +547,30 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
                 </select>
               </div>
 
-              <div className="ai-note-advanced-toggle">
-                <button type="button" onClick={() => setAdvancedOpen(prev => !prev)} className="ai-note-advanced-btn">
-                  {advancedOpen ? '收起高级选项' : '展开高级选项'}
-                </button>
-              </div>
-
-              {advancedOpen && (
-                <div className="ai-note-select-group">
-                  <label>高级功能预留</label>
-                  <div className="ai-note-format-row">
-                    {NOTE_FORMATS.map(format => (
+              <div className="ai-note-select-group">
+                <label>高级功能</label>
+                <div className="ai-note-format-row">
+                  {NOTE_FORMATS.map(f => {
+                    const isActive = formats.includes(f.value)
+                    return (
                       <button
-                        key={format.value}
+                        key={f.value}
                         type="button"
-                        onClick={() => setFormats(prev => prev.includes(format.value) ? prev.filter(v => v !== format.value) : [...prev, format.value])}
-                        className={`ai-note-format-btn ${formats.includes(format.value) ? 'active' : ''}`}
-                        title={format.description}
+                        data-active={isActive}
+                        onClick={() => {
+                          const newValue = isActive
+                            ? formats.filter(v => v !== f.value)
+                            : [...formats, f.value]
+                          setFormats(newValue)
+                        }}
+                        className={isActive ? 'ai-note-format-btn active' : 'ai-note-format-btn'}
                       >
-                        {format.label}
+                        {f.label}
                       </button>
-                    ))}
-                  </div>
+                    )
+                  })}
                 </div>
-              )}
+              </div>
             </div>
 
             {error && <div className="ai-note-modal-error">{error}</div>}
@@ -643,7 +643,8 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
         .ai-note-summary-chip { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
         .ai-note-format-row { display: flex; flex-wrap: wrap; gap: 8px; }
         .ai-note-format-btn { padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-bg-secondary); color: var(--color-text-secondary); cursor: pointer; }
-        .ai-note-format-btn.active { border-color: var(--color-primary-600); color: var(--color-primary-600); }
+        .ai-note-format-btn.active { border-color: var(--color-primary-600); background: var(--color-primary-50); color: var(--color-primary-600); }
+        .ai-note-format-btn[data-active="true"] { border-color: var(--color-primary-600); background: var(--color-primary-50); color: var(--color-primary-600); }
         .ai-note-advanced-toggle { margin-top: 4px; }
         .ai-note-advanced-btn { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-secondary); color: var(--color-text-secondary); cursor: pointer; text-align: left; }
         .ai-note-modal-error { padding: 12px 20px; background: var(--color-error-50); font-size: 14px; color: var(--color-error-600); }
