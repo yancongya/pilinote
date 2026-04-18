@@ -7,6 +7,8 @@ import { MarkdownViewer } from './MarkdownViewer';
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup';
 import { localAsrModelService } from '../../services/localAsrModels';
 import { useToast } from '../Toast';
+import { useSettingsStore } from '../../stores/settings';
+import { normalizePromptStyleValue } from '../../services/promptCatalog';
 
 interface AiNotePanelProps {
   videoId: string;
@@ -16,6 +18,7 @@ interface AiNotePanelProps {
 type ViewMode = 'form' | 'result' | 'loading';
 
 export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
+  const { settings } = useSettingsStore();
   const [viewMode, setViewMode] = useState<ViewMode>('form');
   const [style, setStyle] = useState(DEFAULT_STYLE);
   const [formats, setFormats] = useState(DEFAULT_FORMATS);
@@ -50,7 +53,7 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     }
 
     setNote(lookup.note)
-    setStyle(lookup.note.style || DEFAULT_STYLE)
+    setStyle(normalizePromptStyleValue(lookup.note.style) || DEFAULT_STYLE)
     setFormats(lookup.note.formats || DEFAULT_FORMATS)
 
     if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
@@ -109,7 +112,7 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
       
       if (data.success && data.recommended_style) {
         setRecommendedStyle(data.recommended_style);
-        setStyle(data.recommended_style);
+        setStyle(normalizePromptStyleValue(data.recommended_style) || DEFAULT_STYLE);
       }
     } catch (err) {
       console.error('推荐失败:', err);
@@ -176,7 +179,13 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
           )}
           
           <div className="flex items-center gap-2">
-            <StyleSelector value={style} onChange={setStyle} />
+            <StyleSelector
+              value={style}
+              onChange={setStyle}
+              currentTemplates={{}}
+              defaultTemplates={{}}
+              customStyles={settings?.ai_note?.style?.custom_styles || []}
+            />
             <button
               onClick={handleAutoRecommend}
               className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded"

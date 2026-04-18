@@ -315,15 +315,7 @@ class SettingsService:
             "temperature": float(
                 self._get_setting_value(all_settings, "ai_note.llm.temperature", 0.7)
             ),
-            "tested_models": get_ai_runtime_state_service().get_tested_models(),
         }
-        if not llm_dict["tested_models"]:
-            tested_models_setting = all_settings.get("ai_note.llm.tested_models")
-            if tested_models_setting:
-                try:
-                    llm_dict["tested_models"] = json.loads(tested_models_setting.value)
-                except json.JSONDecodeError:
-                    llm_dict["tested_models"] = {}
         style_dict = {
             "style": "",
             "length": int(
@@ -404,7 +396,7 @@ class SettingsService:
     def update_settings(self, settings_dict: Dict[str, Any]) -> bool:
         """Update multiple settings"""
         try:
-            # AI 笔记 LLM 里的 tested_models 需要作为整体 JSON 存储，不能被通用嵌套遍历拆开
+            # AI 笔记 LLM 里的 tested_models 只写入 runtime cache，不再进入 settings 持久化层
             if "ai_note" in settings_dict and "llm" in settings_dict["ai_note"]:
                 llm_dict = settings_dict["ai_note"]["llm"]
                 if isinstance(llm_dict, dict) and "tested_models" in llm_dict:

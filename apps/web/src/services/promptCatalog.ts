@@ -6,6 +6,22 @@ export interface PromptTemplateMeta {
   kind: 'text' | 'lines'
 }
 
+export interface PromptStyleOption {
+  value: string
+  label: string
+  description: string
+}
+
+const STYLE_VALUE_ALIASES: Record<string, string> = {
+  concise: 'minimal',
+  bullet: 'task_oriented',
+}
+
+export function normalizePromptStyleValue(value?: string | null): string {
+  if (!value) return ''
+  return STYLE_VALUE_ALIASES[value] || value
+}
+
 export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 'base.system', title: '系统提示词', category: '基础', path: ['base', 'system'], kind: 'text' },
   { key: 'base.final', title: '最终要求', category: '基础', path: ['base', 'final'], kind: 'lines' },
@@ -26,3 +42,26 @@ export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 'formats.summary', title: 'AI 总结', category: '格式', path: ['layers', 'formats', 'summary'], kind: 'text' },
 ]
 
+export function buildPromptStyleOptions(
+  currentTemplates: Record<string, any>,
+  defaultTemplates: Record<string, any>,
+  customStyles: Array<{ value: string; label: string; description: string; prompt: string }> = [],
+): PromptStyleOption[] {
+  const builtinStyles = PROMPT_TEMPLATE_CARDS.filter(card => card.category === '风格').map(card => {
+    const currentValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), currentTemplates)
+    const defaultValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), defaultTemplates)
+    const currentText = typeof currentValue === 'string' ? currentValue : ''
+    const defaultText = typeof defaultValue === 'string' ? defaultValue : ''
+    const value = card.key.replace(/^t3\./, '')
+    return {
+      value,
+      label: card.title.replace(/^T3\s*/, ''),
+      description: currentText || defaultText || '点击编辑 prompt',
+    }
+  })
+
+  const customMap = new Map(customStyles.map(style => [style.value, style]))
+  return builtinStyles.map(style => customMap.get(style.value) || style).concat(
+    customStyles.filter(style => !builtinStyles.some(item => item.value === style.value)),
+  )
+}

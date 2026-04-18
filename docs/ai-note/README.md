@@ -1,8 +1,11 @@
 # AI 笔记生成功能设计
 
+> 当前实现已收口到 `prompt管理` 的卡片化 prompt 源与本地 AI runtime cache。  
+> 旧的 `ai_note.style.style` 仅作为迁移后的兼容字段，不再参与运行时风格选择。
+
 ## 概述
 
-基于参考项目 BiliNote 的分析，设计 PiliNote 的 AI 笔记生成功能。该功能允许用户选择不同风格的 Prompt 来针对不同类型的视频进行 AI 总结，生成 Markdown 文件和思维导图。
+基于参考项目 BiliNote 的分析，设计 PiliNote 的 AI 笔记生成功能。该功能允许用户通过 `prompt管理` 中的卡片配置 T0/T1/T2/T3 和 `formats`，针对不同类型的视频进行 AI 总结，生成 Markdown 文件和思维导图。
 
 ## 功能架构
 
@@ -14,7 +17,7 @@
 
 ## 简化逻辑
 
-**核心改进**：直接使用本地文件路径进行分析，不需要通过 bvid 查找数据库记录。
+**核心改进**：直接使用本地文件路径进行分析，不需要通过 bvid 查找数据库记录；查询笔记状态使用 query 形式的 lookup 接口，不再依赖 404 分支。
 
 1. 媒体库卡片通过 `task.meta.folder_path` 获取本地视频路径
 2. 直接将文件路径传给后端 API
@@ -33,10 +36,10 @@
 
 ### 2. 设置弹窗
 
-**Tab 结构**（3个）：
-1. **风格 Tab**：笔记风格选择
-2. **格式 Tab**：输出格式开关
-3. **LLM Tab**：提供商 + 模型选择
+**当前结构**：
+1. **prompt管理**：T0/T1/T2/T3 + formats 卡片管理
+2. **LLM / 本地 ASR**：提供商、模型和本地模型状态管理
+3. **风格选择**：来自 prompt 卡片的风格源，不再依赖旧的 `ai_note.style.style`
 
 ### 3. 详情页
 
@@ -55,7 +58,7 @@
 | 原片截图 | 插入视频关键帧截图 (*Screenshot-[mm:ss]) |
 | AI 总结 | 在笔记末尾加入 AI 生成的总结 |
 
-### 2. 笔记风格（Prompt 模板）
+### 2. 笔记风格（Prompt 卡片）
 
 | 风格 | 适用场景 |
 |------|----------|
@@ -86,7 +89,7 @@
 | AI 分析服务 | `src/services/ai/note_service.py` | 核心分析服务：读取本地视频 → 转写 → LLM 生成 |
 | Prompt 管理器 | `src/llm/prompts/` | 根据风格构建 prompt |
 | LLM 客户端 | `src/llm/` | 多提供商支持（OpenAI/Claude/DeepSeek） |
-| 转写服务 | `src/services/ai/transcriber.py` | 音频转文字（Whisper API） |
+| 转写服务 | `src/services/ai/transcriber.py` | 音频转文字（本地 faster-whisper） |
 | 截图服务 | `src/services/ai/screenshot.py` | 视频关键帧截图 |
 | API 路由 | `src/routers/note.py` | 分析触发、状态查询、获取结果 |
 
@@ -95,7 +98,7 @@
 | 组件 | 路径 | 功能描述 |
 |------|------|----------|
 | AiNoteButton | `src/components/ai/AiNoteButton.tsx` | 媒体库卡片 AI 按钮 |
-| AiNoteModal | `src/components/ai/AiNoteModal.tsx` | 设置弹窗（3个Tab） |
+| AiNoteModal | `src/components/ai/AiNoteModal.tsx` | 设置弹窗（读取 prompt 卡片与 runtime state） |
 | MarkdownViewer | `src/components/ai/MarkdownViewer.tsx` | 渲染生成的笔记 |
 | MindMapViewer | `src/components/ai/MindMapViewer.tsx` | 思维导图展示 |
 
@@ -147,10 +150,10 @@ GET /api/note/{note_id}
 ### 根据视频获取笔记
 
 ```
-GET /api/note/by-video/{bvid}
+GET /api/note/by-video?video_id=...
 ```
 
-返回：指定视频的笔记（如果有）
+返回：指定视频的笔记（如果有），无笔记时返回 `found=false` 的正常响应。
 
 ## 数据模型
 

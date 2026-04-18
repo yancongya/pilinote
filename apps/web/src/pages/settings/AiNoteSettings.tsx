@@ -38,6 +38,25 @@ interface LLMProvider {
   isCustom?: boolean
 }
 
+interface AiNoteLocalSettings {
+  llm: {
+    provider: string
+    model: string
+    api_key: string
+    temperature: number
+  }
+  style: {
+    length: number
+    custom_styles: Array<{ value: string; label: string; description: string; prompt: string }>
+  }
+  format: {
+    format: string
+    include_timestamp: boolean
+    include_summary: boolean
+  }
+  auto_analyze: boolean
+}
+
 interface AiNoteSettingsRef {
   hasUnsavedChanges: () => boolean
   saveSettings: () => Promise<void>
@@ -79,7 +98,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
   
-  const [localSettings, setLocalSettings] = useState({
+  const [localSettings, setLocalSettings] = useState<AiNoteLocalSettings>({
     llm: {
       provider: 'openai',
       model: 'gpt-4o-mini',
@@ -87,7 +106,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       temperature: 0.7,
     },
     style: {
-      style: 'detailed',
       length: 500,
       custom_styles: [] as Array<{ value: string; label: string; description: string; prompt: string }>,
     },
@@ -167,7 +185,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             temperature: currentAiNote.llm.temperature,
           },
           style: {
-            style: currentAiNote.style.style,
             length: currentAiNote.style.length,
             custom_styles: currentAiNote.style.custom_styles || [],
           },
@@ -518,10 +535,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             temperature: localSettings.llm.temperature,
           },
           style: {
-            ...(settings?.ai_note?.style || {}),
-            ...localSettings.style,
+            length: localSettings.style.length,
             custom_styles: customStyles,
-          },
+          } as any,
           format: {
             ...(settings?.ai_note?.format || {}),
             ...localSettings.format,
@@ -608,22 +624,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       try {
         const currentAiNote = settings?.ai_note || {
           llm: { provider: 'openai', model: 'gpt-4o-mini', api_key: '', temperature: 0.7 },
-          style: { style: 'detailed', length: 500 },
+          style: { length: 500 },
           format: { format: 'markdown', include_timestamp: true, include_summary: true },
           auto_analyze: false,
         }
         await updateSettings({
           ai_note: {
             ...currentAiNote,
-          llm: {
-            ...currentAiNote.llm,
-            ...localSettings.llm,
-          },
-          style: {
-            ...currentAiNote.style,
-            ...localSettings.style,
-            custom_styles: customStyles,
-          },
+            llm: {
+              ...currentAiNote.llm,
+              ...localSettings.llm,
+            },
+            style: {
+              length: localSettings.style.length,
+              custom_styles: customStyles,
+            } as any,
             format: {
               ...currentAiNote.format,
               ...localSettings.format,

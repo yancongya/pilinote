@@ -1,5 +1,7 @@
 # AI Prompt Templates Local Storage Implementation Plan
 
+> 状态：已落地。当前 prompt 卡片与本地模板服务已经可用，本计划保留为实现说明。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把 AI 笔记的提示词模板从数据库和硬编码中拆出来，落到本地文件里，支持默认模板、编辑、重置和 PromptBuilder 统一读取。
@@ -402,4 +404,3 @@ git commit -m "docs: document local ai prompt template storage"
 - `PromptTemplateService.get_templates()`, `save_templates()`, and `reset_templates()` are used consistently across backend tasks.
 - Frontend API path is consistently `/api/ai/prompt-templates`.
 - `formats` remains the name of the advanced capability layer.
-

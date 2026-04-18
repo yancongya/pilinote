@@ -1,5 +1,7 @@
 # AI 配置与状态迁移实施计划
 
+> 状态：已执行完成。当前代码已将 `tested_models` 迁移到本地 AI runtime cache，本计划保留为历史记录。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 将 AI 服务商配置与运行状态拆分到正确的存储层：数据库只保留稳定配置，本地缓存保存测试结果和本地 ASR 模型状态，并通过一次性迁移脚本把现有数据收口。

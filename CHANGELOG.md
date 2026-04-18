@@ -2,6 +2,13 @@
 
 ## 2026-04-18 AI 笔记模板优化和弹窗交互修复
 
+### 🔄 后续收口
+
+- `prompt管理` 的风格卡片现在是 AI 笔记弹窗的唯一风格来源，已迁移并清理旧的 `ai_note.style.style`
+- 本地 ASR 的测试模型列表与下载状态继续由本地 runtime cache 管理，不再作为数据库真相源
+- `tested_models` 已从 settings payload 中剥离，前端不再依赖数据库回读这份运行态
+- `AiNotePanel` / `AiNoteModal` / `AiNoteSettings` 已开始统一读取 prompt 卡片与 runtime state
+
 ### 🎯 主要改进
 
 #### 1. AI 笔记模板优化（参考 BiliNote）

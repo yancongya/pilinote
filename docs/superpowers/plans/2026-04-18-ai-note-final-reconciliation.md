@@ -1,5 +1,7 @@
 # AI Note Final Reconciliation Implementation Plan
 
+> 状态：已完成。代码侧已迁移到 prompt 卡片与 runtime cache，旧风格路径已停止参与运行时读取。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remove the remaining legacy AI note style path, make the AI note modal consume prompt-card styles as the sole source of truth, and synchronize the docs/state surfaces so the AI note stack is internally consistent.

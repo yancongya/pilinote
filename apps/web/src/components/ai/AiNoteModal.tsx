@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Sparkles, Loader2, Copy, Download, RotateCcw } from 'lucide-react'
 import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from '../../services/aiNote'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
-import { PROMPT_TEMPLATE_CARDS } from '../../services/promptCatalog'
+import { buildPromptStyleOptions, normalizePromptStyleValue } from '../../services/promptCatalog'
 import { useToast } from '../Toast'
 import { useSettingsStore } from '../../stores/settings'
 import { localAsrModelService } from '../../services/localAsrModels'
@@ -24,22 +24,6 @@ interface StyleOption {
   value: string
   label: string
   description: string
-}
-
-function deriveStyleOptionsFromTemplates(currentTemplates: Record<string, any>, defaultTemplates: Record<string, any>): StyleOption[] {
-  const styleCards = PROMPT_TEMPLATE_CARDS.filter(card => card.category === '风格')
-  return styleCards.map(card => {
-    const currentValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), currentTemplates)
-    const defaultValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), defaultTemplates)
-    const currentText = typeof currentValue === 'string' ? currentValue : ''
-    const defaultText = typeof defaultValue === 'string' ? defaultValue : ''
-    const value = card.key.replace(/^t3\./, '')
-    return {
-      value,
-      label: card.title.replace(/^T3\s*/, ''),
-      description: currentText || defaultText || '点击编辑 prompt',
-    }
-  })
 }
 
 const TRACE_EXPANDED_KEY = 'pilinote_ai_note_trace_expanded'
@@ -147,7 +131,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
 
         const currentTemplates = currentRes.templates || {}
         const defaultTemplates = defaultRes.templates || {}
-        const builtin = deriveStyleOptionsFromTemplates(currentTemplates, defaultTemplates)
+        const customStyles = Array.isArray((settings as any)?.ai_note?.style?.custom_styles)
+          ? (settings as any).ai_note.style.custom_styles
+          : []
+        const builtin = buildPromptStyleOptions(currentTemplates, defaultTemplates, customStyles)
         setStyleOptions(builtin)
       } catch {
         if (!cancelled) setStyleOptions([])
@@ -163,6 +150,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     if (isOpen && existingNote) {
       setNote(existingNote)
       setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
+      if (existingNote.style) {
+        setStyle(normalizePromptStyleValue(existingNote.style))
+      }
       if (existingNote.status === 'processing' || existingNote.status === 'pending') {
         setViewState('loading')
       } else if (existingNote.status === 'failed') {
@@ -194,6 +184,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         if (derived.note) {
           setNote(derived.note)
           setTrace((derived.note.meta?.trace as AiTraceStep[]) || [])
+          if (derived.note.style) {
+            setStyle(normalizePromptStyleValue(derived.note.style))
+          }
         } else if (derived.viewState === 'config') {
           setNote(null)
           setTrace([])

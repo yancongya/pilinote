@@ -3,13 +3,13 @@ import { getApiUrl } from '../config/api'
 export interface AiRuntimeState {
   testedModels: Record<string, string[]>
   updatedAt: string
-  source: 'remote' | 'local' | 'legacy'
+  source: 'remote' | 'local'
 }
 
 interface StoredAiRuntimeState {
   testedModels?: Record<string, string[]>
   updatedAt?: string
-  source?: 'remote' | 'local' | 'legacy'
+  source?: 'remote' | 'local'
 }
 
 const STORAGE_KEY = 'pilinote_ai_runtime_state'
@@ -93,26 +93,6 @@ const readRemoteRuntimeState = async (): Promise<AiRuntimeState | null> => {
   }
 }
 
-const readLegacySettingsState = async (): Promise<AiRuntimeState | null> => {
-  try {
-    const response = await fetch(getApiUrl('/api/settings/'), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    })
-    if (!response.ok) return null
-    const payload = await response.json().catch(() => null)
-    const testedModels = normalizeTestedModels(payload?.ai_note?.llm?.tested_models)
-    if (!Object.keys(testedModels).length) return null
-    return {
-      testedModels,
-      updatedAt: new Date().toISOString(),
-      source: 'legacy',
-    }
-  } catch {
-    return null
-  }
-}
-
 const normalizeState = (state: Partial<AiRuntimeState> | null | undefined): AiRuntimeState => ({
   testedModels: normalizeTestedModels(state?.testedModels),
   updatedAt: state?.updatedAt || new Date().toISOString(),
@@ -136,13 +116,6 @@ export const aiRuntimeStateService = {
     }
 
     let nextState = readStoredState()
-    if (!Object.keys(nextState.testedModels).length) {
-      const legacy = await readLegacySettingsState()
-      if (legacy) {
-        nextState = normalizeState(legacy)
-        writeStoredState(nextState)
-      }
-    }
 
     cachedState = normalizeState(nextState)
     writeStoredState(cachedState)
@@ -184,4 +157,3 @@ export const aiRuntimeStateService = {
     }
   },
 }
-

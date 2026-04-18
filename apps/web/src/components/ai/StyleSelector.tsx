@@ -1,16 +1,33 @@
-import { NOTE_STYLES } from '../../services/aiNote';
+import { useMemo } from 'react'
+import { buildPromptStyleOptions } from '../../services/promptCatalog'
 
 interface StyleSelectorProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: string
+  onChange: (value: string) => void
+  currentTemplates?: Record<string, any>
+  defaultTemplates?: Record<string, any>
+  customStyles?: Array<{ value: string; label: string; description: string; prompt: string }>
 }
 
-export function StyleSelector({ value, onChange }: StyleSelectorProps) {
+export function StyleSelector({
+  value,
+  onChange,
+  currentTemplates = {},
+  defaultTemplates = {},
+  customStyles = [],
+}: StyleSelectorProps) {
+  const styles = useMemo(
+    () => buildPromptStyleOptions(currentTemplates, defaultTemplates, customStyles),
+    [currentTemplates, defaultTemplates, customStyles],
+  )
+
+  const currentStyle = styles.find(item => item.value === value)
+
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-300">笔记风格</label>
       <div className="grid grid-cols-2 gap-2">
-        {NOTE_STYLES.map((style) => (
+        {styles.map(style => (
           <button
             key={style.value}
             type="button"
@@ -26,8 +43,8 @@ export function StyleSelector({ value, onChange }: StyleSelectorProps) {
         ))}
       </div>
       <p className="text-xs text-gray-400 mt-1">
-        {NOTE_STYLES.find((s) => s.value === value)?.description}
+        {currentStyle?.description || '点击选择风格'}
       </p>
     </div>
-  );
+  )
 }

@@ -1,5 +1,7 @@
 # Key, Metadata, and Status Unification Implementation Plan
 
+> 状态：已完成主线收口。当前前端 lookup 统一使用 query 形式，后端对旧 key 兼容兜底，本计划保留为历史说明。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Unify the AI/video-library lookup key, metadata source, and status display so the same video can be found, analyzed, and displayed consistently across the library, panel, and backend without route errors or ambiguous identifiers.
@@ -299,4 +301,3 @@ Expected: no new errors introduced by the AI lookup changes; only pre-existing r
 git add apps/api/src/routers/note.py apps/api/src/services/ai/note_service.py apps/web/src/services/aiNote.ts apps/web/src/components/NewDownload/VideoLibrary.tsx apps/web/src/components/ai/AiNotePanel.tsx apps/web/src/components/ai/AiNoteModal.tsx apps/web/src/components/ai/AiNoteButton.tsx apps/web/src/components/NewDownload/index.css
 git commit -m "feat: unify ai note lookup and status routing"
 ```
-
