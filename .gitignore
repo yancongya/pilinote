@@ -129,3 +129,8 @@ apps/api/tools/windows/
 # 临时工作流文件
 .workflow/
 .worktrees/
+
+# AI 运行态缓存
+apps/api/data/ai_runtime_state.json
+apps/api/data/ai_runtime_state.migration.json
+apps/api/data/asr_models/*
