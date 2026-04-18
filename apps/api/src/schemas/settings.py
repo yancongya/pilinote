@@ -171,6 +171,10 @@ class NoteStyleSettings(BaseModel):
         default="concise", description="笔记风格 (concise/detailed/bullet)"
     )
     length: int = Field(default=500, ge=100, le=2000, description="目标长度")
+    custom_styles: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="自定义风格列表",
+    )
 
 
 class NoteFormatSettings(BaseModel):

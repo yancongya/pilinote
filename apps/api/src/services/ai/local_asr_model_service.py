@@ -250,7 +250,29 @@ class LocalASRModelService:
             if active_model_id not in {item["model_id"] for item in LOCAL_ASR_REGISTRY}:
                 active_model_id = "base"
                 self._state["active_model_id"] = active_model_id
-            return self._build_model_info(active_model_id)
+            active_model = self._build_model_info(active_model_id)
+            if active_model.ready:
+                return active_model
+
+            fallback_model_id = next(
+                (
+                    item["model_id"]
+                    for item in LOCAL_ASR_REGISTRY
+                    if self._state["models"].get(item["model_id"], {}).get("ready", False)
+                ),
+                None,
+            )
+            if fallback_model_id and fallback_model_id != active_model_id:
+                self._state["active_model_id"] = fallback_model_id
+                for item in LOCAL_ASR_REGISTRY:
+                    model_state = self._state["models"].setdefault(
+                        item["model_id"], ASRModelRuntimeState().__dict__.copy()
+                    )
+                    model_state["active"] = item["model_id"] == fallback_model_id
+                self._save_state()
+                return self._build_model_info(fallback_model_id)
+
+            return active_model
 
     def set_active_model(self, model_id: str) -> LocalASRModelInfo:
         with self._lock:

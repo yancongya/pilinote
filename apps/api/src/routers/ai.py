@@ -5,6 +5,7 @@ import logging
 
 from src.llm.factory import LLMClientFactory
 from src.llm.providers import LLMProvider
+from src.services.ai.ai_runtime_state_service import get_ai_runtime_state_service
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 logger = logging.getLogger(__name__)
@@ -70,6 +71,9 @@ async def test_model(request: TestModelRequest):
             temperature=0.1,
             max_tokens=10,
         )
+
+        runtime_state = get_ai_runtime_state_service()
+        runtime_state.merge_tested_model(provider_id, request.model)
 
         logger.info(f"模型测试成功: {request.provider}/{request.model}")
 

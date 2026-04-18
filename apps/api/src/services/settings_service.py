@@ -19,6 +19,7 @@ from src.schemas.settings import (
     ConcurrentLimit,
     AiNoteSettings,
 )
+from src.services.ai.ai_runtime_state_service import get_ai_runtime_state_service
 
 
 logger = logging.getLogger(__name__)
@@ -314,20 +315,24 @@ class SettingsService:
             "temperature": float(
                 self._get_setting_value(all_settings, "ai_note.llm.temperature", 0.7)
             ),
-            "tested_models": {},
+            "tested_models": get_ai_runtime_state_service().get_tested_models(),
         }
-        tested_models_setting = all_settings.get("ai_note.llm.tested_models")
-        if tested_models_setting:
-            try:
-                llm_dict["tested_models"] = json.loads(tested_models_setting.value)
-            except json.JSONDecodeError:
-                llm_dict["tested_models"] = {}
+        if not llm_dict["tested_models"]:
+            tested_models_setting = all_settings.get("ai_note.llm.tested_models")
+            if tested_models_setting:
+                try:
+                    llm_dict["tested_models"] = json.loads(tested_models_setting.value)
+                except json.JSONDecodeError:
+                    llm_dict["tested_models"] = {}
         style_dict = {
             "style": self._get_setting_value(
                 all_settings, "ai_note.style.style", "concise"
             ),
             "length": int(
                 self._get_setting_value(all_settings, "ai_note.style.length", 500)
+            ),
+            "custom_styles": self._get_json_setting(
+                all_settings, "ai_note.style.custom_styles", []
             ),
         }
         format_dict = {
@@ -377,6 +382,17 @@ class SettingsService:
         else:
             return value
 
+    def _get_json_setting(
+        self, all_settings: Dict[str, Setting], key: str, default: Any = None
+    ):
+        setting = all_settings.get(key)
+        if not setting:
+            return default
+        try:
+            return json.loads(setting.value)
+        except json.JSONDecodeError:
+            return default
+
     def update_setting(self, key: str, value: str) -> Optional[Setting]:
         """Update a single setting"""
         setting = self.get_setting(key)
@@ -394,10 +410,7 @@ class SettingsService:
             if "ai_note" in settings_dict and "llm" in settings_dict["ai_note"]:
                 llm_dict = settings_dict["ai_note"]["llm"]
                 if isinstance(llm_dict, dict) and "tested_models" in llm_dict:
-                    self._update_single_setting(
-                        "ai_note.llm.tested_models",
-                        llm_dict["tested_models"],
-                    )
+                    get_ai_runtime_state_service().set_tested_models(llm_dict["tested_models"])
                     del llm_dict["tested_models"]
 
             # 预先处理 custom_scan，将其作为JSON存储
@@ -474,6 +487,8 @@ class SettingsService:
         if isinstance(value, bool):
             str_value = str(value).lower()
         elif isinstance(value, dict):
+            str_value = json.dumps(value)
+        elif isinstance(value, list):
             str_value = json.dumps(value)
         else:
             str_value = str(value)
@@ -603,12 +618,12 @@ class SettingsService:
             # AI笔记设置默认值
             ai_note_defaults = {
                 "ai_note.llm.provider": "openai",
-                "ai_note.llm.model": "gpt-4o-mini",
-                "ai_note.llm.api_key": "",
-                "ai_note.llm.temperature": "0.7",
-                "ai_note.llm.tested_models": json.dumps({}),
-                "ai_note.style.style": "concise",
+            "ai_note.llm.model": "gpt-4o-mini",
+            "ai_note.llm.api_key": "",
+            "ai_note.llm.temperature": "0.7",
+            "ai_note.style.style": "concise",
                 "ai_note.style.length": "500",
+                "ai_note.style.custom_styles": json.dumps([]),
                 "ai_note.format.format": "markdown",
                 "ai_note.format.include_timestamp": "true",
                 "ai_note.format.include_summary": "true",

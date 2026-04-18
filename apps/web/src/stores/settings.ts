@@ -80,11 +80,16 @@ export interface Settings {
       model: string
       api_key: string
       temperature: number
-      tested_models?: Record<string, string[]>
     }
     style: {
       style: string
       length: number
+      custom_styles?: Array<{
+        value: string
+        label: string
+        description: string
+        prompt: string
+      }>
     }
     format: {
       format: string

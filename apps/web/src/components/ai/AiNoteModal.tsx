@@ -4,6 +4,8 @@ import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from
 import { useToast } from '../Toast'
 import { useSettingsStore } from '../../stores/settings'
 import { localAsrModelService } from '../../services/localAsrModels'
+import { useAiRuntimeState } from '../../hooks/useAiRuntimeState'
+import { aiRuntimeStateService } from '../../services/aiRuntimeState'
 
 interface AiNoteModalProps {
   videoId: string
@@ -84,6 +86,7 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
 
 export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose, onComplete }: AiNoteModalProps) {
   const { settings, fetchSettings } = useSettingsStore()
+  const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
   const [viewState, setViewState] = useState<ViewState>('config')
   const [selectedModel, setSelectedModel] = useState('')
@@ -110,6 +113,19 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
       fetchSettings()
     }
   }, [settings, fetchSettings, isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    aiRuntimeStateService.refresh().then(() => {
+      if (cancelled) return
+    }).catch(() => {
+      if (cancelled) return
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen && existingNote) {
@@ -191,15 +207,14 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
     const ai = settings?.ai_note
     if (!ai) return
     const provider = ai.llm.provider || 'openai'
-    const tested = ai.llm.tested_models || {}
-    const providerModels = tested[provider] || []
+    const providerModels = runtimeState.testedModels[provider] || []
     const nextModel = providerModels.includes(ai.llm.model)
       ? ai.llm.model
-      : (providerModels[0] || ai.llm.model || '')
+      : (providerModels[0] || '')
     setSelectedModel(nextModel)
     setStyle(ai.style.style || 'detailed')
     setFormats(['summary'])
-  }, [settings])
+  }, [settings, runtimeState.testedModels])
 
   useEffect(() => {
     if (!isOpen) return
@@ -217,9 +232,8 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   const activeProvider = settings?.ai_note?.llm?.provider || 'openai'
 
   const providerModels = useMemo(() => {
-    const tested = settings?.ai_note?.llm?.tested_models || {}
-    return tested[activeProvider] || []
-  }, [settings, activeProvider])
+    return runtimeState.testedModels[activeProvider] || []
+  }, [runtimeState.testedModels, activeProvider])
 
   const availableStyles = useMemo(() => {
     const customStyles: StyleOption[] = Array.isArray((settings as any)?.ai_note?.style?.custom_styles)

@@ -1,6 +1,7 @@
 import { useState, useRef, forwardRef, useImperativeHandle, useEffect, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
 import { useSettingsStore } from '../../stores/settings'
+import { useAiRuntimeState } from '../../hooks/useAiRuntimeState'
 import { 
   Brain, 
   Key, 
@@ -9,19 +10,22 @@ import {
   Plus,
   Trash2,
   Edit2,
-  X,
   RotateCcw,
-  Check,
   Bot,
   Cpu,
   Cloud,
   Server,
   CheckCircle,
-  Loader2
+  Loader2,
+  Layers3,
+  FileText,
+  LayoutGrid,
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
-import AiPromptTemplates from './AiPromptTemplates'
 import { LocalAsrModelPanel } from '../../components/ai/LocalAsrModelPanel'
+import AiPromptTemplates, { PROMPT_TEMPLATE_CARDS, type PromptTemplateMeta } from './AiPromptTemplates'
+import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
+import { aiRuntimeStateService } from '../../services/aiRuntimeState'
 
 interface LLMProvider {
   id: string
@@ -33,34 +37,13 @@ interface LLMProvider {
   isCustom?: boolean
 }
 
-interface NoteStyle {
-  value: string
-  label: string
-  description: string
-  prompt?: string
-}
-
 interface AiNoteSettingsRef {
   hasUnsavedChanges: () => boolean
   saveSettings: () => Promise<void>
   getSavedStatus: () => 'idle' | 'saving' | 'saved' | 'error'
 }
 
-const SETTINGS_STYLE_CARDS: NoteStyle[] = [
-  { value: 'minimal', label: '精简', description: '仅记录最重要的内容', prompt: '请简洁总结视频要点' },
-  { value: 'detailed', label: '详细', description: '包含完整内容和详细讨论', prompt: '请详细总结视频内容' },
-  { value: 'academic', label: '学术', description: '正式结构化，适合学术报告', prompt: '请以学术风格总结' },
-  { value: 'tutorial', label: '教程', description: '详细记录关键点和结论', prompt: '请以教程风格总结关键点' },
-  { value: 'xiaohongshu', label: '小红书', description: '爆款标题、emoji表达', prompt: '请以小红书风格总结' },
-  { value: 'life_journal', label: '生活向', description: '情感化表达，记录生活感悟', prompt: '请以生活感悟风格总结' },
-  { value: 'task_oriented', label: '任务导向', description: '强调任务和目标', prompt: '请以任务导向风格总结' },
-  { value: 'business', label: '商业风格', description: '正式精准，适合商业报告', prompt: '请以商业风格总结' },
-  { value: 'meeting_minutes', label: '会议纪要', description: '突出决策和行动项', prompt: '请以会议纪要格式总结' },
-]
-
 const STORAGE_KEY_PROVIDERS = 'pilinote_llm_providers'
-const STORAGE_KEY_STYLES = 'pilinote_custom_styles'
-
 const DEFAULT_PROVIDERS: LLMProvider[] = [
   { id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', apiKey: '', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'], isDefault: true },
   { id: 'claude', name: 'Claude', baseUrl: 'https://api.anthropic.com', apiKey: '', models: ['claude-sonnet-4-20250614', 'claude-opus-4-20250514', 'claude-haiku-3-20250620'], isDefault: true },
@@ -73,18 +56,6 @@ const DEFAULT_PROVIDERS: LLMProvider[] = [
   { id: 'zhipu', name: '智谱清言', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', apiKey: '', models: ['glm-4-plus', 'glm-4-air', 'glm-4-flash'], isDefault: true },
   { id: 'minimax', name: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', apiKey: '', models: ['abab6.5s-chat', 'abab6.5-chat', 'abab6.5t-chat'], isDefault: true },
   { id: 'baidu', name: '文心一言', baseUrl: 'https://qianfan.baidubce.com/v2', apiKey: '', models: ['ernie-4.0', 'ernie-3.5-128k', 'ernie-lite-8k'], isDefault: true },
-]
-
-const DEFAULT_STYLES: NoteStyle[] = [
-  { value: 'minimal', label: '精简', description: '仅记录最重要的内容', prompt: '请简洁总结视频要点' },
-  { value: 'detailed', label: '详细', description: '包含完整内容和详细讨论', prompt: '请详细总结视频内容' },
-  { value: 'academic', label: '学术', description: '正式结构化，适合学术报告', prompt: '请以学术风格总结' },
-  { value: 'tutorial', label: '教程', description: '详细记录关键点和结论', prompt: '请以教程风格总结关键点' },
-  { value: 'xiaohongshu', label: '小红书', description: '爆款标题、emoji表达', prompt: '请以小红书风格总结' },
-  { value: 'life_journal', label: '生活向', description: '情感化表达，记录生活感悟', prompt: '请以生活感悟风格总结' },
-  { value: 'task_oriented', label: '任务导向', description: '强调任务和目标', prompt: '请以任务导向风格总结' },
-  { value: 'business', label: '商业风格', description: '正式精准，适合商业报告', prompt: '请以商业风格总结' },
-  { value: 'meeting_minutes', label: '会议纪要', description: '突出决策和行动项', prompt: '请以会议纪要格式总结' },
 ]
 
 const providerIconMap: Record<string, ReactElement> = {
@@ -104,6 +75,7 @@ const providerIconMap: Record<string, ReactElement> = {
 
 const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const { settings, updateSettings, fetchSettings } = useSettingsStore()
+  const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
   
   const [localSettings, setLocalSettings] = useState({
@@ -116,6 +88,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     style: {
       style: 'detailed',
       length: 500,
+      custom_styles: [] as Array<{ value: string; label: string; description: string; prompt: string }>,
     },
     format: {
       format: 'markdown',
@@ -133,17 +106,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [providerForm, setProviderForm] = useState({ name: '', baseUrl: '', apiKey: '', models: '' })
   const [showApiKey, setShowApiKey] = useState(false)
   
-  // 风格列表
-  const [customStyles, setCustomStyles] = useState<NoteStyle[]>([])
-  const [activeStyleId, setActiveStyleId] = useState('detailed')
-  const [editingStyle, setEditingStyle] = useState<NoteStyle | null>(null)
-  const [styleForm, setStyleForm] = useState({ label: '', description: '', prompt: '' })
-  const [showStyleModal, setShowStyleModal] = useState(false)
-  const [showPromptTemplatesModal, setShowPromptTemplatesModal] = useState(false)
+  const [promptTemplates, setPromptTemplates] = useState<Record<string, any>>({})
+  const [defaultPromptTemplates, setDefaultPromptTemplates] = useState<Record<string, any>>({})
+  const [selectedPromptCard, setSelectedPromptCard] = useState<PromptTemplateMeta | null>(null)
+  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'基础' | '分层' | '风格' | '格式'>('基础')
+  const [customStyles, setCustomStyles] = useState<Array<{ value: string; label: string; description: string; prompt: string }>>([])
+  const [showCreateStyleModal, setShowCreateStyleModal] = useState(false)
+  const [createStyleForm, setCreateStyleForm] = useState({ label: '', description: '', prompt: '' })
   const [modelEditIndex, setModelEditIndex] = useState<number | null>(null)
   const [modelDraft, setModelDraft] = useState('')
   const [modelTestStatus, setModelTestStatus] = useState<Record<string, boolean | 'loading'>>({})
-  const [testedModels, setTestedModels] = useState<Record<string, string[]>>({})
   const providerTabsRef = useRef<HTMLDivElement | null>(null)
   const providerBarRef = useRef<HTMLDivElement | null>(null)
   const providerThumbDragState = useRef({
@@ -157,9 +129,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     clientWidth: 0,
   })
 
+  const setNestedValue = (obj: Record<string, any>, path: string[], value: any) => {
+    let cursor: any = obj
+    for (let i = 0; i < path.length - 1; i += 1) {
+      const key = path[i]
+      if (typeof cursor[key] !== 'object' || cursor[key] === null) {
+        cursor[key] = {}
+      }
+      cursor = cursor[key]
+    }
+    cursor[path[path.length - 1]] = value
+  }
+
   // 加载数据
   useEffect(() => {
-    try {
+    const load = async () => {
       const savedProviders = localStorage.getItem(STORAGE_KEY_PROVIDERS)
       const parsedProviders: LLMProvider[] = savedProviders ? JSON.parse(savedProviders) : []
       const providerMap = new Map<string, LLMProvider>()
@@ -171,13 +155,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         providerMap.set(provider.id, provider)
       })
       setProviders(Array.from(providerMap.values()))
-      
-      const savedStyles = localStorage.getItem(STORAGE_KEY_STYLES)
-      setCustomStyles(savedStyles ? JSON.parse(savedStyles) : [])
 
       const currentAiNote = settings?.ai_note
       if (currentAiNote) {
-          setLocalSettings({
+        setLocalSettings({
           llm: {
             provider: currentAiNote.llm.provider,
             model: currentAiNote.llm.model,
@@ -187,6 +168,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           style: {
             style: currentAiNote.style.style,
             length: currentAiNote.style.length,
+            custom_styles: currentAiNote.style.custom_styles || [],
           },
           format: {
             format: currentAiNote.format.format,
@@ -195,14 +177,27 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           },
           auto_analyze: currentAiNote.auto_analyze,
           })
-          setTestedModels(currentAiNote.llm.tested_models || {})
           setActiveProviderId(currentAiNote.llm.provider || 'openai')
-          setActiveStyleId(currentAiNote.style.style || 'detailed')
+          setCustomStyles(currentAiNote.style.custom_styles || [])
         }
-    } catch (e) {
-      setProviders(DEFAULT_PROVIDERS)
+
+      try {
+        const [currentRes, defaultRes] = await Promise.all([
+          aiPromptTemplatesService.getTemplates(),
+          aiPromptTemplatesService.getDefaultTemplates(),
+        ])
+        setPromptTemplates(currentRes.templates || {})
+        setDefaultPromptTemplates(defaultRes.templates || {})
+      } catch (error) {
+        showToast(`加载 prompt 模板失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+      }
+
+      await aiRuntimeStateService.refresh()
     }
-  }, [settings?.ai_note])
+    load().catch(() => {
+      setProviders(DEFAULT_PROVIDERS)
+    })
+  }, [settings?.ai_note, showToast])
 
   useEffect(() => {
     const container = providerTabsRef.current
@@ -242,13 +237,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     const mergedProviders = Array.from(providerMap.values())
     setProviders(mergedProviders)
     localStorage.setItem(STORAGE_KEY_PROVIDERS, JSON.stringify(mergedProviders))
-  }
-
-  const resolveStyles = () => {
-    const customMap = new Map(customStyles.map(style => [style.value, style]))
-    return SETTINGS_STYLE_CARDS.map(style => customMap.get(style.value) || style).concat(
-      customStyles.filter(style => !SETTINGS_STYLE_CARDS.some(defaultStyle => defaultStyle.value === style.value))
-    )
   }
 
   // 添加/编辑服务商
@@ -316,63 +304,147 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     }
   }
 
-  // 风格管理
-  const handleAddStyle = () => {
-    setEditingStyle({ value: `custom_${Date.now()}`, label: '', description: '', prompt: '' })
-    setStyleForm({ label: '', description: '', prompt: '' })
-    setShowStyleModal(true)
+  const currentProvider = providers.find(p => p.id === activeProviderId)
+  const promptCategoryIcons = {
+    基础: FileText,
+    分层: Layers3,
+    风格: Sparkles,
+    格式: LayoutGrid,
+  } as const
+
+  const promptCardData = useMemo(() => {
+    const builtinCards = PROMPT_TEMPLATE_CARDS.map(card => {
+      const currentValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), promptTemplates)
+      const defaultValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), defaultPromptTemplates)
+      const currentText = Array.isArray(currentValue)
+        ? currentValue.join('\n')
+        : typeof currentValue === 'string'
+          ? currentValue
+          : ''
+      const defaultText = Array.isArray(defaultValue)
+        ? defaultValue.join('\n')
+        : typeof defaultValue === 'string'
+          ? defaultValue
+          : ''
+      return {
+        ...card,
+        preview: currentText || defaultText || '点击编辑',
+        modified: currentText !== defaultText,
+      }
+    })
+    const styleCards = customStyles.map(style => {
+      const key = `t3.${style.value}`
+      const currentValue = promptTemplates?.layers?.t3?.[style.value]
+      const defaultValue = defaultPromptTemplates?.layers?.t3?.[style.value]
+      const currentText = typeof currentValue === 'string' ? currentValue : ''
+      const defaultText = typeof defaultValue === 'string' ? defaultValue : ''
+      return {
+        key,
+        title: style.label || '未命名风格',
+        category: '风格',
+        path: ['layers', 't3', style.value],
+        kind: 'text' as const,
+        preview: currentText || style.prompt || defaultText || '点击编辑',
+        modified: currentText !== defaultText,
+        isCustomStyle: true,
+        styleValue: style.value,
+        styleLabel: style.label,
+        styleDescription: style.description,
+        stylePrompt: style.prompt,
+      }
+    })
+    return [...builtinCards, ...styleCards]
+  }, [customStyles, defaultPromptTemplates, promptTemplates])
+  const visiblePromptCards = useMemo(
+    () => promptCardData.filter(card => card.category === selectedPromptCategory),
+    [promptCardData, selectedPromptCategory],
+  )
+
+  const handleOpenPromptCard = (card: PromptTemplateMeta) => {
+    setSelectedPromptCard(card)
   }
 
-  const handleEditStyle = (s: NoteStyle) => {
-    setEditingStyle(s)
-    setStyleForm({ label: s.label, description: s.description, prompt: s.prompt || '' })
-    setShowStyleModal(true)
+  const handleResetPromptCard = async (card: any) => {
+    try {
+      if (card.isCustomStyle) {
+        const nextCustomStyles = customStyles.filter(style => style.value !== card.styleValue)
+        setCustomStyles(nextCustomStyles)
+        await updateSettings({
+          ai_note: {
+            ...(settings?.ai_note || {}),
+            style: {
+              ...(settings?.ai_note?.style || {}),
+              custom_styles: nextCustomStyles,
+            } as any,
+          } as any,
+        })
+
+        const currentTemplates = await aiPromptTemplatesService.getTemplates()
+        const nextTemplates = currentTemplates.templates || {}
+        if (nextTemplates?.layers?.t3) {
+          delete nextTemplates.layers.t3[card.styleValue]
+        }
+        await aiPromptTemplatesService.saveTemplates(nextTemplates)
+        await fetchSettings()
+        showToast('已重置自定义风格', 'success')
+        return
+      }
+
+      const defaults = defaultPromptTemplates
+      const current = promptTemplates
+      const nextTemplates = JSON.parse(JSON.stringify(current))
+      const defaultValue = card.path.reduce((cursor: any, key: string) => (cursor ? cursor[key] : undefined), defaults as Record<string, any>)
+      if (card.kind === 'lines') {
+        setNestedValue(nextTemplates, card.path, Array.isArray(defaultValue) ? defaultValue : [])
+      } else {
+        setNestedValue(nextTemplates, card.path, typeof defaultValue === 'string' ? defaultValue : '')
+      }
+      await aiPromptTemplatesService.saveTemplates(nextTemplates)
+      setPromptTemplates(nextTemplates)
+      showToast('已重置为默认模板', 'success')
+    } catch (error) {
+      showToast(`重置失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    }
   }
 
-  const saveStyles = (newStyles: NoteStyle[]) => {
-    setCustomStyles(newStyles)
-    localStorage.setItem(STORAGE_KEY_STYLES, JSON.stringify(newStyles))
-  }
-
-  const handleDeleteStyle = (value: string) => {
-    const newStyles = customStyles.filter(s => s.value !== value)
-    saveStyles(newStyles)
-    showToast('已删除', 'success')
-  }
-
-  const handleSaveStyle = () => {
-    if (!styleForm.label.trim()) {
+  const handleCreateCustomStyle = async () => {
+    if (!createStyleForm.label.trim()) {
       showToast('请输入风格名称', 'error')
       return
     }
-    
-    const value = editingStyle?.value || `custom_${Date.now()}`
-    const newStyle: NoteStyle = {
+    const value = `custom_${Date.now()}`
+    const newStyle = {
       value,
-      label: styleForm.label.trim(),
-      description: styleForm.description.trim(),
-      prompt: styleForm.prompt.trim()
+      label: createStyleForm.label.trim(),
+      description: createStyleForm.description.trim(),
+      prompt: createStyleForm.prompt.trim(),
     }
-    
-    const existingIndex = customStyles.findIndex(s => s.value === editingStyle?.value)
-    let newStyles: NoteStyle[]
-    if (editingStyle && existingIndex >= 0) {
-      newStyles = customStyles.map(s => s.value === editingStyle.value ? newStyle : s)
-    } else if (editingStyle) {
-      newStyles = [...customStyles.filter(s => s.value !== editingStyle.value), newStyle]
-    } else {
-      newStyles = [...customStyles.filter(s => s.value !== newStyle.value), newStyle]
+    const nextCustomStyles = [...customStyles, newStyle]
+    try {
+      const nextTemplates = JSON.parse(JSON.stringify(promptTemplates))
+      if (!nextTemplates.layers) nextTemplates.layers = {}
+      if (!nextTemplates.layers.t3) nextTemplates.layers.t3 = {}
+      nextTemplates.layers.t3[value] = newStyle.prompt
+      await aiPromptTemplatesService.saveTemplates(nextTemplates)
+      await updateSettings({
+        ai_note: {
+          ...(settings?.ai_note || {}),
+          style: {
+            ...(settings?.ai_note?.style || {}),
+            custom_styles: nextCustomStyles,
+          } as any,
+        } as any,
+      })
+      setPromptTemplates(nextTemplates)
+      setCustomStyles(nextCustomStyles)
+      setCreateStyleForm({ label: '', description: '', prompt: '' })
+      setShowCreateStyleModal(false)
+      setSelectedPromptCategory('风格')
+      showToast('已创建新风格', 'success')
+    } catch (error) {
+      showToast(`创建失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
     }
-    
-    saveStyles(newStyles)
-    setEditingStyle(null)
-    setStyleForm({ label: '', description: '', prompt: '' })
-    setShowStyleModal(false)
-    showToast(editingStyle ? '已更新' : '已添加', 'success')
   }
-
-  const currentProvider = providers.find(p => p.id === activeProviderId)
-  const allStyles = resolveStyles()
 
   const beginEditModel = (index: number, currentValue: string) => {
     setModelEditIndex(index)
@@ -434,11 +506,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           model: modelName,
         },
       }))
-      const nextTestedModels = {
-        ...testedModels,
-        [provider.id]: Array.from(new Set([...(testedModels[provider.id] || []), modelName])),
-      }
-      setTestedModels(nextTestedModels)
       await updateSettings({
         ai_note: {
           ...(settings?.ai_note || {}),
@@ -448,11 +515,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             model: modelName,
             api_key: localSettings.llm.api_key,
             temperature: localSettings.llm.temperature,
-            tested_models: nextTestedModels,
           },
           style: {
             ...(settings?.ai_note?.style || {}),
             ...localSettings.style,
+            custom_styles: customStyles,
           },
           format: {
             ...(settings?.ai_note?.format || {}),
@@ -461,6 +528,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           auto_analyze: localSettings.auto_analyze,
         },
       })
+      await aiRuntimeStateService.recordTestedModel(provider.id, modelName)
       await fetchSettings()
       showToast(`模型测试通过: ${modelName}`, 'success')
     } catch (error) {
@@ -528,6 +596,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     bar.classList.remove('dragging')
   }
 
+  const runtimeTestedModelsForActiveProvider = useMemo(
+    () => runtimeState.testedModels[currentProvider?.id || activeProviderId] || [],
+    [runtimeState.testedModels, currentProvider?.id, activeProviderId],
+  )
+
   useImperativeHandle(ref, () => ({
     hasUnsavedChanges: () => false,
     saveSettings: async () => {
@@ -544,12 +617,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           llm: {
             ...currentAiNote.llm,
             ...localSettings.llm,
-            tested_models: testedModels,
           },
-            style: {
-              ...currentAiNote.style,
-              ...localSettings.style,
-            },
+          style: {
+            ...currentAiNote.style,
+            ...localSettings.style,
+            custom_styles: customStyles,
+          },
             format: {
               ...currentAiNote.format,
               ...localSettings.format,
@@ -559,7 +632,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         })
         await fetchSettings()
       setActiveProviderId(localSettings.llm.provider)
-      setActiveStyleId(localSettings.style.style)
         setSavedStatus('saved')
         setTimeout(() => setSavedStatus('idle'), 2000)
       } catch (error) {
@@ -580,10 +652,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             AI 服务商
           </h3>
           <div className="settings-group-actions">
-            <button className="settings-add-btn settings-secondary-btn" onClick={() => setShowPromptTemplatesModal(true)}>
-              <Sparkles size={16} />
-              提示词模板
-            </button>
             <button className="settings-add-btn" onClick={handleAddProvider}>
               <Plus size={16} />
               新建
@@ -750,14 +818,14 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     ) : (
                       <button
                         type="button"
-                        className={`settings-model-btn ${modelTestStatus[m] === true ? 'tested' : ''}`}
+                        className={`settings-model-btn ${runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? 'tested' : ''}`}
                         onClick={() => testModel(currentProvider.id, m)}
                       >
                         <span>{m}</span>
                         <span className="model-btn-status">
                           {modelTestStatus[m] === 'loading' ? (
                             <Loader2 size={12} className="spin" />
-                          ) : modelTestStatus[m] === true ? (
+                          ) : runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? (
                             <CheckCircle size={12} />
                           ) : null}
                         </span>
@@ -794,130 +862,152 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
       <LocalAsrModelPanel />
 
-      {/* 风格预设 */}
+      {/* prompt 管理 */}
       <div className="settings-group">
         <div className="settings-group-header">
           <h3 className="settings-group-title">
             <Sparkles size={18} />
-            笔记风格
+            prompt管理
           </h3>
-          <button className="settings-add-btn" onClick={handleAddStyle}>
-            <Plus size={16} />
-            新建
-          </button>
         </div>
-        
-        <div className="settings-style-grid">
-          {allStyles.map(s => (
-            <div 
-              key={s.value} 
-              className={`settings-style-card ${activeStyleId === s.value ? 'active' : ''}`}
-              onClick={() => handleEditStyle(s)}
-            >
-              <div className="settings-style-card-top">
-                <span className="settings-style-card-badge">
-                  {s.value.startsWith('custom_') ? '自定义' : '默认'}
-                </span>
-                <div className="settings-style-card-meta">
-                  {s.value.startsWith('custom_') ? (
-                    <button
-                      type="button"
-                      className="settings-style-card-action danger"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteStyle(s.value); }}
-                      title="删除"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="settings-style-card-action danger"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        const defaultStyle = DEFAULT_STYLES.find(d => d.value === s.value)
-                        if (!defaultStyle) return
-                        const newStyles = customStyles.filter(style => style.value !== s.value)
-                        saveStyles(newStyles)
-                        setActiveStyleId(defaultStyle.value)
-                        setLocalSettings(prev => ({
-                          ...prev,
-                          style: { ...prev.style, style: defaultStyle.value }
-                        }))
-                        showToast('已重置', 'success')
-                      }}
-                      title="重置"
-                    >
-                      <RotateCcw size={11} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="settings-style-card-header">
-                <span className="settings-style-card-label">{s.label}</span>
-                {activeStyleId === s.value && <Check size={14} className="settings-check" />}
-              </div>
-              <p className="settings-style-card-desc">{s.description}</p>
-            </div>
-          ))}
-        </div>
-
-        {showStyleModal && editingStyle && (
-          <div className="settings-modal-overlay" onClick={() => { setShowStyleModal(false); setEditingStyle(null); setStyleForm({ label: '', description: '', prompt: '' }) }}>
-            <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="settings-modal-header">
-                <h4>{editingStyle.value.startsWith('custom_') ? '编辑风格' : '修改风格'}</h4>
-                <button
-                  type="button"
-                  className="settings-modal-close"
-                  onClick={() => { setShowStyleModal(false); setEditingStyle(null); setStyleForm({ label: '', description: '', prompt: '' }) }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="settings-modal-body">
-                <div className="settings-item">
-                  <label className="settings-label">风格名称</label>
-                  <input
-                    type="text"
-                    className="settings-input"
-                    value={styleForm.label}
-                    onChange={(e) => setStyleForm(prev => ({ ...prev, label: e.target.value }))}
-                  />
-                </div>
-                <div className="settings-item">
-                  <label className="settings-label">描述</label>
-                  <textarea
-                    className="settings-textarea"
-                    value={styleForm.description}
-                    onChange={(e) => setStyleForm(prev => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-                <div className="settings-item">
-                  <label className="settings-label">Prompt提示词</label>
-                  <textarea
-                    className="settings-textarea"
-                    value={styleForm.prompt}
-                    onChange={(e) => setStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div className="settings-modal-footer">
-                <button className="settings-btn-secondary" onClick={() => { setShowStyleModal(false); setEditingStyle(null); setStyleForm({ label: '', description: '', prompt: '' }) }}>
-                  取消
-                </button>
-                <button className="settings-btn-primary" onClick={handleSaveStyle}>
-                  保存
-                </button>
-              </div>
+        <div className="settings-style-section">
+          <div className="settings-style-section-title settings-style-section-title-row">
+            <span>{selectedPromptCategory}</span>
+            <div className="settings-style-category-switcher">
+              {(Object.keys(promptCategoryIcons) as Array<keyof typeof promptCategoryIcons>).map(category => {
+                const Icon = promptCategoryIcons[category]
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    className={`settings-style-category-btn ${selectedPromptCategory === category ? 'active' : ''}`}
+                    onClick={() => setSelectedPromptCategory(category)}
+                    title={category}
+                  >
+                    <Icon size={14} />
+                  </button>
+                )
+              })}
             </div>
           </div>
-        )}
+          <div className="settings-style-grid">
+            {visiblePromptCards.map(card => {
+              const data = promptCardData.find(item => item.key === card.key)
+              return (
+                <div
+                    key={card.key}
+                    className={`settings-style-card ${data?.modified ? 'active' : ''}`}
+                  onClick={() => handleOpenPromptCard(card)}
+                    role="button"
+                    tabIndex={0}
+                    title="点击编辑 prompt"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleOpenPromptCard(card)
+                      }
+                    }}
+                  >
+                  <div className="settings-style-card-top">
+                    <span className="settings-style-card-badge">{card.category}</span>
+                    <div className="settings-style-card-meta">
+                      <button
+                        type="button"
+                        className="settings-style-card-action"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleResetPromptCard(card)
+                        }}
+                        title="重置"
+                      >
+                        <RotateCcw size={11} />
+                      </button>
+                      {data?.modified && <span className="settings-style-card-status">已修改</span>}
+                    </div>
+                  </div>
+                  <div className="settings-style-card-header">
+                    <span className="settings-style-card-label">{card.title}</span>
+                  </div>
+                  <p className="settings-style-card-desc">{data?.preview || '点击编辑'}</p>
+                </div>
+              )
+            })}
+            {selectedPromptCategory === '风格' && (
+              <button
+                type="button"
+                className="settings-style-card settings-style-card-create"
+                onClick={() => setShowCreateStyleModal(true)}
+              >
+                <div className="settings-style-card-top">
+                  <span className="settings-style-card-badge">新建</span>
+                </div>
+                <div className="settings-style-card-header">
+                  <span className="settings-style-card-label">＋</span>
+                </div>
+                <p className="settings-style-card-desc">创建新的风格</p>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <AiPromptTemplates
-        isOpen={showPromptTemplatesModal}
-        onClose={() => setShowPromptTemplatesModal(false)}
+        isOpen={Boolean(selectedPromptCard)}
+        onClose={() => setSelectedPromptCard(null)}
+        card={selectedPromptCard}
       />
+
+      {showCreateStyleModal && (
+        <div className="settings-modal-overlay" onClick={() => setShowCreateStyleModal(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-modal-header">
+              <h4>创建新风格</h4>
+              <button
+                type="button"
+                className="settings-modal-close"
+                onClick={() => setShowCreateStyleModal(false)}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <div className="settings-modal-body">
+              <div className="settings-item">
+                <label className="settings-label">风格名称</label>
+                <input
+                  type="text"
+                  className="settings-input"
+                  value={createStyleForm.label}
+                  onChange={(e) => setCreateStyleForm(prev => ({ ...prev, label: e.target.value }))}
+                />
+              </div>
+              <div className="settings-item">
+                <label className="settings-label">描述</label>
+                <textarea
+                  className="settings-textarea"
+                  value={createStyleForm.description}
+                  onChange={(e) => setCreateStyleForm(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div className="settings-item">
+                <label className="settings-label">Prompt</label>
+                <textarea
+                  className="settings-textarea"
+                  value={createStyleForm.prompt}
+                  onChange={(e) => setCreateStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="settings-modal-footer">
+              <button className="settings-btn-secondary" onClick={() => setShowCreateStyleModal(false)}>
+                取消
+              </button>
+              <button className="settings-btn-primary" onClick={handleCreateCustomStyle}>
+                创建
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 自动功能 */}
       <div className="settings-group">
@@ -1600,6 +1690,51 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 6px;
+        }
+
+        .settings-style-section {
+          display: grid;
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .settings-style-section-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-secondary);
+          letter-spacing: 0.02em;
+        }
+
+        .settings-style-section-title-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .settings-style-category-switcher {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .settings-style-category-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          background: var(--color-bg-primary);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+
+        .settings-style-category-btn.active {
+          background: var(--color-primary-600);
+          border-color: var(--color-primary-600);
+          color: white;
         }
 
         .settings-style-card {

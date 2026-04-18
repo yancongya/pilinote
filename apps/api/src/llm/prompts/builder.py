@@ -40,15 +40,22 @@ class PromptBuilder:
         prompt_parts.append(PromptBuilder._render_section(layers.get("t1", "## T1 视频文本\n{content}"), t1_text))
 
         if level == "simple":
-            t2_template = layers.get("t2", {}).get("simple", "## T2 详细程度\n请输出简单版本：只保留核心观点、关键结论和必要结构，压缩背景和重复信息。")
+            t2_template = layers.get("t2", {}).get(
+                "simple",
+                "## T2 详细程度\n请输出简单版本：只保留核心观点、关键结论和必要结构，压缩背景和重复信息。",
+            )
         else:
-            t2_template = layers.get("t2", {}).get("detailed", "## T2 详细程度\n请输出详细版本：保留上下文、因果关系、关键细节、例子和章节组织，并补足必要分析。")
+            t2_template = layers.get("t2", {}).get(
+                "detailed",
+                "## T2 详细程度\n请输出详细版本：保留上下文、因果关系、关键细节、例子和章节组织，并补足必要分析。",
+            )
         prompt_parts.append(t2_template)
 
         t3_template = layers.get("t3", {}).get(
-            style, "保持清晰、结构化、可读。"
+            style,
+            "保持清晰、结构化、可读，仅作为表达风格，不要引入新的事实或信息。",
         )
-        prompt_parts.append("## T3 风格\n" + t3_template)
+        prompt_parts.append("## T3 笔记风格\n" + t3_template)
 
         if formats:
             format_templates = layers.get("formats", {})

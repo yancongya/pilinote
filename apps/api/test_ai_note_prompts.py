@@ -75,13 +75,13 @@ def test_build_prompt_with_all_formats():
     assert "T1 视频文本" in prompt
     assert "这是视频的转写内容" in prompt
     assert "T2 详细程度" in prompt
-    assert "T3 风格" in prompt
+    assert "T3 笔记风格" in prompt
     assert "高级功能预留" in prompt
     assert "目录" in prompt
     assert "原片跳转" in prompt
     assert "原片截图" in prompt
     assert "AI 总结" in prompt
-    assert "详细记录" in prompt
+    assert "完整、结构化" in prompt or "详细版本" in prompt
     print("✓ 完整格式 Prompt 构建成功")
 
 
@@ -102,8 +102,8 @@ def test_build_prompt_xiaohongshu_style():
         t1_text="内容",
         style="xiaohongshu",
     )
-    assert "小红书风格" in prompt
-    assert "爆款关键词" in prompt
+    assert "T3 笔记风格" in prompt
+    assert "适合分享" in prompt or "标题感" in prompt
     print("✓ 小红书风格 Prompt 构建成功")
 
 

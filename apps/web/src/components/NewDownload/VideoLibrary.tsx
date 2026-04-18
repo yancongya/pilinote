@@ -200,6 +200,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                 status={aiNoteStatus}
                 onClick={handleAiNoteClick}
                 disabled={!existingNote && !isLocalAsrReady}
+                style={hasMultipleVideos ? { right: '56px', zIndex: 30 } : { zIndex: 30 }}
               />
             )}
           </div>
