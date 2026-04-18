@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 class SettingsService:
     """Settings management service"""
 
+    _LLM_MIRROR_KEYS = ("provider", "base_url", "model", "api_key", "temperature")
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -303,17 +305,61 @@ class SettingsService:
             ),
         )
 
-        # 提取ai_note设置
-        llm_dict = {
+        # 读取统一 LLM 配置
+        llm_providers = self._get_json_setting(all_settings, "llm.providers", [])
+        if not isinstance(llm_providers, list):
+            llm_providers = []
+        unified_llm_dict = {
             "provider": self._get_setting_value(
-                all_settings, "ai_note.llm.provider", "openai"
+                all_settings,
+                "llm.provider",
+                self._get_setting_value(all_settings, "ai_note.llm.provider", "openai"),
+            ),
+            "base_url": self._get_setting_value(
+                all_settings,
+                "llm.base_url",
+                self._get_setting_value(all_settings, "ai_note.llm.base_url", ""),
             ),
             "model": self._get_setting_value(
-                all_settings, "ai_note.llm.model", "gpt-4o-mini"
+                all_settings,
+                "llm.model",
+                self._get_setting_value(all_settings, "ai_note.llm.model", "gpt-4o-mini"),
             ),
-            "api_key": self._get_setting_value(all_settings, "ai_note.llm.api_key", ""),
+            "api_key": self._get_setting_value(
+                all_settings,
+                "llm.api_key",
+                self._get_setting_value(all_settings, "ai_note.llm.api_key", ""),
+            ),
             "temperature": float(
-                self._get_setting_value(all_settings, "ai_note.llm.temperature", 0.7)
+                self._get_setting_value(
+                    all_settings,
+                    "llm.temperature",
+                    self._get_setting_value(all_settings, "ai_note.llm.temperature", 0.7),
+                )
+            ),
+            "providers": llm_providers,
+        }
+
+        # 提取ai_note设置（兼容旧字段，默认跟随统一 LLM 配置）
+        ai_note_llm_dict = {
+            "provider": self._get_setting_value(
+                all_settings, "ai_note.llm.provider", unified_llm_dict["provider"]
+            ),
+            "base_url": self._get_setting_value(
+                all_settings, "ai_note.llm.base_url", unified_llm_dict["base_url"]
+            ),
+            "model": self._get_setting_value(
+                all_settings, "ai_note.llm.model", unified_llm_dict["model"]
+            ),
+            "api_key": self._get_setting_value(
+                all_settings, "ai_note.llm.api_key", unified_llm_dict["api_key"]
+            ),
+            "temperature": float(
+                self._get_setting_value(
+                    all_settings,
+                    "ai_note.llm.temperature",
+                    unified_llm_dict["temperature"],
+                )
             ),
         }
         style_dict = {
@@ -337,7 +383,7 @@ class SettingsService:
             ),
         }
         ai_note_settings = AiNoteSettings(
-            llm=llm_dict,
+            llm=ai_note_llm_dict,
             style=style_dict,
             format=format_dict,
             auto_analyze=self._get_setting_value(
@@ -350,6 +396,7 @@ class SettingsService:
             storage=storage_settings,
             general=general_settings,
             auto_download=auto_download_settings,
+            llm=unified_llm_dict,
             ai_note=ai_note_settings,
         )
 
@@ -383,6 +430,21 @@ class SettingsService:
         except json.JSONDecodeError:
             return default
 
+    def _mirror_llm_fields(
+        self, source: Dict[str, Any], target: Dict[str, Any], overwrite: bool = False
+    ) -> None:
+        """将 LLM 字段在不同配置块之间同步。"""
+        if not isinstance(source, dict) or not isinstance(target, dict):
+            return
+
+        for key in self._LLM_MIRROR_KEYS:
+            if key not in source:
+                continue
+
+            target_value = target.get(key)
+            if overwrite or key not in target or target_value in (None, ""):
+                target[key] = source[key]
+
     def update_setting(self, key: str, value: str) -> Optional[Setting]:
         """Update a single setting"""
         setting = self.get_setting(key)
@@ -396,12 +458,31 @@ class SettingsService:
     def update_settings(self, settings_dict: Dict[str, Any]) -> bool:
         """Update multiple settings"""
         try:
+            # 顶层 llm 和 ai_note.llm 同步到统一存储（llm 优先）
+            if "llm" in settings_dict and isinstance(settings_dict["llm"], dict):
+                llm_dict = settings_dict["llm"]
+                if "providers" in llm_dict:
+                    self._update_single_setting("llm.providers", llm_dict["providers"])
+                    del llm_dict["providers"]
+                ai_note_dict = settings_dict.setdefault("ai_note", {})
+                if isinstance(ai_note_dict, dict):
+                    ai_note_llm_dict = ai_note_dict.setdefault("llm", {})
+                    if isinstance(ai_note_llm_dict, dict):
+                        self._mirror_llm_fields(llm_dict, ai_note_llm_dict, overwrite=True)
+
             # AI 笔记 LLM 里的 tested_models 只写入 runtime cache，不再进入 settings 持久化层
             if "ai_note" in settings_dict and "llm" in settings_dict["ai_note"]:
-                llm_dict = settings_dict["ai_note"]["llm"]
-                if isinstance(llm_dict, dict) and "tested_models" in llm_dict:
-                    get_ai_runtime_state_service().set_tested_models(llm_dict["tested_models"])
-                    del llm_dict["tested_models"]
+                ai_llm_dict = settings_dict["ai_note"]["llm"]
+                if isinstance(ai_llm_dict, dict) and "tested_models" in ai_llm_dict:
+                    get_ai_runtime_state_service().set_tested_models(
+                        ai_llm_dict["tested_models"]
+                    )
+                    del ai_llm_dict["tested_models"]
+                if isinstance(ai_llm_dict, dict):
+                    # 兼容期：ai_note.llm 仍然作为镜像来源，补齐统一 llm
+                    settings_dict.setdefault("llm", {})
+                    if isinstance(settings_dict["llm"], dict):
+                        self._mirror_llm_fields(ai_llm_dict, settings_dict["llm"])
 
             # 预先处理 custom_scan，将其作为JSON存储
             if (
@@ -608,10 +689,11 @@ class SettingsService:
             # AI笔记设置默认值
             ai_note_defaults = {
                 "ai_note.llm.provider": "openai",
-            "ai_note.llm.model": "gpt-4o-mini",
-            "ai_note.llm.api_key": "",
-            "ai_note.llm.temperature": "0.7",
-            "ai_note.style.style": "",
+                "ai_note.llm.base_url": "",
+                "ai_note.llm.model": "gpt-4o-mini",
+                "ai_note.llm.api_key": "",
+                "ai_note.llm.temperature": "0.7",
+                "ai_note.style.style": "",
                 "ai_note.style.length": "500",
                 "ai_note.style.custom_styles": json.dumps([]),
                 "ai_note.format.format": "markdown",
@@ -620,12 +702,128 @@ class SettingsService:
                 "ai_note.auto_analyze": "false",
             }
 
+            llm_default_providers = [
+                {
+                    "id": "openai",
+                    "name": "OpenAI",
+                    "baseUrl": "https://api.openai.com/v1",
+                    "apiKey": "",
+                    "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "claude",
+                    "name": "Claude",
+                    "baseUrl": "https://api.anthropic.com",
+                    "apiKey": "",
+                    "models": [
+                        "claude-sonnet-4-20250614",
+                        "claude-opus-4-20250514",
+                        "claude-haiku-3-20250620",
+                    ],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "deepseek",
+                    "name": "DeepSeek",
+                    "baseUrl": "https://api.deepseek.com/v1",
+                    "apiKey": "",
+                    "models": ["deepseek-chat", "deepseek-coder"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "qwen",
+                    "name": "Qwen",
+                    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    "apiKey": "",
+                    "models": ["qwen-turbo", "qwen-plus", "qwen-max"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "volcengine",
+                    "name": "火山引擎",
+                    "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+                    "apiKey": "",
+                    "models": ["doubao-seed-1-6", "doubao-pro-32k", "doubao-lite-32k"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "modelscope",
+                    "name": "魔搭社区",
+                    "baseUrl": "https://api.modelscope.cn/v1",
+                    "apiKey": "",
+                    "models": ["qwen-turbo", "qwen-plus", "qwen-max"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "openrouter",
+                    "name": "OpenRouter",
+                    "baseUrl": "https://openrouter.ai/api/v1",
+                    "apiKey": "",
+                    "models": [
+                        "openai/gpt-4o",
+                        "anthropic/claude-3.5-sonnet",
+                        "deepseek/deepseek-chat",
+                    ],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "moonshot",
+                    "name": "Moonshot",
+                    "baseUrl": "https://api.moonshot.cn/v1",
+                    "apiKey": "",
+                    "models": ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "zhipu",
+                    "name": "智谱清言",
+                    "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+                    "apiKey": "",
+                    "models": ["glm-4-plus", "glm-4-air", "glm-4-flash"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "minimax",
+                    "name": "MiniMax",
+                    "baseUrl": "https://api.minimax.chat/v1",
+                    "apiKey": "",
+                    "models": ["abab6.5s-chat", "abab6.5-chat", "abab6.5t-chat"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+                {
+                    "id": "baidu",
+                    "name": "文心一言",
+                    "baseUrl": "https://qianfan.baidubce.com/v2",
+                    "apiKey": "",
+                    "models": ["ernie-4.0", "ernie-3.5-128k", "ernie-lite-8k"],
+                    "isDefault": True,
+                    "isCustom": False,
+                },
+            ]
+
             # 合并所有默认设置
             all_defaults = {
                 **download_defaults,
                 **storage_defaults,
                 **general_defaults,
                 **auto_download_defaults,
+                "llm.provider": "openai",
+                "llm.base_url": "",
+                "llm.model": "gpt-4o-mini",
+                "llm.api_key": "",
+                "llm.temperature": "0.7",
+                "llm.providers": json.dumps(llm_default_providers),
                 **ai_note_defaults,
             }
 

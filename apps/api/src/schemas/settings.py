@@ -150,11 +150,12 @@ class AutoDownloadSettings(BaseModel):
 
 
 class LLMSettings(BaseModel):
-    """LLM 配置设置"""
+    """统一 LLM 配置设置（兼容 ai_note.llm 旧字段）"""
 
     provider: str = Field(
         default="openai", description="LLM 提供商 (openai/claude/deepseek/qwen)"
     )
+    base_url: str = Field(default="", description="Base URL（统一配置）")
     model: str = Field(default="gpt-4o-mini", description="模型名称")
     api_key: str = Field(default="", description="API Key（留空则使用环境变量）")
     temperature: float = Field(default=0.7, ge=0, le=2, description="温度参数")
@@ -188,6 +189,19 @@ class AiNoteSettings(BaseModel):
     auto_analyze: bool = Field(default=False, description="自动分析已下载视频")
 
 
+class LLMConfig(BaseModel):
+    """统一 LLM 配置"""
+
+    provider: str = Field(
+        default="openai", description="当前选中的 LLM 提供商"
+    )
+    base_url: str = Field(default="", description="当前选中的 Base URL")
+    model: str = Field(default="gpt-4o-mini", description="当前选中的模型")
+    api_key: str = Field(default="", description="当前选中的 API Key")
+    temperature: float = Field(default=0.7, ge=0, le=2, description="温度参数")
+    providers: List[Dict[str, Any]] = Field(default_factory=list, description="服务商列表")
+
+
 class Settings(BaseModel):
     """All settings"""
 
@@ -195,6 +209,7 @@ class Settings(BaseModel):
     storage: StorageSettings
     general: GeneralSettings
     auto_download: AutoDownloadSettings
+    llm: LLMConfig = Field(default_factory=LLMConfig)
     ai_note: AiNoteSettings = Field(default_factory=AiNoteSettings)
 
 
