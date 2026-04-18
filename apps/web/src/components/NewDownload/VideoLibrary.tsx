@@ -38,10 +38,10 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const [isLocalAsrReady, setIsLocalAsrReady] = useState(true)
 
   const folderPath = task.meta?.folder_path
-  const videoIdForNote = task.meta?.nfo_data?.bvid
+  const videoIdForNote = folderPath || task.meta?.nfo_data?.bvid
 
   // 仅对可识别的 B 站视频提供 AI 笔记（统一使用 BV 号进行查找/触发分析）
-  const canUseAiNote = Boolean(folderPath) && Boolean(videoIdForNote) && !isOpus
+  const canUseAiNote = Boolean(videoIdForNote) && !isOpus
   const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
 
   useEffect(() => {

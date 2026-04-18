@@ -1,5 +1,5 @@
 {
-  "active_model_id": "base",
+  "active_model_id": "medium",
   "models": {
     "tiny": {
       "download_state": "not_downloaded",
@@ -17,7 +17,7 @@
       "downloaded_bytes": 0,
       "total_bytes": 0,
       "ready": false,
-      "active": true,
+      "active": false,
       "updated_at": "2026-04-18T10:43:10.967123",
       "error": null
     },
@@ -32,13 +32,13 @@
       "error": null
     },
     "medium": {
-      "download_state": "downloading",
-      "progress": 66.89901304591832,
-      "downloaded_bytes": 1023938726,
+      "download_state": "ready",
+      "progress": 100.0,
+      "downloaded_bytes": 1530573740,
       "total_bytes": 1530573740,
-      "ready": false,
-      "active": false,
-      "updated_at": "2026-04-18T10:44:11.605874",
+      "ready": true,
+      "active": true,
+      "updated_at": "2026-04-18T10:44:29.384547",
       "error": null
     },
     "large-v3": {
