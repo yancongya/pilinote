@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Sparkles, Loader2, Copy, Download, RotateCcw } from 'lucide-react'
 import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from '../../services/aiNote'
 import { useToast } from '../Toast'
@@ -35,6 +35,52 @@ const SETTINGS_STYLE_CARDS = [
 
 const TRACE_EXPANDED_KEY = 'pilinote_ai_note_trace_expanded'
 
+export function deriveAiNoteModalStateFromLookup(lookup: {
+  success: boolean
+  found?: boolean
+  note?: NoteResponse | null
+  message?: string
+}): {
+  viewState: ViewState
+  note: NoteResponse | null
+  errorMessage: string | null
+  shouldPoll: boolean
+} {
+  if (!lookup.success) {
+    return {
+      viewState: 'result',
+      note: null,
+      errorMessage: lookup.message || '查询失败',
+      shouldPoll: false,
+    }
+  }
+
+  if (!lookup.found || !lookup.note) {
+    return {
+      viewState: 'config',
+      note: null,
+      errorMessage: null,
+      shouldPoll: false,
+    }
+  }
+
+  if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
+    return {
+      viewState: 'loading',
+      note: lookup.note,
+      errorMessage: null,
+      shouldPoll: true,
+    }
+  }
+
+  return {
+    viewState: 'result',
+    note: lookup.note,
+    errorMessage: null,
+    shouldPoll: false,
+  }
+}
+
 export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose, onComplete }: AiNoteModalProps) {
   const { settings, fetchSettings } = useSettingsStore()
   const { showToast } = useToast()
@@ -46,10 +92,16 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
   const [error, setError] = useState<string | null>(null)
+  const [lookupError, setLookupError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [trace, setTrace] = useState<AiTraceStep[]>([])
   const [progress, setProgress] = useState(0)
   const [traceExpanded, setTraceExpanded] = useState(false)
+  const suppressLookupRef = useRef(false)
+
+  useEffect(() => {
+    suppressLookupRef.current = isAnalyzing
+  }, [isAnalyzing])
 
   useEffect(() => {
     if (!settings || isOpen) {
@@ -61,7 +113,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
     if (isOpen && existingNote) {
       setNote(existingNote)
       setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
-      if (existingNote.status === 'processing') {
+      if (existingNote.status === 'processing' || existingNote.status === 'pending') {
         setViewState('loading')
       } else if (existingNote.status === 'failed') {
         setViewState('result')
@@ -72,6 +124,56 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
       }
     }
   }, [isOpen, existingNote])
+
+  // Lookup latest note on open. Never treat HTTP 404 (or any success=false response) as "no note".
+  useEffect(() => {
+    if (!isOpen) return
+    if (!videoId) return
+
+    let cancelled = false
+    setLookupError(null)
+
+    const run = async () => {
+      try {
+        const raw = await aiNoteService.lookupNoteByVideo(videoId)
+        if (cancelled || suppressLookupRef.current) return
+
+        const derived = deriveAiNoteModalStateFromLookup(raw)
+        setLookupError(derived.errorMessage)
+
+        if (derived.note) {
+          setNote(derived.note)
+          setTrace((derived.note.meta?.trace as AiTraceStep[]) || [])
+        } else if (derived.viewState === 'config') {
+          setNote(null)
+          setTrace([])
+          setProgress(0)
+        }
+
+        setViewState(derived.viewState)
+
+        if (derived.shouldPoll && derived.note?.id) {
+          try {
+            await pollStatus(derived.note.id)
+          } catch (err) {
+            if (cancelled) return
+            setLookupError(err instanceof Error ? err.message : '分析失败')
+            setViewState('result')
+          }
+        }
+      } catch (err) {
+        if (cancelled || suppressLookupRef.current) return
+        setLookupError(err instanceof Error ? err.message : '加载 AI 笔记失败')
+        setViewState('result')
+        setNote(null)
+      }
+    }
+
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, videoId])
 
   useEffect(() => {
     if (!isOpen) return
@@ -161,6 +263,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
     setViewState('config')
     setNote(null)
     setError(null)
+    setLookupError(null)
     setTrace([])
     setProgress(0)
     setTraceExpanded(false)
@@ -417,26 +520,26 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
           </div>
         )}
 
-        {viewState === 'result' && note && (
+        {viewState === 'result' && (
           <>
             <div className="ai-note-modal-result">
-              {note.status === 'failed' && (
+              {(!note || note.status === 'failed') && (
                 <div className="ai-note-modal-result-error">
-                  <strong>分析失败</strong>
-                  <span>{note.error || error || '请点击重新分析重试'}</span>
+                  <strong>{note?.status === 'failed' ? '分析失败' : '加载失败'}</strong>
+                  <span>{note?.error || lookupError || error || '请点击重新分析重试'}</span>
                 </div>
               )}
               <div className="ai-note-modal-result-actions">
                 <button onClick={handleReanalyze}><Sparkles size={14} />重新分析</button>
-                <button onClick={handleCopy}><Copy size={14} />复制</button>
-                <button onClick={handleExport}><Download size={14} />导出</button>
+                <button onClick={handleCopy} disabled={!note?.content}><Copy size={14} />复制</button>
+                <button onClick={handleExport} disabled={!note?.content}><Download size={14} />导出</button>
                 <button onClick={resetState}><RotateCcw size={14} />重置</button>
               </div>
               <div className="ai-note-modal-result-content">
-                <pre>{note.content || '当前没有可展示的笔记内容。你可以点击上方“重新分析”重新生成。'}</pre>
+                <pre>{note?.content || '当前没有可展示的笔记内容。你可以点击上方“重新分析”重新生成。'}</pre>
               </div>
             </div>
-            {note.summary && (
+            {note?.summary && (
               <div className="ai-note-modal-summary">
                 <h4>AI 总结</h4>
                 <p>{note.summary}</p>

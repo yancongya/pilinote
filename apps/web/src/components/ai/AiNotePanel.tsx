@@ -4,6 +4,7 @@ import { useNotePolling } from '../../hooks/useNotePolling';
 import { StyleSelector } from './StyleSelector';
 import { FormatSelector } from './FormatSelector';
 import { MarkdownViewer } from './MarkdownViewer';
+import { useAiNoteLookup } from '../../hooks/useAiNoteLookup';
 
 interface AiNotePanelProps {
   videoId: string;
@@ -18,8 +19,8 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
   const [formats, setFormats] = useState(DEFAULT_FORMATS);
   const [note, setNote] = useState<NoteResponse | null>(null);
   const [noteId, setNoteId] = useState<string | null>(null);
-  const [isLoadingExisting, setIsLoadingExisting] = useState(false);
   const [recommendedStyle, setRecommendedStyle] = useState<string | null>(null);
+  const lookup = useAiNoteLookup(videoId);
   
   const { status, progress, error, startPolling } = useNotePolling({
     noteId,
@@ -36,41 +37,26 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     },
   });
 
-  // 检查是否已有笔记
   useEffect(() => {
-    const checkExistingNote = async () => {
-      setIsLoadingExisting(true);
-      try {
-        const lookup = await aiNoteService.lookupNoteByVideo(videoId);
-        if (!lookup.success || !lookup.found || !lookup.note) {
-          setNote(null);
-          setNoteId(null);
-          setViewMode('form');
-          return;
-        }
-
-        setNote(lookup.note);
-        setStyle(lookup.note.style || DEFAULT_STYLE);
-        setFormats(lookup.note.formats || DEFAULT_FORMATS);
-
-        if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
-          setNoteId(lookup.note.id);
-          setViewMode('loading');
-        } else {
-          setNoteId(null);
-          setViewMode('result');
-        }
-      } catch (err) {
-        // 无笔记，正常情况
-      } finally {
-        setIsLoadingExisting(false);
-      }
-    };
-    
-    if (videoId) {
-      checkExistingNote();
+    if (!lookup.note) {
+      setNote(null)
+      setNoteId(null)
+      setViewMode('form')
+      return
     }
-  }, [videoId]);
+
+    setNote(lookup.note)
+    setStyle(lookup.note.style || DEFAULT_STYLE)
+    setFormats(lookup.note.formats || DEFAULT_FORMATS)
+
+    if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
+      setNoteId(lookup.note.id)
+      setViewMode('loading')
+    } else {
+      setNoteId(null)
+      setViewMode('result')
+    }
+  }, [lookup.note])
 
   const handleAnalyze = async () => {
     try {
@@ -141,7 +127,7 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     }
   };
 
-  if (isLoadingExisting) {
+  if (lookup.isLoading) {
     return (
       <div className="bg-gray-800 rounded-lg p-4">
         <div className="animate-pulse">加载中...</div>
