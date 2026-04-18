@@ -63,7 +63,6 @@ interface AiNoteSettingsRef {
   getSavedStatus: () => 'idle' | 'saving' | 'saved' | 'error'
 }
 
-const STORAGE_KEY_PROVIDERS = 'pilinote_llm_providers'
 const DEFAULT_PROVIDERS: LLMProvider[] = [
   { id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', apiKey: '', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'], isDefault: true },
   { id: 'claude', name: 'Claude', baseUrl: 'https://api.anthropic.com', apiKey: '', models: ['claude-sonnet-4-20250614', 'claude-opus-4-20250514', 'claude-haiku-3-20250620'], isDefault: true },
@@ -101,6 +100,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [localSettings, setLocalSettings] = useState<AiNoteLocalSettings>({
     llm: {
       provider: 'openai',
+      base_url: 'https://api.openai.com/v1',
       model: 'gpt-4o-mini',
       api_key: '',
       temperature: 0.7,
@@ -163,41 +163,71 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   // 加载数据
   useEffect(() => {
     const load = async () => {
+      const dbProviders = Array.isArray((settings as any)?.llm?.providers)
+        ? ((settings as any).llm.providers as LLMProvider[])
+        : []
       const savedProviders = localStorage.getItem(STORAGE_KEY_PROVIDERS)
-      const parsedProviders: LLMProvider[] = savedProviders ? JSON.parse(savedProviders) : []
+      const legacyProviders: LLMProvider[] = savedProviders ? JSON.parse(savedProviders) : []
       const providerMap = new Map<string, LLMProvider>()
 
       DEFAULT_PROVIDERS.forEach(provider => {
         providerMap.set(provider.id, provider)
       })
-      parsedProviders.forEach(provider => {
-        providerMap.set(provider.id, provider)
+      dbProviders.forEach(provider => {
+        providerMap.set(provider.id, {
+          ...provider,
+          baseUrl: provider.baseUrl || '',
+          apiKey: provider.apiKey || '',
+          models: Array.isArray(provider.models) ? provider.models : [],
+        })
       })
-      setProviders(Array.from(providerMap.values()))
+      legacyProviders.forEach(provider => {
+        providerMap.set(provider.id, {
+          ...provider,
+          baseUrl: provider.baseUrl || '',
+          apiKey: provider.apiKey || '',
+          models: Array.isArray(provider.models) ? provider.models : [],
+        })
+      })
+      const mergedProviders = Array.from(providerMap.values())
+      setProviders(mergedProviders)
+      if (legacyProviders.length > 0) {
+        await updateSettings({
+          llm: {
+            ...(settings?.llm || {}),
+            providers: mergedProviders,
+          },
+        })
+        localStorage.removeItem(STORAGE_KEY_PROVIDERS)
+      }
 
       const currentAiNote = settings?.ai_note
-      if (currentAiNote) {
+      const unifiedLlm = settings?.llm
+      if (currentAiNote || unifiedLlm) {
+        const currentProviderId = unifiedLlm?.provider || currentAiNote?.llm.provider || 'openai'
+        const currentProvider = providerMap.get(currentProviderId) || providerMap.get('openai') || DEFAULT_PROVIDERS[0]
         setLocalSettings({
           llm: {
-            provider: currentAiNote.llm.provider,
-            model: currentAiNote.llm.model,
-            api_key: currentAiNote.llm.api_key,
-            temperature: currentAiNote.llm.temperature,
+            provider: currentProviderId,
+            base_url: unifiedLlm?.base_url || currentProvider.baseUrl,
+            model: unifiedLlm?.model || currentAiNote?.llm.model || currentProvider.models[0] || 'gpt-4o-mini',
+            api_key: unifiedLlm?.api_key || currentAiNote?.llm.api_key || currentProvider.apiKey || '',
+            temperature: unifiedLlm?.temperature ?? currentAiNote?.llm.temperature ?? 0.7,
           },
           style: {
-            length: currentAiNote.style.length,
-            custom_styles: currentAiNote.style.custom_styles || [],
+            length: currentAiNote?.style.length || 500,
+            custom_styles: currentAiNote?.style.custom_styles || [],
           },
           format: {
-            format: currentAiNote.format.format,
-            include_timestamp: currentAiNote.format.include_timestamp,
-            include_summary: currentAiNote.format.include_summary,
+            format: currentAiNote?.format.format || 'markdown',
+            include_timestamp: currentAiNote?.format.include_timestamp ?? true,
+            include_summary: currentAiNote?.format.include_summary ?? true,
           },
-          auto_analyze: currentAiNote.auto_analyze,
-          })
-          setActiveProviderId(currentAiNote.llm.provider || 'openai')
-          setCustomStyles(currentAiNote.style.custom_styles || [])
-        }
+          auto_analyze: currentAiNote?.auto_analyze ?? false,
+        })
+        setActiveProviderId(currentProviderId)
+        setCustomStyles(currentAiNote?.style.custom_styles || [])
+      }
 
       try {
         const [currentRes, defaultRes] = await Promise.all([
@@ -215,7 +245,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     load().catch(() => {
       setProviders(DEFAULT_PROVIDERS)
     })
-  }, [settings?.ai_note, showToast])
+  }, [settings?.ai_note, settings?.llm, showToast, updateSettings])
 
   useEffect(() => {
     const container = providerTabsRef.current
@@ -242,19 +272,34 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   }, [providers])
 
   // 保存服务商
-  const saveProviders = (newProviders: LLMProvider[]) => {
-    const providerMap = new Map<string, LLMProvider>()
+  const saveProviders = async (newProviders: LLMProvider[]) => {
+    try {
+      const providerMap = new Map<string, LLMProvider>()
 
-    DEFAULT_PROVIDERS.forEach(provider => {
-      providerMap.set(provider.id, provider)
-    })
-    newProviders.forEach(provider => {
-      providerMap.set(provider.id, provider)
-    })
+      DEFAULT_PROVIDERS.forEach(provider => {
+        providerMap.set(provider.id, provider)
+      })
+      newProviders.forEach(provider => {
+        providerMap.set(provider.id, provider)
+      })
 
-    const mergedProviders = Array.from(providerMap.values())
-    setProviders(mergedProviders)
-    localStorage.setItem(STORAGE_KEY_PROVIDERS, JSON.stringify(mergedProviders))
+      const mergedProviders = Array.from(providerMap.values())
+      setProviders(mergedProviders)
+      await updateSettings({
+        llm: {
+          ...((settings as any)?.llm || {
+            provider: 'openai',
+            base_url: 'https://api.openai.com/v1',
+            model: 'gpt-4o-mini',
+            api_key: '',
+            temperature: 0.7,
+          }),
+          providers: mergedProviders,
+        },
+      })
+    } catch (error) {
+      showToast(`保存服务商失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
+    }
   }
 
   // 添加/编辑服务商
@@ -269,7 +314,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       isCustom: true,
     }
     const newProviders = [...providers, newProvider]
-    saveProviders(newProviders)
+    void saveProviders(newProviders)
     setActiveProviderId(id)
     setEditingProvider(newProvider)
     setProviderForm({ name: newProvider.name, baseUrl: '', apiKey: '', models: '' })
@@ -278,8 +323,24 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
   const handleDeleteProvider = (id: string) => {
     const newProviders = providers.filter(p => p.id !== id)
-    saveProviders(newProviders)
-    if (activeProviderId === id) setActiveProviderId(providers[0]?.id || 'openai')
+    void saveProviders(newProviders)
+    if (activeProviderId === id) {
+      const nextProviderId = newProviders[0]?.id || 'openai'
+      const nextProvider = newProviders.find(p => p.id === nextProviderId) || DEFAULT_PROVIDERS.find(p => p.id === nextProviderId)
+      setActiveProviderId(nextProviderId)
+      if (nextProvider) {
+        setLocalSettings(prev => ({
+          ...prev,
+          llm: {
+            ...prev.llm,
+            provider: nextProviderId,
+            base_url: nextProvider.baseUrl,
+            api_key: nextProvider.apiKey,
+            model: nextProvider.models[0] || prev.llm.model,
+          },
+        }))
+      }
+    }
     showToast('已删除', 'success')
   }
 
@@ -306,7 +367,19 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       newProviders = [...providers, newProvider]
     }
     
-    saveProviders(newProviders)
+    void saveProviders(newProviders)
+    if (activeProviderId === id || (editingProvider && editingProvider.id === activeProviderId)) {
+      setLocalSettings(prev => ({
+        ...prev,
+        llm: {
+          ...prev.llm,
+          provider: id,
+          base_url: newProvider.baseUrl,
+          api_key: newProvider.apiKey,
+          model: newProvider.models[0] || prev.llm.model,
+        },
+      }))
+    }
     setEditingProvider(null)
     setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' })
     setShowApiKey(false)
@@ -316,8 +389,19 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const handleResetProvider = (id: string) => {
     const defaultP = DEFAULT_PROVIDERS.find(p => p.id === id)
     if (defaultP) {
-      const newProviders = providers.map(p => p.id === id ? { ...p, baseUrl: defaultP.baseUrl, models: defaultP.models } : p)
-      saveProviders(newProviders)
+      const newProviders = providers.map(p => p.id === id ? { ...p, baseUrl: defaultP.baseUrl, apiKey: '', models: defaultP.models } : p)
+      void saveProviders(newProviders)
+      if (activeProviderId === id) {
+        setLocalSettings(prev => ({
+          ...prev,
+          llm: {
+            ...prev.llm,
+            base_url: defaultP.baseUrl,
+            api_key: '',
+            model: defaultP.models[0] || prev.llm.model,
+          },
+        }))
+      }
       showToast('已重置', 'success')
     }
   }
@@ -482,7 +566,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     }
 
     const newProviders = providers.map(p => p.id === providerId ? { ...p, models: nextModels } : p)
-    saveProviders(newProviders)
+    void saveProviders(newProviders)
     setModelEditIndex(null)
     setModelDraft('')
   }
@@ -492,7 +576,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     if (!provider) return
     const nextModels = [...provider.models, `model_${provider.models.length + 1}`]
     const newProviders = providers.map(p => p.id === providerId ? { ...p, models: nextModels } : p)
-    saveProviders(newProviders)
+    void saveProviders(newProviders)
     beginEditModel(nextModels.length - 1, nextModels[nextModels.length - 1])
   }
 
@@ -521,19 +605,29 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         llm: {
           ...prev.llm,
           provider: provider.id,
+          base_url: provider.baseUrl,
           model: modelName,
+          api_key: provider.apiKey,
         },
       }))
       await updateSettings({
+        llm: {
+          ...((settings as any)?.llm || {
+            provider: provider.id,
+            base_url: provider.baseUrl,
+            model: modelName,
+            api_key: provider.apiKey,
+            temperature: localSettings.llm.temperature,
+          }),
+          provider: provider.id,
+          base_url: provider.baseUrl,
+          model: modelName,
+          api_key: provider.apiKey,
+          temperature: localSettings.llm.temperature,
+          providers,
+        },
         ai_note: {
           ...(settings?.ai_note || {}),
-          llm: {
-            ...(settings?.ai_note?.llm || {}),
-            provider: provider.id,
-            model: modelName,
-            api_key: localSettings.llm.api_key,
-            temperature: localSettings.llm.temperature,
-          },
           style: {
             length: localSettings.style.length,
             custom_styles: customStyles,
@@ -623,18 +717,29 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     saveSettings: async () => {
       try {
         const currentAiNote = settings?.ai_note || {
-          llm: { provider: 'openai', model: 'gpt-4o-mini', api_key: '', temperature: 0.7 },
+          llm: { provider: 'openai', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', api_key: '', temperature: 0.7 },
           style: { length: 500 },
           format: { format: 'markdown', include_timestamp: true, include_summary: true },
           auto_analyze: false,
         }
         await updateSettings({
+          llm: {
+            ...((settings as any)?.llm || {
+              provider: 'openai',
+              base_url: 'https://api.openai.com/v1',
+              model: 'gpt-4o-mini',
+              api_key: '',
+              temperature: 0.7,
+            }),
+            provider: localSettings.llm.provider,
+            base_url: localSettings.llm.base_url,
+            model: localSettings.llm.model,
+            api_key: localSettings.llm.api_key,
+            temperature: localSettings.llm.temperature,
+            providers,
+          },
           ai_note: {
             ...currentAiNote,
-            llm: {
-              ...currentAiNote.llm,
-              ...localSettings.llm,
-            },
             style: {
               length: localSettings.style.length,
               custom_styles: customStyles,
@@ -647,7 +752,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           },
         })
         await fetchSettings()
-      setActiveProviderId(localSettings.llm.provider)
+        setActiveProviderId(localSettings.llm.provider)
         setSavedStatus('saved')
         setTimeout(() => setSavedStatus('idle'), 2000)
       } catch (error) {
@@ -837,12 +942,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                         className={`settings-model-btn ${runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? 'tested' : ''}`}
                         onClick={() => testModel(currentProvider.id, m)}
                       >
-                        <span>{m}</span>
+                        <span className="settings-model-btn-text">{m}</span>
                         <span className="model-btn-status">
                           {modelTestStatus[m] === 'loading' ? (
                             <Loader2 size={12} className="spin" />
                           ) : runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? (
-                            <CheckCircle size={12} />
+                            <span className="model-btn-status-badge">已验证</span>
                           ) : null}
                         </span>
                       </button>
@@ -1102,11 +1207,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         /* Provider Tabs */
         .settings-provider-tabs {
           display: flex;
-          gap: 4px;
-          padding: 4px;
-          background: var(--color-bg-secondary);
-          border-radius: 12px;
-          margin-bottom: 16px;
+          gap: 6px;
+          padding: 6px;
+          background: var(--color-bg-tertiary);
+          border-radius: 0;
+          margin-bottom: 12px;
           overflow-x: auto;
           scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
@@ -1120,16 +1225,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
         .settings-provider-tab {
           flex: 0 0 auto;
-          min-width: 96px;
-          padding: 10px 14px;
-          border-radius: 10px;
+          min-width: 72px;
+          padding: 10px 16px;
+          border-radius: 0;
           font-size: 13px;
           font-weight: 500;
           background: transparent;
           border: none;
           color: var(--color-text-secondary);
           cursor: pointer;
-          transition: all 0.15s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1140,13 +1245,23 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         .settings-provider-tab.active {
           background: var(--color-bg-primary);
           color: var(--color-text-primary);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+
+        .settings-provider-tab:hover:not(.active) {
+          background: rgba(255, 255, 255, 0.06);
+          color: var(--color-text-primary);
         }
 
         .settings-provider-icon {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          opacity: 0.7;
+        }
+
+        .settings-provider-tab.active .settings-provider-icon {
+          opacity: 1;
         }
 
         .settings-provider-name-text {
@@ -1155,13 +1270,18 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-provider-config {
-          padding: 16px;
+          padding: 20px;
           background: var(--color-bg-secondary);
-          border-radius: 12px;
+          border-radius: 0;
+          border: 1px solid var(--color-border);
         }
 
         .settings-provider-edit {
-          margin-bottom: 16px;
+          display: grid;
+          gap: 16px;
+          margin-bottom: 20px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid var(--color-border);
         }
 
         .settings-modal-overlay {
@@ -1322,12 +1442,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           gap: 8px;
         }
 
-        .settings-model-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
         .settings-provider-bar {
           position: relative;
           height: 6px;
@@ -1369,17 +1483,29 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           align-items: center;
           justify-content: space-between;
           gap: 8px;
-          padding: 10px 12px;
+          padding: 12px 14px;
           border: 1px solid var(--color-border);
-          background: var(--color-bg-tertiary);
+          background: var(--color-bg-primary);
           color: var(--color-text-primary);
-          border-radius: 10px;
+          border-radius: 0;
           cursor: pointer;
           text-align: left;
+          transition: all 0.2s ease;
+        }
+
+        .settings-model-btn:hover {
+          background: var(--color-bg-secondary);
+          border-color: var(--color-primary-400);
         }
 
         .settings-model-btn.tested {
           border-color: var(--color-success);
+          background: rgba(34, 197, 94, 0.06);
+        }
+
+        .settings-model-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .settings-model-input {

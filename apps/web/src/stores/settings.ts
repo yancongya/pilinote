@@ -52,6 +52,16 @@ export interface VideoLibraryConfig {
   enableSmartRefresh: boolean   // 启用智能刷新
 }
 
+export interface LLMProviderConfig {
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  models: string[]
+  isDefault?: boolean
+  isCustom?: boolean
+}
+
 export interface Settings {
   download: DownloadSettings
   storage: IStorageSettings
@@ -74,9 +84,18 @@ export interface Settings {
     auto_start_after_scan: boolean
     storage_threshold_gb: number
   }
+  llm: {
+    provider: string
+    base_url: string
+    model: string
+    api_key: string
+    temperature: number
+    providers: LLMProviderConfig[]
+  }
   ai_note: {
     llm: {
       provider: string
+      base_url: string
       model: string
       api_key: string
       temperature: number

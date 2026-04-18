@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Sparkles, Loader2, Copy, Download, RotateCcw } from 'lucide-react'
+import { X, Sparkles, Loader2, RotateCcw } from 'lucide-react'
 import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from '../../services/aiNote'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { buildPromptStyleOptions, normalizePromptStyleValue } from '../../services/promptCatalog'
@@ -19,7 +19,7 @@ interface AiNoteModalProps {
   onComplete?: (note: NoteResponse) => void
 }
 
-type ViewState = 'config' | 'loading' | 'result'
+type ViewState = 'config'
 
 interface StyleOption {
   value: string
@@ -108,7 +108,7 @@ const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
         summary: '等待执行',
         status: 'pending',
         statusLabel: TRACE_STATUS_META.pending.label,
-        detailText: `阶段: ${item.stage}\n\n标题: ${item.title}\n\n状态: 等待执行`,
+        detailText: '暂无原始详情',
         progress: 0,
       }
     }
@@ -119,12 +119,9 @@ const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
       .filter(Boolean)
       .join('\n')
 
-    const detailText = items.map(step => [
-      `阶段: ${step.stage}`,
-      `标题: ${step.title || step.stage}`,
-      step.summary ? `摘要: ${step.summary}` : '',
-      step.detail ? `原始详情 JSON:\n${JSON.stringify(step.detail, null, 2)}` : '',
-    ].filter(Boolean).join('\n\n')).join('\n\n---\n\n')
+    const detailText = items
+      .map(step => (step.detail ? JSON.stringify(step.detail, null, 2) : '暂无原始详情'))
+      .join('\n')
 
     const status = getTraceStatus(last)
     return {
@@ -148,7 +145,7 @@ const buildDefaultTraceDotItems = (): TraceDotItem[] => {
     summary: '等待执行',
     status: 'pending',
     statusLabel: TRACE_STATUS_META.pending.label,
-    detailText: `阶段: ${item.stage}\n\n标题: ${item.title}\n\n状态: 等待执行`,
+    detailText: '暂无原始详情',
     progress: 0,
   }))
 }
@@ -166,7 +163,7 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
 } {
   if (!lookup.success) {
     return {
-      viewState: 'result',
+      viewState: 'config',
       note: null,
       errorMessage: lookup.message || '查询失败',
       shouldPoll: false,
@@ -184,15 +181,24 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
 
   if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
     return {
-      viewState: 'loading',
+      viewState: 'config',
       note: lookup.note,
       errorMessage: null,
       shouldPoll: true,
     }
   }
 
+  if (lookup.note.status === 'failed') {
+    return {
+      viewState: 'config',
+      note: lookup.note,
+      errorMessage: lookup.note.error || lookup.message || '分析失败',
+      shouldPoll: false,
+    }
+  }
+
   return {
-    viewState: 'result',
+    viewState: 'config',
     note: lookup.note,
     errorMessage: null,
     shouldPoll: false,
@@ -211,7 +217,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const initializedRef = useRef(false)
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
   const [error, setError] = useState<string | null>(null)
-  const [lookupError, setLookupError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [trace, setTrace] = useState<AiTraceStep[]>([])
   const [progress, setProgress] = useState(0)
@@ -278,15 +283,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
       if (existingNote.style) {
         setStyle(normalizePromptStyleValue(existingNote.style))
       }
-      if (existingNote.status === 'processing' || existingNote.status === 'pending') {
-        setViewState('loading')
-      } else if (existingNote.status === 'failed') {
-        setViewState('result')
-      } else if (existingNote.content) {
-        setViewState('result')
-      } else {
-        setViewState('config')
+      if (existingNote.status === 'failed') {
+        showToast(existingNote.error || '分析失败', 'error')
       }
+      setViewState('config')
     }
   }, [isOpen, existingNote])
 
@@ -296,15 +296,12 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     if (!videoId) return
 
     let cancelled = false
-    setLookupError(null)
-
     const run = async () => {
       try {
         const raw = await aiNoteService.lookupNoteByVideo(videoId)
         if (cancelled || suppressLookupRef.current) return
 
         const derived = deriveAiNoteModalStateFromLookup(raw)
-        setLookupError(derived.errorMessage)
 
         if (derived.note) {
           setNote(derived.note)
@@ -312,10 +309,13 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
           if (derived.note.style) {
             setStyle(normalizePromptStyleValue(derived.note.style))
           }
-        } else if (derived.viewState === 'config') {
+        } else {
           setNote(null)
           setTrace([])
           setProgress(0)
+          if (derived.errorMessage) {
+            showToast(derived.errorMessage, 'error')
+          }
         }
 
         setViewState(derived.viewState)
@@ -325,15 +325,15 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
             await pollStatus(derived.note.id)
           } catch (err) {
             if (cancelled) return
-            setLookupError(err instanceof Error ? err.message : '分析失败')
-            setViewState('result')
+            setViewState('config')
+            showToast(err instanceof Error ? err.message : '分析失败', 'error')
           }
         }
       } catch (err) {
         if (cancelled || suppressLookupRef.current) return
-        setLookupError(err instanceof Error ? err.message : '加载 AI 笔记失败')
-        setViewState('result')
+        setViewState('config')
         setNote(null)
+        showToast(err instanceof Error ? err.message : '加载 AI 笔记失败', 'error')
       }
     }
 
@@ -348,10 +348,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     const ai = settings?.ai_note
     if (!ai) return
     initializedRef.current = true
-    const provider = ai.llm.provider || 'openai'
+    const provider = settings?.llm?.provider || ai.llm.provider || 'openai'
     const providerModels = runtimeState.testedModels[provider] || []
-    const nextModel = providerModels.includes(ai.llm.model)
-      ? ai.llm.model
+    const nextModel = providerModels.includes(settings?.llm?.model || ai.llm.model)
+      ? (settings?.llm?.model || ai.llm.model)
       : (providerModels[0] || '')
     setSelectedModel(nextModel)
     setFormats(['summary'])
@@ -380,7 +380,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     }
   }, [isOpen])
 
-  const activeProvider = settings?.ai_note?.llm?.provider || 'openai'
+  const activeProvider = settings?.llm?.provider || settings?.ai_note?.llm?.provider || 'openai'
 
   const providerModels = useMemo(() => {
     return runtimeState.testedModels[activeProvider] || []
@@ -419,7 +419,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     setViewState('config')
     setNote(null)
     setError(null)
-    setLookupError(null)
     setTrace([])
     setProgress(0)
     setSelectedTraceItem(null)
@@ -436,7 +435,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
       if (status.status === 'completed') {
         const completed = await aiNoteService.getNote(noteId)
         setNote(completed)
-        setViewState('result')
         onComplete?.(completed)
         return completed
       }
@@ -454,21 +452,19 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const startAnalyze = async () => {
     setError(null)
     setIsAnalyzing(true)
-    setViewState('loading')
+    setViewState('config')
     setTrace([])
     setProgress(0)
 
     if (!localAsrReady) {
       setError('请先在 AI 笔记设置中下载并启用本地 ASR 模型')
       showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
-      setViewState('config')
       setIsAnalyzing(false)
       return
     }
 
     if (!selectedModel) {
       setError('请先在设置面板测试并保存可用模型')
-      setViewState('config')
       setIsAnalyzing(false)
       return
     }
@@ -489,10 +485,8 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
       }
 
       setError(response.message || '分析失败')
-      setViewState('config')
     } catch (err) {
       setError(err instanceof Error ? err.message : '分析失败')
-      setViewState('config')
     } finally {
       setIsAnalyzing(false)
     }
@@ -504,23 +498,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
 
   const handleReanalyze = async () => {
     await startAnalyze()
-  }
-
-  const handleCopy = async () => {
-    if (!note?.content) return
-    await navigator.clipboard.writeText(note.content)
-    showToast('已复制', 'success')
-  }
-
-  const handleExport = async () => {
-    if (!note?.content) return
-    const blob = new Blob([note.content], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `ai-note-${Date.now()}.md`
-    a.click()
-    URL.revokeObjectURL(url)
   }
 
   const copyTraceItem = async (item: TraceDotItem) => {
@@ -584,7 +561,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
             <div className="ai-note-modal-content">
               <div className="ai-note-select-group">
                 <label>AI 服务商</label>
-                <div className="ai-note-summary-chip">{settings?.ai_note?.llm?.provider || 'openai'}</div>
+                <div className="ai-note-summary-chip">{settings?.llm?.provider || settings?.ai_note?.llm?.provider || 'openai'}</div>
               </div>
 
               <div className="ai-note-select-group">
@@ -641,8 +618,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
 
             {error && <div className="ai-note-modal-error">{error}</div>}
 
-            {renderTraceBar()}
-
             <div className="ai-note-modal-footer">
               <button onClick={resetState} className="ai-note-modal-btn-secondary">
                 <RotateCcw size={16} />
@@ -656,50 +631,24 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
           </>
         )}
 
-        {viewState === 'loading' && (
-        <div className="ai-note-modal-loading">
-            <div className="ai-note-modal-loading-spinner" />
-            <p>AI 正在分析中... {progress ? `${Math.round(progress)}%` : ''}</p>
-            {renderTraceBar()}
-          </div>
-        )}
-
-        {viewState === 'result' && (
+        {note?.status === 'completed' && note?.content && (
           <>
             <div className="ai-note-modal-result">
-              {(!note || note.status === 'failed') && (
-                <div className="ai-note-modal-result-error">
-                  <strong>{note?.status === 'failed' ? '分析失败' : '加载失败'}</strong>
-                  <span>{note?.error || lookupError || error || '请点击重新分析重试'}</span>
-                </div>
-              )}
               <div className="ai-note-modal-result-actions">
                 <button onClick={handleReanalyze}><Sparkles size={14} />重新分析</button>
-                {note?.content && (
-                  <>
-                    <button onClick={handleCopy}><Copy size={14} />复制</button>
-                    <button onClick={handleExport}><Download size={14} />导出</button>
-                  </>
-                )}
                 <button onClick={resetState}><RotateCcw size={14} />重置</button>
               </div>
-              <div className="ai-note-modal-result-content">
-                {note?.content ? (
-                  <pre>{note.content}</pre>
-                ) : (
-                  <div className="ai-note-modal-result-empty">当前暂无笔记内容</div>
-                )}
-              </div>
             </div>
-            {note?.summary && (
+            {note.summary && (
               <div className="ai-note-modal-summary">
                 <h4>AI 总结</h4>
                 <p>{note.summary}</p>
               </div>
             )}
-            {renderTraceBar()}
           </>
         )}
+
+        {renderTraceBar()}
       </div>
 
       <Modal
@@ -727,7 +676,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
                 {selectedTraceItem.statusLabel}
               </span>
             </div>
-            <div className="ai-note-trace-detail-summary">{selectedTraceItem.summary}</div>
             {typeof selectedTraceItem.progress === 'number' && (
               <div className="ai-note-trace-detail-meta">进度 {Math.round(selectedTraceItem.progress)}%</div>
             )}
@@ -768,9 +716,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         .ai-note-modal-loading-spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary-600); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .ai-note-modal-result { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .ai-note-modal-result-error { display: flex; flex-direction: column; gap: 4px; padding: 12px 20px; background: var(--color-error-50); color: var(--color-error-700); border-bottom: 1px solid var(--color-border); }
-        .ai-note-modal-result-error strong { font-size: 13px; }
-        .ai-note-modal-result-error span { font-size: 12px; line-height: 1.5; }
         .ai-note-modal-result-actions { display: flex; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--color-border); }
         .ai-note-modal-result-actions button { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px; font-size: 12px; background: var(--color-bg-secondary); border: none; color: var(--color-text-secondary); cursor: pointer; }
         .ai-note-modal-result-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
