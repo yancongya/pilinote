@@ -19,6 +19,9 @@ class ASRBackend(Protocol):
         ...
 
 
+from .faster_whisper_backend import FasterWhisperBackend
+
+
 class FFmpegAudioExtractor:
     """使用 ffmpeg 从视频中提取音频。"""
 

@@ -175,6 +175,11 @@ class AiNoteService:
         try:
             context = self._prepare_analysis_context(actual_file_path, video_id, style, note)
 
+            if download:
+                download.transcript = context["transcript"]
+                download.transcript_lang = "whisper"
+                self.db.commit()
+
             self._add_trace("PROMPT.BUILD", "构建 Prompt", "正在按固定顺序拼装最终 prompt", 85.0, note=note)
             prompt = self._build_prompt_from_context(
                 context=context,
@@ -261,14 +266,14 @@ class AiNoteService:
             note=note,
         )
 
-        self._add_trace("PREP.T1", "语音转文字", "正在使用 Whisper 从音频生成正文转写", 35.0, note=note)
+        self._add_trace("PREP.T1", "语音转文字", "正在使用本地 ASR 从音频生成正文转写", 35.0, note=note)
         transcript = self._transcribe_video(video_path, video_id)
         self._add_trace(
             "PREP.T1",
             "转写完成",
             transcript[:240] if transcript else "未获取到转写结果",
             55.0,
-            {"length": len(transcript or ""), "transcriber": "whisper"},
+            {"length": len(transcript or ""), "transcriber": "local-asr"},
             note=note,
         )
 
@@ -319,7 +324,7 @@ class AiNoteService:
             from src.services.ai.transcriber import get_transcriber
 
             transcriber = get_transcriber("asr")
-            pipeline_name = getattr(transcriber, "get_pipeline_name", lambda: "ffmpeg + OpenAI Whisper")()
+            pipeline_name = getattr(transcriber, "get_pipeline_name", lambda: "ffmpeg + faster-whisper")()
             self._add_trace(
                 "PREP.T1.1",
                 "提取音频",
@@ -329,17 +334,17 @@ class AiNoteService:
             )
             self._add_trace(
                 "PREP.T1.2",
-                "Whisper 请求",
-                "正在调用当前默认 ASR 生成字幕文本",
+                "本地 ASR 请求",
+                "正在调用本地 ASR 生成字幕文本",
                 45.0,
-                {"model": "whisper-1", "pipeline": pipeline_name},
+                {"pipeline": pipeline_name},
             )
             result = transcriber.transcribe(video_path, video_id)
             if not result or not result.strip():
                 raise ValueError("转写失败，未获取到文本内容")
             self._add_trace(
                 "PREP.T1.3",
-                "Whisper 完成",
+                "本地 ASR 完成",
                 result[:240],
                 50.0,
                 {"length": len(result), "pipeline": pipeline_name},

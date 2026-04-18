@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from .asr_backends import AudioExtractor, ASRBackend, FFmpegAudioExtractor
+from .faster_whisper_backend import FasterWhisperBackend
 from .whisper_backend import OpenAIWhisperBackend
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,7 @@ class BiliSubtitleTranscriber(TranscriberBase):
 class ASRTranscriber(TranscriberBase):
     """通用 ASR 转写编排器。
 
-    当前默认组合是 FFmpegAudioExtractor + OpenAIWhisperBackend。
+    当前默认组合是 FFmpegAudioExtractor + FasterWhisperBackend。
     """
 
     def __init__(
@@ -103,7 +104,7 @@ class ASRTranscriber(TranscriberBase):
         asr_backend: Optional[ASRBackend] = None,
     ):
         self.audio_extractor = audio_extractor or FFmpegAudioExtractor()
-        self.asr_backend = asr_backend or OpenAIWhisperBackend(api_key=api_key)
+        self.asr_backend = asr_backend or FasterWhisperBackend()
 
     def transcribe(self, video_path: str, video_id: str) -> Optional[str]:
         """使用当前默认 ASR 流程转写视频"""
@@ -126,7 +127,7 @@ class ASRTranscriber(TranscriberBase):
             return None
 
     def get_pipeline_name(self) -> str:
-        return "ffmpeg + OpenAI Whisper"
+        return "ffmpeg + faster-whisper"
 
 
 class TranscriberFactory:
@@ -147,29 +148,22 @@ class TranscriberFactory:
 
 
 class AutoTranscriber(TranscriberBase):
-    """自动转写器 - 默认使用 ASR。"""
+    """自动转写器 - 默认使用本地 ASR。"""
 
     def __init__(self, **kwargs):
-        self.subtitle_transcriber = BiliSubtitleTranscriber(**kwargs)
-        self.whisper_transcriber = None
-        try:
-            self.whisper_transcriber = ASRTranscriber(**kwargs)
-        except ValueError:
-            logger.warning("ASR 配置未就绪，将仅使用字幕")
+        self.asr_transcriber = ASRTranscriber(**kwargs)
 
     def transcribe(self, video_path: str, video_id: str) -> Optional[str]:
-        """自动转写：默认使用 ASR，字幕仅作为显式兼容实现保留。"""
-        if self.whisper_transcriber:
-            result = self.whisper_transcriber.transcribe(video_path, video_id)
-            if result:
-                logger.info(f"使用 ASR 转写成功 for video: {video_id}")
-                return result
-
-        logger.error(f"所有转写方式均失败 for video: {video_id}")
+        """自动转写：默认使用本地 ASR。"""
+        result = self.asr_transcriber.transcribe(video_path, video_id)
+        if result:
+            logger.info(f"使用本地 ASR 转写成功 for video: {video_id}")
+            return result
+        logger.error(f"本地 ASR 转写失败 for video: {video_id}")
         return None
 
     def get_pipeline_name(self) -> str:
-        return "ffmpeg + OpenAI Whisper"
+        return "ffmpeg + faster-whisper"
 
 
 def get_transcriber(transcriber_type: str = "auto", **kwargs) -> TranscriberBase:
