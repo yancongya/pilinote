@@ -128,3 +128,4 @@ apps/api/tools/windows/
 
 # 临时工作流文件
 .workflow/
+.worktrees/
