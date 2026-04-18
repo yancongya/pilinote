@@ -10,7 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from huggingface_hub import HfApi, hf_hub_download
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from huggingface_hub import HfApi, hf_hub_url
 
 from src.schemas.local_asr_models import (
     LocalASRModelInfo,
@@ -114,6 +117,7 @@ class LocalASRModelService:
         self._ensure_state_defaults()
         self._sync_disk_state()
         self._save_state()
+        self._resume_pending_downloads()
 
     def _load_state(self) -> Dict[str, Any]:
         if not STATE_FILE.exists():
@@ -158,6 +162,19 @@ class LocalASRModelService:
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(self._state, f, ensure_ascii=False, indent=2)
         tmp_path.replace(STATE_FILE)
+
+    def _resume_pending_downloads(self) -> None:
+        with self._lock:
+            pending_model_ids = [
+                item["model_id"]
+                for item in LOCAL_ASR_REGISTRY
+                if self._state["models"].get(item["model_id"], {}).get("download_state") == "downloading"
+                and not self._state["models"].get(item["model_id"], {}).get("ready", False)
+                and not self._download_futures.get(item["model_id"])
+            ]
+            for model_id in pending_model_ids:
+                self._download_futures[model_id] = self._executor.submit(self._download_worker, model_id)
+                logger.info("恢复本地 ASR 模型下载任务: %s", model_id)
 
     def _now(self) -> str:
         return datetime.utcnow().isoformat()
@@ -314,26 +331,56 @@ class LocalASRModelService:
                 ready=False,
             )
 
-            for index, sibling in enumerate(siblings, start=1):
+            for sibling in siblings:
                 filename = sibling.rfilename
                 file_size = int(getattr(sibling, "size", 0) or 0)
-                hf_hub_download(
-                    repo_id=repo_id,
-                    filename=filename,
-                    local_dir=str(cache_path),
-                    local_dir_use_symlinks=False,
-                )
-                downloaded_bytes += file_size
-                progress = min(99.0, (downloaded_bytes / total_bytes * 100.0) if total_bytes else 0.0)
-                self._update_state(
-                    model_id,
-                    download_state="downloading",
-                    progress=progress,
-                    downloaded_bytes=downloaded_bytes,
-                    total_bytes=total_bytes,
-                    error=None,
-                    ready=False,
-                )
+                file_url = hf_hub_url(repo_id=repo_id, filename=filename, repo_type="model")
+                target_path = cache_path / filename
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                part_path = target_path.with_suffix(target_path.suffix + ".part")
+
+                existing_size = part_path.stat().st_size if part_path.exists() else 0
+                headers = {}
+                if existing_size > 0 and (file_size == 0 or existing_size < file_size):
+                    headers["Range"] = f"bytes={existing_size}-"
+
+                mode = "ab" if existing_size > 0 else "wb"
+                request = Request(file_url, headers=headers)
+                try:
+                    with urlopen(request, timeout=60) as response:
+                        if response.status == 200 and existing_size > 0:
+                            existing_size = 0
+                            mode = "wb"
+
+                        with open(part_path, mode) as f:
+                            while True:
+                                chunk = response.read(1024 * 256)
+                                if not chunk:
+                                    break
+                                f.write(chunk)
+                                downloaded_bytes += len(chunk)
+                                progress = min(99.0, (downloaded_bytes / total_bytes * 100.0) if total_bytes else 0.0)
+                                self._update_state(
+                                    model_id,
+                                    download_state="downloading",
+                                    progress=progress,
+                                    downloaded_bytes=downloaded_bytes,
+                                    total_bytes=total_bytes,
+                                    error=None,
+                                    ready=False,
+                                )
+                except HTTPError as exc:
+                    raise RuntimeError(f"下载模型文件失败: {filename} - HTTP {exc.code}") from exc
+                except URLError as exc:
+                    raise RuntimeError(f"下载模型文件失败: {filename} - {exc.reason}") from exc
+
+                if part_path.exists():
+                    if target_path.exists():
+                        if target_path.is_dir():
+                            shutil.rmtree(target_path)
+                        else:
+                            target_path.unlink()
+                    part_path.rename(target_path)
 
             self._update_state(
                 model_id,

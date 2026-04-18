@@ -18,7 +18,7 @@
       "total_bytes": 0,
       "ready": false,
       "active": true,
-      "updated_at": "2026-04-18T09:34:53.766953",
+      "updated_at": "2026-04-18T10:43:10.967123",
       "error": null
     },
     "small": {
@@ -32,13 +32,13 @@
       "error": null
     },
     "medium": {
-      "download_state": "not_downloaded",
-      "progress": 0.0,
-      "downloaded_bytes": 0,
-      "total_bytes": 0,
+      "download_state": "downloading",
+      "progress": 66.89901304591832,
+      "downloaded_bytes": 1023938726,
+      "total_bytes": 1530573740,
       "ready": false,
       "active": false,
-      "updated_at": "2026-04-18T09:34:53.766975",
+      "updated_at": "2026-04-18T10:44:11.605874",
       "error": null
     },
     "large-v3": {

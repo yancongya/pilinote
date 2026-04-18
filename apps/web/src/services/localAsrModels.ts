@@ -4,6 +4,7 @@ export type LocalAsrModelStatus = 'not_downloaded' | 'downloading' | 'ready' | '
 
 export interface LocalAsrModel {
   id: string
+  model_id?: string
   name: string
   repo_id: string
   estimated_size_mb: number
@@ -37,7 +38,32 @@ export const localAsrModelService = {
     const response = await apiService.request<LocalAsrModelListResponse>('/api/ai/asr/models', {
       method: 'GET',
     })
-    return (response.data ?? response) as LocalAsrModelListResponse
+    const payload = (response.data ?? response) as Omit<LocalAsrModelListResponse, 'models' | 'active_model'> & {
+      models: Array<LocalAsrModel & { model_id?: string; download_state?: string }>
+      active_model: LocalAsrModel & { model_id?: string; download_state?: string }
+    }
+
+    const mapStatus = (model: LocalAsrModel & { model_id?: string; download_state?: string }): LocalAsrModelStatus => {
+      const raw = model.status || model.download_state
+      if (raw === 'ready' || raw === 'downloading' || raw === 'failed' || raw === 'not_downloaded') {
+        return raw
+      }
+      return model.ready ? 'ready' : 'not_downloaded'
+    }
+
+    return {
+      ...payload,
+      models: (payload.models || []).map(model => ({
+        ...model,
+        id: model.id || model.model_id || '',
+        status: mapStatus(model),
+      })),
+      active_model: {
+        ...payload.active_model,
+        id: payload.active_model?.id || payload.active_model?.model_id || '',
+        status: mapStatus(payload.active_model),
+      },
+    }
   },
 
   async getModelStatus(modelId: string): Promise<ApiResponse<{ model: LocalAsrModel }>> {
