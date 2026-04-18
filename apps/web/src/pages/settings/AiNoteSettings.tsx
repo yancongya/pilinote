@@ -23,7 +23,8 @@ import {
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { LocalAsrModelPanel } from '../../components/ai/LocalAsrModelPanel'
-import AiPromptTemplates, { PROMPT_TEMPLATE_CARDS, type PromptTemplateMeta } from './AiPromptTemplates'
+import AiPromptTemplates from './AiPromptTemplates'
+import { PROMPT_TEMPLATE_CARDS, type PromptTemplateMeta } from '../../services/promptCatalog'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { aiRuntimeStateService } from '../../services/aiRuntimeState'
 

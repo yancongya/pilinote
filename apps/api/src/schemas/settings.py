@@ -167,9 +167,7 @@ class LLMSettings(BaseModel):
 class NoteStyleSettings(BaseModel):
     """笔记风格设置"""
 
-    style: str = Field(
-        default="concise", description="笔记风格 (concise/detailed/bullet)"
-    )
+    style: str = Field(default="", description="已迁移字段，保留兼容")
     length: int = Field(default=500, ge=100, le=2000, description="目标长度")
     custom_styles: List[Dict[str, Any]] = Field(
         default_factory=list,

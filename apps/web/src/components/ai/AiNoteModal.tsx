@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { X, Sparkles, Loader2, Copy, Download, RotateCcw } from 'lucide-react'
 import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from '../../services/aiNote'
+import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
+import { PROMPT_TEMPLATE_CARDS } from '../../services/promptCatalog'
 import { useToast } from '../Toast'
 import { useSettingsStore } from '../../stores/settings'
 import { localAsrModelService } from '../../services/localAsrModels'
@@ -24,17 +26,21 @@ interface StyleOption {
   description: string
 }
 
-const SETTINGS_STYLE_CARDS = [
-  { value: 'minimal', label: '精简', description: '仅记录最重要的内容' },
-  { value: 'detailed', label: '详细', description: '包含完整内容和详细讨论' },
-  { value: 'academic', label: '学术', description: '正式结构化，适合学术报告' },
-  { value: 'tutorial', label: '教程', description: '详细记录关键点和结论' },
-  { value: 'xiaohongshu', label: '小红书', description: '爆款标题、emoji表达' },
-  { value: 'life_journal', label: '生活向', description: '情感化表达，记录生活感悟' },
-  { value: 'task_oriented', label: '任务导向', description: '强调任务和目标' },
-  { value: 'business', label: '商业风格', description: '正式精准，适合商业报告' },
-  { value: 'meeting_minutes', label: '会议纪要', description: '突出决策和行动项' },
-]
+function deriveStyleOptionsFromTemplates(currentTemplates: Record<string, any>, defaultTemplates: Record<string, any>): StyleOption[] {
+  const styleCards = PROMPT_TEMPLATE_CARDS.filter(card => card.category === '风格')
+  return styleCards.map(card => {
+    const currentValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), currentTemplates)
+    const defaultValue = card.path.reduce<any>((cursor, key) => (cursor ? cursor[key] : undefined), defaultTemplates)
+    const currentText = typeof currentValue === 'string' ? currentValue : ''
+    const defaultText = typeof defaultValue === 'string' ? defaultValue : ''
+    const value = card.key.replace(/^t3\./, '')
+    return {
+      value,
+      label: card.title.replace(/^T3\s*/, ''),
+      description: currentText || defaultText || '点击编辑 prompt',
+    }
+  })
+}
 
 const TRACE_EXPANDED_KEY = 'pilinote_ai_note_trace_expanded'
 
@@ -102,6 +108,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   const [progress, setProgress] = useState(0)
   const [traceExpanded, setTraceExpanded] = useState(false)
   const [localAsrReady, setLocalAsrReady] = useState(true)
+  const [styleOptions, setStyleOptions] = useState<StyleOption[]>([])
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -122,6 +129,31 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
     }).catch(() => {
       if (cancelled) return
     })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    const load = async () => {
+      try {
+        const [currentRes, defaultRes] = await Promise.all([
+          aiPromptTemplatesService.getTemplates(),
+          aiPromptTemplatesService.getDefaultTemplates(),
+        ])
+        if (cancelled) return
+
+        const currentTemplates = currentRes.templates || {}
+        const defaultTemplates = defaultRes.templates || {}
+        const builtin = deriveStyleOptionsFromTemplates(currentTemplates, defaultTemplates)
+        setStyleOptions(builtin)
+      } catch {
+        if (!cancelled) setStyleOptions([])
+      }
+    }
+    void load()
     return () => {
       cancelled = true
     }
@@ -212,9 +244,18 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
       ? ai.llm.model
       : (providerModels[0] || '')
     setSelectedModel(nextModel)
-    setStyle(ai.style.style || 'detailed')
     setFormats(['summary'])
-  }, [settings, runtimeState.testedModels])
+  }, [settings, runtimeState.testedModels, styleOptions])
+
+  useEffect(() => {
+    if (!isOpen || styleOptions.length === 0) return
+    setStyle(prev => {
+      if (styleOptions.some(option => option.value === prev)) {
+        return prev
+      }
+      return styleOptions[0]?.value || prev
+    })
+  }, [isOpen, styleOptions])
 
   useEffect(() => {
     if (!isOpen) return
@@ -240,10 +281,10 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
       ? (settings as any).ai_note.style.custom_styles
       : []
     const customMap = new Map(customStyles.map((item: any) => [item.value, item]))
-    return SETTINGS_STYLE_CARDS.map(styleItem => customMap.get(styleItem.value) || styleItem).concat(
-      customStyles.filter((item: any) => !SETTINGS_STYLE_CARDS.some(styleItem => styleItem.value === item.value))
+    return styleOptions.map(styleItem => customMap.get(styleItem.value) || styleItem).concat(
+      customStyles.filter((item: any) => !styleOptions.some(styleItem => styleItem.value === item.value))
     )
-  }, [settings])
+  }, [settings, styleOptions])
 
   const currentTrace = trace.length ? trace : ((note?.meta?.trace as AiTraceStep[]) || [])
   const groupedTrace = useMemo(() => {

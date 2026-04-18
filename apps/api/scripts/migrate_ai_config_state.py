@@ -18,7 +18,7 @@ from src.services.settings_service import SettingsService
 
 DATA_DIR = API_ROOT / "data"
 MIGRATION_MARKER_FILE = DATA_DIR / "ai_runtime_state.migration.json"
-MIGRATION_VERSION = 1
+MIGRATION_VERSION = 2
 
 
 def load_marker() -> dict:
@@ -69,11 +69,17 @@ def main() -> int:
             db.commit()
             db.refresh(legacy_setting)
 
+        legacy_style_setting = settings_service.get_setting("ai_note.style.style")
+        if legacy_style_setting and legacy_style_setting.value != "":
+            legacy_style_setting.value = ""
+            db.commit()
+            db.refresh(legacy_style_setting)
+
         write_marker(
             {
                 "version": MIGRATION_VERSION,
                 "completed_at": runtime_service.get_state().get("updated_at"),
-                "source": "db.ai_note.llm.tested_models",
+                "source": "db.ai_note.llm.tested_models,db.ai_note.style.style",
             }
         )
         logger.info("AI config/state migration completed")

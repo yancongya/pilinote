@@ -325,9 +325,7 @@ class SettingsService:
                 except json.JSONDecodeError:
                     llm_dict["tested_models"] = {}
         style_dict = {
-            "style": self._get_setting_value(
-                all_settings, "ai_note.style.style", "concise"
-            ),
+            "style": "",
             "length": int(
                 self._get_setting_value(all_settings, "ai_note.style.length", 500)
             ),
@@ -621,7 +619,7 @@ class SettingsService:
             "ai_note.llm.model": "gpt-4o-mini",
             "ai_note.llm.api_key": "",
             "ai_note.llm.temperature": "0.7",
-            "ai_note.style.style": "concise",
+            "ai_note.style.style": "",
                 "ai_note.style.length": "500",
                 "ai_note.style.custom_styles": json.dumps([]),
                 "ai_note.format.format": "markdown",
