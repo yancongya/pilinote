@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIWhisperBackend:
-    """OpenAI Whisper ASR 后端。"""
+    """OpenAI Whisper ASR 后端（兼容路径）。"""
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")

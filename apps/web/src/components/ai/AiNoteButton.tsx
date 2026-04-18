@@ -3,9 +3,10 @@ import { Sparkles, Loader2 } from 'lucide-react';
 interface AiNoteButtonProps {
   status?: 'none' | 'processing' | 'completed' | 'failed';
   onClick: () => void;
+  disabled?: boolean;
 }
 
-export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
+export function AiNoteButton({ status = 'none', onClick, disabled = false }: AiNoteButtonProps) {
   if (status === 'processing') {
     return (
       <div
@@ -45,10 +46,11 @@ export function AiNoteButton({ status = 'none', onClick }: AiNoteButtonProps) {
   }
 
   return (
-    <div
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      <div
+      onClick={(e) => { e.stopPropagation(); if (!disabled) onClick(); }}
       className="library-ai-note-btn library-ai-note-btn-default"
       title="生成 AI 笔记"
+      aria-disabled={disabled}
     >
       <Sparkles size={16} className="library-ai-note-btn-icon" />
       <span className="library-ai-note-btn-text">未生成</span>

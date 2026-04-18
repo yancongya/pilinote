@@ -12,6 +12,7 @@ import { AiNoteButton } from '../ai/AiNoteButton'
 import { AiNoteModal } from '../ai/AiNoteModal'
 import type { NoteResponse } from '../../services/aiNote'
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup'
+import { localAsrModelService } from '../../services/localAsrModels'
 
 interface LibraryCardProps {
   task: Task
@@ -24,6 +25,7 @@ interface LibraryCardProps {
 // LibraryCard组件 - 显示文件夹卡片
 function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileSize }: LibraryCardProps) {
   const navigate = useNavigate()
+  const { showToast } = useToast()
   const isOpus = task.media_type === 'opus'
   const hasMultipleVideos = !isOpus && task.meta?.file_count > 1
   const hasCover = task.cover && task.cover.trim()
@@ -33,6 +35,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const [aiNoteStatus, setAiNoteStatus] = useState<'none' | 'processing' | 'completed' | 'failed'>('none')
   const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [isLocalAsrReady, setIsLocalAsrReady] = useState(true)
 
   const folderPath = task.meta?.folder_path
   const videoIdForNote = task.meta?.nfo_data?.bvid
@@ -46,7 +49,26 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
     setExistingNote(lookup.note)
   }, [lookup.note, lookup.status])
 
+  useEffect(() => {
+    let cancelled = false
+    if (isOpus) return
+    localAsrModelService.checkReady().then(result => {
+      if (!cancelled) {
+        setIsLocalAsrReady(result.ready)
+      }
+    }).catch(() => {
+      if (!cancelled) setIsLocalAsrReady(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpus])
+
   const handleAiNoteClick = () => {
+    if (!existingNote && !isLocalAsrReady && !isOpus) {
+      showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
+      return
+    }
     setShowModal(true)
   }
 
@@ -177,6 +199,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             <AiNoteButton
                 status={aiNoteStatus}
                 onClick={handleAiNoteClick}
+                disabled={!existingNote && !isLocalAsrReady}
               />
             )}
           </div>

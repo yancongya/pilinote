@@ -1,8 +1,8 @@
-import os
 import json
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 from .asr_backends import AudioExtractor, ASRBackend, FFmpegAudioExtractor
 from .faster_whisper_backend import FasterWhisperBackend
@@ -102,9 +102,23 @@ class ASRTranscriber(TranscriberBase):
         api_key: Optional[str] = None,
         audio_extractor: Optional[AudioExtractor] = None,
         asr_backend: Optional[ASRBackend] = None,
+        model_config: Optional[dict[str, Any]] = None,
     ):
+        self.model_config = model_config or {}
         self.audio_extractor = audio_extractor or FFmpegAudioExtractor()
-        self.asr_backend = asr_backend or FasterWhisperBackend()
+        self.asr_backend = asr_backend or self._create_default_backend()
+
+    def _create_default_backend(self) -> ASRBackend:
+        model_path = self.model_config.get("cache_path")
+        model_id = self.model_config.get("model_id", "base")
+        device = self.model_config.get("device", "auto")
+        compute_type = self.model_config.get("compute_type", "auto")
+        return FasterWhisperBackend(
+            model_size=model_id,
+            model_path=model_path,
+            device=device,
+            compute_type=compute_type,
+        )
 
     def transcribe(self, video_path: str, video_id: str) -> Optional[str]:
         """使用当前默认 ASR 流程转写视频"""
@@ -127,7 +141,8 @@ class ASRTranscriber(TranscriberBase):
             return None
 
     def get_pipeline_name(self) -> str:
-        return "ffmpeg + faster-whisper"
+        model_id = self.model_config.get("model_id", "base")
+        return f"ffmpeg + faster-whisper({model_id})"
 
 
 class TranscriberFactory:
@@ -141,7 +156,7 @@ class TranscriberFactory:
         elif transcriber_type in {"whisper", "asr"}:
             return ASRTranscriber(**kwargs)
         elif transcriber_type == "auto":
-            # 自动选择：默认直接使用 ASR（当前实现为 OpenAI Whisper），避免误用错误字幕
+            # 自动选择：默认直接使用本地 ASR
             return ASRTranscriber(**kwargs)
         else:
             raise ValueError(f"Unknown transcriber type: {transcriber_type}")
@@ -163,7 +178,7 @@ class AutoTranscriber(TranscriberBase):
         return None
 
     def get_pipeline_name(self) -> str:
-        return "ffmpeg + faster-whisper"
+        return self.asr_transcriber.get_pipeline_name()
 
 
 def get_transcriber(transcriber_type: str = "auto", **kwargs) -> TranscriberBase:

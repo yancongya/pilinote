@@ -322,8 +322,21 @@ class AiNoteService:
         """转写视频，默认走 Whisper 音频转写。"""
         try:
             from src.services.ai.transcriber import get_transcriber
+            from src.services.ai.local_asr_model_service import (
+                LocalASRModelNotReadyError,
+                get_local_asr_model_service,
+            )
 
-            transcriber = get_transcriber("asr")
+            model_service = get_local_asr_model_service()
+            active_model = model_service.ensure_active_model_ready()
+            self._add_trace(
+                "PREP.T1.0",
+                "检查本地模型",
+                f"当前激活模型 {active_model.name} 已就绪",
+                38.0,
+                {"model": active_model.model_id, "cache_path": active_model.cache_path},
+            )
+            transcriber = get_transcriber("asr", model_config=active_model.model_dump())
             pipeline_name = getattr(transcriber, "get_pipeline_name", lambda: "ffmpeg + faster-whisper")()
             self._add_trace(
                 "PREP.T1.1",
@@ -350,6 +363,8 @@ class AiNoteService:
                 {"length": len(result), "pipeline": pipeline_name},
             )
             return result
+        except LocalASRModelNotReadyError:
+            raise
         except Exception as e:
             logger.error(f"转写失败: {e}", exc_info=True)
             raise

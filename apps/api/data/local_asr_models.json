@@ -1,0 +1,55 @@
+{
+  "active_model_id": "base",
+  "models": {
+    "tiny": {
+      "download_state": "not_downloaded",
+      "progress": 0.0,
+      "downloaded_bytes": 0,
+      "total_bytes": 0,
+      "ready": false,
+      "active": false,
+      "updated_at": "2026-04-18T09:34:53.766920",
+      "error": null
+    },
+    "base": {
+      "download_state": "not_downloaded",
+      "progress": 0.0,
+      "downloaded_bytes": 0,
+      "total_bytes": 0,
+      "ready": false,
+      "active": true,
+      "updated_at": "2026-04-18T09:34:53.766953",
+      "error": null
+    },
+    "small": {
+      "download_state": "not_downloaded",
+      "progress": 0.0,
+      "downloaded_bytes": 0,
+      "total_bytes": 0,
+      "ready": false,
+      "active": false,
+      "updated_at": "2026-04-18T09:34:53.766964",
+      "error": null
+    },
+    "medium": {
+      "download_state": "not_downloaded",
+      "progress": 0.0,
+      "downloaded_bytes": 0,
+      "total_bytes": 0,
+      "ready": false,
+      "active": false,
+      "updated_at": "2026-04-18T09:34:53.766975",
+      "error": null
+    },
+    "large-v3": {
+      "download_state": "not_downloaded",
+      "progress": 0.0,
+      "downloaded_bytes": 0,
+      "total_bytes": 0,
+      "ready": false,
+      "active": false,
+      "updated_at": "2026-04-18T09:34:53.766984",
+      "error": null
+    }
+  }
+}

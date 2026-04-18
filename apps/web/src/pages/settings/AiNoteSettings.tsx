@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import AiPromptTemplates from './AiPromptTemplates'
+import { LocalAsrModelPanel } from '../../components/ai/LocalAsrModelPanel'
 
 interface LLMProvider {
   id: string
@@ -790,6 +791,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           </div>
         )}
       </div>
+
+      <LocalAsrModelPanel />
 
       {/* 风格预设 */}
       <div className="settings-group">

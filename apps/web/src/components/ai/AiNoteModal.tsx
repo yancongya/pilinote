@@ -3,6 +3,7 @@ import { X, Sparkles, Loader2, Copy, Download, RotateCcw } from 'lucide-react'
 import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from '../../services/aiNote'
 import { useToast } from '../Toast'
 import { useSettingsStore } from '../../stores/settings'
+import { localAsrModelService } from '../../services/localAsrModels'
 
 interface AiNoteModalProps {
   videoId: string
@@ -97,6 +98,7 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
   const [trace, setTrace] = useState<AiTraceStep[]>([])
   const [progress, setProgress] = useState(0)
   const [traceExpanded, setTraceExpanded] = useState(false)
+  const [localAsrReady, setLocalAsrReady] = useState(true)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -198,6 +200,19 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
     setStyle(ai.style.style || 'detailed')
     setFormats(['summary'])
   }, [settings])
+
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    localAsrModelService.checkReady().then(result => {
+      if (!cancelled) setLocalAsrReady(result.ready)
+    }).catch(() => {
+      if (!cancelled) setLocalAsrReady(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen])
 
   const activeProvider = settings?.ai_note?.llm?.provider || 'openai'
 
@@ -302,6 +317,14 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
     setViewState('loading')
     setTrace([])
     setProgress(0)
+
+    if (!localAsrReady) {
+      setError('请先在 AI 笔记设置中下载并启用本地 ASR 模型')
+      showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
+      setViewState('config')
+      setIsAnalyzing(false)
+      return
+    }
 
     if (!selectedModel) {
       setError('请先在设置面板测试并保存可用模型')
@@ -504,9 +527,9 @@ export function AiNoteModal({ videoId, videoTitle, existingNote, isOpen, onClose
                 <RotateCcw size={16} />
                 重置
               </button>
-              <button onClick={handleAnalyze} disabled={isAnalyzing} className="ai-note-modal-btn-primary">
+              <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady} className="ai-note-modal-btn-primary">
                 {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                {isAnalyzing ? '分析中...' : '开始分析'}
+                {isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')}
               </button>
             </div>
           </>

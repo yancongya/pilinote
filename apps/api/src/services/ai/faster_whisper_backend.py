@@ -10,10 +10,12 @@ class FasterWhisperBackend:
     def __init__(
         self,
         model_size: str = "base",
+        model_path: Optional[str] = None,
         device: str = "auto",
         compute_type: str = "auto",
     ):
         self.model_size = model_size
+        self.model_path = model_path
         self.device = device
         self.compute_type = compute_type
 
@@ -21,8 +23,10 @@ class FasterWhisperBackend:
         try:
             from faster_whisper import WhisperModel
 
+            model_source = self.model_path or self.model_size
+
             model = WhisperModel(
-                self.model_size,
+                model_source,
                 device=self.device,
                 compute_type=self.compute_type,
             )

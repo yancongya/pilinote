@@ -5,6 +5,8 @@ import { StyleSelector } from './StyleSelector';
 import { FormatSelector } from './FormatSelector';
 import { MarkdownViewer } from './MarkdownViewer';
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup';
+import { localAsrModelService } from '../../services/localAsrModels';
+import { useToast } from '../Toast';
 
 interface AiNotePanelProps {
   videoId: string;
@@ -20,7 +22,9 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
   const [note, setNote] = useState<NoteResponse | null>(null);
   const [noteId, setNoteId] = useState<string | null>(null);
   const [recommendedStyle, setRecommendedStyle] = useState<string | null>(null);
+  const [localAsrReady, setLocalAsrReady] = useState(true);
   const lookup = useAiNoteLookup(videoId);
+  const { showToast } = useToast();
   
   const { status, progress, error, startPolling } = useNotePolling({
     noteId,
@@ -58,7 +62,23 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     }
   }, [lookup.note])
 
+  useEffect(() => {
+    let cancelled = false
+    localAsrModelService.checkReady().then(result => {
+      if (!cancelled) setLocalAsrReady(result.ready)
+    }).catch(() => {
+      if (!cancelled) setLocalAsrReady(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleAnalyze = async () => {
+    if (!localAsrReady) {
+      showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
+      return
+    }
     try {
       const response = await aiNoteService.analyze({
         video_id: videoId,
