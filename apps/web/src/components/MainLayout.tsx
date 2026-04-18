@@ -15,7 +15,7 @@ const navItems = [
   { id: 'home', label: '首页', path: '/home', icon: Home },
   { id: 'favorites', label: '收藏', path: '/favorites', icon: Heart },
   { id: 'watch-later', label: '稍后再看', path: '/watch-later', icon: Clock },
-  { id: 'downloads', label: '新下载', path: '/downloads', icon: Download },
+  { id: 'downloads', label: '下载', path: '/downloads', icon: Download },
 ]
 
 function MainLayout() {

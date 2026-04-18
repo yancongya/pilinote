@@ -1,5 +1,6 @@
 // components/NewDownload/index.tsx
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useNewQueueStore } from '../../stores/newQueue'
 import DownloadsList from './DownloadsList'
 import VideoLibrary from './VideoLibrary'
@@ -7,9 +8,46 @@ import ScanResultContent from './ScanResultContent'
 import { Loader2 } from 'lucide-react'
 import './index.css'
 
+const TABS = ['downloads', 'library', 'scan'] as const
+
 export default function NewDownloadContent() {
-  const { activeTab, setActiveTab, connectWebSocket, fetchTasks, fetchSchedulers } = useNewQueueStore()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { activeTab: storeActiveTab, setActiveTab: storeSetActiveTab, connectWebSocket, fetchTasks, fetchSchedulers } = useNewQueueStore()
   const [isLoading, setIsLoading] = useState(true)
+
+  // 从 hash 初始化 activeTab
+  const getInitialTab = () => {
+    const hash = location.hash.slice(1)
+    if (hash && TABS.includes(hash as typeof TABS[number])) {
+      return hash as typeof TABS[number]
+    }
+    return 'downloads'
+  }
+
+  const [activeTab, setActiveTab] = useState<'downloads' | 'library' | 'scan'>(getInitialTab)
+
+  // 监听 hash 变化（浏览器前进/后退）
+  useEffect(() => {
+    const hash = location.hash.slice(1)
+    if (hash && TABS.includes(hash as typeof TABS[number]) && hash !== activeTab) {
+      setActiveTab(hash as typeof TABS[number])
+    }
+  }, [location.hash])
+
+  // 更新 hash（当 tab 变化时）
+  useEffect(() => {
+    if (location.hash.slice(1) !== activeTab) {
+      navigate(`#${activeTab}`, { replace: true })
+    }
+  }, [activeTab, navigate, location.hash])
+
+  // 同步到 store（不影响功能，只用于 UI 状态）
+  useEffect(() => {
+    if (storeActiveTab !== activeTab) {
+      storeSetActiveTab(activeTab)
+    }
+  }, [activeTab, storeSetActiveTab, storeActiveTab])
 
   useEffect(() => {
     const initData = async () => {
