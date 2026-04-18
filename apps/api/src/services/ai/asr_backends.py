@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class AudioExtractor(Protocol):
-    def extract(self, video_path: str) -> Optional[str]:
+    def extract(self, video_path: str, output_path: Optional[str] = None) -> Optional[str]:
         """提取音频文件路径"""
         ...
 
@@ -28,13 +28,17 @@ class FFmpegAudioExtractor:
     def __init__(self, ffmpeg_path: str = "ffmpeg"):
         self.ffmpeg_path = ffmpeg_path
 
-    def extract(self, video_path: str) -> Optional[str]:
+    def extract(self, video_path: str, output_path: Optional[str] = None) -> Optional[str]:
         if not video_path or not os.path.exists(video_path):
             logger.error("视频文件不存在: %s", video_path)
             return None
 
-        audio_fd, audio_path = tempfile.mkstemp(suffix=".mp3")
-        os.close(audio_fd)
+        if output_path:
+            audio_path = output_path
+            os.makedirs(os.path.dirname(audio_path), exist_ok=True)
+        else:
+            audio_fd, audio_path = tempfile.mkstemp(suffix=".mp3")
+            os.close(audio_fd)
 
         try:
             cmd = [

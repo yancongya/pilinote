@@ -1,6 +1,6 @@
 // components/NewDownload/DownloadsList.tsx
-import { useState, useRef, useEffect } from 'react'
-import { RefreshCw, Trash2, Square, Play, Database, FolderOpen, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { Trash2, Square, Play } from 'lucide-react'
 import { useNewQueueStore } from '../../stores/newQueue'
 import { useToast } from '../../components/Toast'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -9,14 +9,10 @@ import SchedulerCard from './SchedulerCard'
 import './DownloadsList.css'
 
 export default function DownloadsList() {
-  const { filterStatus, setFilterStatus, getFilteredTasks, fetchTasks, fetchSchedulers, schedulers, batchDeleteTasks, deleteAllTasks, batchStartTasks } = useNewQueueStore()
+  const { filterStatus, setFilterStatus, getFilteredTasks, schedulers, batchDeleteTasks, deleteAllTasks, batchStartTasks } = useNewQueueStore()
   const { showToast } = useToast()
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isBatchMode, setIsBatchMode] = useState(false)
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
-  const [showRefreshMenu, setShowRefreshMenu] = useState(false)
-  const [libraryStats, setLibraryStats] = useState<any>(null)
-  const refreshMenuRef = useRef<HTMLDivElement>(null)
   
   // 确认对话框状态
   const [showClearCacheConfirm, setShowClearCacheConfirm] = useState(false)
@@ -35,80 +31,6 @@ export default function DownloadsList() {
     acc[sid].push(task)
     return acc
   }, {} as Record<string, typeof schedulerTasks>)
-
-  // 刷新任务列表
-  const handleRefresh = async () => {
-    if (isRefreshing) return
-    setIsRefreshing(true)
-    try {
-      await Promise.all([
-        fetchTasks(),
-        fetchSchedulers()
-      ])
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
-  // 处理点击外部关闭菜单
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (refreshMenuRef.current && !refreshMenuRef.current.contains(event.target as Node)) {
-        setShowRefreshMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // 获取媒体库统计信息
-  const fetchLibraryStats = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/library/statistics')
-      if (response.ok) {
-        const result = await response.json()
-        setLibraryStats(result.data)
-      }
-    } catch (error) {
-      console.error('获取媒体库统计信息失败:', error)
-    }
-  }
-
-  // 刷新本地媒体库
-  const handleRefreshLibrary = async () => {
-    if (isRefreshing) return
-    setIsRefreshing(true)
-    setShowRefreshMenu(false)
-    try {
-      const response = await fetch('http://localhost:8000/api/library/sync?auto_import=true&auto_cleanup=false', {
-        method: 'POST'
-      })
-      if (response.ok) {
-        const result = await response.json()
-        showToast(`媒体库刷新完成！${result.data.scan_result.total_files} 个文件，${result.data.imported_count} 个新文件`, 'success')
-        // 刷新任务列表
-        await fetchTasks()
-        // 更新统计信息
-        await fetchLibraryStats()
-      } else {
-        const errorResult = await response.json()
-        throw new Error(errorResult.detail || '刷新失败')
-      }
-    } catch (error) {
-      console.error('刷新媒体库失败:', error)
-      showToast(`刷新媒体库失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
-  // 显示刷新菜单
-  const toggleRefreshMenu = () => {
-    setShowRefreshMenu(!showRefreshMenu)
-    if (!showRefreshMenu) {
-      fetchLibraryStats()
-    }
-  }
 
   // 清除缓存
   const handleClearCache = () => {
@@ -162,7 +84,7 @@ export default function DownloadsList() {
     }
   }
 
-  // 删除所有任务
+  // 清空所有任务记录
   const handleDeleteAll = async () => {
     if (filteredTasks.length === 0) return
     try {
@@ -170,8 +92,8 @@ export default function DownloadsList() {
       setSelectedTasks(new Set())
       setIsBatchMode(false)
     } catch (error) {
-      console.error('删除所有任务失败:', error)
-      showToast('删除所有任务失败，请重试', 'error')
+      console.error('清空任务记录失败:', error)
+      showToast('清空任务记录失败，请重试', 'error')
     }
   }
 
@@ -191,57 +113,6 @@ export default function DownloadsList() {
           <option value="paused">已暂停</option>
           <option value="failed">失败</option>
         </select>
-
-        {/* 刷新按钮 */}
-        <div className="refresh-dropdown" ref={refreshMenuRef}>
-          <button
-            className="refresh-button"
-            onClick={toggleRefreshMenu}
-            disabled={isRefreshing}
-            aria-label="刷新选项"
-            title="刷新选项"
-          >
-            <RefreshCw size={16} className={isRefreshing ? 'rotating' : ''} />
-            <span>刷新</span>
-            <ChevronDown size={14} style={{ marginLeft: '4px' }} />
-          </button>
-
-          {/* 刷新菜单 */}
-          {showRefreshMenu && (
-            <div className="refresh-menu">
-              <div className="refresh-menu-header">
-                <Database size={14} />
-                <span>刷新选项</span>
-              </div>
-              
-              <button
-                className="refresh-menu-item"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw size={16} />
-                <div className="refresh-menu-item-content">
-                  <span>刷新任务列表</span>
-                  <span className="refresh-menu-item-desc">更新下载任务状态和进度</span>
-                </div>
-              </button>
-
-              <button
-                className="refresh-menu-item"
-                onClick={handleRefreshLibrary}
-                disabled={isRefreshing}
-              >
-                <FolderOpen size={16} />
-                <div className="refresh-menu-item-content">
-                  <span>刷新本地媒体库</span>
-                  <span className="refresh-menu-item-desc">
-                    {libraryStats ? `扫描 ${libraryStats.file_count} 个文件，${(libraryStats.total_size_gb).toFixed(2)} GB` : '扫描下载目录并同步'}
-                  </span>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
 
         {/* 清除缓存按钮 */}
         <button
@@ -295,17 +166,17 @@ export default function DownloadsList() {
           </button>
         )}
 
-        {/* 删除所有按钮 */}
+        {/* 清空任务记录按钮 */}
         {isBatchMode && (
           <button
             className="refresh-button"
             onClick={() => setShowDeleteAllConfirm(true)}
-            aria-label="删除所有"
-            title={`删除所有 ${filteredTasks.length} 个任务`}
+            aria-label="清空任务记录"
+            title={`清空 ${filteredTasks.length} 个任务记录（不删除本地下载文件）`}
             style={{ marginLeft: '8px', color: 'var(--color-error-500)' }}
           >
             <Trash2 size={16} />
-            <span>全部删除</span>
+            <span>清空任务</span>
           </button>
         )}
 
@@ -397,9 +268,9 @@ export default function DownloadsList() {
         isOpen={showDeleteAllConfirm}
         onClose={() => setShowDeleteAllConfirm(false)}
         onConfirm={handleDeleteAll}
-        title="确认删除所有"
-        message={`确定要删除所有 ${filteredTasks.length} 个任务吗？此操作不可恢复！`}
-        confirmText="删除"
+        title="确认清空任务记录"
+        message={`确定要清空所有 ${filteredTasks.length} 个任务记录吗？这不会删除本地已下载文件。`}
+        confirmText="清空"
         confirmVariant="danger"
       />
     </div>

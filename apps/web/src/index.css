@@ -761,7 +761,7 @@ body {
 /* 主页样式 - 简洁响应式布局 */
 .home-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
   max-height: 100vh;
   overflow: hidden;
@@ -781,12 +781,12 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-/* 主内容区域 */
-.home-main {
-  display: flex;
+/* 主内容区域 - 现在是容器 wrapper */
+.home-container > .home-sidebar,
+.home-container > .home-content {
   flex: 1;
-  overflow: hidden;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* 侧边栏 - 桌面端 */
@@ -860,7 +860,7 @@ body {
 }
 
 .content-wrapper {
-  padding: 16px;
+  padding: 0;
   max-width: 100%;
 }
 
@@ -919,6 +919,10 @@ body {
 
 /* 移动端（≤768px） */
 @media (max-width: 768px) {
+  .home-container {
+    flex-direction: column;
+  }
+
   .home-sidebar {
     display: none;
   }
@@ -928,14 +932,33 @@ body {
   }
 
   .home-content {
+    flex: 1;
+    overflow-y: auto;
     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+  }
+
+  .content-section {
+    min-height: calc(100vh - 140px);
+    overflow-y: visible;
   }
 }
 
 /* 桌面端（≥769px） */
 @media (min-width: 769px) {
+  .home-container {
+    flex-direction: row;
+  }
+
   .home-sidebar {
     display: flex;
+    width: 80px;
+    flex-shrink: 0;
+  }
+
+  .home-content {
+    flex: 1;
+    overflow-y: auto;
   }
 
   .bottom-nav {
@@ -1819,8 +1842,12 @@ body {
     max-width: 100%;
   }
 
-  .home-main {
+  .home-container {
     flex-direction: column;
+  }
+
+  .home-main {
+    display: none;
   }
 
   .home-header {
@@ -5677,6 +5704,7 @@ body {
   
   #favorites-panel .section-header,
   #watchlater-panel .section-header,
+  #history-panel .section-header,
   #downloads-panel .section-header {
     padding: 12px 16px;
   }
@@ -5694,26 +5722,69 @@ body {
   }
 }
 
-/* 非首页页面标题栏固定定位 */
+/* 三个 tab 面板铺满整个内容区域 - 强制覆盖 */
+#favorites-panel,
+#watchlater-panel,
+#history-panel {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+/* 彻底移除所有可能的内边距 */
+html body #root .home-container .home-content .content-wrapper #favorites-panel,
+html body #root .home-container .home-content .content-wrapper #watchlater-panel,
+html body #root .home-container .home-content .content-wrapper #history-panel {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* section-header 完全铺满 */
 #favorites-panel .section-header,
 #watchlater-panel .section-header,
-#downloads-panel .section-header {
+#history-panel .section-header {
   position: sticky;
   top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
   background: var(--color-bg-primary);
   backdrop-filter: blur(10px);
-  padding: 16px 20px;
-  border-radius: 0;
-  margin-bottom: 16px;
-  z-index: 10;
+  padding: 12px 16px;
+  margin: 0;
+  z-index: 200;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* section-title 铺满 */
+#favorites-panel .section-title,
+#watchlater-panel .section-title,
+#history-panel .section-title {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* video-list-container 铺满 */
+#favorites-panel .video-list-container,
+#watchlater-panel .video-list-container,
+#history-panel .video-list-container {
+  padding: 0 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* 首页无顶部导航栏时的样式调整 */
-.home-container:not(.has-tabs) .home-main {
-  padding-top: 0;
-}
-
 .home-container:not(.has-tabs) .home-content {
   flex: 1;
   overflow-y: auto;
@@ -5721,9 +5792,14 @@ body {
 
 /* 确保内容区域正确滚动 */
 .content-section {
-  overflow-y: auto;
-  height: 100%;
-  scroll-behavior: smooth;
+  overflow-y: visible;
+  overflow-x: visible;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 /* 隐藏滚动条但保留功能 */
@@ -9346,11 +9422,12 @@ body {
 
 /* 收藏夹和稍后再看页面的 section-header - 使用更高优先级 */
 #favorites-panel .section-header,
-#watchlater-panel .section-header {
+#watchlater-panel .section-header,
+#history-panel .section-header {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  margin-bottom: 20px !important;
+  margin-bottom: 12px !important;
   flex-wrap: nowrap !important;
   gap: 12px !important;
   flex-direction: row !important;
@@ -9359,13 +9436,16 @@ body {
 /* section-header内的h2标题特别处理 */
 #favorites-panel .section-header h2,
 #watchlater-panel .section-header h2,
+#history-panel .section-header h2,
 .dark #favorites-panel .section-header h2,
-.dark #watchlater-panel .section-header h2 {
+.dark #watchlater-panel .section-header h2,
+.dark #history-panel .section-header h2 {
   color: var(--color-text-primary) !important;
 }
 
 #favorites-panel .section-title,
-#watchlater-panel .section-title {
+#watchlater-panel .section-title,
+#history-panel .section-title {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -9385,7 +9465,8 @@ body {
 }
 
 #favorites-panel .section-title .video-count,
-#watchlater-panel .section-title .video-count {
+#watchlater-panel .section-title .video-count,
+#history-panel .section-title .video-count {
   margin: 0 !important;
   flex-shrink: 0 !important;
   white-space: nowrap !important;
@@ -9393,7 +9474,8 @@ body {
 
 /* 批量操作按钮容器 - 右对齐 */
 #favorites-panel .batch-actions,
-#watchlater-panel .batch-actions {
+#watchlater-panel .batch-actions,
+#history-panel .batch-actions {
   display: flex !important;
   gap: 8px !important;
   align-items: center !important;
@@ -9572,7 +9654,8 @@ body {
 /* 手机模式优化 - 强制使用row布局 */
 @media (max-width: 640px) {
   #favorites-panel .section-header,
-  #watchlater-panel .section-header {
+  #watchlater-panel .section-header,
+  #history-panel .section-header {
     flex-direction: row !important;
     align-items: center !important;
     gap: 8px !important;
@@ -9588,18 +9671,21 @@ body {
   }
   
   #favorites-panel .section-title h2,
-  #watchlater-panel .section-title h2 {
+  #watchlater-panel .section-title h2,
+  #history-panel .section-title h2 {
     font-size: 18px !important;
   }
   
   #favorites-panel .section-title .video-count,
-  #watchlater-panel .section-title .video-count {
+  #watchlater-panel .section-title .video-count,
+  #history-panel .section-title .video-count {
     font-size: 12px !important;
     padding: 2px 8px !important;
   }
   
   #favorites-panel .batch-actions,
-  #watchlater-panel .batch-actions {
+  #watchlater-panel .batch-actions,
+  #history-panel .batch-actions {
     flex-shrink: 0 !important;
     gap: 6px !important;
     justify-content: flex-end !important;

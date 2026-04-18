@@ -20,6 +20,10 @@ import {
   Layers3,
   FileText,
   LayoutGrid,
+  Eye,
+  EyeOff,
+  Wifi,
+  X,
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { LocalAsrModelPanel } from '../../components/ai/LocalAsrModelPanel'
@@ -41,6 +45,7 @@ interface LLMProvider {
 interface AiNoteLocalSettings {
   llm: {
     provider: string
+    base_url: string
     model: string
     api_key: string
     temperature: number
@@ -135,6 +140,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [modelEditIndex, setModelEditIndex] = useState<number | null>(null)
   const [modelDraft, setModelDraft] = useState('')
   const [modelTestStatus, setModelTestStatus] = useState<Record<string, boolean | 'loading'>>({})
+  const [providerTestingId, setProviderTestingId] = useState<string | null>(null)
   const providerTabsRef = useRef<HTMLDivElement | null>(null)
   const providerBarRef = useRef<HTMLDivElement | null>(null)
   const providerThumbDragState = useRef({
@@ -166,8 +172,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       const dbProviders = Array.isArray((settings as any)?.llm?.providers)
         ? ((settings as any).llm.providers as LLMProvider[])
         : []
-      const savedProviders = localStorage.getItem(STORAGE_KEY_PROVIDERS)
-      const legacyProviders: LLMProvider[] = savedProviders ? JSON.parse(savedProviders) : []
       const providerMap = new Map<string, LLMProvider>()
 
       DEFAULT_PROVIDERS.forEach(provider => {
@@ -181,52 +185,34 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           models: Array.isArray(provider.models) ? provider.models : [],
         })
       })
-      legacyProviders.forEach(provider => {
-        providerMap.set(provider.id, {
-          ...provider,
-          baseUrl: provider.baseUrl || '',
-          apiKey: provider.apiKey || '',
-          models: Array.isArray(provider.models) ? provider.models : [],
-        })
-      })
       const mergedProviders = Array.from(providerMap.values())
       setProviders(mergedProviders)
-      if (legacyProviders.length > 0) {
-        await updateSettings({
-          llm: {
-            ...(settings?.llm || {}),
-            providers: mergedProviders,
-          },
-        })
-        localStorage.removeItem(STORAGE_KEY_PROVIDERS)
-      }
 
-      const currentAiNote = settings?.ai_note
       const unifiedLlm = settings?.llm
-      if (currentAiNote || unifiedLlm) {
-        const currentProviderId = unifiedLlm?.provider || currentAiNote?.llm.provider || 'openai'
+      if (unifiedLlm) {
+        const currentProviderId = unifiedLlm.provider || 'openai'
         const currentProvider = providerMap.get(currentProviderId) || providerMap.get('openai') || DEFAULT_PROVIDERS[0]
         setLocalSettings({
           llm: {
             provider: currentProviderId,
-            base_url: unifiedLlm?.base_url || currentProvider.baseUrl,
-            model: unifiedLlm?.model || currentAiNote?.llm.model || currentProvider.models[0] || 'gpt-4o-mini',
-            api_key: unifiedLlm?.api_key || currentAiNote?.llm.api_key || currentProvider.apiKey || '',
-            temperature: unifiedLlm?.temperature ?? currentAiNote?.llm.temperature ?? 0.7,
+            base_url: unifiedLlm.base_url || currentProvider.baseUrl,
+            model: unifiedLlm.model || currentProvider.models[0] || 'gpt-4o-mini',
+            api_key: unifiedLlm.api_key || currentProvider.apiKey || '',
+            temperature: unifiedLlm.temperature ?? 0.7,
           },
           style: {
-            length: currentAiNote?.style.length || 500,
-            custom_styles: currentAiNote?.style.custom_styles || [],
+            length: settings?.ai_note?.style.length || 500,
+            custom_styles: settings?.ai_note?.style.custom_styles || [],
           },
           format: {
-            format: currentAiNote?.format.format || 'markdown',
-            include_timestamp: currentAiNote?.format.include_timestamp ?? true,
-            include_summary: currentAiNote?.format.include_summary ?? true,
+            format: settings?.ai_note?.format.format || 'markdown',
+            include_timestamp: settings?.ai_note?.format.include_timestamp ?? true,
+            include_summary: settings?.ai_note?.format.include_summary ?? true,
           },
-          auto_analyze: currentAiNote?.auto_analyze ?? false,
+          auto_analyze: settings?.ai_note?.auto_analyze ?? false,
         })
         setActiveProviderId(currentProviderId)
-        setCustomStyles(currentAiNote?.style.custom_styles || [])
+        setCustomStyles(settings?.ai_note?.style.custom_styles || [])
       }
 
       try {
@@ -321,6 +307,17 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     setShowApiKey(false)
   }
 
+  const handleEditProvider = (provider: LLMProvider) => {
+    setEditingProvider(provider)
+    setProviderForm({
+      name: provider.name,
+      baseUrl: provider.baseUrl,
+      apiKey: provider.apiKey,
+      models: provider.models.join(', '),
+    })
+    setShowApiKey(false)
+  }
+
   const handleDeleteProvider = (id: string) => {
     const newProviders = providers.filter(p => p.id !== id)
     void saveProviders(newProviders)
@@ -344,7 +341,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     showToast('已删除', 'success')
   }
 
-  const handleSaveProvider = () => {
+  const handleSaveProvider = async () => {
     if (!providerForm.name.trim()) {
       showToast('请输入服务商名称', 'error')
       return
@@ -367,7 +364,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       newProviders = [...providers, newProvider]
     }
     
-    void saveProviders(newProviders)
+    await saveProviders(newProviders)
     if (activeProviderId === id || (editingProvider && editingProvider.id === activeProviderId)) {
       setLocalSettings(prev => ({
         ...prev,
@@ -379,6 +376,27 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           model: newProvider.models[0] || prev.llm.model,
         },
       }))
+    }
+    if (activeProviderId === id) {
+      await updateSettings({
+        llm: {
+          ...((settings as any)?.llm || {
+            provider: id,
+            base_url: newProvider.baseUrl,
+            model: newProvider.models[0] || localSettings.llm.model,
+            api_key: newProvider.apiKey,
+            temperature: localSettings.llm.temperature,
+          }),
+          provider: id,
+          base_url: newProvider.baseUrl,
+          model: newProvider.models.includes(localSettings.llm.model)
+            ? localSettings.llm.model
+            : (newProvider.models[0] || localSettings.llm.model),
+          api_key: newProvider.apiKey,
+          temperature: localSettings.llm.temperature,
+          providers: newProviders,
+        },
+      })
     }
     setEditingProvider(null)
     setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' })
@@ -407,6 +425,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   }
 
   const currentProvider = providers.find(p => p.id === activeProviderId)
+  const isEditingCurrentProvider = Boolean(currentProvider && editingProvider?.id === currentProvider.id)
+  const canDeleteCurrentProvider = Boolean(currentProvider && (currentProvider.isCustom || currentProvider.id.startsWith('custom_')))
   const promptCategoryIcons = {
     基础: FileText,
     分层: Layers3,
@@ -583,6 +603,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const testModel = async (providerId: string, modelName: string) => {
     const provider = providers.find(p => p.id === providerId)
     if (!provider) return
+    const providerKey = editingProvider?.id === providerId ? providerForm.apiKey : provider.apiKey
+    const providerBaseUrl = editingProvider?.id === providerId ? providerForm.baseUrl.trim() : provider.baseUrl
     setModelTestStatus(prev => ({ ...prev, [modelName]: 'loading' }))
     try {
       const response = await fetch('/api/ai/test-model', {
@@ -591,8 +613,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         body: JSON.stringify({
           provider: provider.id,
           model: modelName,
-          baseUrl: provider.baseUrl,
-          apiKey: provider.apiKey,
+          baseUrl: providerBaseUrl,
+          apiKey: providerKey,
         }),
       })
       if (!response.ok) {
@@ -605,38 +627,26 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         llm: {
           ...prev.llm,
           provider: provider.id,
-          base_url: provider.baseUrl,
+          base_url: providerBaseUrl,
           model: modelName,
-          api_key: provider.apiKey,
+          api_key: providerKey,
         },
       }))
       await updateSettings({
         llm: {
           ...((settings as any)?.llm || {
             provider: provider.id,
-            base_url: provider.baseUrl,
+            base_url: providerBaseUrl,
             model: modelName,
-            api_key: provider.apiKey,
+            api_key: providerKey,
             temperature: localSettings.llm.temperature,
           }),
           provider: provider.id,
-          base_url: provider.baseUrl,
+          base_url: providerBaseUrl,
           model: modelName,
-          api_key: provider.apiKey,
+          api_key: providerKey,
           temperature: localSettings.llm.temperature,
           providers,
-        },
-        ai_note: {
-          ...(settings?.ai_note || {}),
-          style: {
-            length: localSettings.style.length,
-            custom_styles: customStyles,
-          } as any,
-          format: {
-            ...(settings?.ai_note?.format || {}),
-            ...localSettings.format,
-          },
-          auto_analyze: localSettings.auto_analyze,
         },
       })
       await aiRuntimeStateService.recordTestedModel(provider.id, modelName)
@@ -645,6 +655,20 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     } catch (error) {
       setModelTestStatus(prev => ({ ...prev, [modelName]: false }))
       showToast(`测试失败: ${error instanceof Error ? error.message : '无法连接'}`, 'error')
+    }
+  }
+
+  const testAllProviderModels = async (providerId: string) => {
+    const provider = providers.find(p => p.id === providerId)
+    if (!provider || provider.models.length === 0) return
+    setProviderTestingId(providerId)
+    try {
+      for (const modelName of provider.models) {
+        await testModel(providerId, modelName)
+      }
+      showToast(`已逐个测试完成: ${provider.name}`, 'success')
+    } finally {
+      setProviderTestingId(null)
     }
   }
 
@@ -717,7 +741,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     saveSettings: async () => {
       try {
         const currentAiNote = settings?.ai_note || {
-          llm: { provider: 'openai', base_url: 'https://api.openai.com/v1', model: 'gpt-4o-mini', api_key: '', temperature: 0.7 },
           style: { length: 500 },
           format: { format: 'markdown', include_timestamp: true, include_summary: true },
           auto_analyze: false,
@@ -773,9 +796,14 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             AI 服务商
           </h3>
           <div className="settings-group-actions">
-            <button className="settings-add-btn" onClick={handleAddProvider}>
-              <Plus size={16} />
-              新建
+            <button 
+              type="button" 
+              className="settings-icon-btn" 
+              style={{ zIndex: 9999, position: 'relative' }}
+              onClick={handleAddProvider}
+              title="新建服务商"
+            >
+              <Plus size={18} />
             </button>
           </div>
         </div>
@@ -793,7 +821,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 setActiveProviderId(p.id)
                 setLocalSettings(prev => ({
                   ...prev,
-                  llm: { ...prev.llm, provider: p.id }
+                  llm: {
+                    ...prev.llm,
+                    provider: p.id,
+                    base_url: p.baseUrl,
+                    api_key: p.apiKey,
+                    model: p.models.includes(prev.llm.model) ? prev.llm.model : (p.models[0] || prev.llm.model),
+                  }
                 }))
               }}
             >
@@ -815,20 +849,40 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         </div>
         
         {/* 服务商配置 */}
-        {currentProvider && (
+{currentProvider && (
           <div className="settings-provider-config">
             <div className="settings-provider-header">
               <span className="settings-provider-name">{currentProvider.name}</span>
               <div className="settings-provider-actions">
+                <button type="button" onClick={() => handleEditProvider(currentProvider)} title="编辑">
+                  <Edit2 size={14} />
+                </button>
                 {currentProvider.isDefault && (
-                  <button onClick={() => handleResetProvider(currentProvider.id)} title="重置">
+                  <button type="button" onClick={() => handleResetProvider(currentProvider.id)} title="重置">
                     <RotateCcw size={14} />
                   </button>
                 )}
-                {currentProvider.isCustom && (
-                  <button onClick={() => handleDeleteProvider(currentProvider.id)} title="删除">
+                {canDeleteCurrentProvider && (
+                  <button type="button" onClick={() => handleDeleteProvider(currentProvider.id)} title="删除">
                     <Trash2 size={14} />
                   </button>
+                )}
+                {isEditingCurrentProvider && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingProvider(null)
+                        setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' })
+                      }}
+                      title="取消编辑"
+                    >
+                      <X size={14} />
+                    </button>
+                    <button type="button" onClick={handleSaveProvider} title="保存修改">
+                      <CheckCircle size={14} />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -837,125 +891,128 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 <label className="stg-label">服务商名称</label>
                 <input
                   type="text"
-                  className="stg-input"
+                  className={`stg-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
                   placeholder="如：OpenAI"
-                  value={editingProvider?.id === currentProvider.id ? providerForm.name : currentProvider.name}
+                  value={isEditingCurrentProvider ? providerForm.name : currentProvider.name}
+                  readOnly={!isEditingCurrentProvider}
                   onChange={(e) => {
-                    if (editingProvider?.id !== currentProvider.id) return
+                    if (!isEditingCurrentProvider) return
                     setProviderForm(prev => ({ ...prev, name: e.target.value }))
                   }}
                 />
+                <div className="stg-item-actions"></div>
               </div>
 
               <div className="stg-item">
                 <label className="stg-label">Base URL</label>
                 <input
                   type="text"
-                  className="stg-input"
+                  className={`stg-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
                   placeholder="API地址"
-                  value={editingProvider?.id === currentProvider.id ? providerForm.baseUrl : currentProvider.baseUrl}
+                  value={isEditingCurrentProvider ? providerForm.baseUrl : currentProvider.baseUrl}
+                  readOnly={!isEditingCurrentProvider}
                   onChange={(e) => {
-                    if (editingProvider?.id !== currentProvider.id) return
+                    if (!isEditingCurrentProvider) return
                     setProviderForm(prev => ({ ...prev, baseUrl: e.target.value }))
                   }}
                 />
+                <div className="stg-item-actions"></div>
               </div>
               
               <div className="stg-item">
-                <div className="settings-label-row">
-                  <label className="stg-label">
-                    <Key size={14} />
-                    API Key
-                  </label>
+                <label className="stg-label">
+                  <Key size={14} />
+                  API Key
+                </label>
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  className={`stg-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
+                  placeholder="留空使用环境变量"
+                  value={isEditingCurrentProvider ? providerForm.apiKey : currentProvider.apiKey}
+                  readOnly={!isEditingCurrentProvider}
+                  onChange={(e) => {
+                    if (!isEditingCurrentProvider) return
+                    setProviderForm(prev => ({ ...prev, apiKey: e.target.value }))
+                  }}
+                />
+                <div className="stg-item-actions">
                   <button
                     type="button"
-                    className="settings-visibility-btn"
+                    className="settings-icon-btn"
                     onClick={() => setShowApiKey(prev => !prev)}
                     title={showApiKey ? '隐藏' : '显示'}
                   >
-                    {showApiKey ? '隐藏' : '显示'}
+                    {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
-                </div>
-                <div className="settings-api-row">
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    className="stg-input"
-                    placeholder="留空使用环境变量"
-                    value={editingProvider?.id === currentProvider.id ? providerForm.apiKey : currentProvider.apiKey}
-                    onChange={(e) => {
-                      if (editingProvider?.id !== currentProvider.id) return
-                      setProviderForm(prev => ({ ...prev, apiKey: e.target.value }))
-                    }}
-                  />
                   <button
                     type="button"
-                    className="settings-api-test-btn"
-                    onClick={() => testModel(currentProvider.id, currentProvider.models[0] || '')}
-                    disabled={!currentProvider.models[0]}
+                    className="settings-icon-btn"
+                    onClick={() => void testAllProviderModels(currentProvider.id)}
+                    disabled={!currentProvider.models.length || providerTestingId === currentProvider.id}
+                    title="逐个测试该服务商所有模型"
                   >
-                    测试联通
+                    {providerTestingId === currentProvider.id ? <Loader2 size={16} className="spin" /> : <Wifi size={16} />}
                   </button>
                 </div>
               </div>
-              
-              {editingProvider?.id === currentProvider.id && (
-                <div className="settings-inline-actions">
-                  <button className="settings-btn-secondary" onClick={() => { setEditingProvider(null); setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' }) }}>取消</button>
-                  <button className="settings-btn-primary" onClick={handleSaveProvider}>保存</button>
-                </div>
-              )}
+               
             </div>
             
             <div className="stg-item">
-              <div className="settings-label-row">
-                <label className="stg-label">模型列表</label>
-                <button
-                  type="button"
-                  className="settings-add-btn-inline"
-                  onClick={() => addModelToProvider(currentProvider.id)}
-                >
-                  <Plus size={12} />
-                  添加
-                </button>
-              </div>
-              <div className="settings-model-list">
-                {currentProvider.models.map((m, index) => (
-                  <div key={`${currentProvider.id}-${m}-${index}`} className="settings-model-row">
-                    {modelEditIndex === index ? (
-                      <input
-                        className="settings-input settings-model-input"
-                        value={modelDraft}
-                        autoFocus
-                        onChange={(e) => setModelDraft(e.target.value)}
-                        onBlur={() => commitModel(currentProvider.id, index, modelDraft)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitModel(currentProvider.id, index, modelDraft)
-                          if (e.key === 'Escape') {
-                            setModelEditIndex(null)
-                            setModelDraft('')
-                          }
-                        }}
-                      />
-                    ) : (
+              <label className="stg-label">模型列表</label>
+              <button
+                type="button"
+                className="settings-icon-btn"
+                onClick={() => addModelToProvider(currentProvider.id)}
+                title="添加模型"
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+            <div className="settings-model-list">
+              {currentProvider.models.length === 0 ? (
+                <div className="settings-empty">暂无模型，点击添加</div>
+              ) : (
+                currentProvider.models.map((m, index) => (
+                  <div key={`${currentProvider.id}-${m}-${index}`} className="settings-model-item">
+                    <span className="settings-model-index">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="settings-model-name">
+                      {modelEditIndex === index ? (
+                        <input
+                          className="stg-input settings-model-input"
+                          value={modelDraft}
+                          autoFocus
+                          onChange={(e) => setModelDraft(e.target.value)}
+                          onBlur={() => commitModel(currentProvider.id, index, modelDraft)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitModel(currentProvider.id, index, modelDraft)
+                            if (e.key === 'Escape') {
+                              setModelEditIndex(null)
+                              setModelDraft('')
+                            }
+                          }}
+                        />
+                      ) : m}
+                    </span>
+                    <span className="settings-model-status">
+                      {modelTestStatus[m] === 'loading' ? (
+                        <span className="settings-model-status-loading"><Loader2 size={12} className="spin" />测试中</span>
+                      ) : runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? (
+                        <span className="settings-model-status-success">已验证</span>
+                      ) : null}
+                    </span>
+                    <span className="settings-model-actions">
+                    <button
+                      type="button"
+                      className="settings-icon-btn"
+                      onClick={() => testModel(currentProvider.id, m)}
+                      title="测试该模型"
+                    >
+                      <Wifi size={12} />
+                    </button>
                       <button
                         type="button"
-                        className={`settings-model-btn ${runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? 'tested' : ''}`}
-                        onClick={() => testModel(currentProvider.id, m)}
-                      >
-                        <span className="settings-model-btn-text">{m}</span>
-                        <span className="model-btn-status">
-                          {modelTestStatus[m] === 'loading' ? (
-                            <Loader2 size={12} className="spin" />
-                          ) : runtimeTestedModelsForActiveProvider.includes(m) || modelTestStatus[m] === true ? (
-                            <span className="model-btn-status-badge">已验证</span>
-                          ) : null}
-                        </span>
-                      </button>
-                    )}
-                    <div className="settings-model-actions">
-                      <button
-                        type="button"
-                        className="settings-model-action-btn"
+                        className="settings-icon-btn"
                         onClick={() => beginEditModel(index, m)}
                         title="编辑"
                       >
@@ -963,25 +1020,22 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                       </button>
                       <button
                         type="button"
-                        className="settings-model-action-btn danger"
+                        className="settings-icon-btn"
                         onClick={() => commitModel(currentProvider.id, index, '')}
                         title="删除"
                       >
                         <Trash2 size={12} />
                       </button>
-                    </div>
+                    </span>
                   </div>
-                ))}
-                {currentProvider.models.length === 0 && (
-                  <div className="settings-empty">暂无模型，点击添加</div>
-                )}
-              </div>
+                ))
+              )}
             </div>
           </div>
         )}
-      </div>
+        </div>
 
-      <LocalAsrModelPanel />
+        <LocalAsrModelPanel />
 
       {/* prompt 管理 */}
       <div className="stg-group">
@@ -1170,6 +1224,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           display: flex;
           align-items: center;
           gap: 8px;
+          position: relative;
+          z-index: 10;
         }
 
         .settings-group-title {
@@ -1186,17 +1242,34 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           margin: 0;
         }
 
-        .settings-add-btn {
-          display: flex;
+        .settings-icon-btn {
+          display: inline-flex !important;
           align-items: center;
-          gap: 4px;
-          padding: 6px 12px;
-          border-radius: 8px;
-          font-size: 13px;
-          background: var(--color-primary-600);
-          color: white;
-          border: none;
-          cursor: pointer;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border: none !important;
+          background: transparent !important;
+          color: var(--color-text-secondary) !important;
+          cursor: pointer !important;
+          -webkit-appearance: none !important;
+          appearance: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          position: relative;
+          z-index: 100;
+        }
+
+        .settings-icon-btn:hover {
+          background: var(--color-bg-secondary) !important;
+          color: var(--color-text-primary) !important;
+        }
+
+        .settings-icon-btn svg {
+          width: 18px;
+          height: 18px;
+          display: block;
+        }
         }
 
         .settings-secondary-btn {
@@ -1210,7 +1283,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           gap: 6px;
           padding: 6px;
           background: var(--color-bg-tertiary);
-          border-radius: 0;
+          border-radius: 8px;
           margin-bottom: 12px;
           overflow-x: auto;
           scrollbar-width: none;
@@ -1246,11 +1319,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           background: var(--color-bg-primary);
           color: var(--color-text-primary);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
-        }
-
-        .settings-provider-tab:hover:not(.active) {
-          background: rgba(255, 255, 255, 0.06);
-          color: var(--color-text-primary);
+          border-radius: 8px 8px 0 0;
         }
 
         .settings-provider-icon {
@@ -1272,16 +1341,71 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         .settings-provider-config {
           padding: 20px;
           background: var(--color-bg-secondary);
-          border-radius: 0;
+          border-radius: 8px;
           border: 1px solid var(--color-border);
         }
 
         .settings-provider-edit {
           display: grid;
-          gap: 16px;
+          gap: 12px;
           margin-bottom: 20px;
           padding-bottom: 20px;
           border-bottom: 1px solid var(--color-border);
+        }
+
+        .settings-provider-edit .stg-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 0;
+          border: none;
+          background: transparent;
+          min-height: auto;
+        }
+
+        .settings-provider-edit .stg-label {
+          flex: 0 0 90px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--color-text-primary);
+          white-space: nowrap;
+        }
+
+        .settings-provider-edit .stg-label svg {
+          flex-shrink: 0;
+        }
+
+        .settings-provider-edit .stg-input {
+          flex: 1 1 auto;
+          min-width: 0;
+          width: 0;
+          padding: 10px 12px;
+          font-size: 14px;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          color: var(--color-text-primary);
+        }
+
+        .settings-provider-edit .stg-input.is-readonly {
+          background: var(--color-bg-secondary);
+          color: var(--color-text-secondary);
+          cursor: default;
+        }
+
+        .settings-provider-edit .stg-input.is-editing {
+          background: var(--color-bg-primary);
+          border-color: var(--color-primary-400);
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.08);
+        }
+
+        .stg-item-actions {
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
 
         .settings-modal-overlay {
@@ -1378,11 +1502,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           border-radius: 6px;
         }
 
-        .settings-provider-actions button:hover {
-          background: var(--color-bg-tertiary);
-          color: var(--color-text-primary);
-        }
-
         .settings-label-row {
           display: flex;
           align-items: center;
@@ -1391,55 +1510,90 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           margin-bottom: 8px;
         }
 
-        .settings-api-row {
+        .settings-label-row .stg-label {
           display: flex;
-          gap: 8px;
           align-items: center;
-        }
-
-        .settings-api-row .settings-input {
-          flex: 1;
-        }
-
-        .settings-visibility-btn,
-        .settings-api-test-btn {
-          border: none;
-          border-radius: 8px;
-          padding: 8px 10px;
-          cursor: pointer;
-          font-size: 12px;
-          background: var(--color-bg-tertiary);
-          color: var(--color-text-secondary);
-        }
-
-        .settings-api-test-btn {
-          white-space: nowrap;
+          gap: 6px;
         }
 
         .settings-inline-actions {
           display: flex;
           justify-content: flex-end;
           gap: 8px;
-          margin-top: 12px;
-        }
-
-        .settings-add-btn-inline {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 10px;
-          border: none;
-          border-radius: 8px;
-          background: var(--color-primary-600);
-          color: white;
-          cursor: pointer;
-          font-size: 12px;
+          margin-top: 4px;
         }
 
         .settings-model-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 4px;
+          background: var(--color-bg-secondary);
+          padding: 8px;
+          border-radius: 8px;
+          border: 1px solid var(--color-border);
+        }
+
+        .settings-model-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          background: var(--color-bg-primary);
+          border: 1px solid transparent;
+          border-radius: 6px;
+        }
+
+        .settings-model-index {
+          flex: 0 0 28px;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-tertiary);
+          font-family: monospace;
+        }
+
+        .settings-model-name {
+          flex: 1 1 auto;
+          min-width: 0;
+          font-size: 13px;
+          color: var(--color-text-primary);
+        }
+
+        .settings-model-name .stg-input {
+          width: 100%;
+          padding: 6px 10px;
+          font-size: 13px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-primary-400);
+          color: var(--color-text-primary);
+        }
+
+        .settings-model-status {
+          flex: 0 0 auto;
+          font-size: 11px;
+        }
+
+        .settings-model-status-loading {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          color: var(--color-text-secondary);
+        }
+
+        .settings-model-status-success {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: rgba(34, 197, 94, 0.1);
+          color: var(--color-success);
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .settings-model-actions {
+          display: flex;
+          align-items: center;
+          gap: 2px;
         }
 
         .settings-provider-bar {
@@ -1487,15 +1641,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           border: 1px solid var(--color-border);
           background: var(--color-bg-primary);
           color: var(--color-text-primary);
-          border-radius: 0;
+          border-radius: 8px;
           cursor: pointer;
           text-align: left;
-          transition: all 0.2s ease;
-        }
-
-        .settings-model-btn:hover {
-          background: var(--color-bg-secondary);
-          border-color: var(--color-primary-400);
         }
 
         .settings-model-btn.tested {
@@ -1509,30 +1657,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-model-input {
-          flex: 1;
+          flex: 1 1 0;
+          min-width: 0;
+          width: 100%;
+          padding: 10px 12px;
+          font-size: 14px;
+          background: var(--color-bg-primary);
+          border: 1px solid var(--color-border);
+          color: var(--color-text-primary);
         }
 
         .settings-model-actions {
           display: flex;
           align-items: center;
           gap: 4px;
-        }
-
-        .settings-model-action-btn {
-          width: 30px;
-          height: 30px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-          border-radius: 8px;
-          background: var(--color-bg-tertiary);
-          color: var(--color-text-secondary);
-          cursor: pointer;
-        }
-
-        .settings-model-action-btn.danger {
-          color: var(--color-error);
+          flex-shrink: 0;
         }
 
         .settings-empty {
@@ -1887,11 +2026,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           cursor: pointer;
           transition: all 0.15s;
           min-height: 68px;
-        }
-
-        .settings-style-card:hover {
-          border-color: var(--color-primary-300);
-          transform: translateY(-0.5px);
         }
 
         .settings-style-card.active {

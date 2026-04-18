@@ -220,6 +220,7 @@ class SettingsUpdate(BaseModel):
     storage: Optional[Dict[str, Any]] = None
     general: Optional[Dict[str, Any]] = None
     auto_download: Optional[Dict[str, Any]] = None
+    llm: Optional[Dict[str, Any]] = None
     ai_note: Optional[Dict[str, Any]] = None
 
 

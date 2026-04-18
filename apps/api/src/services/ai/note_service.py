@@ -2,6 +2,7 @@ import os
 import logging
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy.orm import Session
@@ -157,20 +158,21 @@ class AiNoteService:
         extras: Optional[str],
     ) -> None:
         download = None
-        actual_file_path = file_path
+        actual_source_path = file_path
 
         if file_path and os.path.exists(file_path):
-            actual_file_path = file_path
+            actual_source_path = file_path
             video_title = os.path.splitext(os.path.basename(file_path))[0]
         else:
             download = self.db.query(Download).filter(Download.id == video_id).first()
             if not download:
                 raise ValueError(f"Video not found: {video_id}")
-            actual_file_path = download.file_path
+            actual_source_path = download.file_path
             video_title = download.title
 
-        if not actual_file_path or not os.path.exists(actual_file_path):
-            raise ValueError(f"Video file not found: {actual_file_path}")
+        actual_file_path = self._resolve_video_file_path(actual_source_path)
+        if not actual_file_path:
+            raise ValueError(f"Video file not found: {actual_source_path}")
 
         try:
             context = self._prepare_analysis_context(actual_file_path, video_id, style, note)
@@ -248,6 +250,38 @@ class AiNoteService:
     def _resolve_level(self, style: str) -> str:
         return "simple" if style in {"minimal", "task_oriented"} else "detailed"
 
+    def _resolve_video_file_path(self, source_path: Optional[str]) -> Optional[str]:
+        if not source_path:
+            return None
+
+        path = Path(source_path)
+        if not path.exists():
+            return None
+
+        if path.is_file():
+            return str(path)
+
+        if not path.is_dir():
+            return None
+
+        preferred_exts = {".mp4", ".mkv", ".mov", ".webm", ".flv", ".avi", ".m4v", ".ts"}
+        candidates = sorted(
+            [
+                child
+                for child in path.iterdir()
+                if child.is_file() and child.suffix.lower() in preferred_exts
+            ],
+            key=lambda item: item.name,
+        )
+        if candidates:
+            return str(candidates[0])
+
+        fallback_candidates = sorted(
+            [child for child in path.iterdir() if child.is_file() and child.suffix.lower() not in {".nfo", ".jpg", ".jpeg", ".png", ".bak"}],
+            key=lambda item: item.name,
+        )
+        return str(fallback_candidates[0]) if fallback_candidates else None
+
     def _prepare_analysis_context(
         self,
         video_path: str,
@@ -267,7 +301,7 @@ class AiNoteService:
         )
 
         self._add_trace("PREP.T1", "语音转文字", "正在使用本地 ASR 从音频生成正文转写", 35.0, note=note)
-        transcript = self._transcribe_video(video_path, video_id)
+        transcript = self._transcribe_video(video_path, video_id, note=note)
         self._add_trace(
             "PREP.T1",
             "转写完成",
@@ -318,7 +352,7 @@ class AiNoteService:
             extras=extras,
         )
 
-    def _transcribe_video(self, video_path: str, video_id: str) -> str:
+    def _transcribe_video(self, video_path: str, video_id: str, note: Optional[AiNote] = None) -> str:
         """转写视频，默认走 Whisper 音频转写。"""
         try:
             from src.services.ai.transcriber import get_transcriber
@@ -354,7 +388,15 @@ class AiNoteService:
             )
             result = transcriber.transcribe(video_path, video_id)
             if not result or not result.strip():
-                raise ValueError("转写失败，未获取到文本内容")
+                self._add_trace(
+                    "PREP.T1.3",
+                    "本地 ASR 结果为空",
+                    "未获取到有效转写文本，将继续基于其他元数据生成笔记",
+                    50.0,
+                    {"length": 0, "pipeline": pipeline_name},
+                    note=note,
+                )
+                return ""
             self._add_trace(
                 "PREP.T1.3",
                 "本地 ASR 完成",

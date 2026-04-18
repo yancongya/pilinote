@@ -479,7 +479,7 @@ async def create_scheduler(scheduler_create: SchedulerCreate):
 
 @router.delete("/tasks/batch", response_model=ApiResponse)
 async def batch_delete_tasks(task_ids: List[str] = Body(...)):
-    """批量删除任务"""
+    """批量删除任务记录（不删除本地下载文件）"""
     if not task_ids:
         return ApiResponse(
             success=True,
@@ -499,52 +499,26 @@ async def batch_delete_tasks(task_ids: List[str] = Body(...)):
                 errors.append(f"任务 {task_id} 不存在")
                 continue
             
-            # 删除本地文件
+            # 只清理临时文件，避免误删已下载内容
             try:
                 from pathlib import Path
                 import shutil
                 from src.services.settings_service import SettingsService
-                
-                # 从设置中获取临时路径和下载路径
+
                 db = SessionLocal()
                 try:
                     settings_service = SettingsService(db)
                     settings = settings_service.get_settings()
                     temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
-                    download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
                 finally:
                     db.close()
-                
-                # 删除临时文件夹
+
                 temp_folder = Path(temp_path) / task_id
                 if temp_folder.exists():
                     logger.info(f"删除临时文件夹: {temp_folder}")
                     shutil.rmtree(temp_folder)
-                
-                # 如果任务不属于调度器，删除视频文件夹
-                if not task.scheduler_id:
-                    video_title = task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
-                    video_folder = Path(download_path) / video_title
-                    
-                    if video_folder.exists():
-                        logger.info(f"删除视频文件夹: {video_folder}")
-                        shutil.rmtree(video_folder)
-                else:
-                    # 如果任务属于调度器，删除该任务的分P子文件夹
-                    # 查找调度器
-                    scheduler = await queue_manager.get_scheduler(task.scheduler_id)
-                    if scheduler and scheduler.folder:
-                        # 获取任务的分P标题
-                        part_title = task.meta.get('part_title') if task.meta else None
-                        if part_title:
-                            # 删除分P子文件夹
-                            part_folder = Path(scheduler.folder) / part_title
-                            if part_folder.exists():
-                                logger.info(f"删除分P子文件夹: {part_folder}")
-                                shutil.rmtree(part_folder)
-                
             except Exception as e:
-                logger.error(f"删除本地文件失败: {e}")
+                logger.error(f"删除临时文件失败: {e}")
                 # 继续删除任务，即使删除文件失败
 
             # Remove from all queues
@@ -572,7 +546,7 @@ async def batch_delete_tasks(task_ids: List[str] = Body(...)):
 
 @router.delete("/tasks/all", response_model=ApiResponse)
 async def delete_all_tasks():
-    """删除所有任务"""
+    """删除所有任务记录（不删除本地下载文件）"""
     try:
         # 获取所有任务ID
         all_task_ids = list(queue_manager.tasks.keys())
@@ -603,19 +577,18 @@ async def delete_task(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # 删除本地文件
+    # 只清理临时文件，避免误删已下载内容
     try:
         from pathlib import Path
         import shutil
         from src.services.settings_service import SettingsService
         
-        # 从设置中获取临时路径和下载路径
+        # 从设置中获取临时路径
         db = SessionLocal()
         try:
             settings_service = SettingsService(db)
             settings = settings_service.get_settings()
             temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
-            download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
         finally:
             db.close()
         
@@ -624,31 +597,9 @@ async def delete_task(task_id: str):
         if temp_folder.exists():
             logger.info(f"删除临时文件夹: {temp_folder}")
             shutil.rmtree(temp_folder)
-        
-        # 如果任务不属于调度器，删除视频文件夹
-        if not task.scheduler_id:
-            video_title = task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
-            video_folder = Path(download_path) / video_title
-            
-            if video_folder.exists():
-                logger.info(f"删除视频文件夹: {video_folder}")
-                shutil.rmtree(video_folder)
-        else:
-            # 如果任务属于调度器，删除该任务的分P子文件夹
-            # 查找调度器
-            scheduler = await queue_manager.get_scheduler(task.scheduler_id)
-            if scheduler and scheduler.folder:
-                # 获取任务的分P标题
-                part_title = task.meta.get('part_title') if task.meta else None
-                if part_title:
-                    # 删除分P子文件夹
-                    part_folder = Path(scheduler.folder) / part_title
-                    if part_folder.exists():
-                        logger.info(f"删除分P子文件夹: {part_folder}")
-                        shutil.rmtree(part_folder)
             
     except Exception as e:
-        logger.error(f"删除本地文件失败: {e}")
+        logger.error(f"删除临时文件失败: {e}")
         # 继续删除任务，即使删除文件失败
 
     # Remove from all queues
@@ -660,7 +611,7 @@ async def delete_task(task_id: str):
 
     return ApiResponse(
         success=True,
-        message="任务和本地文件删除成功"
+        message="任务删除成功"
     )
 
 

@@ -229,51 +229,49 @@ function MainLayout() {
         </div>
       </header>
 
-      <div className="home-main">
-        <aside className="home-sidebar">
-          <nav className="sidebar-nav" role="tablist" aria-label="功能导航">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                role="tab"
-                aria-selected={activeTab === item.id}
-                aria-controls={`${item.id}-panel`}
-                className={`sidebar-tab ${activeTab === item.id ? 'active' : ''}`}
-                onClick={() => handleTabChange(item.path)}
-                tabIndex={activeTab === item.id ? 0 : -1}
-              >
-                <item.icon className="sidebar-icon" />
-                <span className="sidebar-label">{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </aside>
+      <aside className="home-sidebar">
+        <nav className="sidebar-nav" role="tablist" aria-label="功能导航">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              role="tab"
+              aria-selected={activeTab === item.id}
+              aria-controls={`${item.id}-panel`}
+              className={`sidebar-tab ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => handleTabChange(item.path)}
+              tabIndex={activeTab === item.id ? 0 : -1}
+            >
+              <item.icon className="sidebar-icon" />
+              <span className="sidebar-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
 
-        <main className="home-content">
-          <div className="content-wrapper">
-            <div className={activeTab === 'home' ? 'block' : 'hidden'}>
-              <HomeContent />
-            </div>
-            <div className={activeTab === 'favorites' ? 'block' : 'hidden'}>
-              {isAuthenticated ? (
-                <FavoritesContent />
-              ) : (
-                <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
-              )}
-            </div>
-            <div className={activeTab === 'watch-later' ? 'block' : 'hidden'}>
-              {isAuthenticated ? (
-                <WatchLaterContent />
-              ) : (
-                <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
-              )}
-            </div>
-            <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
-              <NewDownloadContent />
-            </div>
+      <main className="home-content">
+        <div className="content-wrapper">
+          <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+            <HomeContent />
           </div>
-        </main>
-      </div>
+          <div className={activeTab === 'favorites' ? 'block' : 'hidden'}>
+            {isAuthenticated ? (
+              <FavoritesContent />
+            ) : (
+              <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
+            )}
+          </div>
+          <div className={activeTab === 'watch-later' ? 'block' : 'hidden'}>
+            {isAuthenticated ? (
+              <WatchLaterContent />
+            ) : (
+              <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
+            )}
+          </div>
+          <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
+            <NewDownloadContent />
+          </div>
+        </div>
+      </main>
 
       <nav className="bottom-nav" role="navigation" aria-label="底部导航">
         {navItems.map((item) => (

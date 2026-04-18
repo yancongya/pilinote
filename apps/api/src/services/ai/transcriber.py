@@ -1,7 +1,7 @@
-import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Optional
 
 from .asr_backends import AudioExtractor, ASRBackend, FFmpegAudioExtractor
@@ -108,11 +108,37 @@ class ASRTranscriber(TranscriberBase):
         self.audio_extractor = audio_extractor or FFmpegAudioExtractor()
         self.asr_backend = asr_backend or self._create_default_backend()
 
+    def _resolve_runtime(self) -> tuple[str, str]:
+        """Resolve backend runtime in a deterministic way.
+
+        The reference implementation uses explicit device/compute_type defaults
+        instead of passing through "auto" blindly. We keep the same idea here
+        so the local ASR backend behaves predictably across platforms.
+        """
+        device = self.model_config.get("device") or "auto"
+        compute_type = self.model_config.get("compute_type") or "auto"
+
+        if device != "auto" and compute_type != "auto":
+            return str(device), str(compute_type)
+
+        try:
+            import torch  # type: ignore
+
+            if torch.cuda.is_available():
+                resolved_device = "cuda"
+                resolved_compute_type = "float16" if compute_type == "auto" else str(compute_type)
+                return resolved_device, resolved_compute_type
+        except Exception:
+            pass
+
+        resolved_device = "cpu" if device == "auto" else str(device)
+        resolved_compute_type = "int8" if compute_type == "auto" else str(compute_type)
+        return resolved_device, resolved_compute_type
+
     def _create_default_backend(self) -> ASRBackend:
         model_path = self.model_config.get("cache_path")
         model_id = self.model_config.get("model_id", "base")
-        device = self.model_config.get("device", "auto")
-        compute_type = self.model_config.get("compute_type", "auto")
+        device, compute_type = self._resolve_runtime()
         return FasterWhisperBackend(
             model_size=model_id,
             model_path=model_path,
@@ -123,17 +149,18 @@ class ASRTranscriber(TranscriberBase):
     def transcribe(self, video_path: str, video_id: str) -> Optional[str]:
         """使用当前默认 ASR 流程转写视频"""
         try:
-            audio_path = self.audio_extractor.extract(video_path)
+            video_file = Path(video_path)
+            audio_path = self.audio_extractor.extract(
+                video_path,
+                output_path=str(video_file.with_suffix(".mp3")),
+            )
             if not audio_path:
                 raise ValueError("未能提取音频")
 
-            transcript = self.asr_backend.transcribe_audio(audio_path)
+            subtitle_path = str(video_file.with_suffix(".srt"))
+            transcript = self.asr_backend.transcribe_audio(audio_path, output_srt_path=subtitle_path)
             if not transcript:
                 raise ValueError("ASR 未返回转写内容")
-
-            # 清理临时音频文件
-            if audio_path != video_path and os.path.exists(audio_path):
-                os.remove(audio_path)
 
             return transcript
         except Exception as e:
@@ -142,7 +169,8 @@ class ASRTranscriber(TranscriberBase):
 
     def get_pipeline_name(self) -> str:
         model_id = self.model_config.get("model_id", "base")
-        return f"ffmpeg + faster-whisper({model_id})"
+        device, compute_type = self._resolve_runtime()
+        return f"ffmpeg + faster-whisper({model_id}, {device}/{compute_type})"
 
 
 class TranscriberFactory:

@@ -9,6 +9,7 @@ import { localAsrModelService } from '../../services/localAsrModels';
 import { useToast } from '../Toast';
 import { useSettingsStore } from '../../stores/settings';
 import { normalizePromptStyleValue } from '../../services/promptCatalog';
+import { useAiRuntimeState } from '../../hooks/useAiRuntimeState';
 
 interface AiNotePanelProps {
   videoId: string;
@@ -19,6 +20,7 @@ type ViewMode = 'form' | 'result' | 'loading';
 
 export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
   const { settings } = useSettingsStore();
+  const runtimeState = useAiRuntimeState();
   const [viewMode, setViewMode] = useState<ViewMode>('form');
   const [style, setStyle] = useState(DEFAULT_STYLE);
   const [formats, setFormats] = useState(DEFAULT_FORMATS);
@@ -28,6 +30,12 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
   const [localAsrReady, setLocalAsrReady] = useState(true);
   const lookup = useAiNoteLookup(videoId);
   const { showToast } = useToast();
+  const activeProvider = settings?.llm?.provider || 'openai';
+  const providerModels = runtimeState.testedModels[activeProvider] || [];
+  const configuredModel = settings?.llm?.model || '';
+  const activeModel = providerModels.includes(configuredModel)
+    ? configuredModel
+    : (providerModels[0] || configuredModel);
   
   const { status, progress, error, startPolling } = useNotePolling({
     noteId,
@@ -82,13 +90,17 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
       showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
       return
     }
+    if (!activeModel) {
+      showToast('请先在 AI 笔记设置中测试并保存该服务商的模型', 'warning')
+      return
+    }
     try {
       const response = await aiNoteService.analyze({
         video_id: videoId,
         style,
         formats,
-        model_provider: 'openai',
-        model_name: 'gpt-4o-mini',
+        model_provider: activeProvider,
+        model_name: activeModel,
       });
       
       if (response.success && response.note_id) {

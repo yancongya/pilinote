@@ -32,7 +32,6 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
 
   // AI 笔记状态
-  const [aiNoteStatus, setAiNoteStatus] = useState<'none' | 'processing' | 'completed' | 'failed'>('none')
   const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isLocalAsrReady, setIsLocalAsrReady] = useState(true)
@@ -43,11 +42,8 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   // 仅对可识别的 B 站视频提供 AI 笔记（统一使用 BV 号进行查找/触发分析）
   const canUseAiNote = Boolean(videoIdForNote) && !isOpus
   const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
-
-  useEffect(() => {
-    setAiNoteStatus(lookup.status)
-    setExistingNote(lookup.note)
-  }, [lookup.note, lookup.status])
+  const noteForStatus = existingNote || lookup.note
+  const aiNoteButtonStatus = noteForStatus?.status === 'completed' ? 'completed' : 'none'
 
   useEffect(() => {
     let cancelled = false
@@ -195,12 +191,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             )}
 
             {/* AI 笔记按钮 - 仅视频显示，有本地文件 */}
-            {!isOpus && canUseAiNote && !lookup.isLoading && (
+            {!isOpus && canUseAiNote && (
             <AiNoteButton
-                status={aiNoteStatus}
+                status={aiNoteButtonStatus}
                 onClick={handleAiNoteClick}
                 disabled={!existingNote && !isLocalAsrReady}
-                style={hasMultipleVideos ? { right: '56px', zIndex: 30 } : { zIndex: 30 }}
+                style={{ left: '8px', top: '8px', zIndex: 30 }}
               />
             )}
           </div>
