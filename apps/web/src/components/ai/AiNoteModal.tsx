@@ -100,14 +100,16 @@ const getStageTemplates = (mode: AiNotePipelineMode): AiNoteTraceStageTemplate[]
   return AI_NOTE_TRACE_STAGE_TEMPLATES[mode] || AI_NOTE_TRACE_STAGE_TEMPLATES.video
 }
 
-const getTraceStatus = (step: AiTraceStep): TraceDotStatus => {
+const getTraceStatus = (step: AiTraceStep, nextStep?: AiTraceStep): TraceDotStatus => {
   const stage = step.stage.toUpperCase()
   const parts = stage.split('.')
   const stageRoot = parts[parts.length - 1] || stage
   const content = `${step.title || ''} ${step.summary || ''} ${step.stage || ''}`
   if (/失败|错误|未获取到文本内容/i.test(content)) return 'error'
   if (stageRoot === 'ERROR' || stage.includes('FAIL')) return 'error'
-  if (stageRoot === 'DONE' || (typeof step.progress === 'number' && step.progress >= 100)) return 'done'
+  if (stageRoot === 'DONE' || stageRoot === 'CONTENT') return 'done'
+  if (nextStep) return 'done'
+  if (typeof step.progress === 'number' && step.progress >= 100) return 'done'
   if (typeof step.progress === 'number' && step.progress > 0) return 'running'
   if (stageRoot === 'FETCH' || stageRoot === 'READ' || stageRoot === 'GENERATE' || stageRoot === 'BUILD' || stageRoot === 'ANALYZE' || stageRoot === 'PROMPT' || stageRoot === 'LLM' || stageRoot === 'NFO' || stageRoot === 'T0' || stageRoot === 'T1' || stageRoot === 'T2' || stageRoot === 'T3') return 'running'
   return step.stage ? 'running' : 'pending'
@@ -161,7 +163,8 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
       })
       .join('\n\n')
 
-    const status = getTraceStatus(last)
+    const nextItem = index < templates.length - 1 ? items[index + 1] : undefined
+    const status = getTraceStatus(last, nextItem)
     return {
       id: `${stageKey}-${index}`,
       stage: item.stage,
@@ -870,8 +873,16 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         .ai-note-trace-timeline-node-line[data-status="error"] { background: rgba(220,38,38,0.38); }
         .ai-note-trace-timeline-node:last-child .ai-note-trace-timeline-node-line { display: none; }
         .ai-note-trace-timeline-node-dot { position: relative; z-index: 1; width: 12px; height: 12px; min-width: 12px; min-height: 12px; border-radius: 999px; border: 2px solid var(--color-bg-secondary); background: #9ca3af; box-shadow: 0 0 0 1px rgba(255,255,255,0.6); transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
-        .ai-note-trace-timeline-node-dot[data-status="running"] { background: var(--color-primary-600); }
+        .ai-note-trace-timeline-node-dot[data-status="running"] {
+          background: var(--color-primary-600);
+          animation: breathe 1.5s ease-in-out infinite;
+        }
+        @keyframes breathe {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); transform: scale(1); }
+          50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.15); transform: scale(1.15); }
+        }
         .ai-note-trace-timeline-node-dot[data-status="done"] { background: var(--color-success); }
+        .ai-note-trace-timeline-node-dot[data-status="done"]::after { content: '✓'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8px; color: white; }
         .ai-note-trace-timeline-node-dot[data-status="error"] { background: var(--color-error-600); }
         .ai-note-trace-timeline-node-dot[data-selected="true"] { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18); transform: scale(1.12); }
         .ai-note-trace-timeline-node:hover .ai-note-trace-timeline-node-dot { transform: scale(1.12); }

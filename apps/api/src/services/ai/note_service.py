@@ -1097,12 +1097,17 @@ class AiNoteService:
         )
 
         level = self._resolve_level(style)
+        t0_for_nfo = NFOReader.read_t0_text(video_path)
         self._add_trace(
             self._trace_stage(pipeline_mode, "NFO.READ"),
             "NFO 读取",
             f"正在读取 NFO 并使用 {level} 模板整理内容",
             70.0,
-            {"level": level, "nfo_path": t0["nfo_path"], "nfo_found": t0["found"]},
+            {
+                "level": level,
+                "nfo_path": t0_for_nfo["nfo_path"],
+                "nfo_found": t0_for_nfo["found"],
+            },
             note=note,
         )
         if note:
@@ -1122,11 +1127,11 @@ class AiNoteService:
         )
         if note:
             self._store_analysis_artifacts(
-                note, t0_text=t0["text"], transcript=transcript, level=level
+                note, t0_text=t0_for_nfo["text"], transcript=transcript, level=level
             )
 
         return {
-            "t0_text": t0["text"],
+            "t0_text": t0_for_nfo["text"],
             "transcript": transcript,
             "level": level,
         }
