@@ -341,31 +341,7 @@ class AiNoteService:
         pipeline_mode: str,
     ) -> Dict[str, Any]:
         self._wait_for_resume(note.id) if note else None
-        self._add_trace(
-            self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
-            "音频获取",
-            "正在定位视频文件并准备提取音频",
-            10.0,
-            {
-                "video_path": video_path,
-                "video_id": video_id,
-                "resolved_path": video_path,
-            },
-            note=note,
-        )
         t0 = NFOReader.read_t0_text(video_path)
-        self._add_trace(
-            self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
-            "音频获取完成",
-            t0["text"][:240] if t0["text"] else "未读取到 NFO 内容",
-            20.0,
-            {
-                "found": t0["found"],
-                "nfo_path": t0["nfo_path"],
-                "nfo_excerpt": t0["text"][:500] if t0["text"] else "",
-            },
-            note=note,
-        )
         if note:
             self._store_analysis_artifacts(
                 note, t0_text=t0["text"], nfo_path=t0["nfo_path"], nfo_found=t0["found"]
