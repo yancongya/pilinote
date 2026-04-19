@@ -810,14 +810,14 @@ class AiNoteService:
                 extras=extras,
             )
             self._store_analysis_artifacts(note, prompt=prompt)
-self._add_trace(
-            self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
-            "Prompt 生成完成",
-            prompt[:500],
-            88.0,
-            {"prompt_length": len(prompt), "prompt_preview": prompt[:500]},
-            note=note,
-        )
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
+                "Prompt 生成完成",
+                prompt[:500],
+                88.0,
+                {"prompt_length": len(prompt), "prompt_preview": prompt[:500]},
+                note=note,
+            )
 
             self._wait_for_resume(note.id)
             self._set_note_control(
@@ -1339,7 +1339,11 @@ self._add_trace(
                 "AI 分析",
                 f"正在请求 {model_provider}/{model_name}",
                 92.0,
-                {"provider": model_provider, "model": model_name},
+                {
+                    "provider": model_provider,
+                    "model": model_name,
+                    "prompt_length": len(prompt),
+                },
                 note=note,
             )
             provider = LLMProvider(model_provider)
@@ -1349,15 +1353,25 @@ self._add_trace(
                 LLMMessage(role="user", content="请根据以上信息生成笔记。"),
             ]
             response = client.chat(messages, model=model_name, temperature=0.7)
+            response_content = (
+                response.content
+                if response and hasattr(response, "content")
+                else str(response)
+            )
+            response_preview = response_content[:800] if response_content else ""
             self._add_trace(
                 self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
                 "生成内容",
-                "模型已返回结果",
+                response_content[:300] if response_content else "生成完成",
                 94.0,
-                {"has_content": bool(response.content)},
+                {
+                    "has_content": bool(response_content),
+                    "response_length": len(response_content or ""),
+                    "response_preview": response_preview,
+                },
                 note=note,
             )
-            return response.content
+            return response_content
         except Exception as e:
             logger.error(f"LLM 生成失败: {e}", exc_info=True)
             raise
