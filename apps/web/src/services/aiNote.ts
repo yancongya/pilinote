@@ -83,7 +83,7 @@ export interface AiNoteTraceStageTemplate {
 
 export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTraceStageTemplate[]> = {
   video: [
-    { stage: 'AUDIO.FETCH', title: '音频获取', shortLabel: '获取' },
+    { stage: 'AUDIO.FETCH', title: '音频', shortLabel: '音频' },
     { stage: 'SUBTITLE.GENERATE', title: '字幕生成', shortLabel: '字幕' },
     { stage: 'NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
     { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
@@ -93,8 +93,8 @@ export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTra
     { stage: 'ERROR', title: '错误', shortLabel: '错误' },
   ],
   series: [
-    { stage: 'AUDIO.FETCH', title: '番剧信息读取', shortLabel: '获取' },
-    { stage: 'SUBTITLE.GENERATE', title: '分集与转写生成', shortLabel: '字幕' },
+    { stage: 'AUDIO.FETCH', title: '番剧信息', shortLabel: '获取' },
+    { stage: 'SUBTITLE.GENERATE', title: '分集与转写', shortLabel: '转写' },
     { stage: 'NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
     { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
@@ -105,7 +105,7 @@ export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTra
   image_text: [
     { stage: 'AUDIO.FETCH', title: '图片识别', shortLabel: '识别' },
     { stage: 'SUBTITLE.GENERATE', title: '文字提取', shortLabel: '提取' },
-    { stage: 'NFO.READ', title: '结构整理', shortLabel: '整理' },
+    { stage: 'NFO.READ', title: '读取', shortLabel: '读取' },
     { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
     { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
