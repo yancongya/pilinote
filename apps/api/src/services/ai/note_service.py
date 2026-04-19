@@ -810,14 +810,14 @@ class AiNoteService:
                 extras=extras,
             )
             self._store_analysis_artifacts(note, prompt=prompt)
-            self._add_trace(
-                self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
-                "Prompt 生成完成",
-                prompt[:300],
-                88.0,
-                {"prompt_length": len(prompt)},
-                note=note,
-            )
+self._add_trace(
+            self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
+            "Prompt 生成完成",
+            prompt[:500],
+            88.0,
+            {"prompt_length": len(prompt), "prompt_preview": prompt[:500]},
+            note=note,
+        )
 
             self._wait_for_resume(note.id)
             self._set_note_control(
