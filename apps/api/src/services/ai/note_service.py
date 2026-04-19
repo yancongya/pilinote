@@ -1358,6 +1358,19 @@ class AiNoteService:
                 if response and hasattr(response, "content")
                 else str(response)
             )
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
+                "AI 分析完成",
+                f"模型返回结果 ({len(response_content or '')} 字)",
+                92.0,
+                {
+                    "response_length": len(response_content or ""),
+                    "response_preview": response_content[:500]
+                    if response_content
+                    else "",
+                },
+                note=note,
+            )
             response_preview = response_content[:800] if response_content else ""
             self._add_trace(
                 self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
