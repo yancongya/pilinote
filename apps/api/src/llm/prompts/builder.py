@@ -13,7 +13,7 @@ class PromptBuilder:
 
     @staticmethod
     def _render_section(template: str, content: str) -> str:
-        return template.replace("{content}", content.strip() or "无")
+        return template.replace("{content}", (content or "").strip() or "无")
 
     @staticmethod
     def build(
@@ -32,7 +32,7 @@ class PromptBuilder:
         prompt_parts = []
 
         if system_prompt:
-            prompt_parts.append(system_prompt.strip())
+            prompt_parts.append((system_prompt or "").strip())
         else:
             prompt_parts.append(base.get("system") or "你是一位专业的视频内容分析师，请基于以下分层输入生成结构化 Markdown 笔记。")
 

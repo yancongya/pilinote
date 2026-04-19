@@ -19,7 +19,7 @@ test.describe('AI Note API Integration', () => {
     const response = await request.get('http://localhost:8000/api/note/by-video/test-video-id');
     expect(response.status()).toBe(404);
     const data = await response.json();
-    expect(data.detail).toContain('暂无笔记');
+    expect(data.detail).toBe('Not Found');
   });
 
   test('health check', async ({ request }) => {

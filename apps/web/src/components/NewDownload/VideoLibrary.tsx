@@ -70,7 +70,6 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
   const handleAiNoteComplete = (note: NoteResponse) => {
     setExistingNote(note)
-    setAiNoteStatus('completed')
   }
 
   // 点击卡片跳转到详情页

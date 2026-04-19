@@ -24,6 +24,7 @@ class AiNoteUpdate(BaseModel):
     mindmap_json: Optional[Dict[str, Any]] = None
     status: Optional[str] = None
     error: Optional[str] = None
+    pipeline_mode: Optional[str] = None
 
 
 class AiNoteResponse(BaseModel):
@@ -37,11 +38,13 @@ class AiNoteResponse(BaseModel):
     mindmap_json: Optional[Dict[str, Any]] = None
     style: Optional[str] = None
     formats: Optional[List[str]] = None
+    pipeline_mode: Optional[str] = None
     status: str
     model_provider: Optional[str] = None
     model_name: Optional[str] = None
     error: Optional[str] = None
     meta: Optional[Dict[str, Any]] = None
+    generated_markdown_path: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None

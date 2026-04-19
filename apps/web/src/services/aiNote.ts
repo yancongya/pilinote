@@ -17,6 +17,13 @@ export interface AnalyzeResponse {
 }
 
 export type AiNoteStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type AiNotePipelineMode = 'video' | 'series' | 'image_text';
+
+export interface AiNoteMeta {
+  trace?: AiTraceStep[];
+  pipeline_mode?: AiNotePipelineMode;
+  [key: string]: any;
+}
 
 export interface NoteStatusResponse {
   success: boolean;
@@ -26,6 +33,8 @@ export interface NoteStatusResponse {
   message?: string;
   error?: string;
   trace?: AiTraceStep[];
+  control_state?: 'running' | 'paused' | 'cancelled' | 'completed';
+  current_stage?: string;
 }
 
 export interface NoteResponse {
@@ -36,11 +45,15 @@ export interface NoteResponse {
   summary?: string;
   style?: string;
   formats?: string[];
+  pipeline_mode?: AiNotePipelineMode;
   status: AiNoteStatus | 'not_found';
   model_provider?: string;
   model_name?: string;
   error?: string;
-  meta?: Record<string, any>;
+  meta?: AiNoteMeta;
+  generated_markdown_path?: string;
+  control_state?: 'running' | 'paused' | 'cancelled' | 'completed';
+  current_stage?: string;
   created_at: string;
   updated_at: string;
   completed_at?: string;
@@ -60,6 +73,45 @@ export interface AiTraceStep {
   detail?: Record<string, any>;
   progress?: number;
   ts?: string;
+}
+
+export interface AiNoteTraceStageTemplate {
+  stage: string;
+  title: string;
+  shortLabel: string;
+}
+
+export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTraceStageTemplate[]> = {
+  video: [
+    { stage: 'AUDIO.FETCH', title: '音频获取', shortLabel: '获取' },
+    { stage: 'SUBTITLE.GENERATE', title: '字幕生成', shortLabel: '字幕' },
+    { stage: 'NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
+    { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+    { stage: 'DONE', title: '完成', shortLabel: '完成' },
+    { stage: 'ERROR', title: '错误', shortLabel: '错误' },
+  ],
+  series: [
+    { stage: 'AUDIO.FETCH', title: '番剧信息读取', shortLabel: '获取' },
+    { stage: 'SUBTITLE.GENERATE', title: '分集与转写生成', shortLabel: '字幕' },
+    { stage: 'NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
+    { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+    { stage: 'DONE', title: '完成', shortLabel: '完成' },
+    { stage: 'ERROR', title: '错误', shortLabel: '错误' },
+  ],
+  image_text: [
+    { stage: 'AUDIO.FETCH', title: '图片识别', shortLabel: '识别' },
+    { stage: 'SUBTITLE.GENERATE', title: '文字提取', shortLabel: '提取' },
+    { stage: 'NFO.READ', title: '结构整理', shortLabel: '整理' },
+    { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+    { stage: 'DONE', title: '完成', shortLabel: '完成' },
+    { stage: 'ERROR', title: '错误', shortLabel: '错误' },
+  ],
 }
 
 export const aiNoteService = {
@@ -89,6 +141,41 @@ export const aiNoteService = {
   async getNoteByVideo(videoId: string): Promise<NoteResponse | null> {
     const payload = await this.lookupNoteByVideo(videoId);
     return payload.found ? payload.note : null;
+  },
+
+  async pauseNote(noteId: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiService.request<{ success: boolean; message?: string }>(`/api/note/pause/${encodeURIComponent(noteId)}`, {
+      method: 'POST',
+    });
+    return (response.data ?? response) as { success: boolean; message?: string };
+  },
+
+  async resumeNote(noteId: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiService.request<{ success: boolean; message?: string }>(`/api/note/resume/${encodeURIComponent(noteId)}`, {
+      method: 'POST',
+    });
+    return (response.data ?? response) as { success: boolean; message?: string };
+  },
+
+  async resumeFromStage(
+    noteId: string,
+    resumeFromStage: string,
+  ): Promise<{ success: boolean; message?: string }> {
+    const response = await apiService.request<{ success: boolean; message?: string }>(
+      `/api/note/resume-from-stage/${encodeURIComponent(noteId)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ resume_from_stage: resumeFromStage }),
+      },
+    );
+    return (response.data ?? response) as { success: boolean; message?: string };
+  },
+
+  async cancelNote(noteId: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiService.request<{ success: boolean; message?: string }>(`/api/note/cancel/${encodeURIComponent(noteId)}`, {
+      method: 'POST',
+    });
+    return (response.data ?? response) as { success: boolean; message?: string };
   },
 };
 

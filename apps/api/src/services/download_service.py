@@ -1003,22 +1003,35 @@ class DownloadService:
         
         # 创建临时下载目录
         temp_download_dir = self._create_temp_download_dir(download_id)
-        
+
         try:
             # 确定输出目录名称
             import re
-            if download.aid:
-                # 系列视频：使用合集名称作为目录名
-                series_name = re.sub(r'【Part \d+】', '', download.title).strip()
-                safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', series_name).strip()
-                if not safe_title:
-                    safe_title = f"series_{download.aid}"
-            else:
-                # 单个视频：使用完整标题
-                safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', download.title).strip()
-                if not safe_title:
-                    safe_title = "video"
-            
+            raw_title = (download.title or "").strip()
+
+            def _sanitize_folder_name(value: str, fallback: str) -> str:
+                safe_value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', value).strip()
+                return safe_value or fallback
+
+            def _derive_series_name(title: str) -> str:
+                normalized = title.strip()
+                patterns = [
+                    r'\s*[-_ ]?P\d+\b.*$',
+                    r'\s*【Part\s*\d+】.*$',
+                    r'\s*\[Part\s*\d+\].*$',
+                    r'\s*第\d+[集话回].*$',
+                ]
+                for pattern in patterns:
+                    normalized = re.sub(pattern, '', normalized, flags=re.IGNORECASE).strip()
+                return normalized
+
+            safe_title = _sanitize_folder_name(raw_title, "video")
+            series_root_name = _sanitize_folder_name(_derive_series_name(raw_title), safe_title)
+            is_series_like = series_root_name != safe_title
+            final_dir = Path(storage_settings.download_path) / (
+                series_root_name if is_series_like else safe_title
+            )
+
             # 创建视频专属目录（在临时目录中）
             video_dir = temp_download_dir / safe_title
             video_dir.mkdir(exist_ok=True)
@@ -1062,12 +1075,12 @@ class DownloadService:
             # 处理已完成的下载（移动文件到最终目录）
             print(f"DEBUG: About to call _process_completed_download with download_id={download_id}")
             print(f"DEBUG: temp_download_dir={temp_download_dir}")
-            print(f"DEBUG: final_dir={self.download_dir}")
+            print(f"DEBUG: final_dir={final_dir}")
             print(f"DEBUG: Using download path from settings: {storage_settings.download_path}")
             await self._process_completed_download(
                 download_id=download_id,
                 temp_dir=temp_download_dir,
-                final_dir=Path(storage_settings.download_path),
+                final_dir=final_dir,
                 storage_settings=storage_settings
             )
             print(f"DEBUG: _process_completed_download completed")

@@ -4,16 +4,14 @@ import json
 import logging
 import shutil
 import threading
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
-
-from huggingface_hub import HfApi, hf_hub_url
+from huggingface_hub import snapshot_download
 
 from src.schemas.local_asr_models import (
     LocalASRModelInfo,
@@ -333,83 +331,47 @@ class LocalASRModelService:
         cache_path.mkdir(parents=True, exist_ok=True)
 
         try:
-            api = HfApi()
-            info = api.model_info(repo_id, files_metadata=True)
-            siblings = [
-                sibling
-                for sibling in info.siblings
-                if getattr(sibling, "rfilename", None)
-                and not sibling.rfilename.startswith(".")
-            ]
-            total_bytes = sum(int(getattr(sibling, "size", 0) or 0) for sibling in siblings) or item["size_bytes"]
-            downloaded_bytes = 0
             self._update_state(
                 model_id,
                 download_state="downloading",
                 progress=0.0,
                 downloaded_bytes=0,
-                total_bytes=total_bytes,
+                total_bytes=item["size_bytes"],
                 error=None,
                 ready=False,
             )
 
-            for sibling in siblings:
-                filename = sibling.rfilename
-                file_size = int(getattr(sibling, "size", 0) or 0)
-                file_url = hf_hub_url(repo_id=repo_id, filename=filename, repo_type="model")
-                target_path = cache_path / filename
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                part_path = target_path.with_suffix(target_path.suffix + ".part")
+            with tempfile.TemporaryDirectory(prefix=f"{model_id}-", dir=str(CACHE_DIR)) as tmp_dir:
+                snapshot_path = snapshot_download(
+                    repo_id=repo_id,
+                    repo_type="model",
+                    local_dir=tmp_dir,
+                    local_dir_use_symlinks=False,
+                    resume_download=True,
+                    allow_patterns=["*.bin", "*.safetensors", "*.json", "*.txt", "*.model", "*.tok", "*.vocab", "*.merges"],
+                )
 
-                existing_size = part_path.stat().st_size if part_path.exists() else 0
-                headers = {}
-                if existing_size > 0 and (file_size == 0 or existing_size < file_size):
-                    headers["Range"] = f"bytes={existing_size}-"
-
-                mode = "ab" if existing_size > 0 else "wb"
-                request = Request(file_url, headers=headers)
-                try:
-                    with urlopen(request, timeout=60) as response:
-                        if response.status == 200 and existing_size > 0:
-                            existing_size = 0
-                            mode = "wb"
-
-                        with open(part_path, mode) as f:
-                            while True:
-                                chunk = response.read(1024 * 256)
-                                if not chunk:
-                                    break
-                                f.write(chunk)
-                                downloaded_bytes += len(chunk)
-                                progress = min(99.0, (downloaded_bytes / total_bytes * 100.0) if total_bytes else 0.0)
-                                self._update_state(
-                                    model_id,
-                                    download_state="downloading",
-                                    progress=progress,
-                                    downloaded_bytes=downloaded_bytes,
-                                    total_bytes=total_bytes,
-                                    error=None,
-                                    ready=False,
-                                )
-                except HTTPError as exc:
-                    raise RuntimeError(f"下载模型文件失败: {filename} - HTTP {exc.code}") from exc
-                except URLError as exc:
-                    raise RuntimeError(f"下载模型文件失败: {filename} - {exc.reason}") from exc
-
-                if part_path.exists():
+                snapshot_source = Path(snapshot_path)
+                for item_path in snapshot_source.rglob("*"):
+                    if not item_path.is_file():
+                        continue
+                    relative_path = item_path.relative_to(snapshot_source)
+                    target_path = cache_path / relative_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
                     if target_path.exists():
                         if target_path.is_dir():
                             shutil.rmtree(target_path)
                         else:
                             target_path.unlink()
-                    part_path.rename(target_path)
+                    shutil.move(str(item_path), str(target_path))
 
+            downloaded_bytes = item["size_bytes"]
             self._update_state(
                 model_id,
                 download_state="ready",
                 progress=100.0,
-                downloaded_bytes=downloaded_bytes or total_bytes,
-                total_bytes=total_bytes,
+                downloaded_bytes=downloaded_bytes,
+                total_bytes=downloaded_bytes,
                 error=None,
                 ready=True,
             )

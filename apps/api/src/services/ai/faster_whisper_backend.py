@@ -21,17 +21,34 @@ class FasterWhisperBackend:
         self.device = device
         self.compute_type = compute_type
 
-    def transcribe_audio(self, audio_path: str, output_srt_path: Optional[str] = None) -> str:
+    def get_runtime_label(self) -> str:
+        return f"{self.model_path or self.model_size}, {self.device}/{self.compute_type}"
+
+    def load_model(self):
+        from faster_whisper import WhisperModel
+
+        model_source = self.model_path or self.model_size
+        logger.info(
+            "Loading faster-whisper model: source=%s device=%s compute_type=%s",
+            model_source,
+            self.device,
+            self.compute_type,
+        )
+        return WhisperModel(
+            model_source,
+            device=self.device,
+            compute_type=self.compute_type,
+        )
+
+    def transcribe_audio(
+        self,
+        audio_path: str,
+        output_srt_path: Optional[str] = None,
+        model=None,
+    ) -> str:
         try:
-            from faster_whisper import WhisperModel
-
-            model_source = self.model_path or self.model_size
-
-            model = WhisperModel(
-                model_source,
-                device=self.device,
-                compute_type=self.compute_type,
-            )
+            if model is None:
+                model = self.load_model()
             segments, info = model.transcribe(audio_path, beam_size=5)
             lines = []
             srt_lines = []

@@ -73,6 +73,8 @@ class NoteStatusResponse(BaseModel):
     message: Optional[str] = None
     error: Optional[str] = None
     trace: Optional[List[Dict[str, Any]]] = None
+    control_state: Optional[str] = None
+    current_stage: Optional[str] = None
 
 
 class NoteResponse(BaseModel):
@@ -85,11 +87,14 @@ class NoteResponse(BaseModel):
     summary: Optional[str] = None
     style: Optional[str] = None
     formats: Optional[List[str]] = None
+    pipeline_mode: Optional[str] = None
     status: str
     model_provider: Optional[str] = None
     model_name: Optional[str] = None
     error: Optional[str] = None
     meta: Optional[Dict[str, Any]] = None
+    control_state: Optional[str] = None
+    current_stage: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     completed_at: Optional[datetime] = None
@@ -102,6 +107,12 @@ class NoteLookupResponse(BaseModel):
     found: bool = False
     note: Optional[NoteResponse] = None
     message: Optional[str] = None
+
+
+class ResumeFromStageRequest(BaseModel):
+    """从指定阶段恢复请求"""
+
+    resume_from_stage: str = Field(..., description="从哪个阶段开始重跑")
 
 
 class ErrorResponse(BaseModel):
@@ -197,6 +208,7 @@ async def get_note_status(note_id: str):
         raise HTTPException(status_code=404, detail="笔记不存在")
 
     trace = (note.meta or {}).get("trace", [])
+    control = (note.meta or {}).get("control", {})
     progress = None
     if trace:
         progress = float(trace[-1].get("progress", 0.0))
@@ -213,6 +225,8 @@ async def get_note_status(note_id: str):
         message="处理中" if note.status == "processing" else None,
         error=note.error,
         trace=trace,
+        control_state=control.get("state"),
+        current_stage=control.get("current_stage"),
     )
 
 
@@ -236,16 +250,52 @@ async def get_note_by_video(video_id: str = Query(..., description="视频 ID �
             summary=note.summary,
             style=note.style,
             formats=note.formats,
+            pipeline_mode=note.pipeline_mode,
             status=note.status,
             model_provider=note.model_provider,
             model_name=note.model_name,
             error=note.error,
             meta=note.meta,
+            generated_markdown_path=(note.meta or {}).get("generated_markdown_path") if isinstance(note.meta, dict) else None,
+            control_state=(note.meta or {}).get("control", {}).get("state") if isinstance(note.meta, dict) else None,
+            current_stage=(note.meta or {}).get("control", {}).get("current_stage") if isinstance(note.meta, dict) else None,
             created_at=note.created_at,
             updated_at=note.updated_at,
             completed_at=note.completed_at,
         ),
     )
+
+
+@router.post("/pause/{note_id}")
+async def pause_note(note_id: str):
+    service = AiNoteService()
+    if not service.pause_analysis(note_id):
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return {"success": True, "message": "已暂停"}
+
+
+@router.post("/resume/{note_id}")
+async def resume_note(note_id: str):
+    service = AiNoteService()
+    if not service.resume_analysis(note_id):
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return {"success": True, "message": "已恢复"}
+
+
+@router.post("/cancel/{note_id}")
+async def cancel_note(note_id: str):
+    service = AiNoteService()
+    if not service.cancel_analysis(note_id):
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return {"success": True, "message": "已取消"}
+
+
+@router.post("/resume-from-stage/{note_id}")
+async def resume_from_stage(note_id: str, request: ResumeFromStageRequest):
+    service = AiNoteService()
+    if not service.resume_from_stage(note_id, request.resume_from_stage):
+        raise HTTPException(status_code=404, detail="笔记不存在")
+    return {"success": True, "message": "已从指定阶段重跑"}
 
 
 @router.get("/recommend-style")
@@ -311,6 +361,7 @@ async def get_note(note_id: str):
         model_name=note.model_name,
         error=note.error,
         meta=note.meta,
+        generated_markdown_path=(note.meta or {}).get("generated_markdown_path") if isinstance(note.meta, dict) else None,
         created_at=note.created_at,
         updated_at=note.updated_at,
         completed_at=note.completed_at,

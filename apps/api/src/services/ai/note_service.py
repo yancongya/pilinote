@@ -1,5 +1,9 @@
 import os
 import logging
+import time
+import multiprocessing
+import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
@@ -13,8 +17,114 @@ from src.models.download import Download
 from src.llm import LLMProvider, LLMClientFactory, LLMMessage
 from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS
 from src.services.ai.nfo_reader import NFOReader
+from src.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
+_ACTIVE_ASR_PROCESSES: Dict[str, int] = {}
+_ACTIVE_ASR_PROCESS_LOCK = threading.RLock()
+_SEMANTIC_STAGES = (
+    "AUDIO.FETCH",
+    "SUBTITLE.GENERATE",
+    "NFO.READ",
+    "PROMPT.BUILD",
+    "LLM.ANALYZE",
+    "CONTENT.GENERATE",
+)
+
+
+def _resume_analysis_worker(
+    note_id: str,
+    video_id: str,
+    file_path: Optional[str],
+    style: str,
+    formats: List[str],
+    model_provider: str,
+    model_name: str,
+    extras: Optional[str],
+    resume_from_stage: str,
+) -> None:
+    service = AiNoteService()
+    try:
+        note = service.db.query(AiNote).filter(AiNote.id == note_id).first()
+        if not note:
+            logger.error("恢复分析失败: 笔记不存在 note_id=%s", note_id)
+            return
+        service._run_analysis(
+            note=note,
+            video_id=video_id,
+            file_path=file_path,
+            style=style,
+            formats=formats,
+            model_provider=model_provider,
+            model_name=model_name,
+            extras=extras,
+            resume_from_stage=resume_from_stage,
+        )
+    finally:
+        if service.db:
+            service.db.close()
+
+
+def _transcribe_video_worker(
+    video_path: str,
+    pipeline_mode: str,
+) -> str:
+    from src.services.ai.transcriber import get_transcriber
+    from src.services.ai.local_asr_model_service import get_local_asr_model_service
+
+    model_service = get_local_asr_model_service()
+    active_model = model_service.ensure_active_model_ready()
+    transcriber = get_transcriber("asr", model_config=active_model.model_dump())
+    video_file = Path(video_path)
+    audio_path = str(video_file.with_suffix(".mp3"))
+    subtitle_path = str(video_file.with_suffix(".srt"))
+
+    audio_extractor = getattr(transcriber, "audio_extractor", None)
+    if not audio_extractor or not hasattr(audio_extractor, "extract"):
+        raise RuntimeError("ASR 转写器未暴露音频提取器")
+    extracted_audio_path = audio_extractor.extract(video_path, output_path=audio_path)
+    if not extracted_audio_path:
+        raise RuntimeError("未能提取音频")
+
+    asr_backend = getattr(transcriber, "asr_backend", None)
+    if not asr_backend or not hasattr(asr_backend, "transcribe_audio"):
+        raise RuntimeError("ASR 转写器未暴露本地转写后端")
+
+    load_model = getattr(asr_backend, "load_model", None)
+    model = load_model() if callable(load_model) else None
+    return asr_backend.transcribe_audio(
+        extracted_audio_path,
+        output_srt_path=subtitle_path,
+        model=model,
+    )
+
+
+def _transcribe_video_process(
+    result_queue: multiprocessing.Queue,
+    error_queue: multiprocessing.Queue,
+    video_path: str,
+    pipeline_mode: str,
+) -> None:
+    try:
+        result = _transcribe_video_worker(video_path, pipeline_mode)
+        result_queue.put(("ok", result))
+    except Exception as exc:
+        error_queue.put(("error", repr(exc)))
+
+
+def _terminate_asr_process(note_id: str) -> bool:
+    with _ACTIVE_ASR_PROCESS_LOCK:
+        pid = _ACTIVE_ASR_PROCESSES.pop(note_id, None)
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 15)
+        return True
+    except ProcessLookupError:
+        return True
+    except Exception as exc:
+        logger.warning("终止 ASR 进程失败: note_id=%s pid=%s error=%s", note_id, pid, exc)
+        return False
 
 
 @dataclass
@@ -57,6 +167,342 @@ class AiNoteService:
         if note is not None:
             self._persist_note_meta(note)
 
+    def _run_with_timeout(self, func, timeout_seconds: int, *args, **kwargs):
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(func, *args, **kwargs)
+            try:
+                return future.result(timeout=timeout_seconds)
+            except FuturesTimeoutError as exc:
+                future.cancel()
+                raise TimeoutError(f"操作超时（{timeout_seconds} 秒）") from exc
+
+    def _run_process_with_timeout_and_cancel(
+        self,
+        timeout_seconds: int,
+        note_id: Optional[str],
+        video_path: str,
+        pipeline_mode: str,
+    ):
+        result_queue: multiprocessing.Queue = multiprocessing.Queue(maxsize=1)
+        error_queue: multiprocessing.Queue = multiprocessing.Queue(maxsize=1)
+
+        process = multiprocessing.Process(
+            target=_transcribe_video_process,
+            args=(result_queue, error_queue, video_path, pipeline_mode),
+            daemon=True,
+        )
+        process.start()
+        if note_id:
+            with _ACTIVE_ASR_PROCESS_LOCK:
+                _ACTIVE_ASR_PROCESSES[note_id] = process.pid
+
+        deadline = time.monotonic() + timeout_seconds
+        try:
+            while process.is_alive():
+                if note_id:
+                    control = self._get_note_control(note_id)
+                    state = (control.get("state") or "running").lower()
+                    if state == "cancelled":
+                        process.terminate()
+                        process.join(timeout=5)
+                        if note_id:
+                            with _ACTIVE_ASR_PROCESS_LOCK:
+                                _ACTIVE_ASR_PROCESSES.pop(note_id, None)
+                        raise RuntimeError("分析已取消")
+                    if state == "paused":
+                        time.sleep(0.5)
+                        continue
+
+                if not error_queue.empty():
+                    status, payload = error_queue.get_nowait()
+                    raise RuntimeError(f"子进程执行失败: {payload}")
+
+                if not result_queue.empty():
+                    status, payload = result_queue.get_nowait()
+                    if status == "ok":
+                        return payload
+                    raise RuntimeError(f"子进程执行失败: {payload}")
+
+                if time.monotonic() > deadline:
+                    process.terminate()
+                    process.join(timeout=5)
+                    if note_id:
+                        with _ACTIVE_ASR_PROCESS_LOCK:
+                            _ACTIVE_ASR_PROCESSES.pop(note_id, None)
+                    raise TimeoutError(f"操作超时（{timeout_seconds} 秒）")
+
+                time.sleep(0.5)
+
+            if not result_queue.empty():
+                status, payload = result_queue.get_nowait()
+                if status == "ok":
+                    return payload
+                raise RuntimeError(f"子进程执行失败: {payload}")
+
+            if not error_queue.empty():
+                _, payload = error_queue.get_nowait()
+                raise RuntimeError(f"子进程执行失败: {payload}")
+
+            return None
+        finally:
+            if process.is_alive():
+                process.terminate()
+            process.join(timeout=5)
+            if note_id:
+                with _ACTIVE_ASR_PROCESS_LOCK:
+                    _ACTIVE_ASR_PROCESSES.pop(note_id, None)
+
+    def _normalize_pipeline_mode(self, pipeline_mode: Optional[str]) -> str:
+        mode = (pipeline_mode or "").strip().lower()
+        if mode in {"series", "image_text", "video"}:
+            return mode
+        return "video"
+
+    def _infer_pipeline_mode(self, video_id: str, download: Optional[Download] = None) -> str:
+        media_type = (getattr(download, "media_type", None) or "").strip().lower()
+        source_type = (getattr(download, "source_type", None) or "").strip().lower()
+
+        if media_type in {"opus", "opus_list", "user_opus"} or source_type == "opus":
+            return "image_text"
+        if media_type in {"bangumi", "lesson", "music_list"}:
+            return "series"
+        if video_id.startswith("cv"):
+            return "image_text"
+        return "video"
+
+    def _resolve_note_pipeline_mode(self, note: AiNote, download: Optional[Download] = None) -> str:
+        pipeline_mode = self._normalize_pipeline_mode(getattr(note, "pipeline_mode", None))
+        if pipeline_mode != "video" or getattr(note, "pipeline_mode", None):
+            return pipeline_mode
+
+        meta_mode = None
+        if note.meta and isinstance(note.meta, dict):
+            meta_mode = note.meta.get("pipeline_mode")
+        pipeline_mode = self._normalize_pipeline_mode(meta_mode)
+        if pipeline_mode != "video" or meta_mode:
+            note.pipeline_mode = pipeline_mode
+            return pipeline_mode
+
+        inferred_mode = self._infer_pipeline_mode(note.video_id or "", download=download)
+        note.pipeline_mode = inferred_mode
+        return inferred_mode
+
+    def _trace_stage(self, pipeline_mode: str, stage: str) -> str:
+        return f"{pipeline_mode}.{stage}"
+
+    def _stage_key(self, stage: str) -> str:
+        normalized = (stage or "").strip().upper()
+        if not normalized:
+            raise ValueError("resume_from_stage 不能为空")
+        if "." in normalized:
+            suffix = normalized.split(".", 1)[-1]
+            if suffix in _SEMANTIC_STAGES:
+                return suffix
+        if normalized in _SEMANTIC_STAGES:
+            return normalized
+        raise ValueError(f"未知阶段: {stage}")
+
+    def _stage_index(self, stage: str) -> int:
+        return _SEMANTIC_STAGES.index(self._stage_key(stage))
+
+    def _analysis_artifacts(self, note: AiNote) -> Dict[str, Any]:
+        meta = note.meta if isinstance(note.meta, dict) else {}
+        artifacts = meta.get("analysis_artifacts")
+        return artifacts if isinstance(artifacts, dict) else {}
+
+    def _store_analysis_artifacts(self, note: AiNote, **updates: Any) -> None:
+        meta = note.meta if isinstance(note.meta, dict) else {}
+        artifacts = meta.get("analysis_artifacts")
+        artifacts = artifacts if isinstance(artifacts, dict) else {}
+        artifacts.update({key: value for key, value in updates.items() if value is not None})
+        meta["analysis_artifacts"] = artifacts
+        note.meta = meta
+        note.updated_at = datetime.utcnow()
+        self.db.add(note)
+        self.db.commit()
+
+    def _read_nfo_context(
+        self,
+        video_path: str,
+        video_id: str,
+        note: Optional[AiNote],
+        pipeline_mode: str,
+    ) -> Dict[str, Any]:
+        self._wait_for_resume(note.id) if note else None
+        self._add_trace(
+            self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
+            "音频获取",
+            "正在定位视频文件并准备提取音频",
+            10.0,
+            {
+                "video_path": video_path,
+                "video_id": video_id,
+                "resolved_path": video_path,
+            },
+            note=note,
+        )
+        t0 = NFOReader.read_t0_text(video_path)
+        self._add_trace(
+            self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
+            "音频获取完成",
+            t0["text"][:240] if t0["text"] else "未读取到 NFO 内容",
+            20.0,
+            {
+                "found": t0["found"],
+                "nfo_path": t0["nfo_path"],
+                "nfo_excerpt": t0["text"][:500] if t0["text"] else "",
+            },
+            note=note,
+        )
+        if note:
+            self._store_analysis_artifacts(note, t0_text=t0["text"], nfo_path=t0["nfo_path"], nfo_found=t0["found"])
+        return t0
+
+    def _generate_transcript(
+        self,
+        video_path: str,
+        video_id: str,
+        pipeline_mode: str,
+        note: Optional[AiNote] = None,
+    ) -> str:
+        self._add_trace(
+            self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+            "字幕生成",
+            "正在使用本地 ASR 从音频生成正文转写",
+            35.0,
+            {"video_path": video_path, "video_id": video_id, "timeout_seconds": 600},
+            note=note,
+        )
+        if note:
+            self._wait_for_resume(note.id)
+        try:
+            transcript = self._run_process_with_timeout_and_cancel(
+                600,
+                note.id if note else None,
+                video_path,
+                pipeline_mode,
+            )
+        except TimeoutError as exc:
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                "字幕生成超时",
+                "本地 ASR 转写超时",
+                55.0,
+                {
+                    "video_path": video_path,
+                    "video_id": video_id,
+                    "timeout_seconds": 600,
+                    "error": str(exc),
+                },
+                note=note,
+            )
+            raise
+        self._add_trace(
+            self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+            "字幕生成完成",
+            transcript[:240] if transcript else "未获取到转写结果",
+            55.0,
+            {
+                "length": len(transcript or ""),
+                "transcriber": "local-asr",
+                "has_transcript": bool(transcript and transcript.strip()),
+            },
+            note=note,
+        )
+        if note:
+            self._store_analysis_artifacts(note, transcript=transcript)
+        return transcript
+
+    def _truncate_trace_from_stage(
+        self,
+        note: AiNote,
+        resume_from_stage: str,
+        pipeline_mode: Optional[str] = None,
+    ) -> None:
+        stage_key = self._stage_key(resume_from_stage)
+        cutoff = self._stage_index(stage_key)
+        active_pipeline_mode = pipeline_mode or self._resolve_note_pipeline_mode(note)
+        existing_meta = note.meta if isinstance(note.meta, dict) else {}
+        trace_entries = existing_meta.get("trace") if isinstance(existing_meta.get("trace"), list) else []
+
+        kept_trace: List[Dict[str, Any]] = []
+        for step in trace_entries:
+            if not isinstance(step, dict):
+                continue
+            step_stage = str(step.get("stage") or "").strip()
+            if not step_stage:
+                continue
+            try:
+                step_index = self._stage_index(step_stage)
+            except ValueError:
+                kept_trace.append(step)
+                continue
+            if step_index < cutoff:
+                kept_trace.append(step)
+
+        control = existing_meta.get("control") if isinstance(existing_meta.get("control"), dict) else {}
+        control = {
+            **control,
+            "state": "running",
+            "resume_from_stage": self._trace_stage(active_pipeline_mode, stage_key),
+            "current_stage": self._trace_stage(active_pipeline_mode, stage_key),
+        }
+
+        note.meta = {
+            **existing_meta,
+            "pipeline_mode": active_pipeline_mode,
+            "trace": kept_trace,
+            "control": control,
+        }
+        note.status = "processing"
+        note.error = None
+        note.pipeline_mode = active_pipeline_mode
+        note.updated_at = datetime.utcnow()
+        self.db.add(note)
+        self.db.commit()
+
+    def resume_from_stage(self, note_id: str, resume_from_stage: str) -> bool:
+        note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
+        if not note:
+            return False
+
+        video_id = note.video_id
+        file_path = note.meta.get("file_path") if isinstance(note.meta, dict) else None
+        style = note.style or DEFAULT_STYLE
+        formats = note.formats or DEFAULT_FORMATS
+        model_provider = note.model_provider or "openai"
+        model_name = note.model_name or "gpt-4o-mini"
+        extras = note.meta.get("extras") if isinstance(note.meta, dict) else None
+        self._truncate_trace_from_stage(
+            note,
+            resume_from_stage=resume_from_stage,
+            pipeline_mode=self._resolve_note_pipeline_mode(note),
+        )
+        _terminate_asr_process(note.id)
+        worker = threading.Thread(
+            target=_resume_analysis_worker,
+            args=(
+                note.id,
+                video_id,
+                file_path,
+                style,
+                formats,
+                model_provider,
+                model_name,
+                extras,
+                resume_from_stage,
+            ),
+            daemon=True,
+        )
+        worker.start()
+        return True
+
+    def _current_stage_for_error(self, note: AiNote, pipeline_mode: str) -> str:
+        control_stage = self._get_note_control(note.id).get("current_stage")
+        if control_stage:
+            return control_stage
+        return self._trace_stage(pipeline_mode, "CONTENT.GENERATE")
+
     def _persist_note_meta(self, note: AiNote):
         note.meta = {
             **(note.meta or {}),
@@ -64,6 +510,59 @@ class AiNoteService:
         }
         self.db.add(note)
         self.db.commit()
+
+    def _get_note_control(self, note_id: str) -> Dict[str, Any]:
+        note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
+        meta = note.meta if note and isinstance(note.meta, dict) else {}
+        control = meta.get("control") if isinstance(meta, dict) else {}
+        return control if isinstance(control, dict) else {}
+
+    def _set_note_control(self, note_id: str, state: str, current_stage: Optional[str] = None) -> bool:
+        note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
+        if not note:
+            return False
+        meta = note.meta if isinstance(note.meta, dict) else {}
+        control = {
+            **(meta.get("control") if isinstance(meta.get("control"), dict) else {}),
+            "state": state,
+        }
+        if current_stage is not None:
+            control["current_stage"] = current_stage
+        meta["control"] = control
+        note.meta = meta
+        self.db.add(note)
+        self.db.commit()
+        return True
+
+    def pause_analysis(self, note_id: str) -> bool:
+        return self._set_note_control(note_id, "paused")
+
+    def resume_analysis(self, note_id: str) -> bool:
+        return self._set_note_control(note_id, "running")
+
+    def cancel_analysis(self, note_id: str) -> bool:
+        note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
+        if not note:
+            return False
+        note.status = "failed"
+        note.error = "分析已取消"
+        self._set_note_control(note_id, "cancelled")
+        _terminate_asr_process(note_id)
+        self.db.commit()
+        return True
+
+    def _wait_for_resume(self, note_id: str) -> None:
+        if not note_id:
+            return
+        while True:
+            control = self._get_note_control(note_id)
+            state = (control.get("state") or "running").lower()
+            if state == "paused":
+                time.sleep(0.5)
+                continue
+            if state == "cancelled":
+                raise RuntimeError("分析已取消")
+            return
 
     def analyze_video(
         self,
@@ -81,6 +580,7 @@ class AiNoteService:
             formats=formats or DEFAULT_FORMATS,
             model_provider=model_provider,
             model_name=model_name,
+            pipeline_mode=self._infer_pipeline_mode(video_id),
         )
 
         self._run_analysis(
@@ -103,16 +603,19 @@ class AiNoteService:
         formats: List[str],
         model_provider: str,
         model_name: str,
+        pipeline_mode: Optional[str] = None,
     ) -> AiNote:
+        normalized_pipeline_mode = self._normalize_pipeline_mode(pipeline_mode)
         note = AiNote(
             id=os.urandom(16).hex(),
             video_id=video_id,
             style=style,
             formats=formats,
+            pipeline_mode=normalized_pipeline_mode,
             status="processing",
             model_provider=model_provider,
             model_name=model_name,
-            meta={},
+            meta={"pipeline_mode": normalized_pipeline_mode},
         )
         self.db.add(note)
         self.db.commit()
@@ -133,6 +636,7 @@ class AiNoteService:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
         if not note:
             raise ValueError(f"Note not found: {note_id}")
+        self._resolve_note_pipeline_mode(note)
 
         self._run_analysis(
             note=note,
@@ -156,6 +660,7 @@ class AiNoteService:
         model_provider: str,
         model_name: str,
         extras: Optional[str],
+        resume_from_stage: Optional[str] = None,
     ) -> None:
         download = None
         actual_source_path = file_path
@@ -170,27 +675,113 @@ class AiNoteService:
             actual_source_path = download.file_path
             video_title = download.title
 
+        pipeline_mode = self._resolve_note_pipeline_mode(note, download=download)
         actual_file_path = self._resolve_video_file_path(actual_source_path)
         if not actual_file_path:
             raise ValueError(f"Video file not found: {actual_source_path}")
+        start_stage = self._stage_index(resume_from_stage) if resume_from_stage else 0
+        artifacts = self._analysis_artifacts(note)
 
         try:
-            context = self._prepare_analysis_context(actual_file_path, video_id, style, note)
+            context: Dict[str, Any] = {
+                "t0_text": artifacts.get("t0_text", ""),
+                "transcript": artifacts.get("transcript", ""),
+                "level": artifacts.get("level", self._resolve_level(style)),
+            }
+
+            if start_stage <= self._stage_index("AUDIO.FETCH"):
+                self._set_note_control(note.id, "running", current_stage=self._trace_stage(pipeline_mode, "AUDIO.FETCH"))
+                context = self._prepare_analysis_context(
+                    actual_file_path,
+                    video_id,
+                    style,
+                    note,
+                    pipeline_mode=pipeline_mode,
+                    formats=formats,
+                )
+            else:
+                if start_stage <= self._stage_index("SUBTITLE.GENERATE"):
+                    self._set_note_control(note.id, "running", current_stage=self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"))
+                    transcript = self._generate_transcript(
+                        actual_file_path,
+                        video_id,
+                        pipeline_mode,
+                        note=note,
+                    )
+                    context["transcript"] = transcript
+                    if not context.get("t0_text"):
+                        self._set_note_control(note.id, "running", current_stage=self._trace_stage(pipeline_mode, "AUDIO.FETCH"))
+                        t0 = self._read_nfo_context(
+                            actual_file_path,
+                            video_id,
+                            note,
+                            pipeline_mode,
+                        )
+                        context["t0_text"] = t0["text"]
+
+                if start_stage <= self._stage_index("NFO.READ"):
+                    self._set_note_control(note.id, "running", current_stage=self._trace_stage(pipeline_mode, "NFO.READ"))
+                    level = self._resolve_level(style)
+                    context["level"] = level
+                    self._add_trace(
+                        self._trace_stage(pipeline_mode, "NFO.READ"),
+                        "NFO 读取",
+                        f"正在读取 NFO 并使用 {level} 模板整理内容",
+                        70.0,
+                        {
+                            "level": level,
+                            "nfo_path": artifacts.get("nfo_path"),
+                            "nfo_found": artifacts.get("nfo_found"),
+                        },
+                        note=note,
+                    )
+                    self._store_analysis_artifacts(note, level=level)
+
+                if start_stage > self._stage_index("NFO.READ") and not context.get("t0_text"):
+                    t0_text = artifacts.get("t0_text")
+                    if not t0_text:
+                        t0 = self._read_nfo_context(
+                            actual_file_path,
+                            video_id,
+                            note,
+                            pipeline_mode,
+                        )
+                        context["t0_text"] = t0["text"]
+                    else:
+                        context["t0_text"] = t0_text
+                if start_stage > self._stage_index("SUBTITLE.GENERATE") and not context.get("transcript"):
+                    context["transcript"] = artifacts.get("transcript", "")
+                if not context.get("level"):
+                    context["level"] = artifacts.get("level", self._resolve_level(style))
 
             if download:
                 download.transcript = context["transcript"]
                 download.transcript_lang = "whisper"
                 self.db.commit()
 
-            self._add_trace("PROMPT.BUILD", "构建 Prompt", "正在按固定顺序拼装最终 prompt", 85.0, note=note)
+            self._wait_for_resume(note.id)
+            self._set_note_control(note.id, "running", current_stage=self._trace_stage(pipeline_mode, "PROMPT.BUILD"))
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
+                "构建 Prompt",
+                "正在按固定顺序拼装最终 prompt",
+                85.0,
+                {
+                    "style": style,
+                    "formats": formats,
+                    "has_transcript": bool(context["transcript"]),
+                },
+                note=note,
+            )
             prompt = self._build_prompt_from_context(
                 context=context,
                 style=style,
                 formats=formats or DEFAULT_FORMATS,
                 extras=extras,
             )
+            self._store_analysis_artifacts(note, prompt=prompt)
             self._add_trace(
-                "PROMPT.BUILD",
+                self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
                 "Prompt 生成完成",
                 prompt[:300],
                 88.0,
@@ -198,13 +789,17 @@ class AiNoteService:
                 note=note,
             )
 
+            self._wait_for_resume(note.id)
+            self._set_note_control(note.id, "running", current_stage=self._trace_stage(pipeline_mode, "LLM.ANALYZE"))
             markdown = self._generate_note(
                 prompt=prompt,
                 model_provider=model_provider,
                 model_name=model_name,
+                note=note,
+                pipeline_mode=pipeline_mode,
             )
             self._add_trace(
-                "LLM",
+                self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
                 "模型返回完成",
                 markdown[:240],
                 95.0,
@@ -213,11 +808,19 @@ class AiNoteService:
             )
 
             summary = self._extract_summary(markdown)
+            markdown_path = self._write_markdown_output(actual_file_path, note.id, markdown)
 
             note.content = markdown
             note.summary = summary
+            note.pipeline_mode = pipeline_mode
+            note.meta = {
+                **(note.meta or {}),
+                "pipeline_mode": pipeline_mode,
+                "generated_markdown_path": markdown_path,
+            }
             note.status = "completed"
             note.completed_at = datetime.utcnow()
+            self._set_note_control(note.id, "completed", current_stage=self._trace_stage(pipeline_mode, "CONTENT.GENERATE"))
             self._persist_note_meta(note)
 
             if download:
@@ -228,7 +831,13 @@ class AiNoteService:
                 download.ai_status = "completed"
                 self.db.commit()
 
-            self._add_trace("DONE", "分析完成", "AI 笔记生成成功", 100.0, note=note)
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
+                "分析完成",
+                "AI 笔记生成成功",
+                100.0,
+                note=note,
+            )
             self._persist_note_meta(note)
             logger.info(f"笔记生成完成: {note.id}")
 
@@ -236,7 +845,21 @@ class AiNoteService:
             logger.error(f"笔记生成失败: {e}", exc_info=True)
             note.status = "failed"
             note.error = str(e)
-            self._add_trace("ERROR", "分析失败", str(e), 100.0, {"error": str(e)}, note=note)
+            current_stage = self._current_stage_for_error(
+                note,
+                self._resolve_note_pipeline_mode(note, download=download),
+            )
+            self._add_trace(
+                current_stage,
+                "分析失败",
+                str(e),
+                100.0,
+                {
+                    "error": str(e),
+                    "stage": current_stage,
+                },
+                note=note,
+            )
             self._persist_note_meta(note)
 
             if download:
@@ -288,47 +911,108 @@ class AiNoteService:
         video_id: str,
         style: str,
         note: Optional[AiNote] = None,
+        pipeline_mode: str = "video",
+        formats: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        self._add_trace("PREP.T0", "读取 NFO", "正在读取目录中的 NFO 并整理视频信息", 10.0, note=note)
+        if note:
+            self._wait_for_resume(note.id)
+        self._add_trace(
+            self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
+            "音频获取",
+            "正在定位视频文件并准备提取音频",
+            10.0,
+            {
+                "video_path": video_path,
+                "video_id": video_id,
+                "resolved_path": video_path,
+            },
+            note=note,
+        )
         t0 = NFOReader.read_t0_text(video_path)
         self._add_trace(
-            "PREP.T0",
-            "NFO 解析完成",
-            t0["text"][:240],
+            self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
+            "音频获取完成",
+            t0["text"][:240] if t0["text"] else "未读取到 NFO 内容",
             20.0,
-            {"found": t0["found"], "nfo_path": t0["nfo_path"]},
+            {
+                "found": t0["found"],
+                "nfo_path": t0["nfo_path"],
+                "nfo_excerpt": t0["text"][:500] if t0["text"] else "",
+            },
             note=note,
         )
 
-        self._add_trace("PREP.T1", "语音转文字", "正在使用本地 ASR 从音频生成正文转写", 35.0, note=note)
-        transcript = self._transcribe_video(video_path, video_id, note=note)
         self._add_trace(
-            "PREP.T1",
-            "转写完成",
+            self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+            "字幕生成",
+            "正在使用本地 ASR 从音频生成正文转写",
+            35.0,
+            {"video_path": video_path, "video_id": video_id, "timeout_seconds": 600},
+            note=note,
+        )
+        if note:
+            self._wait_for_resume(note.id)
+        try:
+            transcript = self._run_process_with_timeout_and_cancel(
+                600,
+                note.id if note else None,
+                video_path,
+                pipeline_mode,
+            )
+        except TimeoutError as exc:
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                "字幕生成超时",
+                "本地 ASR 转写超时",
+                55.0,
+                {
+                    "video_path": video_path,
+                    "video_id": video_id,
+                    "timeout_seconds": 600,
+                    "error": str(exc),
+                },
+                note=note,
+            )
+            raise
+        self._add_trace(
+            self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+            "字幕生成完成",
             transcript[:240] if transcript else "未获取到转写结果",
             55.0,
-            {"length": len(transcript or ""), "transcriber": "local-asr"},
+            {
+                "length": len(transcript or ""),
+                "transcriber": "local-asr",
+                "has_transcript": bool(transcript and transcript.strip()),
+            },
             note=note,
         )
 
         level = self._resolve_level(style)
         self._add_trace(
-            "PREP.T2",
-            "详细程度",
-            f"当前使用 {level} 模板",
+            self._trace_stage(pipeline_mode, "NFO.READ"),
+            "NFO 读取",
+            f"正在读取 NFO 并使用 {level} 模板整理内容",
             70.0,
-            {"level": level},
+            {"level": level, "nfo_path": t0["nfo_path"], "nfo_found": t0["found"]},
             note=note,
         )
+        if note:
+            self._wait_for_resume(note.id)
 
         self._add_trace(
-            "PREP.T3",
-            "风格选择",
+            self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
+            "Prompt 构建",
             f"当前风格: {style}",
             80.0,
-            {"style": style},
+            {
+                "style": style,
+                "formats": formats or DEFAULT_FORMATS,
+                "has_transcript": bool(transcript and transcript.strip()),
+            },
             note=note,
         )
+        if note:
+            self._store_analysis_artifacts(note, t0_text=t0["text"], transcript=transcript, level=level)
 
         return {
             "t0_text": t0["text"],
@@ -352,7 +1036,13 @@ class AiNoteService:
             extras=extras,
         )
 
-    def _transcribe_video(self, video_path: str, video_id: str, note: Optional[AiNote] = None) -> str:
+    def _transcribe_video(
+        self,
+        video_path: str,
+        video_id: str,
+        note: Optional[AiNote] = None,
+        pipeline_mode: str = "video",
+    ) -> str:
         """转写视频，默认走 Whisper 音频转写。"""
         try:
             from src.services.ai.transcriber import get_transcriber
@@ -364,7 +1054,7 @@ class AiNoteService:
             model_service = get_local_asr_model_service()
             active_model = model_service.ensure_active_model_ready()
             self._add_trace(
-                "PREP.T1.0",
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
                 "检查本地模型",
                 f"当前激活模型 {active_model.name} 已就绪",
                 38.0,
@@ -372,24 +1062,80 @@ class AiNoteService:
             )
             transcriber = get_transcriber("asr", model_config=active_model.model_dump())
             pipeline_name = getattr(transcriber, "get_pipeline_name", lambda: "ffmpeg + faster-whisper")()
+            video_file = Path(video_path)
+            audio_path = str(video_file.with_suffix(".mp3"))
+            subtitle_path = str(video_file.with_suffix(".srt"))
+
             self._add_trace(
-                "PREP.T1.1",
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
                 "提取音频",
                 f"正在使用 {pipeline_name} 提取音频",
                 40.0,
-                {"video_path": video_path, "pipeline": pipeline_name},
+                {"video_path": video_path, "audio_path": audio_path, "pipeline": pipeline_name},
+            )
+            audio_extractor = getattr(transcriber, "audio_extractor", None)
+            if not audio_extractor or not hasattr(audio_extractor, "extract"):
+                raise RuntimeError("ASR 转写器未暴露音频提取器")
+            extracted_audio_path = audio_extractor.extract(
+                video_path,
+                output_path=audio_path,
+            )
+            if not extracted_audio_path:
+                raise RuntimeError("未能提取音频")
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                "音频提取完成",
+                f"音频已提取到 {Path(extracted_audio_path).name}",
+                43.0,
+                {"audio_path": extracted_audio_path, "pipeline": pipeline_name},
+                note=note,
             )
             self._add_trace(
-                "PREP.T1.2",
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
                 "本地 ASR 请求",
                 "正在调用本地 ASR 生成字幕文本",
                 45.0,
-                {"pipeline": pipeline_name},
+                {"pipeline": pipeline_name, "runtime": getattr(getattr(transcriber, "asr_backend", None), "get_runtime_label", lambda: pipeline_name)()},
             )
-            result = transcriber.transcribe(video_path, video_id)
+            asr_backend = getattr(transcriber, "asr_backend", None)
+            if not asr_backend or not hasattr(asr_backend, "transcribe_audio"):
+                raise RuntimeError("ASR 转写器未暴露本地转写后端")
+            load_model = getattr(asr_backend, "load_model", None)
+            model = None
+            if callable(load_model):
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                    "ASR 模型加载中",
+                    f"正在加载 {getattr(asr_backend, 'get_runtime_label', lambda: pipeline_name)()}",
+                    46.0,
+                    {"audio_path": extracted_audio_path, "pipeline": pipeline_name},
+                    note=note,
+                )
+                model = load_model()
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                    "ASR 模型加载完成",
+                    f"模型已加载: {getattr(asr_backend, 'get_runtime_label', lambda: pipeline_name)()}",
+                    47.0,
+                    {"audio_path": extracted_audio_path, "pipeline": pipeline_name},
+                    note=note,
+                )
+            self._add_trace(
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                "ASR 转写中",
+                "正在对音频执行本地 ASR 转写",
+                48.0,
+                {"audio_path": extracted_audio_path, "subtitle_path": subtitle_path, "pipeline": pipeline_name},
+                note=note,
+            )
+            result = asr_backend.transcribe_audio(
+                extracted_audio_path,
+                output_srt_path=subtitle_path,
+                model=model,
+            )
             if not result or not result.strip():
                 self._add_trace(
-                    "PREP.T1.3",
+                    self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
                     "本地 ASR 结果为空",
                     "未获取到有效转写文本，将继续基于其他元数据生成笔记",
                     50.0,
@@ -398,11 +1144,12 @@ class AiNoteService:
                 )
                 return ""
             self._add_trace(
-                "PREP.T1.3",
+                self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
                 "本地 ASR 完成",
                 result[:240],
                 50.0,
                 {"length": len(result), "pipeline": pipeline_name},
+                note=note,
             )
             return result
         except LocalASRModelNotReadyError:
@@ -416,29 +1163,52 @@ class AiNoteService:
         prompt: str,
         model_provider: str,
         model_name: str,
+        note: Optional[AiNote] = None,
+        pipeline_mode: str = "video",
     ) -> str:
         """调用 LLM 生成笔记"""
         try:
+            if note:
+                self._wait_for_resume(note.id)
+            settings = SettingsService(self.db).get_settings()
+            provider_config: Dict[str, Any] = {}
+            if settings and getattr(settings, "llm", None):
+                provider_config["base_url"] = getattr(settings.llm, "base_url", "") or None
+                provider_config["api_key"] = getattr(settings.llm, "api_key", "") or None
+                providers = getattr(settings.llm, "providers", []) or []
+                matched_provider = next(
+                    (
+                        item
+                        for item in providers
+                        if isinstance(item, dict) and str(item.get("id", "")).strip().lower() == model_provider.lower()
+                    ),
+                    None,
+                )
+                if matched_provider:
+                    provider_config["base_url"] = (matched_provider.get("baseUrl") or matched_provider.get("base_url") or provider_config["base_url"]) or None
+                    provider_config["api_key"] = (matched_provider.get("apiKey") or matched_provider.get("api_key") or provider_config["api_key"]) or None
             self._add_trace(
-                "LLM.CALL",
-                "调用模型",
+                self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
+                "AI 分析",
                 f"正在请求 {model_provider}/{model_name}",
                 92.0,
                 {"provider": model_provider, "model": model_name},
+                note=note,
             )
             provider = LLMProvider(model_provider)
-            client = LLMClientFactory.create_client(provider)
+            client = LLMClientFactory.create_client(provider, **provider_config)
             messages = [
                 LLMMessage(role="system", content=prompt),
                 LLMMessage(role="user", content="请根据以上信息生成笔记。"),
             ]
             response = client.chat(messages, model=model_name, temperature=0.7)
             self._add_trace(
-                "LLM.RESPONSE",
-                "模型响应",
+                self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
+                "生成内容",
                 "模型已返回结果",
                 94.0,
                 {"has_content": bool(response.content)},
+                note=note,
             )
             return response.content
         except Exception as e:
@@ -461,14 +1231,25 @@ class AiNoteService:
 
         return "\n".join(summary_lines[:5])
 
+    def _write_markdown_output(self, source_path: str, note_id: str, markdown: str) -> str:
+        source_file = Path(source_path)
+        output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"{source_file.stem}.ai-note.md"
+        output_path.write_text(markdown, encoding="utf-8")
+        return str(output_path)
+
     def get_note(self, note_id: str) -> Optional[AiNote]:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
+        if note:
+            self._resolve_note_pipeline_mode(note)
         self.db.close()
         return note
 
     def get_note_by_video(self, video_id: str) -> Optional[AiNote]:
         note = self.db.query(AiNote).filter(AiNote.video_id == video_id).first()
         if note:
+            self._resolve_note_pipeline_mode(note)
             self.db.close()
             return note
 
@@ -489,12 +1270,14 @@ class AiNoteService:
         if download:
             note = self.db.query(AiNote).filter(AiNote.video_id == download.id).first()
             if note:
+                self._resolve_note_pipeline_mode(note, download=download)
                 self.db.close()
                 return note
 
             if download.file_path:
                 note = self.db.query(AiNote).filter(AiNote.video_id == download.file_path).first()
                 if note:
+                    self._resolve_note_pipeline_mode(note, download=download)
                     self.db.close()
                     return note
 
@@ -503,6 +1286,7 @@ class AiNoteService:
                     folder_key = f"folder-{folder_name}"
                     note = self.db.query(AiNote).filter(AiNote.video_id == folder_key).first()
                     if note:
+                        self._resolve_note_pipeline_mode(note, download=download)
                         self.db.close()
                         return note
 

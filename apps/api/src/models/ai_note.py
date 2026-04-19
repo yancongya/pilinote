@@ -20,6 +20,7 @@ class AiNote(Base):
     # 配置
     style = Column(String(50), nullable=True)  # 使用的风格
     formats = Column(JSON, nullable=True)  # 启用的格式
+    pipeline_mode = Column(String(20), nullable=True, index=True)  # AI 笔记流水线模式
 
     # 任务状态
     status = Column(
@@ -44,4 +45,7 @@ class AiNote(Base):
     completed_at = Column(DateTime, nullable=True)  # 完成时间
 
     def __repr__(self):
-        return f"<AiNote(id={self.id}, video_id={self.video_id}, style={self.style}, status={self.status})>"
+        return (
+            f"<AiNote(id={self.id}, video_id={self.video_id}, "
+            f"style={self.style}, pipeline_mode={self.pipeline_mode}, status={self.status})>"
+        )

@@ -241,7 +241,8 @@ class DownloadEngine:
                 """进度回调函数"""
                 # 检查是否暂停
                 if pause_event:
-                    pause_event.wait()
+                    if pause_event.is_set():
+                        raise asyncio.CancelledError("Download paused or cancelled")
                 
                 status = d.get('status')
                 if status == 'downloading':

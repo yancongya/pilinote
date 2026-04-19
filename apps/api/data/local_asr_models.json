@@ -1,24 +1,24 @@
 {
-  "active_model_id": "medium",
+  "active_model_id": "base",
   "models": {
     "tiny": {
-      "download_state": "not_downloaded",
+      "download_state": "failed",
       "progress": 0.0,
       "downloaded_bytes": 0,
-      "total_bytes": 0,
+      "total_bytes": 78643200,
       "ready": false,
       "active": false,
-      "updated_at": "2026-04-18T09:34:53.766920",
-      "error": null
+      "updated_at": "2026-04-18T22:31:36.795405",
+      "error": "Cannot send a request, as the client has been closed."
     },
     "base": {
-      "download_state": "not_downloaded",
-      "progress": 0.0,
-      "downloaded_bytes": 0,
-      "total_bytes": 0,
-      "ready": false,
-      "active": false,
-      "updated_at": "2026-04-18T10:43:10.967123",
+      "download_state": "ready",
+      "progress": 100.0,
+      "downloaded_bytes": 148897792,
+      "total_bytes": 148897792,
+      "ready": true,
+      "active": true,
+      "updated_at": "2026-04-18T22:30:53.489295",
       "error": null
     },
     "small": {
@@ -32,13 +32,13 @@
       "error": null
     },
     "medium": {
-      "download_state": "ready",
-      "progress": 100.0,
-      "downloaded_bytes": 1530573740,
-      "total_bytes": 1530573740,
-      "ready": true,
-      "active": true,
-      "updated_at": "2026-04-18T10:44:29.384547",
+      "download_state": "not_downloaded",
+      "progress": 0.0,
+      "downloaded_bytes": 0,
+      "total_bytes": 0,
+      "ready": false,
+      "active": false,
+      "updated_at": "2026-04-18T22:21:12.077938",
       "error": null
     },
     "large-v3": {

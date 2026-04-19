@@ -3,7 +3,6 @@ import { aiNoteService, NoteResponse, DEFAULT_STYLE, DEFAULT_FORMATS } from '../
 import { useNotePolling } from '../../hooks/useNotePolling';
 import { StyleSelector } from './StyleSelector';
 import { FormatSelector } from './FormatSelector';
-import { MarkdownViewer } from './MarkdownViewer';
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup';
 import { localAsrModelService } from '../../services/localAsrModels';
 import { useToast } from '../Toast';
@@ -36,6 +35,7 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
   const activeModel = providerModels.includes(configuredModel)
     ? configuredModel
     : (providerModels[0] || configuredModel);
+  const generatedMarkdownPath = note?.generated_markdown_path || note?.meta?.generated_markdown_path || '';
   
   const { status, progress, error, startPolling } = useNotePolling({
     noteId,
@@ -132,31 +132,28 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
   };
 
   const handleExport = async () => {
-    if (!note?.id) return;
-    
+    if (!generatedMarkdownPath) {
+      showToast('没有可导出的本地 Markdown 路径', 'warning');
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/note/export/${note.id}`);
-      const blob = await response.blob();
-      
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ai-note-${note.id.slice(0, 8)}.md`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      await navigator.clipboard.writeText(generatedMarkdownPath);
+      showToast('已复制本地 Markdown 路径', 'success');
     } catch (err) {
-      console.error('导出失败:', err);
+      console.error('复制路径失败:', err);
     }
   };
 
   const handleCopy = async () => {
-    if (!note?.content) return;
+    if (!generatedMarkdownPath) {
+      showToast('没有可复制的本地 Markdown 路径', 'warning');
+      return;
+    }
     
     try {
-      await navigator.clipboard.writeText(note.content);
-      alert('已复制到剪贴板');
+      await navigator.clipboard.writeText(generatedMarkdownPath);
+      showToast('已复制本地 Markdown 路径', 'success');
     } catch (err) {
       console.error('复制失败:', err);
     }
@@ -263,16 +260,12 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
           </div>
           
           <div className="max-h-96 overflow-y-auto">
-            <MarkdownViewer content={note.content || ''} />
-          </div>
-          
-          {note.summary && (
-            <div className="mt-4 p-3 bg-gray-700 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-300 mb-1">AI 总结</h4>
-              <p className="text-sm text-gray-400">{note.summary}</p>
+            <div className="rounded-lg border border-gray-700 bg-gray-800 p-3 text-sm text-gray-300">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">本地 Markdown 路径</div>
+              <div className="break-all">{generatedMarkdownPath || '暂无路径'}</div>
             </div>
-          )}
-          
+          </div>
+
           <div className="text-xs text-gray-500">
             风格: {note.style} | 模型: {note.model_name}
           </div>

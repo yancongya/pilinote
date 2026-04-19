@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { X, Sparkles, Loader2, RotateCcw, Copy } from 'lucide-react'
-import { aiNoteService, NOTE_FORMATS, type NoteResponse, type AiTraceStep } from '../../services/aiNote'
+import { X, Sparkles, Loader2, RotateCcw, Copy, Pause, Play } from 'lucide-react'
+import {
+  aiNoteService,
+  NOTE_FORMATS,
+  AI_NOTE_TRACE_STAGE_TEMPLATES,
+  type NoteResponse,
+  type AiTraceStep,
+  type AiNotePipelineMode,
+  type AiNoteTraceStageTemplate,
+} from '../../services/aiNote'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { buildPromptStyleOptions, normalizePromptStyleValue } from '../../services/promptCatalog'
 import { useToast } from '../Toast'
@@ -33,17 +41,13 @@ interface TraceDotItem {
   id: string
   stage: string
   title: string
+  shortLabel: string
   summary: string
   status: TraceDotStatus
   statusLabel: string
   detailText: string
+  steps: AiTraceStep[]
   progress?: number
-}
-
-interface TraceStageTemplate {
-  stage: string
-  title: string
-  shortLabel: string
 }
 
 const TRACE_STATUS_META: Record<TraceDotStatus, { label: string }> = {
@@ -53,43 +57,66 @@ const TRACE_STATUS_META: Record<TraceDotStatus, { label: string }> = {
   error: { label: '错误' },
 }
 
-const TRACE_STAGE_ORDER: TraceStageTemplate[] = [
-  { stage: 'T0', title: 'NFO 读取', shortLabel: 'T0' },
-  { stage: 'T1', title: '语音转写', shortLabel: 'T1' },
-  { stage: 'T2', title: '详细程度', shortLabel: 'T2' },
-  { stage: 'T3', title: '风格选择', shortLabel: 'T3' },
-  { stage: 'PROMPT', title: 'Prompt 构建', shortLabel: 'PROMPT' },
-  { stage: 'LLM', title: '模型调用', shortLabel: 'LLM' },
-  { stage: 'DONE', title: '完成', shortLabel: 'DONE' },
-  { stage: 'ERROR', title: '错误', shortLabel: 'ERROR' },
-]
-
-const normalizeStage = (stage: string): TraceStageTemplate['stage'] => {
+const normalizeStage = (stage: string): string => {
   const upper = stage.toUpperCase()
-  if (upper.startsWith('PREP.T0')) return 'T0'
-  if (upper.startsWith('PREP.T1')) return 'T1'
-  if (upper.startsWith('PREP.T2')) return 'T2'
-  if (upper.startsWith('PREP.T3')) return 'T3'
-  if (upper.startsWith('PROMPT')) return 'PROMPT'
-  if (upper.startsWith('LLM')) return 'LLM'
-  if (upper.startsWith('DONE')) return 'DONE'
-  return 'ERROR'
+  const parts = upper.split('.')
+  const root = parts[parts.length - 1] || upper
+  const semanticStage = parts.slice(-2).join('.')
+  if (semanticStage === 'AUDIO.FETCH') return 'AUDIO.FETCH'
+  if (semanticStage === 'SUBTITLE.GENERATE') return 'SUBTITLE.GENERATE'
+  if (semanticStage === 'NFO.READ') return 'NFO.READ'
+  if (semanticStage === 'PROMPT.BUILD') return 'PROMPT.BUILD'
+  if (semanticStage === 'LLM.ANALYZE') return 'LLM.ANALYZE'
+  if (semanticStage === 'CONTENT.GENERATE') return 'CONTENT.GENERATE'
+  if (root === 'T0') return 'AUDIO.FETCH'
+  if (root === 'T1') return 'SUBTITLE.GENERATE'
+  if (root === 'T2') return 'NFO.READ'
+  if (root === 'T3') return 'PROMPT.BUILD'
+  if (root === 'PROMPT') return 'PROMPT.BUILD'
+  if (root === 'LLM') return 'LLM.ANALYZE'
+  if (root === 'DONE') return 'DONE'
+  return stage ? 'ERROR' : ''
+}
+
+const DEFAULT_PIPELINE_MODE: AiNotePipelineMode = 'video'
+
+const getPipelineMode = (note?: NoteResponse | null, trace?: AiTraceStep[] | null): AiNotePipelineMode => {
+  if (note?.pipeline_mode === 'video' || note?.pipeline_mode === 'series' || note?.pipeline_mode === 'image_text') {
+    return note.pipeline_mode
+  }
+
+  const metaMode = note?.meta?.pipeline_mode
+  if (metaMode === 'video' || metaMode === 'series' || metaMode === 'image_text') {
+    return metaMode
+  }
+
+  const firstStage = trace?.[0]?.stage?.toLowerCase?.() || ''
+  if (firstStage.includes('ocr') || firstStage.includes('image')) return 'image_text'
+  if (firstStage.includes('series') || firstStage.includes('season') || firstStage.includes('episode')) return 'series'
+  return DEFAULT_PIPELINE_MODE
+}
+
+const getStageTemplates = (mode: AiNotePipelineMode): AiNoteTraceStageTemplate[] => {
+  return AI_NOTE_TRACE_STAGE_TEMPLATES[mode] || AI_NOTE_TRACE_STAGE_TEMPLATES.video
 }
 
 const getTraceStatus = (step: AiTraceStep): TraceDotStatus => {
   const stage = step.stage.toUpperCase()
+  const parts = stage.split('.')
+  const stageRoot = parts[parts.length - 1] || stage
   const content = `${step.title || ''} ${step.summary || ''} ${step.stage || ''}`
   if (/失败|错误|未获取到文本内容/i.test(content)) return 'error'
-  if (stage.startsWith('ERROR') || stage.includes('FAIL')) return 'error'
-  if (stage.startsWith('DONE') || (typeof step.progress === 'number' && step.progress >= 100)) return 'done'
+  if (stageRoot === 'ERROR' || stage.includes('FAIL')) return 'error'
+  if (stageRoot === 'DONE' || (typeof step.progress === 'number' && step.progress >= 100)) return 'done'
   if (typeof step.progress === 'number' && step.progress > 0) return 'running'
-  if (stage.startsWith('PROMPT') || stage.startsWith('LLM') || stage.startsWith('PREP')) return 'running'
-  return 'pending'
+  if (stageRoot === 'FETCH' || stageRoot === 'READ' || stageRoot === 'GENERATE' || stageRoot === 'BUILD' || stageRoot === 'ANALYZE' || stageRoot === 'PROMPT' || stageRoot === 'LLM' || stageRoot === 'NFO' || stageRoot === 'T0' || stageRoot === 'T1' || stageRoot === 'T2' || stageRoot === 'T3') return 'running'
+  return step.stage ? 'running' : 'pending'
 }
 
-const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
+const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEFAULT_PIPELINE_MODE): TraceDotItem[] => {
+  const templates = getStageTemplates(mode)
   const grouped = new Map<string, AiTraceStep[]>()
-  TRACE_STAGE_ORDER.forEach(item => grouped.set(item.stage, []))
+  templates.forEach(item => grouped.set(normalizeStage(item.stage), []))
 
   trace.forEach(step => {
     const stage = normalizeStage(step.stage)
@@ -99,11 +126,12 @@ const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
     }
   })
 
-  return TRACE_STAGE_ORDER.map((item, index) => {
-    const items = grouped.get(item.stage) || []
+  return templates.map((item, index) => {
+    const stageKey = normalizeStage(item.stage)
+    const items = grouped.get(stageKey) || []
     if (!items.length) {
       return {
-        id: `${item.stage}-${index}`,
+        id: `${stageKey}-${index}`,
         stage: item.stage,
         title: item.title,
         shortLabel: item.shortLabel,
@@ -111,23 +139,31 @@ const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
         status: 'pending',
         statusLabel: TRACE_STATUS_META.pending.label,
         detailText: '暂无原始详情',
+        steps: [],
         progress: 0,
       }
     }
 
     const last = items[items.length - 1]
     const summary = items
-      .map(step => step.summary?.trim())
-      .filter(Boolean)
-      .join('\n')
+      .map((step, idx) => {
+        const head = `${idx + 1}. ${step.title || step.stage}`
+        const body = step.summary?.trim() || '暂无摘要'
+        return `${head}\n${body}`
+      })
+      .join('\n\n')
 
     const detailText = items
-      .map(step => (step.detail ? JSON.stringify(step.detail, null, 2) : '暂无原始详情'))
-      .join('\n')
+      .map((step, idx) => {
+        const detail = step.detail ? JSON.stringify(step.detail, null, 2) : '暂无原始详情'
+        const ts = step.ts ? `\n时间: ${step.ts}` : ''
+        return `步骤 ${idx + 1}: ${step.title || step.stage}${ts}\n${detail}`
+      })
+      .join('\n\n')
 
     const status = getTraceStatus(last)
     return {
-      id: `${item.stage}-${index}`,
+      id: `${stageKey}-${index}`,
       stage: item.stage,
       title: item.title,
       shortLabel: item.shortLabel,
@@ -135,14 +171,15 @@ const buildTraceDotItems = (trace: AiTraceStep[]): TraceDotItem[] => {
       status,
       statusLabel: TRACE_STATUS_META[status].label,
       detailText: detailText || '暂无原始详情',
+      steps: items,
       progress: last.progress,
     }
   })
 }
 
-const buildDefaultTraceDotItems = (): TraceDotItem[] => {
-  return TRACE_STAGE_ORDER.map((item, index) => ({
-    id: `${item.stage}-${index}`,
+const buildDefaultTraceDotItems = (mode: AiNotePipelineMode = DEFAULT_PIPELINE_MODE): TraceDotItem[] => {
+  return getStageTemplates(mode).map((item, index) => ({
+    id: `${normalizeStage(item.stage)}-${index}`,
     stage: item.stage,
     title: item.title,
     shortLabel: item.shortLabel,
@@ -150,8 +187,14 @@ const buildDefaultTraceDotItems = (): TraceDotItem[] => {
     status: 'pending',
     statusLabel: TRACE_STATUS_META.pending.label,
     detailText: '暂无原始详情',
+    steps: [],
     progress: 0,
   }))
+}
+
+export const buildTraceDotItemsForNote = (note: NoteResponse | null, trace: AiTraceStep[]): TraceDotItem[] => {
+  const mode = getPipelineMode(note, trace)
+  return trace.length ? buildTraceDotItems(trace, mode) : buildDefaultTraceDotItems(mode)
 }
 
 export function deriveAiNoteModalStateFromLookup(lookup: {
@@ -222,10 +265,12 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [trace, setTrace] = useState<AiTraceStep[]>([])
-  const [progress, setProgress] = useState(0)
   const [localAsrReady, setLocalAsrReady] = useState(true)
   const [styleOptions, setStyleOptions] = useState<StyleOption[]>([])
   const [selectedTraceItem, setSelectedTraceItem] = useState<TraceDotItem | null>(null)
+  const [controlState, setControlState] = useState<'running' | 'paused' | 'cancelled' | 'completed'>('running')
+  const activeNoteIdRef = useRef<string | null>(null)
+  const currentRequestRef = useRef<{ video_id: string; style: string; formats: string[]; model_provider: string; model_name: string; extras: string } | null>(null)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -283,6 +328,8 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     if (isOpen && existingNote) {
       setNote(existingNote)
       setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
+      activeNoteIdRef.current = existingNote.id
+      setControlState(existingNote.control_state || (existingNote.meta?.control?.state as any) || 'running')
       if (existingNote.style) {
         setStyle(normalizePromptStyleValue(existingNote.style))
       }
@@ -309,13 +356,14 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         if (derived.note) {
           setNote(derived.note)
           setTrace((derived.note.meta?.trace as AiTraceStep[]) || [])
+          activeNoteIdRef.current = derived.note.id
+          setControlState(derived.note.control_state || (derived.note.meta?.control?.state as any) || 'running')
           if (derived.note.style) {
             setStyle(normalizePromptStyleValue(derived.note.style))
           }
         } else {
           setNote(null)
           setTrace([])
-          setProgress(0)
           if (derived.errorMessage) {
             showToast(derived.errorMessage, 'error')
           }
@@ -401,9 +449,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   }, [settings, styleOptions])
 
   const currentTrace = trace.length ? trace : ((note?.meta?.trace as AiTraceStep[]) || [])
+  const effectiveControlState = controlState || (note?.control_state || (note?.meta?.control?.state as any) || 'running')
   const traceDots = useMemo(() => {
-    return currentTrace.length ? buildTraceDotItems(currentTrace) : buildDefaultTraceDotItems()
-  }, [currentTrace])
+    return buildTraceDotItemsForNote(note, currentTrace)
+  }, [currentTrace, note])
 
   useEffect(() => {
     if (!isOpen) {
@@ -424,8 +473,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     setNote(null)
     setError(null)
     setTrace([])
-    setProgress(0)
     setSelectedTraceItem(null)
+    setControlState('running')
+    activeNoteIdRef.current = null
   }
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -434,7 +484,11 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     for (let attempt = 0; attempt < 120; attempt += 1) {
       const status = await aiNoteService.getStatus(noteId)
       setTrace((status.trace as AiTraceStep[]) || [])
-      setProgress(Math.max(0, Math.min(100, Number(status.progress || 0))))
+      setControlState(status.control_state || 'running')
+      if (status.status === 'processing' && status.control_state === 'paused') {
+        await delay(500)
+        continue
+      }
 
       if (status.status === 'completed') {
         const completed = await aiNoteService.getNote(noteId)
@@ -453,12 +507,27 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     throw new Error('分析超时，请稍后在状态页查看')
   }
 
+  const resumeFromStage = async (stage: string) => {
+    const noteId = activeNoteIdRef.current || note?.id
+    if (!noteId) return
+
+    try {
+      setError(null)
+      setSelectedTraceItem(prev => prev || traceDots.find(item => item.stage === stage) || null)
+      setControlState('running')
+      await aiNoteService.resumeFromStage(noteId, stage)
+      await pollStatus(noteId)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '按阶段重跑失败', 'error')
+    }
+  }
+
   const startAnalyze = async () => {
     setError(null)
     setIsAnalyzing(true)
     setViewState('config')
     setTrace([])
-    setProgress(0)
+    setControlState('running')
 
     if (!localAsrReady) {
       setError('请先在 AI 笔记设置中下载并启用本地 ASR 模型')
@@ -484,6 +553,15 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
       })
 
       if (response.success && response.note_id) {
+        activeNoteIdRef.current = response.note_id
+        currentRequestRef.current = {
+          video_id: videoId,
+          style,
+          formats,
+          model_provider: activeProvider,
+          model_name: selectedModel,
+          extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
+        }
         await pollStatus(response.note_id)
         return
       }
@@ -500,25 +578,48 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     await startAnalyze()
   }
 
-  const handleReanalyze = async () => {
-    await startAnalyze()
+  const handlePauseOrResume = async () => {
+    if (!activeNoteIdRef.current) return
+    try {
+      if (effectiveControlState === 'paused') {
+        await aiNoteService.resumeNote(activeNoteIdRef.current)
+        setControlState('running')
+        showToast('已恢复分析', 'success')
+      } else {
+        await aiNoteService.pauseNote(activeNoteIdRef.current)
+        setControlState('paused')
+        showToast('已暂停分析', 'success')
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '控制分析失败', 'error')
+    }
+  }
+
+  const handleResetAnalyze = async () => {
+    const noteId = activeNoteIdRef.current
+    try {
+      if (noteId) {
+        await aiNoteService.cancelNote(noteId)
+      }
+      resetState()
+      if (currentRequestRef.current) {
+        await startAnalyze()
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '重置失败', 'error')
+    }
   }
 
   const copyTraceItem = async (item: TraceDotItem) => {
-    const text = [
-      `阶段: ${item.stage}`,
-      `标题: ${item.title}`,
-      `状态: ${item.statusLabel}`,
-      item.summary ? `摘要: ${item.summary}` : '',
-      typeof item.progress === 'number' ? `进度: ${Math.round(item.progress)}%` : '',
-      item.detailText ? `原始详情 JSON:\n${item.detailText}` : '',
-    ].filter(Boolean).join('\n\n')
+    const text = item.detailText && item.detailText !== '暂无原始详情'
+      ? item.detailText
+      : '{}'
 
     try {
       await navigator.clipboard.writeText(text)
-      showToast('已复制阶段日志', 'success')
+      showToast('已复制 JSON', 'success')
     } catch {
-      showToast('复制阶段日志失败', 'error')
+      showToast('复制 JSON 失败', 'error')
     }
   }
 
@@ -543,6 +644,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
               title={`${item.stage} · ${item.title}`}
               aria-label={`查看 ${item.title} 的日志`}
               aria-pressed={isSelected}
+              onDoubleClick={() => {
+                setSelectedTraceItem(item)
+                void resumeFromStage(item.stage)
+              }}
               style={{
                 flex: `${isLast ? 0.9 : 1.05} 1 0`,
               }}
@@ -633,9 +738,13 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
             {error && <div className="ai-note-modal-error">{error}</div>}
 
             <div className="ai-note-modal-footer">
-              <button onClick={resetState} className="ai-note-modal-btn-secondary">
+              <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
                 <RotateCcw size={16} />
                 重置
+              </button>
+              <button onClick={handlePauseOrResume} disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')} className="ai-note-modal-btn-secondary">
+                {effectiveControlState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
+                {effectiveControlState === 'paused' ? '继续' : '暂停'}
               </button>
               <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady} className="ai-note-modal-btn-primary">
                 {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -645,22 +754,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
           </>
         )}
 
-        {note?.status === 'completed' && note?.content && (
-          <>
-            <div className="ai-note-modal-result">
-              <div className="ai-note-modal-result-actions">
-                <button onClick={handleReanalyze}><Sparkles size={14} />重新分析</button>
-                <button onClick={resetState}><RotateCcw size={14} />重置</button>
-              </div>
-            </div>
-            {note.summary && (
-              <div className="ai-note-modal-summary">
-                <h4>AI 总结</h4>
-                <p>{note.summary}</p>
-              </div>
-            )}
-          </>
-        )}
+        
 
         {renderTraceBar()}
       </div>
@@ -729,11 +823,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         .ai-note-modal-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; gap: 16px; }
         .ai-note-modal-loading-spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary-600); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .ai-note-modal-result { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
-        .ai-note-modal-result-actions { display: flex; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--color-border); }
-        .ai-note-modal-result-actions button { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px; font-size: 12px; background: var(--color-bg-secondary); border: none; color: var(--color-text-secondary); cursor: pointer; }
-        .ai-note-modal-result-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
-        .ai-note-modal-result-content pre { font-size: 14px; line-height: 1.6; white-space: pre-wrap; margin: 0; }
         .ai-note-modal-result-empty { display: flex; align-items: center; justify-content: center; min-height: 120px; font-size: 13px; color: var(--color-text-tertiary); }
         .ai-note-modal-summary { padding: 12px 20px; border-top: 1px solid var(--color-border); }
         .ai-note-modal-summary h4 { margin: 0 0 6px; font-size: 14px; }
