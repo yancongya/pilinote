@@ -1,8 +1,10 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
 import json
+from pathlib import Path
 
 from src.config import settings
 from src.database import engine, Base
@@ -181,6 +183,16 @@ app = FastAPI(
     version=settings.app_version,
     debug=settings.debug,
     lifespan=lifespan,
+)
+
+static_dir = Path(__file__).parent / "static"
+static_dir.mkdir(parents=True, exist_ok=True)
+screenshot_dir = static_dir / "screenshots"
+screenshot_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/static/screenshots",
+    StaticFiles(directory=str(screenshot_dir)),
+    name="screenshots",
 )
 
 app.add_middleware(

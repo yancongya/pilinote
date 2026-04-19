@@ -1,7 +1,9 @@
 import os
+import re
 import logging
 import time
 import multiprocessing
+import subprocess
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, asdict
@@ -145,6 +147,7 @@ class AiNoteService:
     def __init__(self):
         self.db: Session = SessionLocal()
         self.trace: List[AiTraceStep] = []
+        self.logger = logging.getLogger(__name__)
 
     def _add_trace(
         self,
@@ -712,12 +715,46 @@ class AiNoteService:
         start_stage = self._stage_index(resume_from_stage) if resume_from_stage else 0
         artifacts = self._analysis_artifacts(note)
 
+        subtitle_downloaded = False
+        platform_subtitle_path = None
+
+        subtitle_patterns = ["*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
+        for pattern in subtitle_patterns:
+            subtitle_files = list(Path(actual_file_path).parent.glob(pattern))
+            if subtitle_files:
+                platform_subtitle_path = str(subtitle_files[0])
+                subtitle_downloaded = True
+                break
+
         try:
-            context: Dict[str, Any] = {
-                "t0_text": artifacts.get("t0_text", ""),
-                "transcript": artifacts.get("transcript", ""),
-                "level": artifacts.get("level", self._resolve_level(style)),
-            }
+            if subtitle_downloaded and platform_subtitle_path:
+                try:
+                    subtitle_content = Path(platform_subtitle_path).read_text(
+                        encoding="utf-8"
+                    )
+                    context = {
+                        "t0_text": "",
+                        "transcript": subtitle_content,
+                        "level": self._resolve_level(style),
+                        "subtitle_source": "platform",
+                    }
+                    start_stage = self._stage_index("NFO.READ")
+                except Exception as e:
+                    logger.warning(f"读取字幕失败: {e}")
+                    start_stage = (
+                        self._stage_index(resume_from_stage) if resume_from_stage else 0
+                    )
+                    context: Dict[str, Any] = {
+                        "t0_text": artifacts.get("t0_text", ""),
+                        "transcript": artifacts.get("transcript", ""),
+                        "level": artifacts.get("level", self._resolve_level(style)),
+                    }
+            else:
+                context: Dict[str, Any] = {
+                    "t0_text": artifacts.get("t0_text", ""),
+                    "transcript": artifacts.get("transcript", ""),
+                    "level": artifacts.get("level", self._resolve_level(style)),
+                }
 
             if start_stage <= self._stage_index("AUDIO.FETCH"):
                 self._set_note_control(
@@ -883,6 +920,15 @@ class AiNoteService:
             markdown_path = self._write_markdown_output(
                 actual_file_path, note.id, markdown
             )
+
+            # 后处理 Markdown
+            markdown = self._post_process_markdown(
+                markdown,
+                actual_file_path,
+                note,
+                formats,
+            )
+            summary = self._extract_summary(markdown)
 
             note.content = markdown
             note.summary = summary
@@ -1476,6 +1522,130 @@ class AiNoteService:
                 summary_lines.append(line.strip())
 
         return "\n".join(summary_lines[:5])
+
+    def _process_link_markers(self, markdown: str, bvid: str = "") -> str:
+        pattern = re.compile(r"\*([^\]]+)-\[(\d{2}:\d{2})\]")
+
+        def replace_timestamp(match):
+            content = match.group(1)
+            timestamp = match.group(2)
+            minutes, seconds = map(int, timestamp.split(":"))
+            total_seconds = minutes * 60 + seconds
+            local_link = f"[{timestamp}](?t={total_seconds})"
+            if bvid:
+                web_link = f"[原片 @ {timestamp}](https://www.bilibili.com/video/{bvid}?t={total_seconds})"
+                return f"{local_link} 或 {web_link}"
+            return local_link
+
+        result = pattern.sub(replace_timestamp, markdown)
+        link_count = len(pattern.findall(markdown))
+        logger.info(f"处理 {link_count} 个时间戳链接")
+        return result
+
+    def _process_screenshot_markers(
+        self, markdown: str, video_path: str, note: Optional[AiNote] = None
+    ) -> str:
+        pattern = re.compile(r"\*Screenshot-\[(\d{2}:\d{2})\]")
+
+        def replace_screenshot(match):
+            timestamp = match.group(1)
+            minutes, seconds = map(int, timestamp.split(":"))
+            total_seconds = minutes * 60 + seconds
+
+            video_name = Path(video_path).stem
+            filename = f"{video_name}_{minutes:02d}{seconds:02d}.jpg"
+            video_dir = Path(video_path).parent
+            output_dir = video_dir
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = str(output_dir / filename)
+
+            if Path(output_path).exists():
+                logger.info(f"截图已存在: {filename}")
+                return f"![Screenshot at {timestamp}](./{filename})"
+
+            try:
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-y",
+                        "-ss",
+                        str(total_seconds),
+                        "-i",
+                        video_path,
+                        "-vframes",
+                        "1",
+                        "-q:v",
+                        "2",
+                        output_path,
+                    ],
+                    check=True,
+                    capture_output=True,
+                    timeout=30,
+                )
+                if Path(output_path).exists():
+                    logger.info(f"截图生成成功: {filename}")
+                    return f"![Screenshot at {timestamp}](./{filename})"
+            except subprocess.TimeoutExpired:
+                logger.warning(f"截图生成超时: {timestamp}")
+            except FileNotFoundError:
+                logger.warning(f"ffmpeg 未找到，无法生成截图: {timestamp}")
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"截图生成失败: {timestamp}, error: {e}")
+
+            return f"[Screenshot at {timestamp}]()"
+
+        result = pattern.sub(replace_screenshot, markdown)
+        screenshot_count = len(pattern.findall(markdown))
+        logger.info(f"处理 {screenshot_count} 个截图标记")
+        return result
+
+    def _post_process_markdown(
+        self,
+        markdown: str,
+        video_path: str,
+        note: Optional[AiNote] = None,
+        formats: Optional[List[str]] = None,
+    ) -> str:
+        """后处理 Markdown：替换 link 和 screenshot 标记"""
+        if not formats or not video_path:
+            return markdown
+
+        nfo_data = {}
+        bvid = ""
+        if video_path:
+            nfo_result = NFOReader.read_t0_text(video_path)
+            nfo_data = nfo_result.get("data", {})
+            url = nfo_data.get("url", "")
+            if url:
+                bvid_match = re.search(r"/(BV[\w]+)", url)
+                if bvid_match:
+                    bvid = bvid_match.group(1)
+
+        result = markdown
+
+        if "link" in formats:
+            result = self._process_link_markers(result, bvid)
+
+        if "screenshot" in formats:
+            result = self._process_screenshot_markers(result, video_path, note)
+
+        self.logger.info(f"Markdown 后处理完成，formats={formats}")
+
+        format_status = {
+            "link": "link" in formats,
+            "screenshot": "screenshot" in formats,
+            "toc": "toc" in formats,
+            "summary": "summary" in formats,
+        }
+        self._add_trace(
+            stage="post_process",
+            title="格式激活状态",
+            summary=str(format_status),
+            progress=1.0,
+            detail=format_status,
+        )
+
+        return result
 
     def _write_markdown_output(
         self, source_path: str, note_id: str, markdown: str
