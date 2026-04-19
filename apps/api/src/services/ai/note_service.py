@@ -815,7 +815,13 @@ class AiNoteService:
                 "Prompt 生成完成",
                 prompt[:500],
                 88.0,
-                {"prompt_length": len(prompt), "prompt_preview": prompt[:500]},
+                {
+                    "prompt_length": len(prompt),
+                    "prompt_preview": prompt[:500],
+                    "t0_length": len(t0_for_nfo.get("text", "")),
+                    "t1_length": len(transcript or ""),
+                    "has_t1": bool(transcript and transcript.strip()),
+                },
                 note=note,
             )
 
