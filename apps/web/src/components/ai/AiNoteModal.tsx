@@ -163,8 +163,10 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
       })
       .join('\n\n')
 
-    const nextItem = index < templates.length - 1 ? items[index + 1] : undefined
-    const status = getTraceStatus(last, nextItem)
+    const nextTemplate = templates[index + 1]
+    const nextStageKey = nextTemplate ? normalizeStage(nextTemplate.stage) : undefined
+    const hasNextTrace = nextStageKey ? (grouped.get(nextStageKey)?.length ?? 0) > 0 : false
+    const status = getTraceStatus(last, hasNextTrace ? last : undefined)
     return {
       id: `${stageKey}-${index}`,
       stage: item.stage,
