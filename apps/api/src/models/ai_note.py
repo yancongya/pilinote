@@ -39,6 +39,12 @@ class AiNote(Base):
     # 元数据
     meta = Column(JSON, nullable=True)  # 额外元数据
 
+    # 增量分析支持
+    previous_analysis = Column(
+        Text, nullable=True
+    )  # 上一次分析结果摘要（用于增量分析）
+    analysis_count = Column(Integer, default=0)  # 分析次数
+
     # 时间戳
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

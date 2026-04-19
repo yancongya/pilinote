@@ -231,13 +231,17 @@ async def get_note_status(note_id: str):
 
 
 @router.get("/by-video", response_model=NoteLookupResponse)
-async def get_note_by_video(video_id: str = Query(..., description="视频 ID 或文件路径")):
+async def get_note_by_video(
+    video_id: str = Query(..., description="视频 ID 或文件路径"),
+):
     """根据视频 ID 获取笔记"""
     service = AiNoteService()
     note = service.get_note_by_video(video_id)
 
     if not note:
-        return NoteLookupResponse(success=True, found=False, note=None, message="该视频暂无笔记")
+        return NoteLookupResponse(
+            success=True, found=False, note=None, message="该视频暂无笔记"
+        )
 
     return NoteLookupResponse(
         success=True,
@@ -256,9 +260,15 @@ async def get_note_by_video(video_id: str = Query(..., description="视频 ID �
             model_name=note.model_name,
             error=note.error,
             meta=note.meta,
-            generated_markdown_path=(note.meta or {}).get("generated_markdown_path") if isinstance(note.meta, dict) else None,
-            control_state=(note.meta or {}).get("control", {}).get("state") if isinstance(note.meta, dict) else None,
-            current_stage=(note.meta or {}).get("control", {}).get("current_stage") if isinstance(note.meta, dict) else None,
+            generated_markdown_path=(note.meta or {}).get("generated_markdown_path")
+            if isinstance(note.meta, dict)
+            else None,
+            control_state=(note.meta or {}).get("control", {}).get("state")
+            if isinstance(note.meta, dict)
+            else None,
+            current_stage=(note.meta or {}).get("control", {}).get("current_stage")
+            if isinstance(note.meta, dict)
+            else None,
             created_at=note.created_at,
             updated_at=note.updated_at,
             completed_at=note.completed_at,
@@ -296,6 +306,28 @@ async def resume_from_stage(note_id: str, request: ResumeFromStageRequest):
     if not service.resume_from_stage(note_id, request.resume_from_stage):
         raise HTTPException(status_code=404, detail="笔记不存在")
     return {"success": True, "message": "已从指定阶段重跑"}
+
+
+@router.post("/reanalyze/{note_id}")
+async def reanalyze_note(note_id: str):
+    """基于之前的分析结果进行增量分析（节省 tokens）"""
+    from pydantic import BaseModel
+
+    class ReanalyzeRequest(BaseModel):
+        style: Optional[str] = None
+        formats: Optional[List[str]] = None
+
+    service = AiNoteService()
+    note = service.get_note(note_id)
+
+    if not note:
+        raise HTTPException(status_code=404, detail="笔记不存在")
+
+    if not note.content:
+        raise HTTPException(status_code=400, detail="没有可用的之前分析结果")
+
+    result = service.reanalyze_incremental(note_id)
+    return result
 
 
 @router.get("/recommend-style")
@@ -361,7 +393,9 @@ async def get_note(note_id: str):
         model_name=note.model_name,
         error=note.error,
         meta=note.meta,
-        generated_markdown_path=(note.meta or {}).get("generated_markdown_path") if isinstance(note.meta, dict) else None,
+        generated_markdown_path=(note.meta or {}).get("generated_markdown_path")
+        if isinstance(note.meta, dict)
+        else None,
         created_at=note.created_at,
         updated_at=note.updated_at,
         completed_at=note.completed_at,

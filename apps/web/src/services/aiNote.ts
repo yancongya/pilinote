@@ -171,6 +171,13 @@ export const aiNoteService = {
     });
     return (response.data ?? response) as { success: boolean; message?: string };
   },
+
+  async reanalyze(noteId: string): Promise<AnalyzeResponse> {
+    const response = await apiService.request<AnalyzeResponse>(`/api/note/reanalyze/${encodeURIComponent(noteId)}`, {
+      method: 'POST',
+    });
+    return (response.data ?? response) as AnalyzeResponse;
+  },
 };
 
 export const NOTE_STYLES = [

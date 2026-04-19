@@ -551,6 +551,36 @@ class AiNoteService:
         self.db.commit()
         return True
 
+    def reanalyze_incremental(self, note_id: str) -> Dict[str, Any]:
+        """重新生成笔记，覆盖之前的分析结果"""
+        note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
+        if not note:
+            raise ValueError(f"笔记不存在: {note_id}")
+
+        if not note.content:
+            raise ValueError("没有可用的之前分析结果")
+
+        note.status = "pending"
+        note.previous_analysis = note.content[:5000] if note.content else ""
+        note.analysis_count = (note.analysis_count or 0) + 1
+        note.error = None
+        self.db.commit()
+
+        self._set_note_control(note_id, "running")
+
+        note = self.analyze_note(
+            note_id=note.id,
+            video_id=note.video_id,
+            file_path=note.meta.get("file_path") if note.meta else None,
+            style=note.style or DEFAULT_STYLE,
+            formats=note.formats or DEFAULT_FORMATS,
+            model_provider=note.model_provider or "openai",
+            model_name=note.model_name or "gpt-4o-mini",
+            extras=note.meta.get("extras") if note.meta else None,
+        )
+
+        return {"success": True, "note_id": note.id, "message": "重新分析完成"}
+
     def _wait_for_resume(self, note_id: str) -> None:
         if not note_id:
             return
@@ -1306,8 +1336,13 @@ class AiNoteService:
         model_name: str,
         note: Optional[AiNote] = None,
         pipeline_mode: str = "video",
+        is_incremental: bool = False,
     ) -> str:
-        """调用 LLM 生成笔记"""
+        """调用 LLM 生成笔记
+
+        Args:
+            is_incremental: 是否为增量分析（基于之前的分析结果继续）
+        """
         try:
             if note:
                 self._wait_for_resume(note.id)
@@ -1342,24 +1377,53 @@ class AiNoteService:
                         or matched_provider.get("api_key")
                         or provider_config["api_key"]
                     ) or None
-            self._add_trace(
-                self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
-                "AI 分析",
-                f"正在请求 {model_provider}/{model_name}",
-                92.0,
-                {
-                    "provider": model_provider,
-                    "model": model_name,
-                    "prompt_length": len(prompt),
-                },
-                note=note,
-            )
+
+            previous_summary = ""
+            if is_incremental and note and note.previous_analysis:
+                previous_summary = f"\n\n## 上一次分析的总结摘要\n{note.previous_analysis}\n\n请基于以上摘要和新的分析请求，继续完善笔记内容。"
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
+                    "AI 增量分析",
+                    f"基于之前分析继续（已节省 tokens）",
+                    92.0,
+                    {
+                        "provider": model_provider,
+                        "model": model_name,
+                        "prompt_length": len(prompt),
+                        "is_incremental": True,
+                        "previous_summary_length": len(previous_summary),
+                    },
+                    note=note,
+                )
+            else:
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
+                    "AI 分析",
+                    f"正在请求 {model_provider}/{model_name}",
+                    92.0,
+                    {
+                        "provider": model_provider,
+                        "model": model_name,
+                        "prompt_length": len(prompt),
+                    },
+                    note=note,
+                )
             provider = LLMProvider(model_provider)
             client = LLMClientFactory.create_client(provider, **provider_config)
-            messages = [
-                LLMMessage(role="system", content=prompt),
-                LLMMessage(role="user", content="请根据以上信息生成笔记。"),
-            ]
+            if is_incremental and previous_summary:
+                incremental_prompt = f"{prompt}{previous_summary}"
+                messages = [
+                    LLMMessage(role="system", content=incremental_prompt),
+                    LLMMessage(
+                        role="user",
+                        content="请基于上一次的摘要和新的分析请求，继续完善笔记内容。",
+                    ),
+                ]
+            else:
+                messages = [
+                    LLMMessage(role="system", content=prompt),
+                    LLMMessage(role="user", content="请根据以上信息生成笔记。"),
+                ]
             response = client.chat(messages, model=model_name, temperature=0.7)
             response_content = (
                 response.content

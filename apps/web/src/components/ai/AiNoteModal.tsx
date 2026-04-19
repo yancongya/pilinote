@@ -529,6 +529,27 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     }
   }
 
+  const handleReanalyze = async () => {
+    const noteId = activeNoteIdRef.current || note?.id
+    if (!noteId) return
+
+    try {
+      setError(null)
+      setControlState('running')
+      showToast('正在重新生成...', 'info')
+      const response = await aiNoteService.reanalyze(noteId)
+      if (response.success && response.note_id) {
+        activeNoteIdRef.current = response.note_id
+        await pollStatus(response.note_id)
+        showToast('重新生成完成', 'success')
+      } else {
+        showToast(response.message || '重新生成失败', 'error')
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '重新生成失败', 'error')
+    }
+  }
+
   const startAnalyze = async () => {
     setError(null)
     setIsAnalyzing(true)
@@ -653,7 +674,11 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
               aria-pressed={isSelected}
               onDoubleClick={() => {
                 setSelectedTraceItem(item)
-                void resumeFromStage(item.stage)
+                if (item.stage === 'LLM.ANALYZE' || item.stage === 'CONTENT.GENERATE') {
+                  void handleReanalyze()
+                } else {
+                  void resumeFromStage(item.stage)
+                }
               }}
               style={{
                 flex: `${isLast ? 0.9 : 1.05} 1 0`,
