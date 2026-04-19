@@ -995,28 +995,77 @@ class AiNoteService:
     ) -> Dict[str, Any]:
         if note:
             self._wait_for_resume(note.id)
+
+        video_file = Path(video_path)
+        audio_path = str(video_file.with_suffix(".mp3"))
+
+        if note:
+            existing_artifacts = (
+                note.meta.get("analysis_artifacts", {})
+                if isinstance(note.meta, dict)
+                else {}
+            )
+            existing_audio = existing_artifacts.get("audio_path")
+            if existing_audio and Path(existing_audio).exists():
+                audio_path = existing_audio
+                audio_exists = True
+            else:
+                audio_exists = Path(audio_path).exists()
+        else:
+            audio_exists = Path(audio_path).exists()
+
         self._add_trace(
             self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
             "音频获取",
-            "正在定位视频文件并准备提取音频",
+            "检查音频文件" if audio_exists else "正在提取音频",
             10.0,
             {
                 "video_path": video_path,
                 "video_id": video_id,
                 "resolved_path": video_path,
+                "audio_path": audio_path,
+                "audio_exists": audio_exists,
             },
             note=note,
         )
-        t0 = NFOReader.read_t0_text(video_path)
+
+        if not audio_exists:
+            try:
+                from src.services.ai.transcriber import get_transcriber
+                from src.services.ai.local_asr_model_service import (
+                    get_local_asr_model_service,
+                )
+
+                model_service = get_local_asr_model_service()
+                active_model = model_service.ensure_active_model_ready()
+                transcriber = get_transcriber(
+                    "asr", model_config=active_model.model_dump()
+                )
+                pipeline_name = getattr(
+                    transcriber, "get_pipeline_name", lambda: "ffmpeg + faster-whisper"
+                )()
+
+                audio_extractor = getattr(transcriber, "audio_extractor", None)
+                if audio_extractor and hasattr(audio_extractor, "extract"):
+                    extracted = audio_extractor.extract(
+                        video_path, output_path=audio_path
+                    )
+                    if extracted:
+                        audio_path = extracted
+            except Exception:
+                pass
+
+        audio_final_exists = Path(audio_path).exists() if audio_path else False
         self._add_trace(
             self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
             "音频获取完成",
-            t0["text"][:240] if t0["text"] else "未读取到 NFO 内容",
+            f"音频文件: {Path(audio_path).name}"
+            if audio_final_exists
+            else "未找到音频文件",
             20.0,
             {
-                "found": t0["found"],
-                "nfo_path": t0["nfo_path"],
-                "nfo_excerpt": t0["text"][:500] if t0["text"] else "",
+                "audio_path": audio_path,
+                "audio_exists": audio_final_exists,
             },
             note=note,
         )
@@ -1026,7 +1075,12 @@ class AiNoteService:
             "字幕生成",
             "正在使用本地 ASR 从音频生成正文转写",
             35.0,
-            {"video_path": video_path, "video_id": video_id, "timeout_seconds": 600},
+            {
+                "video_path": video_path,
+                "video_id": video_id,
+                "audio_path": audio_path,
+                "timeout_seconds": 600,
+            },
             note=note,
         )
         if note:
