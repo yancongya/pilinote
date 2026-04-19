@@ -698,7 +698,16 @@ class AiNoteService:
         download = None
         actual_source_path = file_path
 
-        if file_path and os.path.exists(file_path):
+        if file_path and os.path.isdir(file_path):
+            video_files = list(Path(file_path).glob("*.mp4")) + list(
+                Path(file_path).glob("*.mkv")
+            )
+            if video_files:
+                actual_source_path = str(video_files[0])
+                video_title = video_files[0].stem
+            else:
+                raise ValueError(f"No video file found in directory: {file_path}")
+        elif file_path and os.path.exists(file_path):
             actual_source_path = file_path
             video_title = os.path.splitext(os.path.basename(file_path))[0]
         else:
