@@ -810,6 +810,8 @@ class AiNoteService:
                 extras=extras,
             )
             self._store_analysis_artifacts(note, prompt=prompt)
+            t0_len = len(context.get("t0_text", ""))
+            t1_len = len(context.get("transcript", ""))
             self._add_trace(
                 self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
                 "Prompt 生成完成",
@@ -818,9 +820,9 @@ class AiNoteService:
                 {
                     "prompt_length": len(prompt),
                     "prompt_preview": prompt[:500],
-                    "t0_length": len(t0_for_nfo.get("text", "")),
-                    "t1_length": len(transcript or ""),
-                    "has_t1": bool(transcript and transcript.strip()),
+                    "t0_length": t0_len,
+                    "t1_length": t1_len,
+                    "has_t1": t1_len > 0,
                 },
                 note=note,
             )
@@ -1138,7 +1140,7 @@ class AiNoteService:
 
         return {
             "t0_text": t0_for_nfo["text"],
-            "transcript": transcript,
+            "transcript": transcript or "",
             "level": level,
         }
 

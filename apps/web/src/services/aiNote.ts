@@ -89,8 +89,6 @@ export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTra
     { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
     { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
-    { stage: 'DONE', title: '完成', shortLabel: '完成' },
-    { stage: 'ERROR', title: '错误', shortLabel: '错误' },
   ],
   series: [
     { stage: 'AUDIO.FETCH', title: '番剧信息', shortLabel: '获取' },
@@ -99,8 +97,6 @@ export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTra
     { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
     { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
-    { stage: 'DONE', title: '完成', shortLabel: '完成' },
-    { stage: 'ERROR', title: '错误', shortLabel: '错误' },
   ],
   image_text: [
     { stage: 'AUDIO.FETCH', title: '图片识别', shortLabel: '识别' },
@@ -109,8 +105,6 @@ export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTra
     { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
     { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
-    { stage: 'DONE', title: '完成', shortLabel: '完成' },
-    { stage: 'ERROR', title: '错误', shortLabel: '错误' },
   ],
 }
 
