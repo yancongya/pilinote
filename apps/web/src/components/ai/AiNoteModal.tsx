@@ -27,7 +27,7 @@ interface AiNoteModalProps {
   onComplete?: (note: NoteResponse) => void
 }
 
-type ViewState = 'config'
+type ViewState = 'config' | 'result'
 
 interface StyleOption {
   value: string
@@ -245,7 +245,7 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
   }
 
   return {
-    viewState: 'config',
+    viewState: lookup.note.status === 'completed' ? 'result' : 'config',
     note: lookup.note,
     errorMessage: null,
     shouldPoll: false,
@@ -754,7 +754,37 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
           </>
         )}
 
-        
+        {viewState === 'result' && note && (
+          <>
+            <div className="ai-note-modal-content">
+              <div className="ai-note-result-path-card">
+                <div className="ai-note-result-path-label">本地 Markdown 路径</div>
+                <div className="ai-note-result-path-value">{note?.generated_markdown_path || note?.meta?.generated_markdown_path || '暂无路径'}</div>
+                {(note?.generated_markdown_path || note?.meta?.generated_markdown_path) && (
+                  <button
+                    type="button"
+                    className="ai-note-result-path-copy"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(note?.generated_markdown_path || note?.meta?.generated_markdown_path || '')
+                      showToast('已复制本地路径', 'success')
+                    }}
+                  >
+                    复制路径
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="ai-note-modal-footer">
+              <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
+                <RotateCcw size={16} />
+                重新分析
+              </button>
+              <button onClick={onClose} className="ai-note-modal-btn-primary">
+                关闭
+              </button>
+            </div>
+          </>
+        )}
 
         {renderTraceBar()}
       </div>
@@ -824,6 +854,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         .ai-note-modal-loading-spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary-600); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .ai-note-modal-result-empty { display: flex; align-items: center; justify-content: center; min-height: 120px; font-size: 13px; color: var(--color-text-tertiary); }
+        .ai-note-result-path-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 12px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); }
+        .ai-note-result-path-label { font-size: 12px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.08em; }
+        .ai-note-result-path-value { font-size: 13px; color: var(--color-text-primary); line-height: 1.5; word-break: break-all; }
+        .ai-note-result-path-copy { align-self: flex-start; padding: 8px 12px; border-radius: 8px; border: none; background: var(--color-primary-600); color: white; cursor: pointer; }
         .ai-note-modal-summary { padding: 12px 20px; border-top: 1px solid var(--color-border); }
         .ai-note-modal-summary h4 { margin: 0 0 6px; font-size: 14px; }
         .ai-note-modal-summary p { margin: 0; font-size: 13px; color: var(--color-text-secondary); }

@@ -1,5 +1,6 @@
 import { ReactNode, RefObject } from 'react'
 import VideoListCard from '../pages/components/VideoListCard.refactored'
+import VideoCardSkeleton from './VideoCardSkeleton'
 
 export interface Video {
   id: string
@@ -87,11 +88,7 @@ export default function VideoListContainer({
       {extraHeader && <div className="video-list-extra-header">{extraHeader}</div>}
 
       {/* 加载状态 */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-text-tertiary)' }}>
-          加载中...
-        </div>
-      )}
+      {loading && <VideoCardSkeleton count={6} />}
 
       {/* 错误状态 */}
       {error && (
@@ -155,11 +152,7 @@ export default function VideoListContainer({
               )}
 
               {/* 加载更多状态 */}
-              {loadingMore && (
-                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-tertiary)' }}>
-                  加载中...
-                </div>
-              )}
+              {loadingMore && <VideoCardSkeleton count={3} />}
 
               {/* 没有更多数据提示 */}
               {!hasMore && videos.length > 0 && (

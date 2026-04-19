@@ -7,10 +7,11 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
+
 class VideoCacheService:
     """视频缓存服务"""
 
-    _instance: Optional['VideoCacheService'] = None
+    _instance: Optional["VideoCacheService"] = None
 
     def __new__(cls):
         """单例模式"""
@@ -30,11 +31,13 @@ class VideoCacheService:
 
         # TTL配置
         self.ttls = {
-            'video_info': 3600,        # 视频信息：1小时
-            'favorites': 600,          # 收藏夹列表：10分钟
-            'watch_later': 300,        # 稍后再看：5分钟
-            'user_info': 3600,         # 用户信息：1小时
-            'uploader_info': 7200,     # UP主信息：2小时
+            "video_info": 3600,  # 视频信息：1小时
+            "history": 600,  # 观看历史：10分钟
+            "favorites": 600,  # 收藏夹列表：10分钟
+            "watch_later": 300,  # 稍后再看：5分钟
+            "local_library": 300,  # 本地视频库：5分钟
+            "user_info": 3600,  # 用户信息：1小时
+            "uploader_info": 7200,  # UP主信息：2小时
         }
 
         # 数据库路径
@@ -83,28 +86,29 @@ class VideoCacheService:
 
     async def get_video_info(self, bvid: str, sessdata: str = "") -> dict:
         """获取视频信息（带缓存）"""
-        key = self._generate_key('video_info', bvid=bvid)
+        key = self._generate_key("video_info", bvid=bvid)
 
         # 1. 检查内存缓存
         if key in self.cache:
             cached = self.cache[key]
-            if time.time() - cached['timestamp'] < self.ttls['video_info']:
+            if time.time() - cached["timestamp"] < self.ttls["video_info"]:
                 logger.debug(f"✓ 视频信息命中内存缓存: {bvid}")
-                return cached['data']
+                return cached["data"]
 
         # 2. 检查数据库缓存
         db_cached = self._get_from_db(key)
         if db_cached:
-            if time.time() - db_cached['timestamp'] < self.ttls['video_info']:
+            if time.time() - db_cached["timestamp"] < self.ttls["video_info"]:
                 # 加载到内存缓存
                 self.cache[key] = db_cached
                 logger.debug(f"✓ 视频信息命中数据库缓存: {bvid}")
-                return db_cached['data']
+                return db_cached["data"]
 
         # 3. 从B站API获取
         logger.info(f"从B站API获取视频信息: {bvid}")
         try:
             from src.services.bilibili import BilibiliService
+
             service = BilibiliService()
             info = await service.get_video_info(bvid, sessdata)
             service.close()
@@ -113,12 +117,9 @@ class VideoCacheService:
             info = {"success": False, "message": str(e)}
 
         # 4. 更新缓存
-        cache_data = {
-            'data': info,
-            'timestamp': time.time()
-        }
+        cache_data = {"data": info, "timestamp": time.time()}
         self.cache[key] = cache_data
-        self._save_to_db(key, cache_data, self.ttls['video_info'])
+        self._save_to_db(key, cache_data, self.ttls["video_info"])
 
         return info
 
@@ -130,18 +131,12 @@ class VideoCacheService:
         cursor = conn.cursor()
 
         try:
-            cursor.execute(
-                "SELECT value, created_at FROM cache WHERE key = ?",
-                (key,)
-            )
+            cursor.execute("SELECT value, created_at FROM cache WHERE key = ?", (key,))
             row = cursor.fetchone()
 
             if row:
                 value, created_at = row
-                return {
-                    'data': json.loads(value),
-                    'timestamp': created_at
-                }
+                return {"data": json.loads(value), "timestamp": created_at}
             return None
         finally:
             conn.close()
@@ -154,15 +149,13 @@ class VideoCacheService:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO cache (key, value, ttl, created_at)
                 VALUES (?, ?, ?, ?)
-            """, (
-                key,
-                json.dumps(data['data']),
-                ttl,
-                data['timestamp']
-            ))
+            """,
+                (key, json.dumps(data["data"]), ttl, data["timestamp"]),
+            )
             conn.commit()
         finally:
             conn.close()
@@ -188,18 +181,18 @@ class VideoCacheService:
         # 1. 检查内存缓存
         if key in self.cache:
             cached = self.cache[key]
-            if time.time() - cached['timestamp'] < ttl:
+            if time.time() - cached["timestamp"] < ttl:
                 logger.debug(f"✓ 命中内存缓存: {cache_type} {kwargs}")
-                return cached['data']
+                return cached["data"]
 
         # 2. 检查数据库缓存
         db_cached = self._get_from_db(key)
         if db_cached:
-            if time.time() - db_cached['timestamp'] < ttl:
+            if time.time() - db_cached["timestamp"] < ttl:
                 # 加载到内存缓存
                 self.cache[key] = db_cached
                 logger.debug(f"✓ 命中数据库缓存: {cache_type} {kwargs}")
-                return db_cached['data']
+                return db_cached["data"]
 
         logger.debug(f"✗ 缓存未命中: {cache_type} {kwargs}")
         return None
@@ -210,10 +203,7 @@ class VideoCacheService:
         ttl = self.ttls.get(cache_type, 300)  # 默认5分钟
 
         # 更新内存缓存
-        cache_data = {
-            'data': data,
-            'timestamp': time.time()
-        }
+        cache_data = {"data": data, "timestamp": time.time()}
         self.cache[key] = cache_data
 
         # 更新数据库缓存
@@ -279,8 +269,7 @@ class VideoCacheService:
             # 删除过期缓存
             if expired_keys:
                 cursor.executemany(
-                    "DELETE FROM cache WHERE key = ?",
-                    [(key,) for key in expired_keys]
+                    "DELETE FROM cache WHERE key = ?", [(key,) for key in expired_keys]
                 )
                 conn.commit()
                 logger.info(f"✓ 已清理 {len(expired_keys)} 个过期缓存")
@@ -308,18 +297,18 @@ class VideoCacheService:
             cursor.execute("SELECT key, created_at, ttl FROM cache")
             rows = cursor.fetchall()
             expired_count = sum(
-                1 for _, created_at, ttl in rows
-                if current_time - created_at > ttl
+                1 for _, created_at, ttl in rows if current_time - created_at > ttl
             )
 
             return {
-                'total_count': total_count,
-                'memory_count': memory_count,
-                'expired_count': expired_count,
-                'db_path': str(self.db_path)
+                "total_count": total_count,
+                "memory_count": memory_count,
+                "expired_count": expired_count,
+                "db_path": str(self.db_path),
             }
         finally:
             conn.close()
+
 
 # 全局单例
 video_cache = VideoCacheService()
