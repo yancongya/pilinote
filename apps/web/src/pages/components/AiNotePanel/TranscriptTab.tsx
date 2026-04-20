@@ -3,12 +3,27 @@ import { apiService } from '../../../services/api';
 import { useSettingsStore } from '../../../stores/settings';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
+import SubtitleAnalysisModal from '../../../components/ai/SubtitleAnalysisModal';
 
 interface Subtitle {
   index: number;
   startTime: string;
   endTime: string;
   text: string;
+}
+
+interface VersionMeta {
+  hash: string;
+  timestamp: number;
+  filename: string;
+  source: string;
+  label: string;
+}
+
+interface SubtitleFile {
+  name: string;
+  path: string;
+  source_label: string;
 }
 
 function parseSRT(content: string): Subtitle[] {
@@ -30,6 +45,22 @@ function formatTimestamp(timeStr: string): string {
   return timeStr.replace(',', '.');
 }
 
+function formatVersionTime(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function sourceLabel(source: string): string {
+  switch (source) {
+    case 'ai': return 'AI';
+    case 'auto': return '自动';
+    case 'migration': return '迁移';
+    case 'manual': return '手动';
+    default: return source;
+  }
+}
+
 export function TranscriptTab({ videoId }: { videoId: string }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,30 +72,52 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
   const [isApplyingTerms, setIsApplyingTerms] = useState(false);
   const [replacements, setReplacements] = useState<{source: string; target: string}[]>([]);
   const [showReplacements, setShowReplacements] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [showModelSelect, setShowModelSelect] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // 版本管理状态
+  const [versions, setVersions] = useState<VersionMeta[]>([]);
+  const [currentHash, setCurrentHash] = useState('');
+  const [showVersionPanel, setShowVersionPanel] = useState(false);
+  const [subtitleFiles, setSubtitleFiles] = useState<SubtitleFile[]>([]);
+  const [showSubtitleFileSelect, setShowSubtitleFileSelect] = useState(false);
+  const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
 
   const settings = useSettingsStore((state) => state.settings);
   const aiRuntimeState = useAiRuntimeState();
   const testedModels = aiRuntimeState.testedModels || {};
 
   useEffect(() => {
-    if (videoId) loadSubtitle();
+    if (videoId) {
+      loadSubtitle();
+      loadVersions();
+      loadSubtitleFiles();
+    }
     aiRuntimeStateService.refresh();
   }, [videoId]);
+
+  // 当字幕文件列表加载完成后，用默认文件名重新加载
+  useEffect(() => {
+    if (selectedSubtitleFilename && videoId) {
+      loadSubtitle(selectedSubtitleFilename);
+      loadVersions(selectedSubtitleFilename);
+    }
+  }, [selectedSubtitleFilename]);
 
   useEffect(() => {
     if (content) setSubtitles(parseSRT(content));
   }, [content]);
 
-  const loadSubtitle = async () => {
+  // ---- 数据加载 ----
+
+  const loadSubtitle = async (filename?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.getLocalFile(videoId, 'subtitle');
+      const response = await apiService.getLocalFile(videoId, 'subtitle', filename);
       if (response.success && response.data) {
         setContent(response.data);
       }
@@ -76,6 +129,35 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
     }
   };
 
+  const loadVersions = async (filename?: string) => {
+    try {
+      const response = await apiService.getVersions(videoId, 'subtitle', filename);
+      if (response.success && response.data) {
+        setVersions(response.data.versions || []);
+        setCurrentHash(response.data.current || '');
+      }
+    } catch (err) {
+      console.error('加载版本列表失败:', err);
+    }
+  };
+
+  const loadSubtitleFiles = async () => {
+    try {
+      const response = await apiService.getSubtitleFiles(videoId);
+      if (response.success && response.data) {
+        setSubtitleFiles(response.data);
+        // 默认选中第一个字幕文件
+        if (response.data.length > 0 && !selectedSubtitleFilename) {
+          setSelectedSubtitleFilename(response.data[0].name);
+        }
+      }
+    } catch (err) {
+      console.error('加载字幕文件列表失败:', err);
+    }
+  };
+
+  // ---- 字幕编辑 ----
+
   const handleDoubleClick = (subtitle: Subtitle, index: number) => {
     setEditingIndex(index);
     setEditContent(subtitle.text);
@@ -83,18 +165,20 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
 
   const handleSaveLine = async () => {
     if (editingIndex === null) return;
-    
+
     const newSubtitles = [...subtitles];
     newSubtitles[editingIndex].text = editContent;
-    
-    const newContent = newSubtitles.map((s, i) => 
+
+    const newContent = newSubtitles.map((s, i) =>
       `${i + 1}\n${s.startTime} --> ${s.endTime}\n${s.text}`
     ).join('\n\n');
-    
+
     try {
-      await apiService.saveLocalFile(videoId, 'subtitle', newContent + '\n');
+      await apiService.saveLocalFile(videoId, 'subtitle', newContent + '\n', selectedSubtitleFilename || undefined);
       setContent(newContent);
       setEditingIndex(null);
+      // 刷新版本列表（save_local_file 会自动创建版本快照）
+      loadVersions(selectedSubtitleFilename || undefined);
     } catch (err) {
       console.error('保存字幕失败:', err);
     }
@@ -120,16 +204,11 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
     }
   };
 
-  const getModelsForProvider = (providerId: string) => {
-    return testedModels[providerId] || [];
-  };
-
   const availableProviders = useMemo(() => {
     const providers = settings?.llm?.providers || [];
     return providers.filter((p) => testedModels[p.id]?.length > 0);
   }, [settings, testedModels]);
 
-  // 初始化默认模型选择
   useEffect(() => {
     if (availableProviders.length > 0 && Object.keys(selectedModels).length === 0) {
       const defaults: Record<string, string> = {};
@@ -146,46 +225,79 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
     }
   }, [availableProviders, testedModels]);
 
-  const handleAnalyzeClick = async () => {
-    console.log('AI分析点击', { availableProviders: availableProviders.map(p => p.id), testedModels, selectedModels, selectedProvider });
+  const handleAnalyzeClick = () => {
     if (availableProviders.length === 0) {
-      console.log('无可用供应商', { providers: settings?.llm?.providers?.map(p => p.id), testedModels });
       alert('请先在AI笔记设置页面验证AI模型');
       return;
     }
-    // 如果没有选择模型，使用第一个可用的
-    const providerToUse = selectedProvider || availableProviders[0]?.id;
-    if (!providerToUse) {
-      alert('请先选择AI模型');
-      return;
-    }
-    handleAnalyzeWithModel(providerToUse, selectedModels[providerToUse]);
+    setShowAnalysisModal(true);
   };
 
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<{issues: any[]; summary: string} | null>(null);
+  const handleApplyFix = async (fixIssues: { index: number; text: string; suggestion: string }[]) => {
+    if (!fixIssues?.length) return;
 
-  const handleAnalyzeWithModel = async (providerId: string, _modelName: string) => {
-    console.log('开始AI分析', { providerId, content: content.substring(0, 100) });
-    setIsAnalyzing(true);
-    setAnalysisError(null);
-    setAnalysisResult(null);
+    const blocks = content.split(/\n\n+/);
+    const issueMap = new Map<number, { text: string; suggestion: string }>();
+    for (const issue of fixIssues) {
+      if (issue.index && issue.suggestion) {
+        issueMap.set(issue.index, { text: issue.text, suggestion: issue.suggestion });
+      }
+    }
+
+    const fixedBlocks = blocks.map(block => {
+      const lines = block.split('\n');
+      if (lines.length < 3) return block;
+      const idx = parseInt(lines[0]);
+      const fix = issueMap.get(idx);
+      if (fix) {
+        lines[2] = fix.suggestion;
+      }
+      return lines.join('\n');
+    });
+
+    const fixedContent = fixedBlocks.join('\n\n') + '\n';
+
     try {
-      const response = await apiService.analyzeSubtitle(videoId, content, providerId);
-      console.log('AI分析结果', response);
-      if (!response.success || response.data?.error) {
-        setAnalysisError(response.data?.error || response.message || '分析失败');
-      } else {
-        setAnalysisResult({
-          issues: response.data?.issues || [],
-          summary: response.data?.summary || '',
-        });
+      await apiService.saveLocalFile(videoId, 'subtitle', fixedContent, selectedSubtitleFilename || undefined);
+      setContent(fixedContent);
+      await loadVersions(selectedSubtitleFilename || undefined);
+    } catch (err) {
+      console.error('应用修正失败:', err);
+    }
+  };
+
+  // ---- 版本操作 ----
+
+  const handleSwitchVersion = async (hash: string) => {
+    try {
+      const response = await apiService.switchVersion(videoId, 'subtitle', hash, selectedSubtitleFilename || undefined);
+      if (response.success) {
+        // 切换成功后重新加载字幕内容
+        await loadSubtitle(selectedSubtitleFilename || undefined);
+        await loadVersions(selectedSubtitleFilename || undefined);
       }
     } catch (err) {
-      console.error('AI分析失败:', err);
-      setAnalysisError(err instanceof Error ? err.message : '网络错误');
-    } finally {
-      setIsAnalyzing(false);
+      console.error('切换版本失败:', err);
+    }
+  };
+
+  const handleDeleteVersion = async (hash: string) => {
+    try {
+      const response = await apiService.deleteVersion(videoId, 'subtitle', hash, selectedSubtitleFilename || undefined);
+      if (response.success) {
+        await loadVersions(selectedSubtitleFilename || undefined);
+      }
+    } catch (err) {
+      console.error('删除版本失败:', err);
+    }
+  };
+
+  const handleSaveManualVersion = async () => {
+    try {
+      await apiService.saveVersion(videoId, 'subtitle', content, 'manual', '手动保存', selectedSubtitleFilename || undefined);
+      await loadVersions(selectedSubtitleFilename || undefined);
+    } catch (err) {
+      console.error('手动保存版本失败:', err);
     }
   };
 
@@ -217,7 +329,7 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', padding: '24px' }}>
         <style>{scrollbarStyle}</style>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>{error}</p>
-        <button onClick={loadSubtitle} style={{ padding: '8px 16px', background: 'var(--color-accent)', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>重试</button>
+        <button onClick={() => loadSubtitle(selectedSubtitleFilename || undefined)} style={{ padding: '8px 16px', background: 'var(--color-accent)', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>重试</button>
       </div>
     );
   }
@@ -237,374 +349,553 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', height: '100%' }}>
       <style>{scrollbarStyle}</style>
-      
-      {/* 搜索栏 */}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: 'var(--color-text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="搜索字幕..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+
+      {/* 主内容区 */}
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minWidth: 0 }}>
+
+        {/* 搜索栏 */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: 'var(--color-text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="搜索字幕..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '8px',
+                padding: '8px 12px 8px 36px',
+                fontSize: '14px',
+                color: 'var(--color-text-primary)',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* 字幕文件选择下拉 */}
+          {subtitleFiles.length > 0 && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => {
+                  if (subtitleFiles.length > 1) {
+                    setShowSubtitleFileSelect(!showSubtitleFileSelect);
+                  }
+                }}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  background: showSubtitleFileSelect ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                  color: showSubtitleFileSelect ? '#fff' : 'var(--color-text-secondary)',
+                  border: 'none',
+                  cursor: subtitleFiles.length > 1 ? 'pointer' : 'default',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {subtitleFiles.find(f => f.name === selectedSubtitleFilename)?.source_label || '字幕来源'}
+                {subtitleFiles.length > 1 && (
+                  <svg style={{ width: '12px', height: '12px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
+              {showSubtitleFileSelect && subtitleFiles.length > 1 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '4px',
+                  background: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '8px',
+                  padding: '4px',
+                  zIndex: 100,
+                  minWidth: '160px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                }}>
+                  {subtitleFiles.map((f) => (
+                    <button
+                      key={f.name}
+                      onClick={() => {
+                        setSelectedSubtitleFilename(f.name);
+                        setShowSubtitleFileSelect(false);
+                      }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '8px 12px',
+                        textAlign: 'left',
+                        background: selectedSubtitleFilename === f.name ? 'var(--color-accent)' : 'transparent',
+                        color: selectedSubtitleFilename === f.name ? '#fff' : 'var(--color-text-primary)',
+                        border: 'none',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (selectedSubtitleFilename !== f.name) {
+                          e.currentTarget.style.background = 'var(--color-bg-secondary)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selectedSubtitleFilename !== f.name) {
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                    >
+                      <div style={{ fontWeight: 500 }}>{f.source_label}</div>
+                      <div style={{ fontSize: '10px', color: selectedSubtitleFilename === f.name ? 'rgba(255,255,255,0.7)' : 'var(--color-text-tertiary)', marginTop: '2px' }}>{f.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 模型选择下拉按钮 */}
+          {availableProviders.length > 0 && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowModelSelect(!showModelSelect)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  background: showModelSelect ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                  color: showModelSelect ? '#fff' : 'var(--color-text-secondary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {selectedModels[selectedProvider || availableProviders[0]?.id] || '选择模型'}
+                <svg style={{ width: '12px', height: '12px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* 模型下拉列表 */}
+              {showModelSelect && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '4px',
+                  background: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '8px',
+                  padding: '4px',
+                  zIndex: 100,
+                  minWidth: '180px',
+                  maxHeight: '200px',
+                  overflow: 'auto',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                }}>
+                  {availableProviders.map((provider) => {
+                    const models = testedModels[provider.id] || [];
+                    return (
+                      <div key={provider.id}>
+                        <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
+                          {provider.name || provider.id}
+                        </div>
+                        {models.map((model: string) => (
+                          <button
+                            key={model}
+                            onClick={() => {
+                              setSelectedProvider(provider.id);
+                              setSelectedModels(prev => ({ ...prev, [provider.id]: model }));
+                              setShowModelSelect(false);
+                            }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '8px 12px',
+                              textAlign: 'left',
+                              background: selectedModels[provider.id] === model ? 'var(--color-accent)' : 'transparent',
+                              border: 'none',
+                              color: selectedModels[provider.id] === model ? '#fff' : 'var(--color-text-primary)',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (selectedModels[provider.id] !== model) {
+                                e.currentTarget.style.background = 'var(--color-bg-secondary)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (selectedModels[provider.id] !== model) {
+                                e.currentTarget.style.background = 'transparent';
+                              }
+                            }}
+                          >
+                            {model}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 开始分析按钮 */}
+          <button
+            onClick={handleAnalyzeClick}
+            disabled={showAnalysisModal || !content}
             style={{
-              width: '100%',
-              background: 'var(--color-bg-secondary)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              background: showAnalysisModal ? 'var(--color-bg-secondary)' : '#10b981',
+              color: '#fff',
+              border: 'none',
+              cursor: showAnalysisModal ? 'not-allowed' : 'pointer',
+              opacity: showAnalysisModal ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            {showAnalysisModal ? '分析中...' : '开始分析'}
+          </button>
+
+          {/* 术语替换按钮 */}
+          <button
+            onClick={() => {
+              if (replacements.length > 0) {
+                setShowReplacements(!showReplacements);
+              } else {
+                handleApplyTerms();
+              }
+            }}
+            disabled={isApplyingTerms || !content}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              background: isApplyingTerms ? 'var(--color-bg-secondary)' : '#8b5cf6',
+              color: '#fff',
+              border: 'none',
+              cursor: isApplyingTerms ? 'not-allowed' : 'pointer',
+              opacity: isApplyingTerms ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            {isApplyingTerms ? '...' : replacements.length > 0 ? `已替换${replacements.length}处` : '术语替换'}
+          </button>
+
+          {/* 替换记录弹窗 */}
+          {showReplacements && replacements.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: '80px',
+              background: 'var(--color-bg-primary)',
               border: '1px solid var(--color-border)',
               borderRadius: '8px',
-              padding: '8px 12px 8px 36px',
-              fontSize: '14px',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-            }}
-          />
+              padding: '12px',
+              zIndex: 100,
+              maxWidth: '300px',
+              maxHeight: '200px',
+              overflow: 'auto',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            }}>
+              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+                术语替换记录
+              </div>
+              {replacements.map((r, i) => (
+                <div key={i} style={{ fontSize: '12px', padding: '4px 0', borderBottom: '1px solid var(--color-border)' }}>
+                  <span style={{ color: '#ef4444' }}>{r.source}</span>
+                  <span style={{ color: 'var(--color-text-tertiary)', margin: '0 4px' }}>→</span>
+                  <span style={{ color: '#22c55e' }}>{r.target}</span>
+                </div>
+              ))}
+              <button
+                onClick={() => setShowReplacements(false)}
+                style={{
+                  marginTop: '8px',
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  background: 'var(--color-bg-secondary)',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                }}
+              >
+                关闭
+              </button>
+            </div>
+          )}
         </div>
-        
-        {/* 模型选择下拉按钮 */}
-        {availableProviders.length > 0 && (
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowModelSelect(!showModelSelect)}
+
+        {/* 字幕列表 */}
+        <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+          {filteredSubtitles.map((subtitle, idx) => (
+            <div
+              key={subtitle.index}
+              onDoubleClick={() => handleDoubleClick(subtitle, idx)}
               style={{
-                padding: '6px 12px',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                marginBottom: '4px',
+                cursor: 'pointer',
+                transition: 'background 0.15s',
+                background: editingIndex === idx ? 'var(--color-accent)' : 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (editingIndex !== idx) e.currentTarget.style.background = 'var(--color-bg-secondary)';
+              }}
+              onMouseLeave={(e) => {
+                if (editingIndex !== idx) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              {editingIndex === idx ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                    <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.startTime)}</span>
+                    <span>→</span>
+                    <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.endTime)}</span>
+                  </div>
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      minHeight: '60px',
+                      background: 'var(--color-bg-primary)',
+                      color: 'var(--color-text-primary)',
+                      padding: '8px',
+                      fontSize: '14px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--color-accent)',
+                      resize: 'none',
+                      outline: 'none',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={handleSaveLine}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        background: '#22c55e',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        background: 'var(--color-bg-secondary)',
+                        color: 'var(--color-text-secondary)',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
+                    <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.startTime)}</span>
+                    <span>→</span>
+                    <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.endTime)}</span>
+                  </div>
+                  <p style={{ fontSize: '14px', lineHeight: 1.5, color: searchQuery && subtitle.text.toLowerCase().includes(searchQuery.toLowerCase()) ? 'var(--color-accent)' : 'var(--color-text-primary)' }}>
+                    {subtitle.text}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 底部统计 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', borderTop: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
+          <span>{subtitles.length} 条字幕</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span>双击字幕行编辑</span>
+            <button
+              onClick={() => setShowVersionPanel(!showVersionPanel)}
+              style={{
+                padding: '4px 10px',
                 borderRadius: '6px',
                 fontSize: '11px',
-                background: showModelSelect ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-                color: showModelSelect ? '#fff' : 'var(--color-text-secondary)',
+                background: showVersionPanel ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                color: showVersionPanel ? '#fff' : 'var(--color-text-secondary)',
                 border: 'none',
                 cursor: 'pointer',
-                fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
               }}
             >
-              {selectedModels[selectedProvider || availableProviders[0]?.id] || '选择模型'}
-              <svg style={{ width: '12px', height: '12px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
+              {versions.length > 0 ? `${versions.length} 个版本` : '版本'}
             </button>
-            
-            {/* 模型下拉列表 */}
-            {showModelSelect && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                marginTop: '4px',
-                background: 'var(--color-bg-primary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                padding: '4px',
-                zIndex: 100,
-                minWidth: '180px',
-                maxHeight: '200px',
-                overflow: 'auto',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              }}>
-                {availableProviders.map((provider) => {
-                  const models = testedModels[provider.id] || [];
-                  return (
-                    <div key={provider.id}>
-                      <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
-                        {provider.name || provider.id}
-                      </div>
-                      {models.map((model: string) => (
-                        <button
-                          key={model}
-                          onClick={() => {
-                            setSelectedProvider(provider.id);
-                            setSelectedModels(prev => ({ ...prev, [provider.id]: model }));
-                            setShowModelSelect(false);
-                          }}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            padding: '8px 12px',
-                            textAlign: 'left',
-                            background: selectedModels[provider.id] === model ? 'var(--color-accent)' : 'transparent',
-                            border: 'none',
-                            color: selectedModels[provider.id] === model ? '#fff' : 'var(--color-text-primary)',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            borderRadius: '4px',
-                          }}
-                          onMouseEnter={(e) => {
-                            if (selectedModels[provider.id] !== model) {
-                              e.currentTarget.style.background = 'var(--color-bg-secondary)';
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (selectedModels[provider.id] !== model) {
-                              e.currentTarget.style.background = 'transparent';
-                            }
-                          }}
-                        >
-                          {model}
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })}
+          </div>
+        </div>
+      </div>
+
+      {/* 版本历史侧边栏 */}
+      {showVersionPanel && (
+        <div style={{
+          width: '260px',
+          flexShrink: 0,
+          borderLeft: '1px solid var(--color-border)',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'var(--color-bg-primary)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)' }}>版本历史</span>
+            <button
+              onClick={handleSaveManualVersion}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                background: '#3b82f6',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              保存版本
+            </button>
+          </div>
+
+          <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+            {[...versions].reverse().map((v) => {
+              const isCurrent = v.hash === currentHash;
+              return (
+                <div
+                  key={v.hash}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    marginBottom: '4px',
+                    background: isCurrent ? 'rgba(59,130,246,0.1)' : 'transparent',
+                    border: isCurrent ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: isCurrent ? '#3b82f6' : 'var(--color-text-primary)' }}>
+                      {formatVersionTime(v.timestamp)}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      background: v.source === 'ai' ? 'rgba(16,185,129,0.15)' :
+                                  v.source === 'manual' ? 'rgba(59,130,246,0.15)' :
+                                  v.source === 'auto' ? 'rgba(139,92,246,0.15)' :
+                                  'rgba(107,114,128,0.15)',
+                      color: v.source === 'ai' ? '#10b981' :
+                             v.source === 'manual' ? '#3b82f6' :
+                             v.source === 'auto' ? '#8b5cf6' :
+                             '#6b7280',
+                    }}>
+                      {sourceLabel(v.source)}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--color-text-tertiary)' }}>{v.hash}</span>
+                    {isCurrent && (
+                      <span style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 500 }}>当前</span>
+                    )}
+                  </div>
+                  {v.label && (
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>{v.label}</div>
+                  )}
+                  {/* 操作按钮 */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {!isCurrent && (
+                      <button
+                        onClick={() => handleSwitchVersion(v.hash)}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          background: 'var(--color-bg-secondary)',
+                          color: 'var(--color-text-secondary)',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        切换
+                      </button>
+                    )}
+                    {!isCurrent && (
+                      <button
+                        onClick={() => { if (confirm('确定删除此版本？')) handleDeleteVersion(v.hash); }}
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          background: 'transparent',
+                          color: '#ef4444',
+                          border: 'none',
+                          cursor: 'pointer',
+                          opacity: 0.7,
+                        }}
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {versions.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--color-text-tertiary)', fontSize: '12px' }}>
+                暂无版本记录
               </div>
             )}
           </div>
-        )}
-        
-        {/* 开始分析按钮 */}
-        <button
-          onClick={handleAnalyzeClick}
-          disabled={isAnalyzing || !content}
-          style={{
-            padding: '8px 12px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            background: isAnalyzing ? 'var(--color-bg-secondary)' : '#10b981',
-            color: '#fff',
-            border: 'none',
-            cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-            opacity: isAnalyzing ? 0.5 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
-          {isAnalyzing ? '分析中...' : '开始分析'}
-        </button>
-        
-        {/* 分析错误提示 */}
-        {analysisError && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            right: '16px',
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            zIndex: 100,
-            maxWidth: '250px',
-            fontSize: '12px',
-            color: '#dc2626',
-          }}>
-            {analysisError}
-            <button
-              onClick={() => setAnalysisError(null)}
-              style={{
-                marginLeft: '8px',
-                padding: '2px 6px',
-                fontSize: '11px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#666',
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        
-        {/* 术语替换按钮 */}
-        <button
-          onClick={() => {
-            if (replacements.length > 0) {
-              setShowReplacements(!showReplacements);
-            } else {
-              handleApplyTerms();
-            }
-          }}
-          disabled={isApplyingTerms || !content}
-          style={{
-            padding: '8px 12px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            background: isApplyingTerms ? 'var(--color-bg-secondary)' : '#8b5cf6',
-            color: '#fff',
-            border: 'none',
-            cursor: isApplyingTerms ? 'not-allowed' : 'pointer',
-            opacity: isApplyingTerms ? 0.5 : 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
-          {isApplyingTerms ? '...' : replacements.length > 0 ? `已替换${replacements.length}处` : '术语替换'}
-        </button>
-
-        {/* 替换记录弹窗 */}
-        {showReplacements && replacements.length > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            right: '80px',
-            background: 'var(--color-bg-primary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '8px',
-            padding: '12px',
-            zIndex: 100,
-            maxWidth: '300px',
-            maxHeight: '200px',
-            overflow: 'auto',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-          }}>
-            <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
-              术语替换记录
-            </div>
-            {replacements.map((r, i) => (
-              <div key={i} style={{ fontSize: '12px', padding: '4px 0', borderBottom: '1px solid var(--color-border)' }}>
-                <span style={{ color: '#ef4444' }}>{r.source}</span>
-                <span style={{ color: 'var(--color-text-tertiary)', margin: '0 4px' }}>→</span>
-                <span style={{ color: '#22c55e' }}>{r.target}</span>
-              </div>
-            ))}
-            <button
-              onClick={() => setShowReplacements(false)}
-              style={{
-                marginTop: '8px',
-                padding: '4px 8px',
-                fontSize: '11px',
-                background: 'var(--color-bg-secondary)',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              关闭
-            </button>
-          </div>
-        )}
-        
-        
-      </div>
-
-      {/* AI分析结果 */}
-      {analysisResult && (
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-secondary)', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)' }}>AI分析结果</span>
-            <button
-              onClick={() => setAnalysisResult(null)}
-              style={{ padding: '4px 8px', fontSize: '11px', background: 'transparent', border: 'none', color: 'var(--color-text-tertiary)', cursor: 'pointer' }}
-            >
-              ✕
-            </button>
-          </div>
-          {analysisResult.summary && (
-            <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '8px', lineHeight: 1.5 }}>
-              {analysisResult.summary}
-            </div>
-          )}
-          {analysisResult.issues && analysisResult.issues.length > 0 && (
-            <div style={{ fontSize: '12px', color: '#f59e0b' }}>
-              发现 {analysisResult.issues.length} 个问题
-            </div>
-          )}
         </div>
       )}
 
-      {/* 字幕列表 */}
-      <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
-        {filteredSubtitles.map((subtitle, idx) => (
-          <div
-            key={subtitle.index}
-            onDoubleClick={() => handleDoubleClick(subtitle, idx)}
-            style={{
-              padding: '10px 12px',
-              borderRadius: '8px',
-              marginBottom: '4px',
-              cursor: 'pointer',
-              transition: 'background 0.15s',
-              background: editingIndex === idx ? 'var(--color-accent)' : 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              if (editingIndex !== idx) e.currentTarget.style.background = 'var(--color-bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              if (editingIndex !== idx) e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            {editingIndex === idx ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                  <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.startTime)}</span>
-                  <span>→</span>
-                  <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.endTime)}</span>
-                </div>
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  autoFocus
-                  style={{
-                    width: '100%',
-                    minHeight: '60px',
-                    background: 'var(--color-bg-primary)',
-                    color: 'var(--color-text-primary)',
-                    padding: '8px',
-                    fontSize: '14px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--color-accent)',
-                    resize: 'none',
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                  }}
-                />
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={handleSaveLine}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      background: '#22c55e',
-                      color: '#fff',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    保存
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      background: 'var(--color-bg-secondary)',
-                      color: 'var(--color-text-secondary)',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    取消
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                  <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.startTime)}</span>
-                  <span>→</span>
-                  <span style={{ fontFamily: 'monospace' }}>{formatTimestamp(subtitle.endTime)}</span>
-                </div>
-                <p style={{ fontSize: '14px', lineHeight: 1.5, color: searchQuery && subtitle.text.toLowerCase().includes(searchQuery.toLowerCase()) ? 'var(--color-accent)' : 'var(--color-text-primary)' }}>
-                  {subtitle.text}
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* 底部统计 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', borderTop: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
-        <span>{subtitles.length} 条字幕</span>
-        <span>双击字幕行编辑</span>
-      </div>
+      {/* AI 分析弹窗 */}
+      <SubtitleAnalysisModal
+        isOpen={showAnalysisModal}
+        onClose={() => setShowAnalysisModal(false)}
+        videoId={videoId}
+        content={content}
+        modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
+        onApplyFix={handleApplyFix}
+      />
     </div>
   );
 }

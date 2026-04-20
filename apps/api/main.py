@@ -227,8 +227,10 @@ app.include_router(ai_asr_models_router)
 app.include_router(ai_prompt_templates_router)
 
 from src.routers.ai_subtitle import router as ai_subtitle_router
+from src.routers.versions import router as versions_router
 
 app.include_router(ai_subtitle_router)
+app.include_router(versions_router)
 
 
 @app.websocket("/ws/queue")

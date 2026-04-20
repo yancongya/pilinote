@@ -9,7 +9,7 @@
 ### 1. 存储位置
 
 ```
-downloads/{video_id}/.ai-versions/
+downloads/{video_id}/ai-versions/
 ├── subtitle/
 │   ├── v_20260420_143022_abc123.srt.gz
 │   ├── v_20260420_144530_def456.srt.gz

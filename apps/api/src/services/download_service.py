@@ -1679,6 +1679,15 @@ class DownloadService:
             logger.info(f"Saving subtitle to: {subtitle_path}")
             subtitle_path.write_text(srt_content, encoding="utf-8")
             logger.info(f"Successfully downloaded subtitle: {subtitle_path}")
+
+            # 自动版本快照
+            try:
+                from src.services.version_manager import VersionManager
+                vm = VersionManager(output_dir)
+                await vm.save_version("subtitle", srt_content, source="ai", label="下载字幕")
+            except Exception as e:
+                logger.debug("字幕版本快照失败（不影响下载）: %s", e)
+
             return True
 
     async def download_subtitle_with_ytdlp(
@@ -1870,6 +1879,15 @@ class DownloadService:
                 content = result["content"]
 
             srt_path.write_text(content, encoding="utf-8")
+
+            # 自动版本快照
+            try:
+                from src.services.version_manager import VersionManager
+                vm = VersionManager(output_dir)
+                await vm.save_version("subtitle", content, source="ai", label="下载CC字幕")
+            except Exception as e:
+                logger.debug("字幕版本快照失败（不影响下载）: %s", e)
+
             return {
                 "downloaded": 1,
                 "attempted": 1,

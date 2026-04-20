@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Query, Body, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional
+from fastapi.responses import StreamingResponse
+import asyncio
+import json
 
 from src.services.ai.term_base_service import term_base_service
 from src.services.ai.subtitle_analyzer import subtitle_analyzer
@@ -133,3 +136,84 @@ async def check_subtitle_line(
         return AnalyzeResponse(success=result.get("success", False), data=result)
     except Exception as e:
         return AnalyzeResponse(success=False, error=str(e))
+
+
+class PipelineAnalyzeRequest(BaseModel):
+    video_id: str
+    content: str
+    model_provider: str = "openai"
+
+
+@router.post("/subtitle/pipeline-analyze")
+async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
+    """流水线式字幕分析，通过 SSE 逐步推送进度
+
+    阶段：
+    1. READ_NFO - 读取 NFO 视频信息
+    2. SUBTITLE_OVERVIEW - 字幕概况分析
+    3. AI_ANALYZE - AI 修正分析
+    4. DONE - 完成，附带 issues 结果
+    """
+    from src.routers.local import find_video_dir
+    from src.services.ai.nfo_reader import NFOReader
+
+    video_dir = find_video_dir(request.video_id)
+
+    async def event_stream():
+        # ---- Stage 1: 读取 NFO ----
+        nfo_info = {}
+        try:
+            # 在视频目录中找 NFO 文件
+            nfo_file = None
+            if video_dir:
+                for candidate in video_dir.glob("*.nfo"):
+                    nfo_file = candidate
+                    break
+            if nfo_file:
+                nfo_result = NFOReader.read_t0_text(str(nfo_file))
+                nfo_info = nfo_result.get("data", {})
+                nfo_text = nfo_result.get("text", "")
+            else:
+                nfo_text = "未找到 NFO 文件"
+        except Exception as e:
+            nfo_text = f"读取 NFO 失败: {e}"
+
+        yield f"data: {json.dumps({'stage': 'READ_NFO', 'status': 'completed', 'data': {'nfo_text': nfo_text, 'title': nfo_info.get('title', ''), 'studio': nfo_info.get('studio', ''), 'runtime': nfo_info.get('runtime', '')}}, ensure_ascii=False)}\n\n"
+        await asyncio.sleep(0.1)
+
+        # ---- Stage 2: 字幕概况 ----
+        lines = request.content.strip().split("\n")
+        subtitle_blocks = [b for b in request.content.strip().split("\n\n") if b.strip()]
+        total_lines = len(lines)
+        total_blocks = len(subtitle_blocks)
+
+        # 统计字幕概况
+        avg_text_len = 0
+        if total_blocks > 0:
+            text_lens = []
+            for block in subtitle_blocks:
+                parts = block.strip().split("\n")
+                if len(parts) >= 3:
+                    text_lens.append(len(parts[2]))
+            avg_text_len = sum(text_lens) // len(text_lens) if text_lens else 0
+
+        overview = f"共 {total_blocks} 条字幕，{total_lines} 行，平均每条 {avg_text_len} 字"
+        yield f"data: {json.dumps({'stage': 'SUBTITLE_OVERVIEW', 'status': 'completed', 'data': {'overview': overview, 'total_blocks': total_blocks, 'total_lines': total_lines}}, ensure_ascii=False)}\n\n"
+        await asyncio.sleep(0.1)
+
+        # ---- Stage 3: AI 修正分析 ----
+        yield f"data: {json.dumps({'stage': 'AI_ANALYZE', 'status': 'processing', 'data': {}}, ensure_ascii=False)}\n\n"
+
+        try:
+            result = await subtitle_analyzer.analyze(
+                subtitle_content=request.content,
+                model_provider=request.model_provider,
+            )
+            if result.get("success"):
+                yield f"data: {json.dumps({'stage': 'DONE', 'status': 'completed', 'data': {'issues': result.get('issues', []), 'summary': result.get('summary', '')}}, ensure_ascii=False)}\n\n"
+            else:
+                yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': result.get('error', '分析失败')}}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': str(e)}}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

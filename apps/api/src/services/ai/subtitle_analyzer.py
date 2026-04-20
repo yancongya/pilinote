@@ -9,7 +9,7 @@ from src.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
-ANALYSIS_PROMPT = """你是一个字幕编辑助手。请分析以下字幕并指出可能的问题。
+ANALYSIS_PROMPT = """你是一个字幕编辑助手。请分析以下字幕，找出其中的错别字、语法问题和术语错误。
 
 字幕内容：
 {content}
@@ -20,14 +20,18 @@ ANALYSIS_PROMPT = """你是一个字幕编辑助手。请分析以下字幕并�
     {{
       "index": 字幕序号,
       "type": "typo" | "grammar" | "term",
-      "text": "问题文本",
-      "suggestion": "修正建议"
+      "text": "问题原文",
+      "suggestion": "修正后的文本"
     }}
   ],
   "summary": "整体字幕内容的一句话摘要"
 }}
 
-如果字幕没有问题，请返回空的issues数组。
+注意：
+- index 必须对应字幕的序号
+- text 必须与原文中该行字幕文本完全一致
+- suggestion 为修正后的完整该行文本（不是只写修改的部分）
+- 如果字幕没有问题，返回空的issues数组
 """
 
 
