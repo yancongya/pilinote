@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-export { TranscriptTab } from './TranscriptTab';
-export { NoteTab } from './NoteTab';
-export { MindMapTab } from './MindMapTab';
+import { TranscriptTab } from './TranscriptTab';
+import { NoteTab } from './NoteTab';
+import { MindMapTab } from './MindMapTab';
 
-import TranscriptTab from './TranscriptTab';
-import NoteTab from './NoteTab';
-import MindMapTab from './MindMapTab';
+export { TranscriptTab, NoteTab, MindMapTab };
 
 type TabType = 'subtitle' | 'note' | 'mindmap';
 
