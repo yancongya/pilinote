@@ -25,6 +25,7 @@ from src.routers.concurrency import router as concurrency_router
 from src.routers.library import router as library_router
 from src.routers.video_library import router as video_library_router
 from src.routers.note import router as note_router
+from src.routers.local import router as local_router
 from src.routers.ai import router as ai_router
 from src.routers.ai_runtime_state import router as ai_runtime_state_router
 from src.routers.ai_asr_models import router as ai_asr_models_router
@@ -219,6 +220,7 @@ app.include_router(concurrency_router)
 app.include_router(library_router)
 app.include_router(video_library_router)
 app.include_router(note_router)
+app.include_router(local_router)
 app.include_router(ai_router)
 app.include_router(ai_runtime_state_router)
 app.include_router(ai_asr_models_router)

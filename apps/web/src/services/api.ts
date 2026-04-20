@@ -832,6 +832,19 @@ class ApiService {
       message: '下载设置功能尚未实现，请使用全局设置'
     }
   }
+
+  async getLocalFile(videoId: string, fileType: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/local-files/${videoId}/${fileType}`, {
+      method: 'GET',
+    });
+  }
+
+  async saveLocalFile(videoId: string, fileType: string, content: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/local-files/${videoId}/${fileType}`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
 }
 
 export const apiService = new ApiService();

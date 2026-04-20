@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Outlet } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
@@ -1644,6 +1644,9 @@ const handleReDownloadConfirm = async () => {
           }}
         />
       )}
+
+      {/* AI笔记面板子路由 */}
+      <Outlet />
       </div>
     </div>
   )
