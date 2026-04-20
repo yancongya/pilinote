@@ -68,14 +68,8 @@ function App() {
         <Route path="/history" element={<MainLayout />} />
         <Route path="/downloads" element={<MainLayout />} />
         <Route path="/opus/:opusId" element={<VideoDetailPage type="opus" />} />
-        <Route path="/video/:videoId" element={<VideoDetailPage />}>
-          <Route path="ai" element={<AiNotePanel />}>
-            <Route index element={<Navigate to="subtitle" replace />} />
-            <Route path="subtitle" element={<TranscriptTab />} />
-            <Route path="note" element={<NoteTab />} />
-            <Route path="mindmap" element={<MindMapTab />} />
-          </Route>
-        </Route>
+        <Route path="/video/:videoId" element={<VideoDetailPage />} />
+        <Route path="/video/:videoId/ai" element={<AiNotePanel />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
