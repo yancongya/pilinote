@@ -848,6 +848,50 @@ class ApiService {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  // ============ 术语库 API ============
+  async getVocabulary(): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/ai/vocabulary');
+  }
+
+  async addTerm(source: string, target: string, note: string = '', filename: string = 'custom.csv'): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/ai/vocabulary', {
+      method: 'POST',
+      body: JSON.stringify({ source, target, note, filename }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  async deleteTerm(source: string, filename: string = 'custom.csv'): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/ai/vocabulary/${source}?filename=${filename}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============ 字幕处理 API ============
+  async applyTermsToSubtitle(videoId: string, content: string): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/ai/subtitle/apply-terms', {
+      method: 'POST',
+      body: JSON.stringify({ video_id: videoId, content }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  async analyzeSubtitle(videoId: string, content: string, modelProvider: string = 'openai'): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/ai/subtitle/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ video_id: videoId, content, model_provider: modelProvider }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  async checkSubtitleLine(text: string, modelProvider: string = 'openai'): Promise<ApiResponse<any>> {
+    return this.request<any>(`/api/ai/subtitle/check-line?model_provider=${modelProvider}`, {
+      method: 'POST',
+      body: JSON.stringify(text),
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
 }
 
 export const apiService = new ApiService();

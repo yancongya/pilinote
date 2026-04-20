@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from pathlib import Path
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/local", tags=["本地文件"])
 
@@ -14,16 +17,21 @@ class LocalFileResponse(BaseModel):
 
 def find_video_dir(video_id: str) -> Path:
     """根据video_id找到视频目录"""
-    # 从项目根目录开始查找
     import os
-    project_root = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    # 硬编码项目根目录
+    project_root = Path("/Users/tanyancong/工作/开发/pilinote")
     downloads = project_root / "downloads"
+    logger.info(
+        f"find_video_dir: video_id={video_id}, project_root={project_root}, downloads={downloads}, exists={downloads.exists()}"
+    )
 
     # 直接作为路径
     if Path(video_id).exists():
         return Path(video_id)
 
     if not downloads.exists():
+        logger.info("downloads dir does not exist")
         return None
 
     # 在downloads目录下查找匹配
@@ -79,6 +87,7 @@ async def get_local_file(
 
 class SaveFileRequest(BaseModel):
     content: str = ""
+
 
 @router.post("/file/{video_id}")
 async def save_local_file(
