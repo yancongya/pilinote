@@ -147,6 +147,101 @@ class TermBaseService:
                 files.append(f.name)
         return files
 
+    def load_files(self, filenames: List[str]) -> Dict[str, Tuple[str, str]]:
+        """按指定文件加载术语，返回 {source -> (target, note)}，不修改全局缓存
+
+        Args:
+            filenames: 要加载的文件名列表，如 ["tech.csv", "product.csv"]
+
+        Returns:
+            术语字典，后加载的文件会覆盖先加载的同名术语
+        """
+        result: Dict[str, Tuple[str, str]] = {}
+        for filename in filenames:
+            filepath = self.term_bases_dir / filename
+            if filepath.exists():
+                temp_cache: Dict[str, Tuple[str, str]] = {}
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            source = row.get("原术语", "").strip()
+                            target = row.get("替换术语", "").strip()
+                            note = row.get("备注", "").strip()
+                            if source and target:
+                                temp_cache[source] = (target, note)
+                except Exception as e:
+                    logger.warning(f"加载术语库文件失败 {filepath}: {e}")
+                result.update(temp_cache)
+        return result
+
+    def preview_replacements(self, content: str, filenames: Optional[List[str]] = None) -> List[Dict[str, str]]:
+        """预览字幕内容中会被替换的术语（不修改内容）
+
+        Args:
+            content: SRT 字幕内容
+            filenames: 可选，指定要使用的术语库文件列表。None 表示使用全局缓存
+
+        Returns:
+            替换记录列表，包含 source, target, note, filename
+        """
+        if filenames:
+            # 按指定文件加载术语
+            terms = self.load_files(filenames)
+        else:
+            # 使用全局缓存
+            if not self._loaded:
+                self.load()
+            terms = self._term_cache
+
+        replacements = []
+        # 只检查文本行（跳过索引和时间戳）
+        for line in content.split("\n"):
+            stripped = line.strip()
+            if not stripped or stripped.isdigit() or "-->" in stripped:
+                continue
+            for source, (target, note) in terms.items():
+                if source in stripped:
+                    replacements.append({"source": source, "target": target, "note": note})
+
+        return replacements
+
+    def apply_terms(self, content: str, filenames: Optional[List[str]] = None) -> Tuple[str, List[Dict[str, str]]]:
+        """应用术语替换到字幕内容
+
+        Args:
+            content: SRT 字幕内容
+            filenames: 可选，指定要使用的术语库文件列表。None 表示使用全局缓存
+
+        Returns:
+            (替换后的内容, 替换记录列表)
+        """
+        if filenames:
+            terms = self.load_files(filenames)
+        else:
+            if not self._loaded:
+                self.load()
+            terms = self._term_cache
+
+        lines = content.split("\n")
+        result_lines = []
+        all_replacements = []
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.isdigit() or "-->" in stripped:
+                result_lines.append(line)
+                continue
+
+            replaced = line
+            for source, (target, note) in terms.items():
+                if source in replaced:
+                    replaced = replaced.replace(source, target)
+                    all_replacements.append({"source": source, "target": target, "note": note})
+            result_lines.append(replaced)
+
+        return "\n".join(result_lines), all_replacements
+
 
 # 全局实例
 term_base_service = TermBaseService()

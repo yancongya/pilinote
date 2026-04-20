@@ -4,6 +4,7 @@ import { useSettingsStore } from '../../../stores/settings';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
 import SubtitleAnalysisModal from '../../../components/ai/SubtitleAnalysisModal';
+import TermReplacementModal from '../../../components/ai/TermReplacementModal';
 
 interface Subtitle {
   index: number;
@@ -69,9 +70,7 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
-  const [isApplyingTerms, setIsApplyingTerms] = useState(false);
-  const [replacements, setReplacements] = useState<{source: string; target: string}[]>([]);
-  const [showReplacements, setShowReplacements] = useState(false);
+  const [showTermModal, setShowTermModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [showModelSelect, setShowModelSelect] = useState(false);
@@ -189,19 +188,13 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
     setEditContent('');
   };
 
-  const handleApplyTerms = async () => {
-    setIsApplyingTerms(true);
-    try {
-      const response = await apiService.applyTermsToSubtitle(videoId, content);
-      if (response.success && response.data) {
-        setContent(response.data.content);
-        setReplacements(response.data.replacements || []);
-      }
-    } catch (err) {
-      console.error('术语替换失败:', err);
-    } finally {
-      setIsApplyingTerms(false);
-    }
+  const handleApplyTerms = () => {
+    setShowTermModal(true);
+  };
+
+  const handleTermApplied = (newContent: string) => {
+    setContent(newContent);
+    loadVersions(selectedSubtitleFilename || undefined);
   };
 
   const availableProviders = useMemo(() => {
@@ -576,73 +569,23 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
 
           {/* 术语替换按钮 */}
           <button
-            onClick={() => {
-              if (replacements.length > 0) {
-                setShowReplacements(!showReplacements);
-              } else {
-                handleApplyTerms();
-              }
-            }}
-            disabled={isApplyingTerms || !content}
+            onClick={handleApplyTerms}
+            disabled={!content}
             style={{
               padding: '8px 12px',
               borderRadius: '8px',
               fontSize: '12px',
-              background: isApplyingTerms ? 'var(--color-bg-secondary)' : '#8b5cf6',
+              background: '#8b5cf6',
               color: '#fff',
               border: 'none',
-              cursor: isApplyingTerms ? 'not-allowed' : 'pointer',
-              opacity: isApplyingTerms ? 0.5 : 1,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
             }}
           >
-            {isApplyingTerms ? '...' : replacements.length > 0 ? `已替换${replacements.length}处` : '术语替换'}
+            术语替换
           </button>
-
-          {/* 替换记录弹窗 */}
-          {showReplacements && replacements.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: '80px',
-              background: 'var(--color-bg-primary)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '8px',
-              padding: '12px',
-              zIndex: 100,
-              maxWidth: '300px',
-              maxHeight: '200px',
-              overflow: 'auto',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            }}>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
-                术语替换记录
-              </div>
-              {replacements.map((r, i) => (
-                <div key={i} style={{ fontSize: '12px', padding: '4px 0', borderBottom: '1px solid var(--color-border)' }}>
-                  <span style={{ color: '#ef4444' }}>{r.source}</span>
-                  <span style={{ color: 'var(--color-text-tertiary)', margin: '0 4px' }}>→</span>
-                  <span style={{ color: '#22c55e' }}>{r.target}</span>
-                </div>
-              ))}
-              <button
-                onClick={() => setShowReplacements(false)}
-                style={{
-                  marginTop: '8px',
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  background: 'var(--color-bg-secondary)',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                }}
-              >
-                关闭
-              </button>
-            </div>
-          )}
         </div>
 
         {/* 字幕列表 */}
@@ -895,6 +838,15 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
         content={content}
         modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
         onApplyFix={handleApplyFix}
+      />
+
+      {/* 术语替换弹窗 */}
+      <TermReplacementModal
+        isOpen={showTermModal}
+        onClose={() => setShowTermModal(false)}
+        onApply={handleTermApplied}
+        content={content}
+        videoId={videoId}
       />
     </div>
   );

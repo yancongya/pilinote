@@ -873,10 +873,18 @@ class ApiService {
   }
 
   // ============ 字幕处理 API ============
-  async applyTermsToSubtitle(videoId: string, content: string): Promise<ApiResponse<any>> {
+  async previewTermReplacements(content: string, files?: string[]): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/ai/subtitle/preview-terms', {
+      method: 'POST',
+      body: JSON.stringify({ content, files }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  async applyTermsToSubtitle(videoId: string, content: string, files?: string[]): Promise<ApiResponse<any>> {
     return this.request<any>('/api/ai/subtitle/apply-terms', {
       method: 'POST',
-      body: JSON.stringify({ video_id: videoId, content }),
+      body: JSON.stringify({ video_id: videoId, content, files }),
       headers: { 'Content-Type': 'application/json' },
     });
   }

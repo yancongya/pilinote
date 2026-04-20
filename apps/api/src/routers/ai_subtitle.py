@@ -78,6 +78,19 @@ class AnalyzeRequest(BaseModel):
 class ApplyTermsRequest(BaseModel):
     video_id: str
     content: str
+    files: Optional[List[str]] = None  # 指定使用的术语库文件
+
+
+class PreviewTermsRequest(BaseModel):
+    content: str
+    files: Optional[List[str]] = None  # 指定使用的术语库文件
+
+
+class PreviewTermsResponse(BaseModel):
+    success: bool
+    data: Optional[List[Dict]] = None  # 替换预览列表
+    files: Optional[List[str]] = None  # 可用的术语库文件
+    error: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -102,28 +115,35 @@ async def analyze_subtitle(request: AnalyzeRequest):
 async def apply_terms_to_subtitle(request: ApplyTermsRequest):
     """应用术语替换到字幕"""
     try:
-        term_base_service.load()  # 确保已加载
-
-        # 解析SRT并应用替换
-        lines = request.content.split("\n")
-        result_lines = []
-        all_replacements = []
-
-        for line in lines:
-            if line.strip() and not line.strip().isdigit() and "-->" not in line:
-                replaced_line, replacements = term_base_service.replace_term(line)
-                result_lines.append(replaced_line)
-                if replacements:
-                    all_replacements.extend(replacements)
-            else:
-                result_lines.append(line)
-
+        # 使用新的 apply_terms 方法，支持按文件选择
+        new_content, replacements = term_base_service.apply_terms(
+            content=request.content,
+            filenames=request.files,
+        )
         return AnalyzeResponse(
             success=True,
-            data={"content": "\n".join(result_lines), "replacements": all_replacements},
+            data={"content": new_content, "replacements": replacements},
         )
     except Exception as e:
         return AnalyzeResponse(success=False, error=str(e))
+
+
+@router.post("/subtitle/preview-terms", response_model=PreviewTermsResponse)
+async def preview_term_replacements(request: PreviewTermsRequest):
+    """预览术语替换（不修改内容）"""
+    try:
+        replacements = term_base_service.preview_replacements(
+            content=request.content,
+            filenames=request.files,
+        )
+        files = term_base_service.list_files()
+        return PreviewTermsResponse(
+            success=True,
+            data=replacements,
+            files=files,
+        )
+    except Exception as e:
+        return PreviewTermsResponse(success=False, error=str(e))
 
 
 @router.post("/subtitle/check-line", response_model=AnalyzeResponse)
