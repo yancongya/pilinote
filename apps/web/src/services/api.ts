@@ -834,15 +834,18 @@ class ApiService {
   }
 
   async getLocalFile(videoId: string, fileType: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/local-files/${videoId}/${fileType}`, {
+    return this.request<any>(`/api/local/file/${videoId}?file_type=${fileType}`, {
       method: 'GET',
     });
   }
 
   async saveLocalFile(videoId: string, fileType: string, content: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/local-files/${videoId}/${fileType}`, {
+    const params = new URLSearchParams();
+    params.append('file_type', fileType);
+    return this.request<any>(`/api/local/file/${videoId}?${params.toString()}`, {
       method: 'POST',
       body: JSON.stringify({ content }),
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }

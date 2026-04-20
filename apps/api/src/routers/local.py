@@ -14,11 +14,17 @@ class LocalFileResponse(BaseModel):
 
 def find_video_dir(video_id: str) -> Path:
     """根据video_id找到视频目录"""
-    downloads = Path("downloads")
+    # 从项目根目录开始查找
+    import os
+    project_root = Path(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    downloads = project_root / "downloads"
 
     # 直接作为路径
     if Path(video_id).exists():
         return Path(video_id)
+
+    if not downloads.exists():
+        return None
 
     # 在downloads目录下查找匹配
     for item in downloads.iterdir():
@@ -71,10 +77,14 @@ async def get_local_file(
         return LocalFileResponse(success=False, error=str(e))
 
 
+class SaveFileRequest(BaseModel):
+    content: str = ""
+
 @router.post("/file/{video_id}")
 async def save_local_file(
-    video_id: str, file_type: str = Query(...), content: str = ""
+    video_id: str, file_type: str = Query(...), request: SaveFileRequest = None
 ):
+    content = request.content if request else ""
     """保存本地字幕或笔记文件"""
     try:
         video_dir = find_video_dir(video_id)
