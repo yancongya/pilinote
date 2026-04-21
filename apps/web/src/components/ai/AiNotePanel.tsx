@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { aiNoteService, NoteResponse, DEFAULT_STYLE, DEFAULT_FORMATS } from '../../services/aiNote';
+import { aiNoteService, NoteResponse, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS } from '../../services/aiNote';
 import { useNotePolling } from '../../hooks/useNotePolling';
 import { StyleSelector } from './StyleSelector';
 import { FormatSelector } from './FormatSelector';
@@ -9,6 +9,12 @@ import { useToast } from '../Toast';
 import { useSettingsStore } from '../../stores/settings';
 import { normalizePromptStyleValue } from '../../services/promptCatalog';
 import { useAiRuntimeState } from '../../hooks/useAiRuntimeState';
+
+type SupportedNoteFormat = (typeof NOTE_FORMATS)[number]['value']
+
+const SUPPORTED_NOTE_FORMATS = new Set<SupportedNoteFormat>(NOTE_FORMATS.map(format => format.value))
+const isSupportedNoteFormat = (format: string): format is SupportedNoteFormat =>
+  SUPPORTED_NOTE_FORMATS.has(format as SupportedNoteFormat)
 
 interface AiNotePanelProps {
   videoId: string;
@@ -62,7 +68,7 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
 
     setNote(lookup.note)
     setStyle(normalizePromptStyleValue(lookup.note.style) || DEFAULT_STYLE)
-    setFormats(lookup.note.formats || DEFAULT_FORMATS)
+    setFormats((lookup.note.formats || DEFAULT_FORMATS).filter(isSupportedNoteFormat))
 
     if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
       setNoteId(lookup.note.id)

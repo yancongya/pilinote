@@ -17,7 +17,7 @@ from src.database import SessionLocal
 from src.models.ai_note import AiNote
 from src.models.download import Download
 from src.llm import LLMProvider, LLMClientFactory, LLMMessage
-from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS
+from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS
 from src.services.ai.nfo_reader import NFOReader
 from src.services.settings_service import SettingsService
 
@@ -32,6 +32,14 @@ _SEMANTIC_STAGES = (
     "LLM.ANALYZE",
     "CONTENT.GENERATE",
 )
+_SUPPORTED_NOTE_FORMATS = {item["value"] for item in NOTE_FORMATS}
+
+
+def _normalize_note_formats(formats: Optional[List[str]]) -> List[str]:
+    if not formats:
+        return list(DEFAULT_FORMATS)
+    normalized = [format_name for format_name in formats if format_name in _SUPPORTED_NOTE_FORMATS]
+    return normalized or list(DEFAULT_FORMATS)
 
 
 def _resume_analysis_worker(
@@ -470,7 +478,7 @@ class AiNoteService:
         video_id = note.video_id
         file_path = note.meta.get("file_path") if isinstance(note.meta, dict) else None
         style = note.style or DEFAULT_STYLE
-        formats = note.formats or DEFAULT_FORMATS
+        formats = _normalize_note_formats(note.formats)
         model_provider = note.model_provider or "openai"
         model_name = note.model_name or "gpt-4o-mini"
         extras = note.meta.get("extras") if isinstance(note.meta, dict) else None
@@ -576,7 +584,7 @@ class AiNoteService:
             video_id=note.video_id,
             file_path=note.meta.get("file_path") if note.meta else None,
             style=note.style or DEFAULT_STYLE,
-            formats=note.formats or DEFAULT_FORMATS,
+            formats=_normalize_note_formats(note.formats),
             model_provider=note.model_provider or "openai",
             model_name=note.model_name or "gpt-4o-mini",
             extras=note.meta.get("extras") if note.meta else None,
@@ -610,7 +618,7 @@ class AiNoteService:
         note = self.create_note_record(
             video_id=video_id,
             style=style,
-            formats=formats or DEFAULT_FORMATS,
+            formats=_normalize_note_formats(formats),
             model_provider=model_provider,
             model_name=model_name,
             pipeline_mode=self._infer_pipeline_mode(video_id),
@@ -621,7 +629,7 @@ class AiNoteService:
             video_id=video_id,
             file_path=file_path,
             style=style,
-            formats=formats or DEFAULT_FORMATS,
+            formats=_normalize_note_formats(formats),
             model_provider=model_provider,
             model_name=model_name,
             extras=extras,
@@ -678,7 +686,7 @@ class AiNoteService:
             video_id=video_id,
             file_path=file_path,
             style=style,
-            formats=formats or DEFAULT_FORMATS,
+            formats=_normalize_note_formats(formats),
             model_provider=model_provider,
             model_name=model_name,
             extras=extras,
@@ -910,7 +918,7 @@ class AiNoteService:
             prompt = self._build_prompt_from_context(
                 context=context,
                 style=style,
-                formats=formats or DEFAULT_FORMATS,
+                formats=_normalize_note_formats(formats),
                 extras=extras,
             )
             self._store_analysis_artifacts(note, prompt=prompt)
@@ -1243,7 +1251,7 @@ class AiNoteService:
             80.0,
             {
                 "style": style,
-                "formats": formats or DEFAULT_FORMATS,
+                "formats": _normalize_note_formats(formats),
                 "has_transcript": bool(transcript and transcript.strip()),
             },
             note=note,
@@ -1576,25 +1584,6 @@ class AiNoteService:
 
         return "\n".join(summary_lines[:5])
 
-    def _process_link_markers(self, markdown: str, bvid: str = "") -> str:
-        pattern = re.compile(r"\*([^\]]+)-\[(\d{2}:\d{2})\]")
-
-        def replace_timestamp(match):
-            content = match.group(1)
-            timestamp = match.group(2)
-            minutes, seconds = map(int, timestamp.split(":"))
-            total_seconds = minutes * 60 + seconds
-            local_link = f"[{timestamp}](?t={total_seconds})"
-            if bvid:
-                web_link = f"[原片 @ {timestamp}](https://www.bilibili.com/video/{bvid}?t={total_seconds})"
-                return f"{local_link} 或 {web_link}"
-            return local_link
-
-        result = pattern.sub(replace_timestamp, markdown)
-        link_count = len(pattern.findall(markdown))
-        logger.info(f"处理 {link_count} 个时间戳链接")
-        return result
-
     def _process_screenshot_markers(
         self, markdown: str, video_path: str, note: Optional[AiNote] = None
     ) -> str:
@@ -1659,25 +1648,11 @@ class AiNoteService:
         note: Optional[AiNote] = None,
         formats: Optional[List[str]] = None,
     ) -> str:
-        """后处理 Markdown：替换 link 和 screenshot 标记"""
-        if not formats or not video_path:
+        """后处理 Markdown：替换 screenshot 标记"""
+        if not formats:
             return markdown
 
-        nfo_data = {}
-        bvid = ""
-        if video_path:
-            nfo_result = NFOReader.read_t0_text(video_path)
-            nfo_data = nfo_result.get("data", {})
-            url = nfo_data.get("url", "")
-            if url:
-                bvid_match = re.search(r"/(BV[\w]+)", url)
-                if bvid_match:
-                    bvid = bvid_match.group(1)
-
         result = markdown
-
-        if "link" in formats:
-            result = self._process_link_markers(result, bvid)
 
         if "screenshot" in formats:
             result = self._process_screenshot_markers(result, video_path, note)
@@ -1685,7 +1660,6 @@ class AiNoteService:
         self.logger.info(f"Markdown 后处理完成，formats={formats}")
 
         format_status = {
-            "link": "link" in formats,
             "screenshot": "screenshot" in formats,
             "summary": "summary" in formats,
         }

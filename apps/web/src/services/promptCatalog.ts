@@ -36,7 +36,6 @@ export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 't3.task_oriented', title: 'T3 任务导向', category: '风格', path: ['layers', 't3', 'task_oriented'], kind: 'text' },
   { key: 't3.business', title: 'T3 商业风格', category: '风格', path: ['layers', 't3', 'business'], kind: 'text' },
   { key: 't3.meeting_minutes', title: 'T3 会议纪要', category: '风格', path: ['layers', 't3', 'meeting_minutes'], kind: 'text' },
-  { key: 'formats.link', title: '原片跳转', category: '格式', path: ['layers', 'formats', 'link'], kind: 'text' },
   { key: 'formats.screenshot', title: '原片截图', category: '格式', path: ['layers', 'formats', 'screenshot'], kind: 'text' },
   { key: 'formats.summary', title: 'AI 总结', category: '格式', path: ['layers', 'formats', 'summary'], kind: 'text' },
 ]

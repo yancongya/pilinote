@@ -273,7 +273,6 @@ export const NOTE_STYLES = [
 ] as const;
 
 export const NOTE_FORMATS = [
-  { label: '原片跳转', value: 'link', description: '添加时间戳跳转' },
   { label: '原片截图', value: 'screenshot', description: '插入关键帧截图' },
   { label: 'AI 总结', value: 'summary', description: '末尾添加 AI 总结' },
 ] as const;

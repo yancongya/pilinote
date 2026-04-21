@@ -9,7 +9,6 @@ from .constants import (
 )
 from .base import BASE_PROMPT, build_base_prompt
 from .formats import (
-    get_link_format,
     get_screenshot_format,
     get_summary_format,
     get_format_template,
@@ -31,7 +30,6 @@ __all__ = [
     "BASE_PROMPT",
     "build_base_prompt",
     # 格式
-    "get_link_format",
     "get_screenshot_format",
     "get_summary_format",
     "get_format_template",
