@@ -992,6 +992,16 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
               </div>
               <button type="button" onClick={() => setShowAnalysisResult(false)} style={{ padding: '6px 10px', borderRadius: '8px', border: 'none', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', cursor: 'pointer' }}>关闭</button>
             </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+              {analysisStages.map(stage => (
+                <div key={stage.key} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '5px 8px', borderRadius: '9999px', background: 'var(--color-bg-secondary)' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-primary)' }}>{stage.label}</span>
+                  <span style={{ fontSize: '11px', color: stage.status === 'completed' ? '#22c55e' : stage.status === 'error' ? '#ef4444' : 'var(--color-accent)' }}>
+                    {stage.status === 'completed' ? '完成' : stage.status === 'processing' ? '处理中' : stage.status === 'error' ? '失败' : '等待'}
+                  </span>
+                </div>
+              ))}
+            </div>
             {analysisIssues.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>发现 {analysisIssues.length} 个问题</div>
