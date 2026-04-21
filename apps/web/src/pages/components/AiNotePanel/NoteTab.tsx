@@ -122,23 +122,28 @@ function parseMarkdown(text: string, onHeadingClick?: (id: string) => void): Rea
         6: { fontSize: '13px', fontWeight: 600, color: '#fb923c', marginTop: '12px', marginBottom: '4px' },
       };
 
-      const style = { ...headingStyles[level], cursor: 'pointer' as const };
-      const headingProps = {
-        key: `h${level}-${i}`,
-        id,
-        style,
-        onClick: () => onHeadingClick?.(id),
-        children: parseInline(content, onHeadingClick),
-      };
-
       switch (level) {
-        case 1: elements.push(<h1 {...headingProps} />); break;
-        case 2: elements.push(<h2 {...headingProps} />); break;
-        case 3: elements.push(<h3 {...headingProps} />); break;
-        case 4: elements.push(<h4 {...headingProps} />); break;
-        case 5: elements.push(<h5 {...headingProps} />); break;
-        case 6: elements.push(<h6 {...headingProps} />); break;
-        default: elements.push(<h1 {...headingProps} />); break;
+        case 1:
+          elements.push(<h1 key={`h1-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h1>);
+          break;
+        case 2:
+          elements.push(<h2 key={`h2-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h2>);
+          break;
+        case 3:
+          elements.push(<h3 key={`h3-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h3>);
+          break;
+        case 4:
+          elements.push(<h4 key={`h4-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h4>);
+          break;
+        case 5:
+          elements.push(<h5 key={`h5-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h5>);
+          break;
+        case 6:
+          elements.push(<h6 key={`h6-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h6>);
+          break;
+        default:
+          elements.push(<h1 key={`h1-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h1>);
+          break;
       }
       continue;
     }
@@ -498,15 +503,15 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
       <style>{scrollbarStyle}</style>
 
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '180px', flex: '1 1 180px' }}>
-            AI 模型
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)', flexShrink: 0, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap', minWidth: 'max-content' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>AI 模型</span>
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               disabled={isAnalyzing}
-              style={{ padding: '8px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+              style={{ minWidth: '170px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
             >
               {providerModels.length > 0 ? (
                 providerModels.map(model => <option key={model} value={model}>{model}</option>)
@@ -514,18 +519,18 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
                 <option value={activeModel}>{activeModel || '未配置模型'}</option>
               )}
             </select>
-          </label>
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
             {isEditing ? (
               <>
-                <button onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '14px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}>取消</button>
-                <button onClick={saveNote} disabled={isSaving} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '14px', background: '#22c55e', color: '#fff', border: 'none', cursor: isSaving ? 'not-allowed' : 'pointer', opacity: isSaving ? 0.5 : 1 }}>
+                <button onClick={() => setIsEditing(false)} style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}>取消</button>
+                <button onClick={saveNote} disabled={isSaving} style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: '#22c55e', color: '#fff', border: 'none', cursor: isSaving ? 'not-allowed' : 'pointer', opacity: isSaving ? 0.5 : 1 }}>
                   {isSaving ? '保存中...' : '保存'}
                 </button>
               </>
             ) : (
-              <button onClick={() => setIsEditing(true)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '14px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setIsEditing(true)} style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
@@ -534,38 +539,38 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
             )}
           </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '180px', flex: '1 1 180px' }}>
-            笔记风格
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>笔记风格</span>
             <select
               value={style}
               onChange={(e) => setStyle(e.target.value)}
               disabled={isAnalyzing}
-              style={{ padding: '8px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+              style={{ minWidth: '150px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
             >
               {styleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
-          </label>
+          </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '168px' }}>
-            详细程度
-            <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>详细程度</span>
+            <div style={{ display: 'flex', gap: '6px' }}>
               {[{ value: 'simple', label: '简约' }, { value: 'detailed', label: '详细' }].map(len => (
                 <button
                   key={len.value}
                   type="button"
                   onClick={() => setDetailLevel(len.value)}
                   disabled={isAnalyzing}
-                  style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', background: detailLevel === len.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)', color: detailLevel === len.value ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
+                  style={{ padding: '8px 12px', borderRadius: '8px', background: detailLevel === len.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)', color: detailLevel === len.value ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
                 >
                   {len.label}
                 </button>
               ))}
             </div>
-          </label>
+          </div>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '260px', flex: '2 1 260px' }}>
-            高级设置
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>高级设置</span>
+            <div style={{ display: 'flex', gap: '6px' }}>
               {NOTE_FORMATS.map(format => {
                 const active = formats.includes(format.value);
                 return (
@@ -583,9 +588,9 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
                 );
               })}
             </div>
-          </label>
+          </div>
 
-          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flex: '0 0 auto' }}>
             <button
               type="button"
               onClick={startAnalyze}
