@@ -1,9 +1,9 @@
 def get_screenshot_format() -> str:
     """截图标注模板"""
     return """
-9. **原片截图**：请在需要插入原片截图的位置输出时间戳标记，格式必须严格为 `*Screenshot-[mm:ss]`。
-- 示例：`*Screenshot-[01:23]`
-- 不要直接输出 Markdown 图片链接，截图文件会由系统根据时间戳自动生成并替换。
+9. **原片截图**：请在需要插入原片截图的位置输出时间戳标记，格式必须严格为 `*Screenshot-[HH:MM:SS]`，也兼容 `*Screenshot-[MM:SS]`。
+- 示例：`*Screenshot-[00:01:23]`
+- 不要直接输出 Markdown 图片链接，也不要在标记前后额外包裹 Markdown 强调符号。
 """
 
 

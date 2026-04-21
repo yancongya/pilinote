@@ -34,6 +34,10 @@ _SEMANTIC_STAGES = (
 )
 _SUPPORTED_NOTE_FORMATS = {item["value"] for item in NOTE_FORMATS}
 
+_SCREENSHOT_MARKER_PATTERN = re.compile(
+    r"\*?Screenshot-\[((?:\d{1,2}:)?\d{2}:\d{2})\]\*?"
+)
+
 
 def _normalize_note_formats(formats: Optional[List[str]]) -> List[str]:
     if not formats:
@@ -1582,25 +1586,45 @@ class AiNoteService:
 
         return "\n".join(summary_lines[:5])
 
+    def _normalize_screenshot_timestamp(self, timestamp: str) -> str:
+        parts = timestamp.split(":")
+        if len(parts) == 2:
+            minutes, seconds = parts
+            return f"{int(minutes):02d}{int(seconds):02d}"
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+            return f"{int(hours):02d}{int(minutes):02d}{int(seconds):02d}"
+        raise ValueError(f"无效的截图时间戳: {timestamp}")
+
     def _process_screenshot_markers(
         self, markdown: str, video_path: str, note: Optional[AiNote] = None
     ) -> str:
-        pattern = re.compile(r"\*Screenshot-\[(\d{2}:\d{2})\]")
-
         def replace_screenshot(match):
             timestamp = match.group(1)
-            minutes, seconds = map(int, timestamp.split(":"))
-            total_seconds = minutes * 60 + seconds
+            parts = list(map(int, timestamp.split(":")))
+            if len(parts) == 2:
+                minutes, seconds = parts
+                total_seconds = minutes * 60 + seconds
+            elif len(parts) == 3:
+                hours, minutes, seconds = parts
+                total_seconds = hours * 3600 + minutes * 60 + seconds
+            else:
+                logger.warning(f"无效的截图时间戳: {timestamp}")
+                return f"[Screenshot at {timestamp}]()"
 
             video_name = Path(video_path).stem
-            filename = f"{video_name}_{minutes:02d}{seconds:02d}.jpg"
+            filename = f"{video_name}_{self._normalize_screenshot_timestamp(timestamp)}.jpg"
             video_dir = Path(video_path).parent
-            output_dir = video_dir
+            output_dir = video_dir / "screenshots"
             output_dir.mkdir(parents=True, exist_ok=True)
             output_path = str(output_dir / filename)
+            legacy_output_path = video_dir / filename
 
             if Path(output_path).exists():
                 logger.info(f"截图已存在: {filename}")
+                return f"![Screenshot at {timestamp}](./screenshots/{filename})"
+            if legacy_output_path.exists():
+                logger.info(f"截图已存在(兼容旧路径): {filename}")
                 return f"![Screenshot at {timestamp}](./{filename})"
 
             try:
@@ -1624,7 +1648,7 @@ class AiNoteService:
                 )
                 if Path(output_path).exists():
                     logger.info(f"截图生成成功: {filename}")
-                    return f"![Screenshot at {timestamp}](./{filename})"
+                    return f"![Screenshot at {timestamp}](./screenshots/{filename})"
             except subprocess.TimeoutExpired:
                 logger.warning(f"截图生成超时: {timestamp}")
             except FileNotFoundError:
@@ -1634,11 +1658,13 @@ class AiNoteService:
 
             return f"[Screenshot at {timestamp}]()"
 
-        result = pattern.sub(replace_screenshot, markdown)
-        screenshot_count = len(pattern.findall(markdown))
+        result = _SCREENSHOT_MARKER_PATTERN.sub(replace_screenshot, markdown)
+        screenshot_count = len(_SCREENSHOT_MARKER_PATTERN.findall(markdown))
         logger.info(f"处理 {screenshot_count} 个截图标记")
         if screenshot_count == 0:
-            logger.warning("未匹配到截图标记，请检查 prompt 是否输出 *Screenshot-[mm:ss]")
+            logger.warning(
+                "未匹配到截图标记，请检查 prompt 是否输出 *Screenshot-[HH:MM:SS] 或 *Screenshot-[MM:SS]"
+            )
         return result
 
     def _post_process_markdown(

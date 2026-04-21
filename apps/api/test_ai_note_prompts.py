@@ -78,7 +78,7 @@ def test_build_prompt_with_all_formats():
     assert "T2 详细程度" in prompt
     assert "T3 笔记风格" in prompt
     assert "原片截图" in prompt
-    assert "*Screenshot-[mm:ss]" in prompt
+    assert "*Screenshot-[HH:MM:SS]" in prompt
     assert "AI 总结" in prompt
     assert "完整、结构化" in prompt or "详细版本" in prompt
     print("✓ 完整格式 Prompt 构建成功")
