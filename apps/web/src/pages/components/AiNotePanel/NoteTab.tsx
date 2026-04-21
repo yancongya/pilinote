@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { MarkdownRenderer } from '../../../components/ai/MarkdownRenderer';
 import { createPortal } from 'react-dom';
 import { apiService } from '../../../services/api';
 import { aiNoteService, AI_NOTE_TRACE_STAGE_TEMPLATES, AI_NOTE_REANALYZE_STAGE_TEMPLATES, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS } from '../../../services/aiNote';
@@ -923,9 +924,9 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
                   lineHeight: 1.6,
                 }}
               />
-            ) : (
+              ) : (
               <div style={{ maxWidth: '800px' }}>
-                {parseMarkdown(content, handleHeadingClick)}
+                <MarkdownRenderer content={content} onHeadingClick={handleHeadingClick} />
               </div>
             )}
             
