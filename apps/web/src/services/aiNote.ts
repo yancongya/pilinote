@@ -273,10 +273,9 @@ export const NOTE_STYLES = [
 ] as const;
 
 export const NOTE_FORMATS = [
-  { label: '目录', value: 'toc', description: '高级功能预留：自动生成目录' },
-  { label: '原片跳转', value: 'link', description: '高级功能预留：添加时间戳跳转' },
-  { label: '原片截图', value: 'screenshot', description: '高级功能预留：插入关键帧截图' },
-  { label: 'AI 总结', value: 'summary', description: '默认启用：末尾添加 AI 总结' },
+  { label: '原片跳转', value: 'link', description: '添加时间戳跳转' },
+  { label: '原片截图', value: 'screenshot', description: '插入关键帧截图' },
+  { label: 'AI 总结', value: 'summary', description: '末尾添加 AI 总结' },
 ] as const;
 
 export const DEFAULT_STYLE = 'detailed';

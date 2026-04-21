@@ -1687,7 +1687,6 @@ class AiNoteService:
         format_status = {
             "link": "link" in formats,
             "screenshot": "screenshot" in formats,
-            "toc": "toc" in formats,
             "summary": "summary" in formats,
         }
         self._add_trace(

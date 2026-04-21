@@ -47,7 +47,6 @@ NOTE_STYLES = [
 
 # 笔记格式定义
 NOTE_FORMATS = [
-    {"label": "目录", "value": "toc", "description": "自动生成基于 ## 级标题的目录"},
     {"label": "原片跳转", "value": "link", "description": "为每个主要章节添加时间戳"},
     {"label": "原片截图", "value": "screenshot", "description": "插入视频关键帧截图"},
     {

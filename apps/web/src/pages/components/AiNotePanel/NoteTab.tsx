@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MarkdownRenderer } from '../../../components/ai/MarkdownRenderer';
 import { createPortal } from 'react-dom';
 import { apiService } from '../../../services/api';
 import { aiNoteService, AI_NOTE_TRACE_STAGE_TEMPLATES, AI_NOTE_REANALYZE_STAGE_TEMPLATES, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS } from '../../../services/aiNote';
@@ -9,9 +8,7 @@ import { useSettingsStore } from '../../../stores/settings';
 import { buildPromptStyleOptions } from '../../../services/promptCatalog';
 
 function slugify(text: string): string {
-  // 提取标题部分（处理后端生成的 anchor-title-content-XXXX 格式）
-  const title = text.split('-content-')[0];
-  return title.toLowerCase()
+  return text.toLowerCase()
     .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
@@ -924,9 +921,9 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
                   lineHeight: 1.6,
                 }}
               />
-              ) : (
+            ) : (
               <div style={{ maxWidth: '800px' }}>
-                <MarkdownRenderer content={content} onHeadingClick={handleHeadingClick} />
+                {parseMarkdown(content, handleHeadingClick)}
               </div>
             )}
             

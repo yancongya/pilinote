@@ -1,10 +1,3 @@
-def get_toc_format() -> str:
-    """目录格式模板"""
-    return """
-9. **目录**: 自动生成一个基于 `##` 级标题的目录。不需要插入原片跳转
-"""
-
-
 def get_link_format() -> str:
     """原片跳转时间戳模板"""
     return """
@@ -31,7 +24,6 @@ def get_summary_format() -> str:
 def get_format_template(format_type: str) -> str:
     """获取指定格式的模板"""
     format_map = {
-        "toc": get_toc_format,
         "link": get_link_format,
         "screenshot": get_screenshot_format,
         "summary": get_summary_format,

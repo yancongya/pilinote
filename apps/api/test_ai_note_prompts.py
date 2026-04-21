@@ -54,9 +54,9 @@ def test_note_styles_constant():
 
 
 def test_note_formats_constant():
-    assert len(NOTE_FORMATS) == 4
-    assert NOTE_FORMATS[0]["value"] == "toc"
-    assert NOTE_FORMATS[3]["value"] == "summary"
+    assert len(NOTE_FORMATS) == 3
+    assert NOTE_FORMATS[0]["value"] == "link"
+    assert NOTE_FORMATS[2]["value"] == "summary"
     print(f"✓ NOTE_FORMATS 包含 {len(NOTE_FORMATS)} 种格式")
 
 
@@ -66,7 +66,7 @@ def test_build_prompt_with_all_formats():
         t1_text="这是视频的转写内容，包含了一些关键信息。",
         level="detailed",
         style="detailed",
-        formats=["toc", "link", "screenshot", "summary"],
+        formats=["link", "screenshot", "summary"],
         extras="请特别注意技术细节",
     )
 
@@ -76,8 +76,6 @@ def test_build_prompt_with_all_formats():
     assert "这是视频的转写内容" in prompt
     assert "T2 详细程度" in prompt
     assert "T3 笔记风格" in prompt
-    assert "高级功能预留" in prompt
-    assert "目录" in prompt
     assert "原片跳转" in prompt
     assert "原片截图" in prompt
     assert "AI 总结" in prompt
