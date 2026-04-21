@@ -10,6 +10,7 @@ import {
 } from '../../../services/aiNote';
 import type { AiNotePipelineMode } from '../../../services/aiNote';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
+import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
 import { useSettingsStore } from '../../../stores/settings';
 import { buildPromptStyleOptions } from '../../../services/promptCatalog';
 import { useToast } from '../../../components/Toast';
@@ -289,6 +290,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
   useEffect(() => {
     setSelectedModel(activeModel);
   }, [activeModel]);
+
+  useEffect(() => {
+    void aiRuntimeStateService.refresh();
+  }, []);
 
   const loadNote = useCallback(async () => {
     setLoading(true);

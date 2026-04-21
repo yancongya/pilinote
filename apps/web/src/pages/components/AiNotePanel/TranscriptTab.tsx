@@ -93,9 +93,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showTermModal, setShowTermModal] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
-  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
-  const [showModelSelect, setShowModelSelect] = useState(false);
+  const [selectedModelKey, setSelectedModelKey] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStages, setAnalysisStages] = useState<AnalysisStage[]>(ANALYSIS_STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const })));
   const [analysisIssues, setAnalysisIssues] = useState<AnalysisIssue[]>([]);
@@ -119,10 +117,33 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const testedModels = aiRuntimeState.testedModels || {};
   const { showToast } = useToast();
 
-  const availableProviders = useMemo(() => {
+  const modelOptions = useMemo(() => {
     const providers = settings?.llm?.providers || [];
-    return providers.filter((p) => testedModels[p.id]?.length > 0);
+    const options = providers.flatMap((provider) => {
+      const models = testedModels[provider.id] || [];
+      return models.map((model) => ({
+        key: `${provider.id}|||${model}`,
+        providerId: provider.id,
+        providerName: provider.name || provider.id,
+        model,
+      }));
+    });
+    return Array.from(new Map(options.map((item) => [item.key, item])).values());
   }, [settings, testedModels]);
+
+  const selectedModel = useMemo(() => {
+    return modelOptions.find((item) => item.key === selectedModelKey) || modelOptions[0] || null;
+  }, [modelOptions, selectedModelKey]);
+
+  useEffect(() => {
+    if (!modelOptions.length) {
+      setSelectedModelKey('');
+      return;
+    }
+    if (!selectedModelKey || !modelOptions.some((item) => item.key === selectedModelKey)) {
+      setSelectedModelKey(modelOptions[0].key);
+    }
+  }, [modelOptions, selectedModelKey]);
 
   const resetAnalysisState = useCallback(() => {
     setAnalysisStages(ANALYSIS_STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const })));
@@ -186,7 +207,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
 
   const startAnalysis = useCallback(async () => {
     if (isAnalyzing) return;
-    if (!selectedProvider && availableProviders.length === 0) {
+    if (!selectedModel) {
       showToast('请先配置并验证 AI 模型', 'warning');
       return;
     }
@@ -204,8 +225,8 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
         body: JSON.stringify({
           video_id: videoId,
           content,
-          model_provider: selectedProvider || availableProviders[0]?.id || 'openai',
-          model_name: selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined,
+          model_provider: selectedModel.providerId,
+          model_name: selectedModel.model,
         }),
         signal: ac.signal,
       });
@@ -268,7 +289,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       analysisAbortRef.current = null;
       showToast(message, 'error');
     }
-  }, [availableProviders.length, content, isAnalyzing, selectedModels, selectedProvider, showToast, videoId, resetAnalysisState]);
+  }, [content, isAnalyzing, selectedModel, showToast, videoId, resetAnalysisState]);
 
   useEffect(() => {
     if (videoId) {
@@ -379,22 +400,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
     loadVersions(selectedSubtitleFilename || undefined);
   };
 
-  useEffect(() => {
-    if (availableProviders.length > 0 && Object.keys(selectedModels).length === 0) {
-      const defaults: Record<string, string> = {};
-      availableProviders.forEach(p => {
-        const models = testedModels[p.id] || p.models || [];
-        if (models.length > 0) {
-          defaults[p.id] = models[0];
-        }
-      });
-      setSelectedModels(defaults);
-      if (!selectedProvider) {
-        setSelectedProvider(availableProviders[0].id);
-      }
-    }
-  }, [availableProviders, testedModels]);
-
   // ---- 版本操作 ----
 
   const handleSwitchVersion = async (hash: string) => {
@@ -483,246 +488,190 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
 
       {/* 主内容区 */}
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minWidth: 0 }}>
-
-        {/* 搜索栏 */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: 'var(--color-text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="搜索字幕..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'var(--color-bg-secondary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                padding: '8px 12px 8px 36px',
-                fontSize: '14px',
-                color: 'var(--color-text-primary)',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          {/* 字幕文件选择下拉 */}
-          {subtitleFiles.length > 0 && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => {
-                  if (subtitleFiles.length > 1) {
-                    setShowSubtitleFileSelect(!showSubtitleFileSelect);
-                  }
-                }}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  background: showSubtitleFileSelect ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-                  color: showSubtitleFileSelect ? '#fff' : 'var(--color-text-secondary)',
-                  border: 'none',
-                  cursor: subtitleFiles.length > 1 ? 'pointer' : 'default',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                {subtitleFiles.find(f => f.name === selectedSubtitleFilename)?.source_label || '字幕来源'}
-                {subtitleFiles.length > 1 && (
-                  <svg style={{ width: '12px', height: '12px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
-              </button>
-              {showSubtitleFileSelect && subtitleFiles.length > 1 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  marginTop: '4px',
-                  background: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '8px',
-                  padding: '4px',
-                  zIndex: 100,
-                  minWidth: '160px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                }}>
-                  {subtitleFiles.map((f) => (
-                    <button
-                      key={f.name}
-                      onClick={() => {
-                        setSelectedSubtitleFilename(f.name);
-                        onSubtitleFileChange?.(f.name);
-                        setShowSubtitleFileSelect(false);
-                      }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        padding: '8px 12px',
-                        textAlign: 'left',
-                        background: selectedSubtitleFilename === f.name ? 'var(--color-accent)' : 'transparent',
-                        color: selectedSubtitleFilename === f.name ? '#fff' : 'var(--color-text-primary)',
-                        border: 'none',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        borderRadius: '4px',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (selectedSubtitleFilename !== f.name) {
-                          e.currentTarget.style.background = 'var(--color-bg-secondary)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (selectedSubtitleFilename !== f.name) {
-                          e.currentTarget.style.background = 'transparent';
-                        }
-                      }}
-                    >
-                      <div style={{ fontWeight: 500 }}>{f.source_label}</div>
-                      <div style={{ fontSize: '10px', color: selectedSubtitleFilename === f.name ? 'rgba(255,255,255,0.7)' : 'var(--color-text-tertiary)', marginTop: '2px' }}>{f.name}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 模型选择下拉按钮 */}
-          {availableProviders.length > 0 && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowModelSelect(!showModelSelect)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  background: showModelSelect ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-                  color: showModelSelect ? '#fff' : 'var(--color-text-secondary)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                {selectedModels[selectedProvider || availableProviders[0]?.id] || '选择模型'}
-                <svg style={{ width: '12px', height: '12px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)', flexShrink: 0, overflowX: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', whiteSpace: 'nowrap', minWidth: 'max-content' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 260px', minWidth: '260px' }}>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>搜索</span>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                <svg style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: 'var(--color-text-tertiary)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </button>
-
-              {/* 模型下拉列表 */}
-              {showModelSelect && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  marginTop: '4px',
-                  background: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '8px',
-                  padding: '4px',
-                  zIndex: 100,
-                  minWidth: '180px',
-                  maxHeight: '200px',
-                  overflow: 'auto',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                }}>
-                  {availableProviders.map((provider) => {
-                    const models = testedModels[provider.id] || [];
-                    return (
-                      <div key={provider.id}>
-                        <div style={{ padding: '6px 10px', fontSize: '10px', color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
-                          {provider.name || provider.id}
-                        </div>
-                        {models.map((model: string) => (
-                          <button
-                            key={model}
-                            onClick={() => {
-                              setSelectedProvider(provider.id);
-                              setSelectedModels(prev => ({ ...prev, [provider.id]: model }));
-                              setShowModelSelect(false);
-                            }}
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              padding: '8px 12px',
-                              textAlign: 'left',
-                              background: selectedModels[provider.id] === model ? 'var(--color-accent)' : 'transparent',
-                              border: 'none',
-                              color: selectedModels[provider.id] === model ? '#fff' : 'var(--color-text-primary)',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              borderRadius: '4px',
-                            }}
-                            onMouseEnter={(e) => {
-                              if (selectedModels[provider.id] !== model) {
-                                e.currentTarget.style.background = 'var(--color-bg-secondary)';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (selectedModels[provider.id] !== model) {
-                                e.currentTarget.style.background = 'transparent';
-                              }
-                            }}
-                          >
-                            {model}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                <input
+                  type="text"
+                  placeholder="搜索字幕..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: 'var(--color-bg-secondary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '8px',
+                    padding: '8px 12px 8px 36px',
+                    fontSize: '13px',
+                    color: 'var(--color-text-primary)',
+                    outline: 'none',
+                  }}
+                />
+              </div>
             </div>
-          )}
 
-          {/* 纠正按钮 */}
-          <button
-            onClick={isAnalyzing ? stopAnalysis : startAnalysis}
-            disabled={!content && !isAnalyzing}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              background: isAnalyzing ? '#ef4444' : 'var(--color-accent)',
-              color: '#fff',
-              border: 'none',
-              cursor: !content && !isAnalyzing ? 'not-allowed' : 'pointer',
-              opacity: !content && !isAnalyzing ? 0.5 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            {isAnalyzing ? '停止' : '纠正'}
-          </button>
+            {subtitleFiles.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto', position: 'relative' }}>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>字幕来源</span>
+                <button
+                  onClick={() => {
+                    if (subtitleFiles.length > 1) {
+                      setShowSubtitleFileSelect(!showSubtitleFileSelect);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    background: showSubtitleFileSelect ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                    color: showSubtitleFileSelect ? '#fff' : 'var(--color-text-secondary)',
+                    border: 'none',
+                    cursor: subtitleFiles.length > 1 ? 'pointer' : 'default',
+                    fontWeight: 500,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    minWidth: '180px',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {subtitleFiles.find(f => f.name === selectedSubtitleFilename)?.source_label || '字幕来源'}
+                  </span>
+                  {subtitleFiles.length > 1 && (
+                    <svg style={{ width: '12px', height: '12px', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+                {showSubtitleFileSelect && subtitleFiles.length > 1 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 'calc(100% - 180px)',
+                    marginTop: '4px',
+                    background: 'var(--color-bg-primary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '8px',
+                    padding: '4px',
+                    zIndex: 100,
+                    minWidth: '220px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  }}>
+                    {subtitleFiles.map((f) => (
+                      <button
+                        key={f.name}
+                        onClick={() => {
+                          setSelectedSubtitleFilename(f.name);
+                          onSubtitleFileChange?.(f.name);
+                          setShowSubtitleFileSelect(false);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          background: selectedSubtitleFilename === f.name ? 'var(--color-accent)' : 'transparent',
+                          color: selectedSubtitleFilename === f.name ? '#fff' : 'var(--color-text-primary)',
+                          border: 'none',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedSubtitleFilename !== f.name) {
+                            e.currentTarget.style.background = 'var(--color-bg-secondary)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedSubtitleFilename !== f.name) {
+                            e.currentTarget.style.background = 'transparent';
+                          }
+                        }}
+                      >
+                        <div style={{ fontWeight: 500 }}>{f.source_label}</div>
+                        <div style={{ fontSize: '10px', color: selectedSubtitleFilename === f.name ? 'rgba(255,255,255,0.7)' : 'var(--color-text-tertiary)', marginTop: '2px' }}>{f.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* 术语替换按钮 */}
-          <button
-            onClick={handleApplyTerms}
-            disabled={!content}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              background: '#8b5cf6',
-              color: '#fff',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            术语替换
-          </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+              <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>模型</span>
+              <select
+                value={selectedModel?.key || ''}
+                onChange={(e) => setSelectedModelKey(e.target.value)}
+                disabled={!modelOptions.length || isAnalyzing}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  background: 'var(--color-bg-secondary)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                  minWidth: '240px',
+                }}
+              >
+                {modelOptions.length === 0 ? (
+                  <option value="">无可用模型</option>
+                ) : (
+                  modelOptions.map(item => (
+                    <option key={item.key} value={item.key}>
+                      {item.providerName} · {item.model}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <button
+              onClick={isAnalyzing ? stopAnalysis : startAnalysis}
+              disabled={!content && !isAnalyzing}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                background: isAnalyzing ? '#ef4444' : 'var(--color-accent)',
+                color: '#fff',
+                border: 'none',
+                cursor: !content && !isAnalyzing ? 'not-allowed' : 'pointer',
+                opacity: !content && !isAnalyzing ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                flex: '0 0 auto',
+              }}
+            >
+              {isAnalyzing ? '停止' : '纠正'}
+            </button>
+
+            <button
+              onClick={handleApplyTerms}
+              disabled={!content}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                background: '#8b5cf6',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                flex: '0 0 auto',
+              }}
+            >
+              术语替换
+            </button>
+          </div>
         </div>
 
         {analysisError && (
