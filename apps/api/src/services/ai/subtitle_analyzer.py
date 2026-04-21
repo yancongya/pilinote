@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from src.llm import LLMClientFactory, LLMMessage
 from src.llm.providers import LLMProvider
+from src.services.ai.task_control import task_control_registry
 from src.services.settings_service import SettingsService
 from src.database import SessionLocal
 
@@ -42,7 +43,11 @@ class SubtitleAnalyzer:
         self.llm_factory = LLMClientFactory()
 
     async def analyze(
-        self, subtitle_content: str, model_provider: str = "openai"
+        self,
+        subtitle_content: str,
+        model_provider: str = "openai",
+        model_name: Optional[str] = None,
+        task_id: Optional[str] = None,
     ) -> Dict:
         """调用AI分析字幕
 
@@ -123,17 +128,42 @@ class SubtitleAnalyzer:
                 )
             ]
 
-            response = client.chat(
-                messages=messages, temperature=0.3, max_tokens=2000
-            )
+            if task_id and task_control_registry.is_cancelled(task_id):
+                raise RuntimeError("分析已取消")
 
-            if not response or not response.content:
+            response_content = ""
+            if hasattr(client, "chat_stream"):
+                stream = client.chat_stream(
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=2000,
+                    model=model_name,
+                )
+                try:
+                    for chunk in stream:
+                        if task_id and task_control_registry.is_cancelled(task_id):
+                            raise RuntimeError("分析已取消")
+                        if chunk:
+                            response_content += chunk
+                finally:
+                    close_stream = getattr(stream, "close", None)
+                    if callable(close_stream):
+                        close_stream()
+            else:
+                response = client.chat(
+                    messages=messages, temperature=0.3, max_tokens=2000, model=model_name
+                )
+                if not response or not response.content:
+                    return {"success": False, "error": "LLM返回为空"}
+                response_content = response.content
+
+            if not response_content:
                 return {"success": False, "error": "LLM返回为空"}
 
             # 解析JSON响应
             try:
                 # 清理可能存在的markdown代码块
-                content = response.content.strip()
+                content = response_content.strip()
                 if content.startswith("```json"):
                     content = content[7:]
                 if content.startswith("```"):
@@ -152,7 +182,7 @@ class SubtitleAnalyzer:
                 return {
                     "success": True,
                     "issues": [],
-                    "summary": response.content[:200],
+                    "summary": response_content[:200],
                 }
 
         except Exception as e:
@@ -191,9 +221,7 @@ class SubtitleAnalyzer:
 
             messages = [LLMMessage(role="user", content=prompt)]
 
-            response = client.chat(
-                messages=messages, temperature=0.1, max_tokens=500
-            )
+            response = client.chat(messages=messages, temperature=0.1, max_tokens=500)
 
             if not response or not response.content:
                 return {"success": False, "error": "LLM返回为空"}

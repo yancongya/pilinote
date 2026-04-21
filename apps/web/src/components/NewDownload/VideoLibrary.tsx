@@ -9,8 +9,6 @@ import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
 import { AiNoteButton } from '../ai/AiNoteButton'
-import { AiNoteModal } from '../ai/AiNoteModal'
-import type { NoteResponse } from '../../services/aiNote'
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup'
 import { localAsrModelService } from '../../services/localAsrModels'
 
@@ -32,8 +30,6 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
 
   // AI 笔记状态
-  const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
-  const [showModal, setShowModal] = useState(false)
   const [isLocalAsrReady, setIsLocalAsrReady] = useState(true)
 
   const folderPath = task.meta?.folder_path
@@ -42,7 +38,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   // 仅对可识别的 B 站视频提供 AI 笔记（统一使用 BV 号进行查找/触发分析）
   const canUseAiNote = Boolean(videoIdForNote) && !isOpus
   const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
-  const noteForStatus = existingNote || lookup.note
+  const noteForStatus = lookup.note
   const aiNoteButtonStatus = noteForStatus?.status === 'completed' ? 'completed' : 'none'
 
   useEffect(() => {
@@ -61,15 +57,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   }, [isOpus])
 
   const handleAiNoteClick = () => {
-    if (!existingNote && !isLocalAsrReady && !isOpus) {
+    if (!isLocalAsrReady && !isOpus) {
       showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
       return
     }
-    setShowModal(true)
-  }
-
-  const handleAiNoteComplete = (note: NoteResponse) => {
-    setExistingNote(note)
+    navigate(`/video/${videoIdForNote}/ai`)
+    return
   }
 
   // 点击卡片跳转到详情页
@@ -194,23 +187,11 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             <AiNoteButton
                 status={aiNoteButtonStatus}
                 onClick={handleAiNoteClick}
-                disabled={!existingNote && !isLocalAsrReady}
+                disabled={!isLocalAsrReady}
                 style={{ left: '8px', top: '8px', zIndex: 30 }}
               />
             )}
           </div>
-
-        {/* AI 笔记弹窗 */}
-        {showModal && canUseAiNote && videoIdForNote && (
-          <AiNoteModal
-            videoId={videoIdForNote}
-            videoTitle={task.title}
-            existingNote={existingNote}
-            isOpen={showModal}
-            onClose={() => setShowModal(false)}
-            onComplete={handleAiNoteComplete}
-          />
-        )}
 
         {/* 文件夹信息 */}
         <div className="library-folder-info">

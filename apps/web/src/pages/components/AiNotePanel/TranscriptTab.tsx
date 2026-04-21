@@ -74,7 +74,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [showModelSelect, setShowModelSelect] = useState(false);
-  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
 
   // 版本管理状态
@@ -218,14 +218,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       }
     }
   }, [availableProviders, testedModels]);
-
-  const handleAnalyzeClick = () => {
-    if (availableProviders.length === 0) {
-      alert('请先在AI笔记设置页面验证AI模型');
-      return;
-    }
-    setShowAnalysisModal(true);
-  };
 
   const handleApplyFix = async (fixIssues: { index: number; text: string; suggestion: string }[]) => {
     if (!fixIssues?.length) return;
@@ -548,25 +540,23 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
             </div>
           )}
 
-          {/* 开始分析按钮 */}
+          {/* 字幕分析控制 */}
           <button
-            onClick={handleAnalyzeClick}
-            disabled={showAnalysisModal || !content}
+            onClick={() => setAnalysisExpanded(v => !v)}
             style={{
               padding: '8px 12px',
               borderRadius: '8px',
               fontSize: '12px',
-              background: showAnalysisModal ? 'var(--color-bg-secondary)' : '#10b981',
-              color: '#fff',
+              background: analysisExpanded ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+              color: analysisExpanded ? '#fff' : 'var(--color-text-primary)',
               border: 'none',
-              cursor: showAnalysisModal ? 'not-allowed' : 'pointer',
-              opacity: showAnalysisModal ? 0.5 : 1,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
             }}
           >
-            {showAnalysisModal ? '分析中...' : '开始分析'}
+            {analysisExpanded ? '收起字幕分析' : '展开字幕分析'}
           </button>
 
           {/* 术语替换按钮 */}
@@ -589,6 +579,20 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
             术语替换
           </button>
         </div>
+
+        {analysisExpanded && (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
+            <SubtitleAnalysisModal
+              isOpen={analysisExpanded}
+              onClose={() => setAnalysisExpanded(false)}
+              videoId={videoId}
+              content={content}
+              modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
+              modelName={selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined}
+              onApplyFix={handleApplyFix}
+            />
+          </div>
+        )}
 
         {/* 字幕列表 */}
         <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
@@ -831,16 +835,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
           </div>
         </div>
       )}
-
-      {/* AI 分析弹窗 */}
-      <SubtitleAnalysisModal
-        isOpen={showAnalysisModal}
-        onClose={() => setShowAnalysisModal(false)}
-        videoId={videoId}
-        content={content}
-        modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
-        onApplyFix={handleApplyFix}
-      />
 
       {/* 术语替换弹窗 */}
       <TermReplacementModal

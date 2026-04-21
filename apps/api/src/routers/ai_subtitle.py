@@ -4,9 +4,11 @@ from typing import List, Dict, Optional
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
+import uuid
 
 from src.services.ai.term_base_service import term_base_service
 from src.services.ai.subtitle_analyzer import subtitle_analyzer
+from src.services.ai.task_control import task_control_registry
 
 router = APIRouter(prefix="/api/ai", tags=["AI字幕处理"])
 
@@ -73,6 +75,7 @@ class AnalyzeRequest(BaseModel):
     video_id: str
     content: str
     model_provider: str = "openai"
+    model_name: Optional[str] = None
 
 
 class ApplyTermsRequest(BaseModel):
@@ -104,7 +107,9 @@ async def analyze_subtitle(request: AnalyzeRequest):
     """AI分析字幕（错别字、语法问题）"""
     try:
         result = await subtitle_analyzer.analyze(
-            subtitle_content=request.content, model_provider=request.model_provider
+            subtitle_content=request.content,
+            model_provider=request.model_provider,
+            model_name=request.model_name,
         )
         return AnalyzeResponse(success=result.get("success", False), data=result)
     except Exception as e:
@@ -162,6 +167,13 @@ class PipelineAnalyzeRequest(BaseModel):
     video_id: str
     content: str
     model_provider: str = "openai"
+    model_name: Optional[str] = None
+
+
+class TaskIdResponse(BaseModel):
+    success: bool
+    task_id: Optional[str] = None
+    message: Optional[str] = None
 
 
 @router.post("/subtitle/pipeline-analyze")
@@ -177,9 +189,13 @@ async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
     from src.routers.local import find_video_dir
     from src.services.ai.nfo_reader import NFOReader
 
+    task_id = str(uuid.uuid4())
+    task_control_registry.register(task_id, "subtitle_analysis", state="running")
     video_dir = find_video_dir(request.video_id)
 
     async def event_stream():
+        yield f"data: {json.dumps({'stage': 'META', 'status': 'completed', 'data': {'task_id': task_id}}, ensure_ascii=False)}\n\n"
+        await asyncio.sleep(0.01)
         # ---- Stage 1: 读取 NFO ----
         nfo_info = {}
         try:
@@ -228,6 +244,8 @@ async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
             result = await subtitle_analyzer.analyze(
                 subtitle_content=request.content,
                 model_provider=request.model_provider,
+                model_name=request.model_name,
+                task_id=task_id,
             )
             if result.get("success"):
                 yield f"data: {json.dumps({'stage': 'DONE', 'status': 'completed', 'data': {'issues': result.get('issues', []), 'summary': result.get('summary', '')}}, ensure_ascii=False)}\n\n"
@@ -235,5 +253,14 @@ async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
                 yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': result.get('error', '分析失败')}}, ensure_ascii=False)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': str(e)}}, ensure_ascii=False)}\n\n"
+        finally:
+            task_control_registry.remove(task_id)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.post("/subtitle/cancel/{task_id}", response_model=TaskIdResponse)
+async def cancel_subtitle_task(task_id: str):
+    if not task_control_registry.cancel(task_id):
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return TaskIdResponse(success=True, task_id=task_id, message="已取消")

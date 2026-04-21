@@ -19,6 +19,7 @@ from src.models.download import Download
 from src.llm import LLMProvider, LLMClientFactory, LLMMessage
 from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS
 from src.services.ai.nfo_reader import NFOReader
+from src.services.ai.task_control import task_control_registry
 from src.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -547,6 +548,12 @@ class AiNoteService:
         note.meta = meta
         self.db.add(note)
         self.db.commit()
+        task_control_registry.register(
+            note_id,
+            "ai_note",
+            state=state,
+            current_stage=current_stage,
+        )
         return True
 
     def pause_analysis(self, note_id: str) -> bool:
@@ -562,6 +569,7 @@ class AiNoteService:
         note.status = "failed"
         note.error = "分析已取消"
         self._set_note_control(note_id, "cancelled")
+        task_control_registry.cancel(note_id)
         _terminate_asr_process(note_id)
         self.db.commit()
         return True
@@ -600,6 +608,8 @@ class AiNoteService:
         if not note_id:
             return
         while True:
+            if task_control_registry.is_cancelled(note_id):
+                raise RuntimeError("分析已取消")
             control = self._get_note_control(note_id)
             state = (control.get("state") or "running").lower()
             if state == "paused":
@@ -734,6 +744,9 @@ class AiNoteService:
                 raise ValueError(f"Video not found: {video_id}")
             actual_source_path = download.file_path
             video_title = download.title
+
+        if note and task_control_registry.is_cancelled(note.id):
+            raise RuntimeError("分析已取消")
 
         pipeline_mode = self._resolve_note_pipeline_mode(note, download=download)
         actual_file_path = self._resolve_video_file_path(actual_source_path)
@@ -1039,6 +1052,8 @@ class AiNoteService:
                 self.db.commit()
 
         finally:
+            if note:
+                task_control_registry.remove(note.id)
             self.db.close()
 
     def _resolve_level(self, style: str, level: Optional[str] = None) -> str:
@@ -1164,6 +1179,9 @@ class AiNoteService:
             except Exception:
                 pass
 
+        if note and task_control_registry.is_cancelled(note.id):
+            raise RuntimeError("分析已取消")
+
         audio_final_exists = Path(audio_path).exists() if audio_path else False
         self._add_trace(
             self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
@@ -1194,6 +1212,8 @@ class AiNoteService:
         )
         if note:
             self._wait_for_resume(note.id)
+            if task_control_registry.is_cancelled(note.id):
+                raise RuntimeError("分析已取消")
         try:
             transcript = self._run_process_with_timeout_and_cancel(
                 600,
@@ -1245,6 +1265,8 @@ class AiNoteService:
         )
         if note:
             self._wait_for_resume(note.id)
+            if task_control_registry.is_cancelled(note.id):
+                raise RuntimeError("分析已取消")
 
         self._add_trace(
             self._trace_stage(pipeline_mode, "PROMPT.BUILD"),
@@ -1527,9 +1549,17 @@ class AiNoteService:
             if hasattr(client, 'chat_stream') and model_name:
                 # 支持流式调用
                 logger.info(f"[LLM] 使用流式调用 {model_provider}/{model_name}")
-                for chunk_text in client.chat_stream(messages, model=model_name, temperature=0.7):
-                    if chunk_text:
-                        response_content += chunk_text
+                stream = client.chat_stream(messages, model=model_name, temperature=0.7)
+                try:
+                    for chunk_text in stream:
+                        if note and task_control_registry.is_cancelled(note.id):
+                            raise RuntimeError("分析已取消")
+                        if chunk_text:
+                            response_content += chunk_text
+                finally:
+                    close_stream = getattr(stream, "close", None)
+                    if callable(close_stream):
+                        close_stream()
             else:
                 # 回退到同步调用
                 logger.info(f"[LLM] 使用同步调用 {model_provider}/{model_name}")

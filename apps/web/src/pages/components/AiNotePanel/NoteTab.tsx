@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { apiService } from '../../../services/api';
 import { aiNoteService, AI_NOTE_TRACE_STAGE_TEMPLATES, AI_NOTE_REANALYZE_STAGE_TEMPLATES, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS } from '../../../services/aiNote';
 import type { AiTraceStep, AiNotePipelineMode } from '../../../services/aiNote';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { useSettingsStore } from '../../../stores/settings';
 import { buildPromptStyleOptions } from '../../../services/promptCatalog';
+import { useToast } from '../../../components/Toast';
 
 function slugify(text: string): string {
   return text.toLowerCase()
@@ -266,6 +266,7 @@ function useAnalysisPipeline() {
 export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string; selectedSubtitleFilename?: string }) {
   const { settings } = useSettingsStore();
   const runtimeState = useAiRuntimeState();
+  const { showToast } = useToast();
   const [content, setContent] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -273,13 +274,14 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
   const [isSaving, setIsSaving] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
   
   const [style, setStyle] = useState(DEFAULT_STYLE);
   const [formats, setFormats] = useState(DEFAULT_FORMATS);
   const [detailLevel, setDetailLevel] = useState('detailed'); // simple | detailed
   const contentRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const analysisAbortRef = useRef<AbortController | null>(null);
+  const analysisNoteIdRef = useRef<string | null>(null);
 
   const pipeline = useAnalysisPipeline();
 
@@ -300,18 +302,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     [settings?.ai_note?.style?.custom_styles],
   );
   
-  // 当前选中的风格
-  const currentStyleInfo = styleOptions.find(s => s.value === style);
-  
   // 当配置变化时更新选中的模型
   useEffect(() => {
     setSelectedModel(activeModel);
   }, [activeModel]);
-
-  // 监听 pipeline 状态变化，用于调试
-  useEffect(() => {
-
-  }, [pipeline.stages, showModal, isAnalyzing]);
 
   useEffect(() => {
     if (videoId) {
@@ -324,7 +318,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.getLocalFile(videoId, 'note');
+      const response: any = await apiService.getLocalFile(videoId, 'note');
       if (response.success && response.data) {
         setContent(response.data);
         // 尝试从元数据中加载风格和格式
@@ -356,53 +350,56 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     }
   };
 
-  // 打开设置弹窗（不开始分析）
-  const openAnalysisSettings = () => {
-    
-    setShowModal(true);
-    setAnalysisError(null);
-  };
+  const stageToastLabels: Record<string, string> = {
+    'video.AUDIO.FETCH': '音频读取完成',
+    'video.SUBTITLE.GENERATE': '字幕生成完成',
+    'video.NFO.READ': 'NFO 读取完成',
+    'video.PROMPT.BUILD': 'Prompt 构建完成',
+    'video.LLM.ANALYZE': 'AI 分析完成',
+    'video.CONTENT.GENERATE': '笔记生成完成',
+    'series.NFO.READ': 'NFO 读取完成',
+    'series.PROMPT.BUILD': 'Prompt 构建完成',
+    'series.LLM.ANALYZE': 'AI 分析完成',
+    'series.CONTENT.GENERATE': '笔记生成完成',
+    'image_text.NFO.READ': '读取完成',
+    'image_text.PROMPT.BUILD': 'Prompt 构建完成',
+    'image_text.LLM.ANALYZE': 'AI 分析完成',
+    'image_text.CONTENT.GENERATE': '笔记生成完成',
+  }
 
-  // 确认开始分析
-  const confirmAndStartAnalysis = async () => {
+  const startAnalyze = async () => {
     if (!selectedModel) {
-      setAnalysisError('请先选择 AI 模型');
-      return;
+      setAnalysisError('请先选择 AI 模型')
+      showToast('请先选择 AI 模型', 'warning')
+      return
     }
 
-    // 确保弹窗保持打开
-    setShowModal(true);
-    setIsAnalyzing(true);
-    setAnalysisError(null);
-
-    
-
-    // 创建 AbortController 用于取消请求
-    const abortController = new AbortController();
+    setIsAnalyzing(true)
+    setAnalysisError(null)
+    analysisNoteIdRef.current = null
+    analysisAbortRef.current?.abort()
+    const abortController = new AbortController()
+    analysisAbortRef.current = abortController
 
     try {
-      // 检测字幕文件
-      let subtitleFilename = selectedSubtitleFilename;
+      let subtitleFilename = selectedSubtitleFilename
       if (!subtitleFilename) {
         try {
-          const filesResponse = await apiService.getLocalFiles(videoId);
+          const filesResponse: any = await apiService.getSubtitleFiles(videoId)
           if (filesResponse.success && filesResponse.data) {
-            const srtFiles = filesResponse.data.filter((f: any) => f.endsWith('.srt'));
-            const preferred = srtFiles.find((f: string) => f.includes('.ai-zh.srt') || f.includes('.zh-CN.srt'));
-            subtitleFilename = preferred || srtFiles[0];
+            const srtFiles = (filesResponse.data || []).map((f: any) => (typeof f === 'string' ? f : f?.name || '')).filter((name: string) => name.endsWith('.srt'))
+            const preferred = srtFiles.find((f: string) => f.includes('.ai-zh.srt') || f.includes('.zh-CN.srt'))
+            subtitleFilename = preferred || srtFiles[0]
           }
         } catch (e) {
-          console.warn('[NoteTab] Failed to get local files:', e);
+          console.warn('[NoteTab] Failed to get local files:', e)
         }
       }
 
-      // 根据是否有字幕文件来决定用哪个阶段模板（有字幕则跳过音频和字幕生成阶段）
-      const hasSubtitle = !!subtitleFilename;
-      pipeline.startPipeline('video', hasSubtitle);
+      const hasSubtitle = !!subtitleFilename
+      pipeline.startPipeline('video', hasSubtitle)
+      showToast('已开始重新生成 AI 笔记', 'info')
 
-      
-
-      // 使用 SSE 流式分析
       await aiNoteService.analyzeStream(
         {
           video_id: videoId,
@@ -410,54 +407,86 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
           level: detailLevel,
           formats,
           model_provider: activeProvider,
-          model_name: selectedModel,  // 使用用户选择的模型
+          model_name: selectedModel,
           subtitle_filename: subtitleFilename || undefined,
         },
         (event) => {
-          
+          if (event.stage === 'INIT' && event.data?.note_id) {
+            analysisNoteIdRef.current = event.data.note_id
+          }
 
           if (event.status === 'processing') {
-            const processingDetail = event.data 
+            const processingDetail = event.data
               ? (typeof event.data === 'string' ? event.data : JSON.stringify(event.data))
-              : '处理中...';
-            pipeline.updateStageStatus(event.stage, 'processing', processingDetail);
-          } else if (event.status === 'completed') {
-            // 标记阶段完成
+              : '处理中...'
+            pipeline.updateStageStatus(event.stage, 'processing', processingDetail)
+            return
+          }
+
+          if (event.status === 'completed') {
             if (event.stage === 'DONE') {
-              // 分析完成
-              
-              pipeline.markComplete();
-              setIsAnalyzing(false);
-              // 延迟关闭弹窗，让用户看到完成状态
-              setTimeout(() => {
-                setShowModal(false);
-                loadNote();
-              }, 1500);
-            } else {
-              // 普通阶段完成
-              const detailText = event.data ? (typeof event.data === 'string' ? event.data : JSON.stringify(event.data)) : '';
-              pipeline.updateStageStatus(event.stage, 'completed', detailText || '完成');
+              pipeline.markComplete()
+              setIsAnalyzing(false)
+              analysisAbortRef.current = null
+              showToast('AI 笔记重新生成完成', 'success')
+              void loadNote()
+              return
             }
-          } else if (event.status === 'error') {
-            console.error('[NoteTab] Analysis error:', event.data?.error);
-            pipeline.markError();
-            setAnalysisError(event.data?.error || '分析失败');
-            setIsAnalyzing(false);
+
+            const detailText = event.data ? (typeof event.data === 'string' ? event.data : JSON.stringify(event.data)) : ''
+            pipeline.updateStageStatus(event.stage, 'completed', detailText || '完成')
+            const toastLabel = stageToastLabels[event.stage]
+            if (toastLabel) {
+              showToast(toastLabel, 'success')
+            }
+            return
+          }
+
+          if (event.status === 'error') {
+            console.error('[NoteTab] Analysis error:', event.data?.error)
+            pipeline.markError()
+            const message = event.data?.error || '分析失败'
+            setAnalysisError(message)
+            setIsAnalyzing(false)
+            analysisAbortRef.current = null
+            showToast(message, 'error')
           }
         },
         abortController.signal
-      );
+      )
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        
-        return;
+        setIsAnalyzing(false)
+        analysisAbortRef.current = null
+        showToast('已取消 AI 笔记重新生成', 'info')
+        return
       }
-      console.error('[NoteTab] startAnalysis error:', err);
-      pipeline.markError();
-      setAnalysisError(err.message || '启动分析失败');
-      setIsAnalyzing(false);
+      console.error('[NoteTab] startAnalysis error:', err)
+      pipeline.markError()
+      const message = err.message || '启动分析失败'
+      setAnalysisError(message)
+      setIsAnalyzing(false)
+      analysisAbortRef.current = null
+      showToast(message, 'error')
     }
-  };
+  }
+
+  const handleStopAnalysis = async () => {
+    analysisAbortRef.current?.abort()
+    const noteId = analysisNoteIdRef.current
+    if (noteId) {
+      try {
+        await aiNoteService.cancelNote(noteId)
+        showToast('已取消 AI 笔记任务', 'success')
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : '取消失败', 'error')
+      }
+    } else {
+      showToast('已停止当前请求', 'info')
+    }
+    setIsAnalyzing(false)
+    analysisAbortRef.current = null
+  }
 
   const handleHeadingClick = useCallback((id: string) => {
     const element = document.getElementById(id);
@@ -525,7 +554,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {content && !isAnalyzing && !isEditing && (
             <button
-              onClick={openAnalysisSettings}
+              onClick={startAnalyze}
               style={{
                 padding: '6px 14px',
                 borderRadius: '6px',
@@ -564,282 +593,114 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
         </div>
       </div>
 
-      {/* 分析进度弹窗 - 使用 Portal 渲染，避免被父组件的 overflow/position 影响 */}
-      {showModal && createPortal(
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 999999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.7)', backdropFilter: 'none',
-          }}
-          onClick={(e) => {
-            // 分析进行中不允许点击遮罩关闭
-            if (isAnalyzing) return;
-            if (e.target === e.currentTarget) setShowModal(false);
-          }}
-        >
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <div
-            style={{
-              width: 480, maxHeight: '80vh',
-              background: 'var(--color-bg-primary)',
-              borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-              display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 标题栏 */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-              <div>
-                <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>AI 笔记分析</span>
-                <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginLeft: 8 }}>
-                  (阶段: {pipeline.stages.length}, 分析中: {isAnalyzing ? '是' : '否'})
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px', marginBottom: '12px' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+            AI 模型
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={isAnalyzing}
+              style={{ padding: '8px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+            >
+              {providerModels.length > 0 ? (
+                providerModels.map(model => <option key={model} value={model}>{model}</option>)
+              ) : (
+                <option value={activeModel}>{activeModel || '未配置模型'}</option>
+              )}
+            </select>
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+            笔记风格
+            <select
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
+              disabled={isAnalyzing}
+              style={{ padding: '8px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+            >
+              {styleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+            详细程度
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[{ value: 'simple', label: '简约' }, { value: 'detailed', label: '详细' }].map(len => (
+                <button
+                  key={len.value}
+                  type="button"
+                  onClick={() => setDetailLevel(len.value)}
+                  disabled={isAnalyzing}
+                  style={{ flex: 1, padding: '8px', borderRadius: '8px', background: detailLevel === len.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)', color: detailLevel === len.value ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
+                >
+                  {len.label}
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+            高级设置
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {NOTE_FORMATS.map(format => {
+                const active = formats.includes(format.value)
+                return (
+                  <button
+                    key={format.value}
+                    type="button"
+                    onClick={() => {
+                      if (isAnalyzing) return
+                      setFormats(prev => prev.includes(format.value) ? prev.filter(f => f !== format.value) : [...prev, format.value])
+                    }}
+                    style={{ padding: '8px 12px', borderRadius: '9999px', background: active ? '#22c55e' : 'var(--color-bg-secondary)', color: active ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
+                  >
+                    {format.label}
+                  </button>
+                )
+              })}
+            </div>
+          </label>
+        </div>
+
+        {pipeline.stages.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+            {pipeline.stages.map(stage => (
+              <div key={stage.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--color-text-primary)' }}>{stage.label}</span>
+                <span style={{ fontSize: '12px', color: stage.status === 'completed' ? '#22c55e' : stage.status === 'error' ? '#ef4444' : 'var(--color-accent)' }}>
+                  {stage.status === 'completed' ? '完成' : stage.status === 'processing' ? '处理中' : stage.status === 'error' ? '失败' : '等待'}
                 </span>
               </div>
-              {!isAnalyzing && (
-                <button onClick={() => setShowModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-tertiary)', cursor: 'pointer', padding: 4 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              )}
-            </div>
-
-            {/* 进度流水线 */}
-            {pipeline.stages.length > 0 && (
-              <div style={{ padding: '20px 20px 12px', flexShrink: 0 }}>
-                {pipeline.stages.map((stage, i) => (
-                  <div key={stage.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    {/* 左侧图标+连线 */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 24, flexShrink: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24 }}>
-                        {stage.status === 'completed' ? (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        ) : stage.status === 'processing' ? (
-                          <div style={{ width: 16, height: 16, border: '2px solid var(--color-accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                        ) : stage.status === 'error' ? (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        ) : (
-                          <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--color-text-tertiary)' }} />
-                        )}
-                      </div>
-                      {i < pipeline.stages.length - 1 && (
-                        <div style={{
-                          width: 2, height: 28,
-                          background: stage.status === 'completed' ? '#22c55e' : 'var(--color-border)',
-                          borderRadius: 1,
-                        }} />
-                      )}
-                    </div>
-
-                    {/* 右侧内容 */}
-                    <div style={{ flex: 1, paddingBottom: i < pipeline.stages.length - 1 ? 8 : 0, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: stage.status === 'pending' ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)', marginBottom: 2 }}>
-                        {stage.label}
-                        {stage.status === 'processing' && <span style={{ color: 'var(--color-accent)', marginLeft: 6 }}>分析中...</span>}
-                      </div>
-                      {stage.detail && (
-                        <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
-                          {stage.detail}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* 错误显示 */}
-                {analysisError && (
-                  <div style={{ marginTop: 12, fontSize: 13, color: '#ef4444', padding: 12, background: 'rgba(239,68,68,0.08)', borderRadius: 8 }}>
-                    {analysisError}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 未开始分析时显示设置和确认按钮 */}
-            {!isAnalyzing && pipeline.stages.length === 0 && (
-              <div style={{ padding: '16px 20px 20px' }}>
-                {/* 模型选择 */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginBottom: '6px', display: 'block' }}>
-                    AI 模型
-                  </label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      background: 'var(--color-bg-secondary)',
-                      color: 'var(--color-text-primary)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                    }}
-                  >
-                    {providerModels.length > 0 ? (
-                      providerModels.map(model => (
-                        <option key={model} value={model}>{model}</option>
-                      ))
-                    ) : (
-                      <option value={activeModel}>{activeModel || '未配置模型'}</option>
-                    )}
-                  </select>
-                </div>
-
-                {/* 笔记风格选择 - 下拉菜单 */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginBottom: '6px', display: 'block' }}>
-                    笔记风格
-                  </label>
-                  <select
-                    value={style}
-                    onChange={(e) => setStyle(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      background: 'var(--color-bg-secondary)',
-                      color: 'var(--color-text-primary)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {styleOptions.map(option => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                  <p style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-                    {currentStyleInfo?.description || ''}
-                  </p>
-                </div>
-
-                {/* 详细/简约程度 */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginBottom: '6px', display: 'block' }}>
-                    详细程度
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {[
-                      { value: 'simple', label: '简约' },
-                      { value: 'detailed', label: '详细' },
-                    ].map(len => (
-                      <button
-                        key={len.value}
-                        type="button"
-                        onClick={() => setDetailLevel(len.value)}
-                        style={{
-                          flex: 1,
-                          padding: '6px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          background: detailLevel === len.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-                          color: detailLevel === len.value ? '#fff' : 'var(--color-text-primary)',
-                          border: 'none',
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                        }}
-                      >
-                        {len.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 输出格式选择 - 内联样式 */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginBottom: '6px', display: 'block' }}>
-                    输出格式
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {NOTE_FORMATS.map(format => (
-                      <button
-                        key={format.value}
-                        type="button"
-                        onClick={() => {
-                          if (formats.includes(format.value)) {
-                            setFormats(formats.filter(f => f !== format.value));
-                          } else {
-                            setFormats([...formats, format.value]);
-                          }
-                        }}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '9999px',
-                          fontSize: '12px',
-                          background: formats.includes(format.value) ? '#22c55e' : 'var(--color-bg-secondary)',
-                          color: formats.includes(format.value) ? '#fff' : 'var(--color-text-primary)',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {format.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 分析进行中显示当前配置（只读） */}
-            {isAnalyzing && (
-              <div style={{ padding: '12px 20px', opacity: 0.7, borderTop: '1px solid var(--color-border)' }}>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
-                  当前配置：
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', lineHeight: 1.8 }}>
-                  <div>模型：{activeProvider} / {selectedModel}</div>
-                  <div>风格：{style}</div>
-                  <div>格式：{formats.join(', ') || '无'}</div>
-                </div>
-              </div>
-            )}
-
-            {/* 底部按钮 */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 20px', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
-              {!isAnalyzing && pipeline.stages.length === 0 && (
-                <>
-                  <button
-                    onClick={() => setShowModal(false)}
-                    style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={confirmAndStartAnalysis}
-                    style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'var(--color-accent)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-                  >
-                    开始分析
-                  </button>
-                </>
-              )}
-              {isAnalyzing && (
-                <button
-                  onClick={() => setShowModal(false)}
-                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}
-                >
-                  取消
-                </button>
-              )}
-              {pipeline.stages.length > 0 && !isAnalyzing && pipeline.stages.every(s => s.status === 'completed') && (
-                <button
-                  onClick={() => setShowModal(false)}
-                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-                >
-                  查看笔记
-                </button>
-              )}
-              {pipeline.stages.length > 0 && !isAnalyzing && pipeline.stages.some(s => s.status === 'error') && (
-                <button
-                  onClick={() => setShowModal(false)}
-                  style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
-                >
-                  关闭
-                </button>
-              )}
-            </div>
+            ))}
           </div>
+        )}
+
+        {analysisError && (
+          <div style={{ marginBottom: '12px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '13px' }}>
+            {analysisError}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={startAnalyze}
+            disabled={isAnalyzing}
+            style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-accent)', color: '#fff', border: 'none', cursor: isAnalyzing ? 'not-allowed' : 'pointer', opacity: isAnalyzing ? 0.6 : 1 }}
+          >
+            {isAnalyzing ? '重新生成中...' : '重新生成'}
+          </button>
+          <button
+            type="button"
+            onClick={handleStopAnalysis}
+            disabled={!isAnalyzing}
+            style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: 'none', cursor: !isAnalyzing ? 'not-allowed' : 'pointer', opacity: !isAnalyzing ? 0.6 : 1 }}
+          >
+            停止
+          </button>
         </div>
-      , document.body)}
+      </div>
 
       <div
         ref={contentRef}
@@ -899,7 +760,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
             {(!content || !isEditing) && !isAnalyzing && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
                 <button 
-                  onClick={openAnalysisSettings} 
+                  onClick={startAnalyze} 
                   style={{ 
                     padding: '10px 20px', 
                     background: 'var(--color-accent)', 
