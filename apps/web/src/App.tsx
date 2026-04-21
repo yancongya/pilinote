@@ -9,7 +9,6 @@ import { useNewQueueStore } from './stores/newQueue'
 import { useEffect } from 'react'
 import { ToastProvider } from './components/Toast'
 import AiNotePanel from './pages/components/AiNotePanel'
-import { TranscriptTab, NoteTab, MindMapTab } from './pages/components/AiNotePanel'
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)

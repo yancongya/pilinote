@@ -74,7 +74,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [showModelSelect, setShowModelSelect] = useState(false);
-  const [analysisExpanded, setAnalysisExpanded] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
 
   // 版本管理状态
@@ -540,25 +539,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
             </div>
           )}
 
-          {/* 字幕分析控制 */}
-          <button
-            onClick={() => setAnalysisExpanded(v => !v)}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              background: analysisExpanded ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-              color: analysisExpanded ? '#fff' : 'var(--color-text-primary)',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            {analysisExpanded ? '收起字幕分析' : '展开字幕分析'}
-          </button>
-
           {/* 术语替换按钮 */}
           <button
             onClick={handleApplyTerms}
@@ -580,19 +560,17 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
           </button>
         </div>
 
-        {analysisExpanded && (
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
-            <SubtitleAnalysisModal
-              isOpen={analysisExpanded}
-              onClose={() => setAnalysisExpanded(false)}
-              videoId={videoId}
-              content={content}
-              modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
-              modelName={selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined}
-              onApplyFix={handleApplyFix}
-            />
-          </div>
-        )}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
+          <SubtitleAnalysisModal
+            isOpen={true}
+            onClose={() => {}}
+            videoId={videoId}
+            content={content}
+            modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
+            modelName={selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined}
+            onApplyFix={handleApplyFix}
+          />
+        </div>
 
         {/* 字幕列表 */}
         <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: '8px' }}>

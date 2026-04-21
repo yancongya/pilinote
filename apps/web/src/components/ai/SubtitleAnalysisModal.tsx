@@ -206,10 +206,10 @@ export default function SubtitleAnalysisModal({
   };
 
   return (
-    <div style={{ width: '100%', background: 'var(--color-bg-primary)', borderRadius: 16, border: '1px solid var(--color-border)', overflow: 'hidden' }}>
+    <div style={{ width: '100%', background: 'transparent', borderRadius: 0, border: 'none', overflow: 'visible' }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--color-border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0 12px 0', borderBottom: '1px solid var(--color-border)' }}>
         <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>AI 字幕分析</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {taskId && <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)' }}>{taskId.slice(0, 8)}</span>}
@@ -223,7 +223,7 @@ export default function SubtitleAnalysisModal({
         </div>
       </div>
 
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '12px 0', borderBottom: '1px solid var(--color-border)', display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)' }}>当前模型</span>
           <span style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>{modelProvider}{modelName ? ` / ${modelName}` : ''}</span>
@@ -248,7 +248,7 @@ export default function SubtitleAnalysisModal({
         </div>
       </div>
 
-      <div style={{ padding: '20px 20px 12px', flexShrink: 0 }}>
+      <div style={{ padding: '12px 0 8px', flexShrink: 0 }}>
         {stages.filter(s => s.key !== 'DONE').map((stage, i) => (
           <div key={stage.key} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: i < 2 ? 0 : 0 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 24, flexShrink: 0 }}>
@@ -283,7 +283,7 @@ export default function SubtitleAnalysisModal({
       </div>
 
       {(isComplete || hasError) && (
-        <div style={{ flex: 1, overflow: 'auto', padding: '0 20px 16px', borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '12px 0 8px', borderTop: '1px solid var(--color-border)' }}>
           {hasError && (
             <div style={{ fontSize: 13, color: '#ef4444', padding: 12, background: 'rgba(239,68,68,0.08)', borderRadius: 8 }}>
               {error}
@@ -328,7 +328,7 @@ export default function SubtitleAnalysisModal({
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 20px', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 0 0', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
         {isComplete && issues.length > 0 && (
           <button
             type="button"

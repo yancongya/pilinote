@@ -552,29 +552,6 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
           <span style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>AI 笔记</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {content && !isAnalyzing && !isEditing && (
-            <button
-              onClick={startAnalyze}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                background: 'var(--color-accent)',
-                color: '#fff',
-                border: 'none',
-                cursor: 'pointer',
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              重新分析
-            </button>
-          )}
           {isEditing ? (
             <>
               <button onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '14px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}>取消</button>
@@ -594,8 +571,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
       </div>
 
       <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px', marginBottom: '12px' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '180px', flex: '1 1 180px' }}>
             AI 模型
             <select
               value={selectedModel}
@@ -611,7 +588,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
             </select>
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '180px', flex: '1 1 180px' }}>
             笔记风格
             <select
               value={style}
@@ -623,7 +600,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
             </select>
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '168px' }}>
             详细程度
             <div style={{ display: 'flex', gap: '8px' }}>
               {[{ value: 'simple', label: '简约' }, { value: 'detailed', label: '详细' }].map(len => (
@@ -632,7 +609,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
                   type="button"
                   onClick={() => setDetailLevel(len.value)}
                   disabled={isAnalyzing}
-                  style={{ flex: 1, padding: '8px', borderRadius: '8px', background: detailLevel === len.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)', color: detailLevel === len.value ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', background: detailLevel === len.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)', color: detailLevel === len.value ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
                 >
                   {len.label}
                 </button>
@@ -640,7 +617,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
             </div>
           </label>
 
-          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--color-text-secondary)', fontSize: '12px', minWidth: '260px', flex: '2 1 260px' }}>
             高级设置
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {NOTE_FORMATS.map(format => {
@@ -661,12 +638,31 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
               })}
             </div>
           </label>
+
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              onClick={startAnalyze}
+              disabled={isAnalyzing}
+              style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-accent)', color: '#fff', border: 'none', cursor: isAnalyzing ? 'not-allowed' : 'pointer', opacity: isAnalyzing ? 0.6 : 1 }}
+            >
+              {isAnalyzing ? '重新生成中...' : '重新生成'}
+            </button>
+            <button
+              type="button"
+              onClick={handleStopAnalysis}
+              disabled={!isAnalyzing}
+              style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: 'none', cursor: !isAnalyzing ? 'not-allowed' : 'pointer', opacity: !isAnalyzing ? 0.6 : 1 }}
+            >
+              停止
+            </button>
+          </div>
         </div>
 
         {pipeline.stages.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
             {pipeline.stages.map(stage => (
-              <div key={stage.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--color-bg-secondary)', borderRadius: '8px' }}>
+              <div key={stage.key} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--color-bg-secondary)', borderRadius: '9999px' }}>
                 <span style={{ fontSize: '12px', color: 'var(--color-text-primary)' }}>{stage.label}</span>
                 <span style={{ fontSize: '12px', color: stage.status === 'completed' ? '#22c55e' : stage.status === 'error' ? '#ef4444' : 'var(--color-accent)' }}>
                   {stage.status === 'completed' ? '完成' : stage.status === 'processing' ? '处理中' : stage.status === 'error' ? '失败' : '等待'}
@@ -677,29 +673,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
         )}
 
         {analysisError && (
-          <div style={{ marginBottom: '12px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '13px' }}>
+          <div style={{ marginTop: '12px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '13px' }}>
             {analysisError}
           </div>
         )}
-
-        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            onClick={startAnalyze}
-            disabled={isAnalyzing}
-            style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-accent)', color: '#fff', border: 'none', cursor: isAnalyzing ? 'not-allowed' : 'pointer', opacity: isAnalyzing ? 0.6 : 1 }}
-          >
-            {isAnalyzing ? '重新生成中...' : '重新生成'}
-          </button>
-          <button
-            type="button"
-            onClick={handleStopAnalysis}
-            disabled={!isAnalyzing}
-            style={{ padding: '8px 16px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: 'none', cursor: !isAnalyzing ? 'not-allowed' : 'pointer', opacity: !isAnalyzing ? 0.6 : 1 }}
-          >
-            停止
-          </button>
-        </div>
       </div>
 
       <div
@@ -733,7 +710,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder={content ? '' : '暂无笔记，点击开始编辑或点击上方"AI 生成笔记"按钮生成'}
+                placeholder={content ? '' : '暂无笔记，点击上方重新生成按钮创建笔记'}
                 style={{
                   width: '100%',
                   flex: 1,
@@ -756,31 +733,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
               </div>
             )}
             
-            {/* 空内容时显示生成按钮（不在modal里，在主内容区域） */}
-            {(!content || !isEditing) && !isAnalyzing && (
+            {!content && !isAnalyzing && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-                <button 
-                  onClick={startAnalyze} 
-                  style={{ 
-                    padding: '10px 20px', 
-                    background: 'var(--color-accent)', 
-                    color: '#fff', 
-                    borderRadius: '8px', 
-                    border: 'none', 
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.385-1.736-1.04-2.329l.548-.547z" />
-                  </svg>
-                  AI 生成笔记
-                </button>
                 <span style={{ color: 'var(--color-text-tertiary)', fontSize: '13px' }}>
-                  {!content ? '暂无笔记，点击生成或直接在上方编辑' : '双击内容区域可编辑'}
+                  暂无笔记，点击上方重新生成按钮创建笔记
                 </span>
               </div>
             )}
