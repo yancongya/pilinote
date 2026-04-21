@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { apiService } from '../../../services/api';
 import { useSettingsStore } from '../../../stores/settings';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
+import { getApiBaseUrl } from '../../../config/api';
+import { useToast } from '../../../components/Toast';
 import TermReplacementModal from '../../../components/ai/TermReplacementModal';
 
 interface Subtitle {
@@ -25,6 +27,27 @@ interface SubtitleFile {
   path: string;
   source_label: string;
 }
+
+interface AnalysisIssue {
+  index: number;
+  type: 'typo' | 'grammar' | 'term';
+  text: string;
+  suggestion: string;
+}
+
+interface AnalysisStage {
+  key: string;
+  label: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  data?: Record<string, any>;
+}
+
+const ANALYSIS_STAGE_DEFS = [
+  { key: 'READ_NFO', label: '读取视频信息' },
+  { key: 'SUBTITLE_OVERVIEW', label: '字幕概况' },
+  { key: 'AI_ANALYZE', label: 'AI 修正分析' },
+  { key: 'DONE', label: '完成' },
+];
 
 function parseSRT(content: string): Subtitle[] {
   const pattern = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n\n|\n*$)/g;
@@ -73,6 +96,14 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [showModelSelect, setShowModelSelect] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStages, setAnalysisStages] = useState<AnalysisStage[]>(ANALYSIS_STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const })));
+  const [analysisIssues, setAnalysisIssues] = useState<AnalysisIssue[]>([]);
+  const [analysisSummary, setAnalysisSummary] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
+  const [analysisTaskId, setAnalysisTaskId] = useState('');
+  const [showAnalysisResult, setShowAnalysisResult] = useState(false);
+  const analysisAbortRef = useRef<AbortController | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   // 版本管理状态
@@ -86,6 +117,158 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const settings = useSettingsStore((state) => state.settings);
   const aiRuntimeState = useAiRuntimeState();
   const testedModels = aiRuntimeState.testedModels || {};
+  const { showToast } = useToast();
+
+  const availableProviders = useMemo(() => {
+    const providers = settings?.llm?.providers || [];
+    return providers.filter((p) => testedModels[p.id]?.length > 0);
+  }, [settings, testedModels]);
+
+  const resetAnalysisState = useCallback(() => {
+    setAnalysisStages(ANALYSIS_STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const })));
+    setAnalysisIssues([]);
+    setAnalysisSummary('');
+    setAnalysisError('');
+    setAnalysisTaskId('');
+    setShowAnalysisResult(false);
+  }, []);
+
+  const stopAnalysis = useCallback(async () => {
+    analysisAbortRef.current?.abort();
+    if (analysisTaskId) {
+      try {
+        await fetch(`${getApiBaseUrl()}/api/ai/subtitle/cancel/${encodeURIComponent(analysisTaskId)}`, { method: 'POST' });
+        showToast('已取消字幕纠正', 'success');
+      } catch {
+        showToast('取消字幕纠正失败', 'error');
+      }
+    } else {
+      showToast('已停止字幕纠正请求', 'info');
+    }
+    setIsAnalyzing(false);
+  }, [analysisTaskId, showToast]);
+
+  const handleApplyFix = useCallback(async (fixIssues: AnalysisIssue[]) => {
+    if (!fixIssues?.length) return;
+
+    const blocks = content.split(/\n\n+/);
+    const issueMap = new Map<number, AnalysisIssue>();
+    for (const issue of fixIssues) {
+      if (issue.index && issue.suggestion) {
+        issueMap.set(issue.index, issue);
+      }
+    }
+
+    const fixedBlocks = blocks.map(block => {
+      const lines = block.split('\n');
+      if (lines.length < 3) return block;
+      const idx = parseInt(lines[0]);
+      const fix = issueMap.get(idx);
+      if (fix) {
+        lines[2] = fix.suggestion;
+      }
+      return lines.join('\n');
+    });
+
+    const fixedContent = fixedBlocks.join('\n\n') + '\n';
+
+    try {
+      await apiService.saveLocalFile(videoId, 'subtitle', fixedContent, selectedSubtitleFilename || undefined);
+      setContent(fixedContent);
+      await loadVersions(selectedSubtitleFilename || undefined);
+      setShowAnalysisResult(false);
+      showToast('字幕已应用修正', 'success');
+    } catch (err) {
+      console.error('应用修正失败:', err);
+      showToast('应用修正失败', 'error');
+    }
+  }, [content, selectedSubtitleFilename, showToast, videoId]);
+
+  const startAnalysis = useCallback(async () => {
+    if (isAnalyzing) return;
+    if (!selectedProvider && availableProviders.length === 0) {
+      showToast('请先配置并验证 AI 模型', 'warning');
+      return;
+    }
+    resetAnalysisState();
+    setIsAnalyzing(true);
+    showToast('已开始字幕纠正', 'info');
+
+    const ac = new AbortController();
+    analysisAbortRef.current = ac;
+
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/ai/subtitle/pipeline-analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_id: videoId,
+          content,
+          model_provider: selectedProvider || availableProviders[0]?.id || 'openai',
+          model_name: selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined,
+        }),
+        signal: ac.signal,
+      });
+
+      if (!response.body) throw new Error('无法建立连接');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            const { stage, status, data } = event;
+
+            if (stage === 'META' && data?.task_id) {
+              setAnalysisTaskId(data.task_id);
+            }
+
+            setAnalysisStages(prev => prev.map(s => (s.key === stage ? { ...s, status, data } : s)));
+
+            if (stage === 'DONE' && status === 'completed') {
+              setAnalysisIssues(data?.issues || []);
+              setAnalysisSummary(data?.summary || '');
+              setIsAnalyzing(false);
+              analysisAbortRef.current = null;
+              setShowAnalysisResult(true);
+              showToast('字幕纠正完成', 'success');
+            }
+
+            if (stage === 'DONE' && status === 'error') {
+              const message = data?.error || '分析失败';
+              setAnalysisError(message);
+              setIsAnalyzing(false);
+              analysisAbortRef.current = null;
+              showToast(message, 'error');
+            }
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setIsAnalyzing(false);
+        analysisAbortRef.current = null;
+        showToast('已取消字幕纠正', 'info');
+        return;
+      }
+      const message = err?.message || '连接失败';
+      setAnalysisError(message);
+      setIsAnalyzing(false);
+      analysisAbortRef.current = null;
+      showToast(message, 'error');
+    }
+  }, [availableProviders.length, content, isAnalyzing, selectedModels, selectedProvider, showToast, videoId, resetAnalysisState]);
 
   useEffect(() => {
     if (videoId) {
@@ -195,11 +378,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
     setContent(newContent);
     loadVersions(selectedSubtitleFilename || undefined);
   };
-
-  const availableProviders = useMemo(() => {
-    const providers = settings?.llm?.providers || [];
-    return providers.filter((p) => testedModels[p.id]?.length > 0);
-  }, [settings, testedModels]);
 
   useEffect(() => {
     if (availableProviders.length > 0 && Object.keys(selectedModels).length === 0) {
@@ -505,6 +683,27 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
             </div>
           )}
 
+          {/* 纠正按钮 */}
+          <button
+            onClick={isAnalyzing ? stopAnalysis : startAnalysis}
+            disabled={!content && !isAnalyzing}
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              background: isAnalyzing ? '#ef4444' : 'var(--color-accent)',
+              color: '#fff',
+              border: 'none',
+              cursor: !content && !isAnalyzing ? 'not-allowed' : 'pointer',
+              opacity: !content && !isAnalyzing ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            {isAnalyzing ? '停止' : '纠正'}
+          </button>
+
           {/* 术语替换按钮 */}
           <button
             onClick={handleApplyTerms}
@@ -525,6 +724,12 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
             术语替换
           </button>
         </div>
+
+        {analysisError && (
+          <div style={{ margin: '12px 16px 0', padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '13px' }}>
+            {analysisError}
+          </div>
+        )}
 
         {/* 字幕列表 */}
         <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
@@ -763,6 +968,50 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
               <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--color-text-tertiary)', fontSize: '12px' }}>
                 暂无版本记录
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAnalysisResult && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.55)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 80,
+          padding: '16px',
+        }}>
+          <div style={{ width: 'min(820px, 100%)', maxHeight: '88vh', overflow: 'auto', background: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-text-primary)' }}>字幕纠正结果</div>
+                {analysisSummary && <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--color-text-secondary)' }}>{analysisSummary}</div>}
+              </div>
+              <button type="button" onClick={() => setShowAnalysisResult(false)} style={{ padding: '6px 10px', borderRadius: '8px', border: 'none', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', cursor: 'pointer' }}>关闭</button>
+            </div>
+            {analysisIssues.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>发现 {analysisIssues.length} 个问题</div>
+                {analysisIssues.map((issue, index) => (
+                  <div key={`${issue.index}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'var(--color-bg-secondary)' }}>
+                    <span style={{ padding: '1px 6px', borderRadius: '4px', fontSize: '10px', color: '#fff', background: issue.type === 'typo' ? '#ef4444' : issue.type === 'grammar' ? '#f59e0b' : '#8b5cf6' }}>{issue.type === 'typo' ? '错字' : issue.type === 'grammar' ? '语法' : '术语'}</span>
+                    <span style={{ color: '#ef4444', textDecoration: 'line-through', flex: 1, minWidth: 0 }}>{issue.text}</span>
+                    <span style={{ color: 'var(--color-text-tertiary)' }}>→</span>
+                    <span style={{ color: '#22c55e', flex: 1, minWidth: 0 }}>{issue.suggestion}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                  <button type="button" onClick={() => { setShowAnalysisResult(false); showToast('已关闭纠正结果', 'info'); }} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', cursor: 'pointer' }}>稍后处理</button>
+                  {analysisIssues.length > 0 && (
+                    <button type="button" onClick={() => handleApplyFix(analysisIssues)} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: '#22c55e', color: '#fff', cursor: 'pointer' }}>应用修正</button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: '#22c55e' }}>字幕质量良好，未发现问题</div>
             )}
           </div>
         </div>
