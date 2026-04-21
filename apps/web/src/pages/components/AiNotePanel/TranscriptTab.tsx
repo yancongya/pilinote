@@ -558,18 +558,18 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
           >
             术语替换
           </button>
-        </div>
 
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
-          <SubtitleAnalysisModal
-            isOpen={true}
-            onClose={() => {}}
-            videoId={videoId}
-            content={content}
-            modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
-            modelName={selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined}
-            onApplyFix={handleApplyFix}
-          />
+          <div style={{ flexBasis: '100%', marginTop: '12px' }}>
+            <SubtitleAnalysisModal
+              isOpen={true}
+              onClose={() => {}}
+              videoId={videoId}
+              content={content}
+              modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
+              modelName={selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined}
+              onApplyFix={handleApplyFix}
+            />
+          </div>
         </div>
 
         {/* 字幕列表 */}
