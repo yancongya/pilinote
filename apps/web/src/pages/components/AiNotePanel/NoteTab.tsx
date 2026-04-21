@@ -123,6 +123,39 @@ function parseInline(text: string, onHeadingClick?: (id: string) => void): React
       const linkText = linkMatch[1];
       const linkUrl = linkMatch[2];
 
+      // 原片跳转链接 - 显示为特殊样式
+      if (linkText.startsWith('原片 @') || linkText.startsWith('原片（')) {
+        const timeMatch = linkText.match(/原片[（@]\s*(\d{2}:\d{2})/);
+        const timeText = timeMatch ? timeMatch[1] : '';
+        
+        parts.push(
+          <span
+            key={key++}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 10px',
+              borderRadius: '9999px',
+              fontSize: '12px',
+              background: 'rgba(59, 130, 246, 0.15)',
+              color: '#60a5fa',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+            }}
+          >
+            <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>原片</span>
+            {timeText && <span style={{ color: '#93c5fd' }}>@{timeText}</span>}
+          </span>
+        );
+        remaining = remaining.slice(linkMatch[0].length);
+        continue;
+      }
+
+      // 锚点跳转
       if (linkUrl.startsWith('#')) {
         const anchorId = linkUrl.slice(1);
         parts.push(
