@@ -540,7 +540,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
       const response = await aiNoteService.reanalyze(noteId)
       if (response.success && response.note_id) {
         activeNoteIdRef.current = response.note_id
-        await pollStatus(response.note_id)
+        const completed = await pollStatus(response.note_id)
+        if (completed?.status === 'completed') {
+          setViewState('result')
+        }
         showToast('重新生成完成', 'success')
       } else {
         showToast(response.message || '重新生成失败', 'error')
