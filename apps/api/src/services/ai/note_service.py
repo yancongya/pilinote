@@ -961,11 +961,6 @@ class AiNoteService:
                 note=note,
             )
 
-            summary = self._extract_summary(markdown)
-            markdown_path = self._write_markdown_output(
-                actual_file_path, note.id, markdown
-            )
-
             # 后处理 Markdown
             markdown = self._post_process_markdown(
                 markdown,
@@ -974,6 +969,9 @@ class AiNoteService:
                 formats,
             )
             summary = self._extract_summary(markdown)
+            markdown_path = self._write_markdown_output(
+                actual_file_path, note.id, markdown
+            )
 
             note.content = markdown
             note.summary = summary
@@ -1639,6 +1637,8 @@ class AiNoteService:
         result = pattern.sub(replace_screenshot, markdown)
         screenshot_count = len(pattern.findall(markdown))
         logger.info(f"处理 {screenshot_count} 个截图标记")
+        if screenshot_count == 0:
+            logger.warning("未匹配到截图标记，请检查 prompt 是否输出 *Screenshot-[mm:ss]")
         return result
 
     def _post_process_markdown(
