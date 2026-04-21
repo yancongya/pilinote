@@ -8,7 +8,9 @@ import { useSettingsStore } from '../../../stores/settings';
 import { buildPromptStyleOptions } from '../../../services/promptCatalog';
 
 function slugify(text: string): string {
-  return text.toLowerCase()
+  // 提取标题部分（处理后端生成的 anchor-title-content-XXXX 格式）
+  const title = text.split('-content-')[0];
+  return title.toLowerCase()
     .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
