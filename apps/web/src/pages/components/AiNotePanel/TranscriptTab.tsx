@@ -62,7 +62,7 @@ function sourceLabel(source: string): string {
   }
 }
 
-export function TranscriptTab({ videoId }: { videoId: string }) {
+export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: string; onSubtitleFileChange?: (filename: string) => void }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,6 +148,7 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
         // 默认选中第一个字幕文件
         if (response.data.length > 0 && !selectedSubtitleFilename) {
           setSelectedSubtitleFilename(response.data[0].name);
+          onSubtitleFileChange?.(response.data[0].name);
         }
       }
     } catch (err) {
@@ -421,6 +422,7 @@ export function TranscriptTab({ videoId }: { videoId: string }) {
                       key={f.name}
                       onClick={() => {
                         setSelectedSubtitleFilename(f.name);
+                        onSubtitleFileChange?.(f.name);
                         setShowSubtitleFileSelect(false);
                       }}
                       style={{

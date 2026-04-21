@@ -2,8 +2,10 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel, Field
 from datetime import datetime
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 import tempfile
+import asyncio
+import json
 
 import os
 
@@ -23,6 +25,8 @@ def _run_ai_analysis_background(
     model_provider: str,
     model_name: str,
     extras: Optional[str],
+    subtitle_filename: Optional[str] = None,
+    level: Optional[str] = None,
 ):
     service = AiNoteService()
     try:
@@ -35,6 +39,8 @@ def _run_ai_analysis_background(
             model_provider=model_provider,
             model_name=model_name,
             extras=extras,
+            subtitle_filename=subtitle_filename,
+            level=level,
         )
     finally:
         if service.db:
@@ -52,6 +58,7 @@ class AnalyzeRequest(BaseModel):
     model_provider: Optional[str] = Field("openai", description="LLM 提供商")
     model_name: Optional[str] = Field("gpt-4o-mini", description="模型名称")
     extras: Optional[str] = Field(None, description="额外提示词")
+    subtitle_filename: Optional[str] = Field(None, description="指定使用的字幕文件名")
 
 
 class AnalyzeResponse(BaseModel):
@@ -125,43 +132,78 @@ class ErrorResponse(BaseModel):
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_video(request: AnalyzeRequest, background_tasks: BackgroundTasks):
     """触发 AI 分析"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[analyze] video_id={request.video_id}, subtitle_filename={request.subtitle_filename}")
     try:
-        # 支持三种方式：1) file_path（本地文件路径）2) downloads.id  3) bvid
+        # 支持四种方式：1) file_path（本地文件路径）2) downloads.id  3) bvid 4) 本地目录名
         file_path = request.video_id
+        video_id = request.video_id
 
         # 检查是否是有效的本地文件路径
-        if not file_path or not os.path.exists(file_path):
-            # 如果不是文件路径，尝试查找数据库记录
-            db = SessionLocal()
-            download = (
-                db.query(Download).filter(Download.id == request.video_id).first()
-            )
-
-            if not download:
-                # 尝试通过 bvid 查找
-                download = (
-                    db.query(Download)
-                    .filter(
-                        Download.bvid == request.video_id,
-                        Download.status == "completed",
-                    )
-                    .first()
-                )
-
-            if not download:
-                db.close()
-                raise HTTPException(status_code=404, detail="视频不存在或未下载")
-
-            if not download.file_path:
-                db.close()
-                raise HTTPException(status_code=400, detail="视频文件路径不存在")
-
-            file_path = download.file_path
-            video_id = download.id
-            db.close()
-        else:
-            # 使用文件路径作为 ID
+        if file_path and os.path.exists(file_path):
+            # 直接使用文件路径
             video_id = file_path
+        else:
+            # 尝试在 downloads 目录中查找本地文件
+            from src.routers.local import find_video_dir
+            video_dir = find_video_dir(request.video_id)
+            if video_dir and video_dir.exists():
+                # 在目录中查找视频文件
+                from src.services.ai.note_service import AiNoteService as NoteService
+                resolved_path = NoteService()._resolve_video_file_path(str(video_dir))
+                if resolved_path:
+                    logger.info(f"[analyze] 本地目录找到视频: {resolved_path}")
+                    file_path = resolved_path
+                    video_id = request.video_id
+                else:
+                    db = SessionLocal()
+                    # 尝试数据库查找
+                    download = (
+                        db.query(Download).filter(Download.id == request.video_id).first()
+                    )
+                    if not download:
+                        download = (
+                            db.query(Download)
+                            .filter(
+                                Download.bvid == request.video_id,
+                                Download.status == "completed",
+                            )
+                            .first()
+                        )
+                    if not download:
+                        db.close()
+                        raise HTTPException(status_code=404, detail=f"视频不存在或未下载: {request.video_id}")
+                    if not download.file_path:
+                        db.close()
+                        raise HTTPException(status_code=400, detail="视频文件路径不存在")
+                    file_path = download.file_path
+                    video_id = download.id
+                    db.close()
+            else:
+                db = SessionLocal()
+                # 尝试数据库查找
+                download = (
+                    db.query(Download).filter(Download.id == request.video_id).first()
+                )
+                if not download:
+                    download = (
+                        db.query(Download)
+                        .filter(
+                            Download.bvid == request.video_id,
+                            Download.status == "completed",
+                        )
+                        .first()
+                    )
+                if not download:
+                    db.close()
+                    raise HTTPException(status_code=404, detail=f"视频不存在或未下载: {request.video_id}")
+                if not download.file_path:
+                    db.close()
+                    raise HTTPException(status_code=400, detail="视频文件路径不存在")
+                file_path = download.file_path
+                video_id = download.id
+                db.close()
 
         service = AiNoteService()
         note = service.create_note_record(
@@ -183,6 +225,7 @@ async def analyze_video(request: AnalyzeRequest, background_tasks: BackgroundTas
             request.model_provider or "openai",
             request.model_name or "gpt-4o-mini",
             request.extras,
+            request.subtitle_filename,
         )
 
         return AnalyzeResponse(
@@ -400,3 +443,160 @@ async def get_note(note_id: str):
         updated_at=note.updated_at,
         completed_at=note.completed_at,
     )
+
+
+# ============ SSE 流式分析端点 ============
+
+class PipelineAnalyzeRequest(BaseModel):
+    """流式分析请求"""
+    video_id: str = Field(..., description="视频 ID")
+    style: Optional[str] = Field("detailed", description="笔记风格")
+    level: Optional[str] = Field("detailed", description="详细程度 (simple/detailed)")
+    formats: Optional[List[str]] = Field(None, description="输出格式")
+    model_provider: Optional[str] = Field("openai", description="模型提供商")
+    model_name: Optional[str] = Field(None, description="模型名称")
+    subtitle_filename: Optional[str] = Field(None, description="字幕文件名")
+
+
+@router.post("/pipeline-analyze")
+async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_tasks: BackgroundTasks):
+    """流水线式笔记分析，通过 SSE 逐步推送进度"""
+    import logging
+    logger = logging.getLogger(__name__)
+    from src.routers.local import find_video_dir
+    from src.services.ai.note_service import AiNoteService as NoteService
+
+    logger.info(f"[SSE] pipeline-analyze called with video_id={request.video_id}")
+
+    # 查找视频文件
+    file_path = None
+    video_dir = find_video_dir(request.video_id)
+    logger.info(f"[SSE] video_dir={video_dir}")
+    
+    if video_dir and video_dir.exists():
+        service = NoteService()
+        resolved_path = service._resolve_video_file_path(str(video_dir))
+        logger.info(f"[SSE] resolved_path={resolved_path}")
+        if resolved_path:
+            file_path = resolved_path
+        service.db.close()
+
+    if not file_path:
+        logger.error(f"[SSE] Video file not found for {request.video_id}")
+        raise HTTPException(status_code=404, detail="视频文件未找到")
+
+    # 创建笔记记录
+    service = NoteService()
+    note = service.create_note_record(
+        video_id=request.video_id,
+        style=request.style or "detailed",
+        formats=request.formats or ["summary"],
+        model_provider=request.model_provider or "openai",
+        model_name=request.model_name or "gpt-4o-mini",
+    )
+    note_id = note.id
+    service.db.close()
+
+    logger.info(f"[SSE] Created note: {note_id}")
+
+    # 在单独的线程池中启动分析任务，避免阻塞 SSE 事件循环
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(
+        None,  # 使用默认线程池
+        _run_ai_analysis_background,
+        note_id,
+        request.video_id,
+        file_path,
+        request.style or "detailed",
+        request.formats or ["summary"],
+        request.model_provider or "openai",
+        request.model_name or "gpt-4o-mini",
+        None,
+        request.subtitle_filename,
+        request.level or "detailed",
+    )
+    logger.info(f"[SSE] Analysis task started in background thread for note {note_id}")
+
+    # SSE 流：轮询笔记状态并推送事件
+    async def event_stream():
+        try:
+            import time
+            
+            # 追踪已推送的 trace 条目，避免重复推送
+            pushed_trace_stages = set()
+            
+            # 发送初始事件
+            yield f"data: {json.dumps({'stage': 'INIT', 'status': 'processing', 'data': {'note_id': note_id, 'message': '开始分析...'}}, ensure_ascii=False)}\n\n"
+            
+            # 轮询状态
+            while True:
+                try:
+                    svc = NoteService()
+                    note_status = svc.get_note(note_id)
+                    
+                    if not note_status:
+                        yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': '笔记记录丢失'}}, ensure_ascii=False)}\n\n"
+                        svc.db.close()
+                        break
+                    
+                    # 推送新增的 trace 事件（从 meta 中获取）
+                    trace = (note_status.meta or {}).get("trace", [])
+                    logger.info(f"[SSE] note_id={note_id}, trace_count={len(trace)}, pushed_count={len(pushed_trace_stages)}")
+                    
+                    for trace_entry in trace:
+                        stage_key = trace_entry.get("stage", "")
+                        if stage_key and stage_key not in pushed_trace_stages:
+                            pushed_trace_stages.add(stage_key)
+                            logger.info(f"[SSE] Pushing stage: {stage_key}")
+                            event_data = {
+                                "stage": stage_key,
+                                "status": "completed",
+                                "data": trace_entry.get("detail") or {},
+                            }
+                            yield f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
+                    
+                    # 推送当前阶段（仅当正在处理时）
+                    control = (note_status.meta or {}).get("control", {})
+                    current_stage = control.get("current_stage")
+                    if current_stage and note_status.status == "processing":
+                        logger.info(f"[SSE] Current stage: {current_stage}")
+                        # 获取当前阶段的trace详情
+                        trace = (note_status.meta or {}).get("trace", [])
+                        stage_detail = {}
+                        for t in trace:
+                            if t.get("stage") == current_stage:
+                                stage_detail = t.get("detail") or {}
+                                break
+                        event_data = {
+                            "stage": current_stage,
+                            "status": "processing",
+                            "data": stage_detail or {"message": "处理中..."},
+                        }
+                        yield f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
+                    
+                    # 检查是否完成
+                    if note_status.status == "completed":
+                        logger.info(f"[SSE] Analysis completed for note {note_id}")
+                        yield f"data: {json.dumps({'stage': 'DONE', 'status': 'completed', 'data': {'note_id': note_id}}, ensure_ascii=False)}\n\n"
+                        svc.db.close()
+                        break
+                    elif note_status.status == "failed":
+                        logger.error(f"[SSE] Analysis failed for note {note_id}: {note_status.error}")
+                        yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': note_status.error or '分析失败'}}, ensure_ascii=False)}\n\n"
+                        svc.db.close()
+                        break
+                    
+                    svc.db.close()
+                    await asyncio.sleep(1)
+                except Exception as poll_error:
+                    # 轮询失败，记录但继续尝试
+                    logger.warning(f"[SSE] Poll error: {poll_error}, retrying...")
+                    await asyncio.sleep(1)
+                
+        except Exception as e:
+            logger.error(f"[SSE] Error in event_stream: {e}", exc_info=True)
+            yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': str(e)}}, ensure_ascii=False)}\n\n"
+
+    logger.info(f"[SSE] Starting event stream for note {note_id}")
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+

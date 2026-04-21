@@ -3,10 +3,12 @@ import { apiService } from './api';
 export interface AnalyzeRequest {
   video_id: string;
   style?: string;
+  level?: string; // simple | detailed
   formats?: string[];
   model_provider?: string;
   model_name?: string;
   extras?: string;
+  subtitle_filename?: string;
 }
 
 export interface AnalyzeResponse {
@@ -83,28 +85,50 @@ export interface AiNoteTraceStageTemplate {
 
 export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTraceStageTemplate[]> = {
   video: [
-    { stage: 'AUDIO.FETCH', title: '音频', shortLabel: '音频' },
-    { stage: 'SUBTITLE.GENERATE', title: '字幕生成', shortLabel: '字幕' },
-    { stage: 'NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
-    { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
-    { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
-    { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+    { stage: 'video.AUDIO.FETCH', title: '音频', shortLabel: '音频' },
+    { stage: 'video.SUBTITLE.GENERATE', title: '字幕生成', shortLabel: '字幕' },
+    { stage: 'video.NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
+    { stage: 'video.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'video.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'video.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
   ],
   series: [
-    { stage: 'AUDIO.FETCH', title: '番剧信息', shortLabel: '获取' },
-    { stage: 'SUBTITLE.GENERATE', title: '分集与转写', shortLabel: '转写' },
-    { stage: 'NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
-    { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
-    { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
-    { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+    { stage: 'series.AUDIO.FETCH', title: '番剧信息', shortLabel: '获取' },
+    { stage: 'series.SUBTITLE.GENERATE', title: '分集与转写', shortLabel: '转写' },
+    { stage: 'series.NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
+    { stage: 'series.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'series.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'series.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
   ],
   image_text: [
-    { stage: 'AUDIO.FETCH', title: '图片识别', shortLabel: '识别' },
-    { stage: 'SUBTITLE.GENERATE', title: '文字提取', shortLabel: '提取' },
-    { stage: 'NFO.READ', title: '读取', shortLabel: '读取' },
-    { stage: 'PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
-    { stage: 'LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
-    { stage: 'CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+    { stage: 'image_text.AUDIO.FETCH', title: '图片识别', shortLabel: '识别' },
+    { stage: 'image_text.SUBTITLE.GENERATE', title: '文字提取', shortLabel: '提取' },
+    { stage: 'image_text.NFO.READ', title: '读取', shortLabel: '读取' },
+    { stage: 'image_text.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'image_text.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'image_text.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+  ],
+}
+
+// 重新分析时的阶段模板（跳过音频和字幕生成，因为已有字幕文件）
+export const AI_NOTE_REANALYZE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTraceStageTemplate[]> = {
+  video: [
+    { stage: 'video.NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
+    { stage: 'video.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'video.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'video.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+  ],
+  series: [
+    { stage: 'series.NFO.READ', title: 'NFO 读取', shortLabel: 'NFO' },
+    { stage: 'series.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'series.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'series.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
+  ],
+  image_text: [
+    { stage: 'image_text.NFO.READ', title: '读取', shortLabel: '读取' },
+    { stage: 'image_text.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
+    { stage: 'image_text.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
+    { stage: 'image_text.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
   ],
 }
 
@@ -114,7 +138,63 @@ export const aiNoteService = {
       method: 'POST',
       body: JSON.stringify(request),
     });
-    return (response.data ?? response) as AnalyzeResponse;
+    // apiService.request returns the raw response body directly (not wrapped in {data: ...})
+    // So we need to check if response has note_id, or if it's wrapped
+    if (response && 'note_id' in response) {
+      return response as AnalyzeResponse;
+    }
+    // If response has .data field (wrapped), use that
+    if ((response as any)?.data) {
+      return (response as any).data as AnalyzeResponse;
+    }
+    throw new Error((response as any)?.message || '分析请求失败，无返回数据');
+  },
+
+  /**
+   * 使用 SSE 流式分析笔记
+   * @param request 分析请求
+   * @param onEvent SSE 事件回调
+   * @param signal AbortSignal 用于取消请求
+   */
+  async analyzeStream(
+    request: AnalyzeRequest,
+    onEvent: (event: { stage: string; status: string; data?: any }) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const baseUrl = (await import('../config/api')).getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/api/note/pipeline-analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    });
+
+    if (!response.body) {
+      throw new Error('无法建立连接');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const event = JSON.parse(line.slice(6));
+          onEvent(event);
+        } catch {
+          // 忽略解析错误
+        }
+      }
+    }
   },
 
   async getStatus(noteId: string): Promise<NoteStatusResponse> {

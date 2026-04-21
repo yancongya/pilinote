@@ -41,6 +41,7 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
 export default function AiNotePanel() {
   const { videoId } = useParams<{ videoId: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('subtitle');
+  const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
 
   if (!videoId) {
     return (
@@ -169,8 +170,18 @@ export default function AiNotePanel() {
 
       {/* 内容区域 */}
       <main style={{ flex: 1, overflow: 'hidden' }}>
-        {activeTab === 'subtitle' && <TranscriptTab videoId={videoId} />}
-        {activeTab === 'note' && <NoteTab videoId={videoId} />}
+        {activeTab === 'subtitle' && (
+          <TranscriptTab
+            videoId={videoId}
+            onSubtitleFileChange={setSelectedSubtitleFilename}
+          />
+        )}
+        {activeTab === 'note' && (
+          <NoteTab
+            videoId={videoId}
+            selectedSubtitleFilename={selectedSubtitleFilename}
+          />
+        )}
         {activeTab === 'mindmap' && <MindMapTab videoId={videoId} />}
       </main>
     </div>

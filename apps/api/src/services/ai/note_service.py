@@ -665,6 +665,8 @@ class AiNoteService:
         model_provider: str = "openai",
         model_name: str = "gpt-4o-mini",
         extras: Optional[str] = None,
+        subtitle_filename: Optional[str] = None,
+        level: Optional[str] = None,
     ) -> AiNote:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
         if not note:
@@ -680,6 +682,8 @@ class AiNoteService:
             model_provider=model_provider,
             model_name=model_name,
             extras=extras,
+            subtitle_filename=subtitle_filename,
+            level=level,
         )
         return note
 
@@ -694,6 +698,8 @@ class AiNoteService:
         model_name: str,
         extras: Optional[str],
         resume_from_stage: Optional[str] = None,
+        subtitle_filename: Optional[str] = None,
+        level: Optional[str] = None,
     ) -> None:
         download = None
         actual_source_path = file_path
@@ -727,13 +733,23 @@ class AiNoteService:
         subtitle_downloaded = False
         platform_subtitle_path = None
 
-        subtitle_patterns = ["*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
-        for pattern in subtitle_patterns:
-            subtitle_files = list(Path(actual_file_path).parent.glob(pattern))
-            if subtitle_files:
-                platform_subtitle_path = str(subtitle_files[0])
+        if subtitle_filename:
+            # 使用指定的字幕文件
+            candidate = Path(actual_file_path).parent / subtitle_filename
+            if candidate.exists():
+                platform_subtitle_path = str(candidate)
                 subtitle_downloaded = True
-                break
+            else:
+                logger.warning(f"指定的字幕文件不存在: {candidate}")
+        else:
+            # 按优先级查找字幕文件
+            subtitle_patterns = ["*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
+            for pattern in subtitle_patterns:
+                subtitle_files = list(Path(actual_file_path).parent.glob(pattern))
+                if subtitle_files:
+                    platform_subtitle_path = str(subtitle_files[0])
+                    subtitle_downloaded = True
+                    break
 
         try:
             if subtitle_downloaded and platform_subtitle_path:
@@ -744,7 +760,7 @@ class AiNoteService:
                     context = {
                         "t0_text": "",
                         "transcript": subtitle_content,
-                        "level": self._resolve_level(style),
+                        "level": self._resolve_level(style, level),
                         "subtitle_source": "platform",
                     }
                     start_stage = self._stage_index("NFO.READ")
@@ -756,13 +772,13 @@ class AiNoteService:
                     context: Dict[str, Any] = {
                         "t0_text": artifacts.get("t0_text", ""),
                         "transcript": artifacts.get("transcript", ""),
-                        "level": artifacts.get("level", self._resolve_level(style)),
+                        "level": artifacts.get("level", self._resolve_level(style, level)),
                     }
             else:
                 context: Dict[str, Any] = {
                     "t0_text": artifacts.get("t0_text", ""),
                     "transcript": artifacts.get("transcript", ""),
-                    "level": artifacts.get("level", self._resolve_level(style)),
+                    "level": artifacts.get("level", self._resolve_level(style, level)),
                 }
 
             if start_stage <= self._stage_index("AUDIO.FETCH"):
@@ -817,8 +833,19 @@ class AiNoteService:
                         "running",
                         current_stage=self._trace_stage(pipeline_mode, "NFO.READ"),
                     )
-                    level = self._resolve_level(style)
+                    level = self._resolve_level(style, level)
                     context["level"] = level
+
+                    # 读取 NFO 获取视频元数据（标题、描述、标签等）
+                    if not context.get("t0_text"):
+                        t0 = self._read_nfo_context(
+                            actual_file_path,
+                            video_id,
+                            note,
+                            pipeline_mode,
+                        )
+                        context["t0_text"] = t0["text"]
+
                     self._add_trace(
                         self._trace_stage(pipeline_mode, "NFO.READ"),
                         "NFO 读取",
@@ -828,6 +855,7 @@ class AiNoteService:
                             "level": level,
                             "nfo_path": artifacts.get("nfo_path"),
                             "nfo_found": artifacts.get("nfo_found"),
+                            "t0_length": len(context.get("t0_text", "")),
                         },
                         note=note,
                     )
@@ -853,7 +881,7 @@ class AiNoteService:
                     context["transcript"] = artifacts.get("transcript", "")
                 if not context.get("level"):
                     context["level"] = artifacts.get(
-                        "level", self._resolve_level(style)
+                        "level", self._resolve_level(style, level)
                     )
 
             if download:
@@ -1003,7 +1031,9 @@ class AiNoteService:
         finally:
             self.db.close()
 
-    def _resolve_level(self, style: str) -> str:
+    def _resolve_level(self, style: str, level: Optional[str] = None) -> str:
+        if level:
+            return level
         return "simple" if style in {"minimal", "task_oriented"} else "detailed"
 
     def _resolve_video_file_path(self, source_path: Optional[str]) -> Optional[str]:
@@ -1189,7 +1219,7 @@ class AiNoteService:
             note=note,
         )
 
-        level = self._resolve_level(style)
+        level = self._resolve_level(style, level)
         t0_for_nfo = NFOReader.read_t0_text(video_path)
         self._add_trace(
             self._trace_stage(pipeline_mode, "NFO.READ"),
@@ -1410,6 +1440,7 @@ class AiNoteService:
                 provider_config["api_key"] = (
                     getattr(settings.llm, "api_key", "") or None
                 )
+                logger.info(f"[LLM] Initial provider_config: api_key={'***' + provider_config['api_key'][-4:] if provider_config.get('api_key') else 'None'}")
                 providers = getattr(settings.llm, "providers", []) or []
                 matched_provider = next(
                     (
@@ -1432,6 +1463,7 @@ class AiNoteService:
                         or matched_provider.get("api_key")
                         or provider_config["api_key"]
                     ) or None
+                    logger.info(f"[LLM] Matched provider config: api_key={'***' + provider_config['api_key'][-4:] if provider_config.get('api_key') else 'None'}")
 
             previous_summary = ""
             if is_incremental and note and note.previous_analysis:
@@ -1479,12 +1511,24 @@ class AiNoteService:
                     LLMMessage(role="system", content=prompt),
                     LLMMessage(role="user", content="请根据以上信息生成笔记。"),
                 ]
-            response = client.chat(messages, model=model_name, temperature=0.7)
-            response_content = (
-                response.content
-                if response and hasattr(response, "content")
-                else str(response)
-            )
+            
+            # 使用流式调用（暂不实时推送，避免数据库锁）
+            response_content = ""
+            if hasattr(client, 'chat_stream') and model_name:
+                # 支持流式调用
+                logger.info(f"[LLM] 使用流式调用 {model_provider}/{model_name}")
+                for chunk_text in client.chat_stream(messages, model=model_name, temperature=0.7):
+                    if chunk_text:
+                        response_content += chunk_text
+            else:
+                # 回退到同步调用
+                logger.info(f"[LLM] 使用同步调用 {model_provider}/{model_name}")
+                response = client.chat(messages, model=model_name, temperature=0.7)
+                response_content = (
+                    response.content
+                    if response and hasattr(response, "content")
+                    else str(response)
+                )
             self._add_trace(
                 self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
                 "AI 分析完成",
