@@ -3,7 +3,6 @@ import { apiService } from '../../../services/api';
 import { useSettingsStore } from '../../../stores/settings';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
-import SubtitleAnalysisModal from '../../../components/ai/SubtitleAnalysisModal';
 import TermReplacementModal from '../../../components/ai/TermReplacementModal';
 
 interface Subtitle {
@@ -217,39 +216,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       }
     }
   }, [availableProviders, testedModels]);
-
-  const handleApplyFix = async (fixIssues: { index: number; text: string; suggestion: string }[]) => {
-    if (!fixIssues?.length) return;
-
-    const blocks = content.split(/\n\n+/);
-    const issueMap = new Map<number, { text: string; suggestion: string }>();
-    for (const issue of fixIssues) {
-      if (issue.index && issue.suggestion) {
-        issueMap.set(issue.index, { text: issue.text, suggestion: issue.suggestion });
-      }
-    }
-
-    const fixedBlocks = blocks.map(block => {
-      const lines = block.split('\n');
-      if (lines.length < 3) return block;
-      const idx = parseInt(lines[0]);
-      const fix = issueMap.get(idx);
-      if (fix) {
-        lines[2] = fix.suggestion;
-      }
-      return lines.join('\n');
-    });
-
-    const fixedContent = fixedBlocks.join('\n\n') + '\n';
-
-    try {
-      await apiService.saveLocalFile(videoId, 'subtitle', fixedContent, selectedSubtitleFilename || undefined);
-      setContent(fixedContent);
-      await loadVersions(selectedSubtitleFilename || undefined);
-    } catch (err) {
-      console.error('应用修正失败:', err);
-    }
-  };
 
   // ---- 版本操作 ----
 
@@ -558,18 +524,6 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
           >
             术语替换
           </button>
-
-          <div style={{ flexBasis: '100%', marginTop: '12px' }}>
-            <SubtitleAnalysisModal
-              isOpen={true}
-              onClose={() => {}}
-              videoId={videoId}
-              content={content}
-              modelProvider={selectedProvider || availableProviders[0]?.id || 'openai'}
-              modelName={selectedModels[selectedProvider || availableProviders[0]?.id || ''] || undefined}
-              onApplyFix={handleApplyFix}
-            />
-          </div>
         </div>
 
         {/* 字幕列表 */}
