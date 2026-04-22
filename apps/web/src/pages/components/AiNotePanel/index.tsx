@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { TranscriptTab } from './TranscriptTab';
 import { NoteTab } from './NoteTab';
@@ -32,6 +32,16 @@ export default function AiNotePanel() {
   const { videoId } = useParams<{ videoId: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('subtitle');
   const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
+  const [mountedTabs, setMountedTabs] = useState<Set<TabType>>(() => new Set(['subtitle']));
+
+  useEffect(() => {
+    setMountedTabs(prev => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   if (!videoId) {
     return (
@@ -160,17 +170,21 @@ export default function AiNotePanel() {
 
       {/* 内容区域 */}
       <main style={{ flex: 1, overflow: 'hidden' }}>
-        {activeTab === 'subtitle' && (
-          <TranscriptTab
-            videoId={videoId}
-            onSubtitleFileChange={setSelectedSubtitleFilename}
-          />
+        {mountedTabs.has('subtitle') && (
+          <div style={{ display: activeTab === 'subtitle' ? 'block' : 'none', height: '100%' }}>
+            <TranscriptTab
+              videoId={videoId}
+              onSubtitleFileChange={setSelectedSubtitleFilename}
+            />
+          </div>
         )}
-        {activeTab === 'note' && (
-          <NoteTab
-            videoId={videoId}
-            selectedSubtitleFilename={selectedSubtitleFilename}
-          />
+        {mountedTabs.has('note') && (
+          <div style={{ display: activeTab === 'note' ? 'block' : 'none', height: '100%' }}>
+            <NoteTab
+              videoId={videoId}
+              selectedSubtitleFilename={selectedSubtitleFilename}
+            />
+          </div>
         )}
       </main>
     </div>

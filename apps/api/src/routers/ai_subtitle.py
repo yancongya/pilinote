@@ -249,22 +249,26 @@ async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
         yield f"data: {json.dumps({'stage': 'AI_ANALYZE', 'status': 'processing', 'data': {}}, ensure_ascii=False)}\n\n"
 
         try:
+            loop = asyncio.get_running_loop()
             progress_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
 
-            async def on_progress(event: Dict[str, Any]) -> None:
-                await progress_queue.put(event)
+            def on_progress(event: Dict[str, Any]) -> None:
+                asyncio.run_coroutine_threadsafe(progress_queue.put(event), loop)
 
-            analysis_task = asyncio.create_task(
-                subtitle_analyzer.analyze(
-                    subtitle_content=request.content,
-                    model_provider=request.model_provider,
-                    model_name=request.model_name,
-                    video_context=video_context,
-                    subtitle_blocks=subtitle_blocks,
-                    task_id=task_id,
-                    progress_callback=on_progress,
+            def run_analysis() -> Dict[str, Any]:
+                return asyncio.run(
+                    subtitle_analyzer.analyze(
+                        subtitle_content=request.content,
+                        model_provider=request.model_provider,
+                        model_name=request.model_name,
+                        video_context=video_context,
+                        subtitle_blocks=subtitle_blocks,
+                        task_id=task_id,
+                        progress_callback=on_progress,
+                    )
                 )
-            )
+
+            analysis_task = asyncio.create_task(asyncio.to_thread(run_analysis))
 
             while not analysis_task.done() or not progress_queue.empty():
                 if not progress_queue.empty():

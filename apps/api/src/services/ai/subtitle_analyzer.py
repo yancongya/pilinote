@@ -373,34 +373,20 @@ class SubtitleAnalyzer:
                 )
                 messages = [LLMMessage(role="user", content=prompt)]
 
-                response_content = ""
-                if hasattr(client, "chat_stream"):
-                    stream = client.chat_stream(
-                        messages=messages,
-                        temperature=0.3,
-                        max_tokens=2000,
-                        model=model_name,
+                response = client.chat(
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=2000,
+                    model=model_name,
+                )
+                if not response or not response.content:
+                    logger.warning(
+                        "[subtitle-analysis] task=%s batch=%s empty_response",
+                        task_id or "none",
+                        batch["batch_index"],
                     )
-                    try:
-                        for chunk in stream:
-                            if task_id and task_control_registry.is_cancelled(task_id):
-                                raise RuntimeError("分析已取消")
-                            if chunk:
-                                response_content += chunk
-                    finally:
-                        close_stream = getattr(stream, "close", None)
-                        if callable(close_stream):
-                            close_stream()
-                else:
-                    response = client.chat(
-                        messages=messages,
-                        temperature=0.3,
-                        max_tokens=2000,
-                        model=model_name,
-                    )
-                    if not response or not response.content:
-                        return {"success": False, "error": "LLM返回为空"}
-                    response_content = response.content
+                    return {"success": False, "error": "LLM返回为空"}
+                response_content = response.content
 
                 if not response_content:
                     logger.warning(

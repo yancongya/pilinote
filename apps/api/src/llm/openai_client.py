@@ -11,10 +11,12 @@ class OpenAIClient(BaseLLMClient):
         self, api_key: Optional[str] = None, base_url: Optional[str] = None, **kwargs
     ):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.timeout = kwargs.get("timeout", 120.0)
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=base_url
             or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            timeout=self.timeout,
         )
 
     def chat(
@@ -34,6 +36,7 @@ class OpenAIClient(BaseLLMClient):
             messages=openai_messages,
             temperature=temperature,
             max_tokens=max_tokens,
+            timeout=self.timeout,
             **kwargs,
         )
 
@@ -68,6 +71,7 @@ class OpenAIClient(BaseLLMClient):
             temperature=temperature,
             max_tokens=max_tokens,
             stream=True,
+            timeout=self.timeout,
             **kwargs,
         )
 

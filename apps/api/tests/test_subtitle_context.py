@@ -1,5 +1,6 @@
 import asyncio
 import json
+import inspect
 from pathlib import Path
 
 from src.routers import ai_subtitle as ai_subtitle_router
@@ -153,6 +154,7 @@ def test_pipeline_analyze_streams_batch_progress(
 ):
     video_dir = tmp_path / "video"
     video_dir.mkdir()
+    called = {"to_thread": False}
 
     def fake_find_video_dir(video_id: str):
         return video_dir
@@ -177,7 +179,7 @@ def test_pipeline_analyze_streams_batch_progress(
     async def fake_analyze(**kwargs):
         progress_callback = kwargs.get("progress_callback")
         if progress_callback:
-            await progress_callback(
+            result = progress_callback(
                 {
                     "stage": "AI_ANALYZE",
                     "status": "processing",
@@ -190,7 +192,9 @@ def test_pipeline_analyze_streams_batch_progress(
                     },
                 }
             )
-            await progress_callback(
+            if inspect.isawaitable(result):
+                await result
+            result = progress_callback(
                 {
                     "stage": "AI_ANALYZE",
                     "status": "processing",
@@ -203,11 +207,19 @@ def test_pipeline_analyze_streams_batch_progress(
                     },
                 }
             )
+            if inspect.isawaitable(result):
+                await result
         return {"success": True, "issues": [], "summary": "ok"}
+
+    async def fake_to_thread(func, /, *args, **kwargs):
+        called["to_thread"] = True
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
     monkeypatch.setattr("src.routers.local.find_video_dir", fake_find_video_dir)
     monkeypatch.setattr(ai_subtitle_router, "build_video_context", fake_build_video_context)
     monkeypatch.setattr(ai_subtitle_router.subtitle_analyzer, "analyze", fake_analyze)
+    monkeypatch.setattr(ai_subtitle_router.asyncio, "to_thread", fake_to_thread)
 
     request = ai_subtitle_router.PipelineAnalyzeRequest(
         video_id="video-123",
@@ -239,3 +251,4 @@ def test_pipeline_analyze_streams_batch_progress(
 
     assert "batch_started" in phases
     assert "batch_completed" in phases
+    assert called["to_thread"] is True

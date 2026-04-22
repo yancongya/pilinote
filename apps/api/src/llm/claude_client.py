@@ -11,7 +11,8 @@ class ClaudeClient(BaseLLMClient):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY is required")
-        self.client = Anthropic(api_key=self.api_key)
+        self.timeout = kwargs.get("timeout", 120.0)
+        self.client = Anthropic(api_key=self.api_key, timeout=self.timeout)
 
     def chat(
         self,
@@ -40,6 +41,7 @@ class ClaudeClient(BaseLLMClient):
             system=system_content,
             temperature=temperature,
             max_tokens=max_tokens or 4096,
+            timeout=self.timeout,
             **kwargs,
         )
 
@@ -80,6 +82,7 @@ class ClaudeClient(BaseLLMClient):
             system=system_content,
             temperature=temperature,
             max_tokens=max_tokens or 4096,
+            timeout=self.timeout,
             **kwargs,
         ) as stream:
             for text in stream.text_stream:

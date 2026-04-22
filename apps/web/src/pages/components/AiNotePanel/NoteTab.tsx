@@ -87,6 +87,14 @@ interface ModelOption {
   value: string;
 }
 
+interface VersionMeta {
+  hash: string;
+  timestamp: number;
+  filename: string;
+  source: string;
+  label: string;
+}
+
 function createModelValue(provider: string, model: string): string {
   return `${provider}${MODEL_SELECTION_SEPARATOR}${model}`;
 }
@@ -97,6 +105,46 @@ function deriveFolderPath(filePath?: string | null): string | null {
   const separatorIndex = normalized.lastIndexOf('/');
   if (separatorIndex < 0) return null;
   return normalized.slice(0, separatorIndex);
+}
+
+function formatVersionTime(ts: number): string {
+  const date = new Date(ts);
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function sourceLabel(source: string): string {
+  switch (source) {
+    case 'ai':
+      return 'AI';
+    case 'auto':
+      return '自动';
+    case 'migration':
+      return '迁移';
+    case 'manual':
+      return '手动';
+    default:
+      return source;
+  }
+}
+
+function estimateNoteWordCount(content: string): number {
+  if (!content.trim()) return 0;
+
+  const plainText = content
+    .replace(/```[\s\S]*?```/g, '\n')
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/[`*_~]/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return plainText ? plainText.replace(/\s+/g, '').length : 0;
 }
 
 export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string; selectedSubtitleFilename?: string }) {
@@ -117,6 +165,9 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
   const [noteFilePath, setNoteFilePath] = useState<string | null>(null);
   const [noteFolderPath, setNoteFolderPath] = useState<string | null>(null);
   const [noteRevision, setNoteRevision] = useState(0);
+  const [versions, setVersions] = useState<VersionMeta[]>([]);
+  const [currentHash, setCurrentHash] = useState('');
+  const [showVersionPanel, setShowVersionPanel] = useState(false);
 
   const analysisAbortRef = useRef<AbortController | null>(null);
   const analysisNoteIdRef = useRef<string | null>(null);
@@ -216,6 +267,18 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     void aiRuntimeStateService.refresh();
   }, []);
 
+  const loadVersions = useCallback(async () => {
+    try {
+      const response = await apiService.getVersions(videoId, 'note');
+      if (response.success && response.data) {
+        setVersions(response.data.versions || []);
+        setCurrentHash(response.data.current || '');
+      }
+    } catch (err) {
+      console.error('加载笔记版本列表失败:', err);
+    }
+  }, [videoId]);
+
   const loadNote = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -240,6 +303,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
 
       if (response.meta?.style) setStyle(response.meta.style || DEFAULT_STYLE);
       if (response.meta?.formats && Array.isArray(response.meta.formats)) setFormats(response.meta.formats);
+
+      await loadVersions();
     } catch (err) {
       console.error('加载笔记失败:', err);
       setError('加载笔记失败');
@@ -248,10 +313,12 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
       setNoteFilePath(null);
       setNoteFolderPath(null);
       setNoteRevision((value) => value + 1);
+      setVersions([]);
+      setCurrentHash('');
     } finally {
       setLoading(false);
     }
-  }, [videoId]);
+  }, [loadVersions, videoId]);
 
   useEffect(() => {
     if (videoId) loadNote();
@@ -263,6 +330,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
       await apiService.saveLocalFile(videoId, 'note', content);
       originalContentRef.current = content;
       setEditorMode('preview');
+      setNoteRevision((value) => value + 1);
+      await loadVersions();
       showToast('笔记已保存', 'success');
     } catch (err) {
       console.error('保存笔记失败:', err);
@@ -271,13 +340,50 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     } finally {
       setIsSaving(false);
     }
-  }, [content, showToast, videoId]);
+  }, [content, loadVersions, showToast, videoId]);
 
   const handleCancelEdit = useCallback(() => {
     setContent(originalContentRef.current);
     setEditorMode('preview');
     setNoteRevision((value) => value + 1);
   }, []);
+
+  const handleSaveManualVersion = useCallback(async () => {
+    try {
+      await apiService.saveVersion(videoId, 'note', content, 'manual', '手动保存');
+      await loadVersions();
+      showToast('笔记版本已保存', 'success');
+    } catch (err) {
+      console.error('手动保存笔记版本失败:', err);
+      showToast('保存版本失败', 'error');
+    }
+  }, [content, loadVersions, showToast, videoId]);
+
+  const handleSwitchVersion = useCallback(async (hash: string) => {
+    try {
+      const response = await apiService.switchVersion(videoId, 'note', hash);
+      if (response.success) {
+        await loadNote();
+        showToast('已切换到指定版本', 'success');
+      }
+    } catch (err) {
+      console.error('切换笔记版本失败:', err);
+      showToast('切换版本失败', 'error');
+    }
+  }, [loadNote, showToast, videoId]);
+
+  const handleDeleteVersion = useCallback(async (hash: string) => {
+    try {
+      const response = await apiService.deleteVersion(videoId, 'note', hash);
+      if (response.success) {
+        await loadVersions();
+        showToast('已删除版本', 'success');
+      }
+    } catch (err) {
+      console.error('删除笔记版本失败:', err);
+      showToast('删除版本失败', 'error');
+    }
+  }, [loadVersions, showToast, videoId]);
 
   const handleStopAnalysis = useCallback(async () => {
     analysisAbortRef.current?.abort();
@@ -442,6 +548,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     );
   }
 
+  const noteWordCount = estimateNoteWordCount(content);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0 }}>
       <style>{scrollbarStyle}</style>
@@ -575,15 +683,170 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '16px' }}>
-        <MdxNoteEditor
-          content={content}
-          documentKey={`${videoId}:${noteRevision}`}
-          mode={editorMode}
-          onChange={setContent}
-          sourceFolderPath={previewFolderPath}
-          className="h-full"
-        />
+      <div style={{ flex: 1, minHeight: 0, minWidth: 0, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '16px 16px 12px' }}>
+            <MdxNoteEditor
+              content={content}
+              documentKey={`${videoId}:${noteRevision}`}
+              mode={editorMode}
+              onChange={setContent}
+              sourceFolderPath={previewFolderPath}
+              className="h-full"
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', borderTop: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-text-tertiary)', flexShrink: 0 }}>
+            <span>{noteWordCount.toLocaleString()} 字</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span>双击内容可编辑</span>
+              <button
+                type="button"
+                onClick={() => setShowVersionPanel(!showVersionPanel)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  background: showVersionPanel ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                  color: showVersionPanel ? '#fff' : 'var(--color-text-secondary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {versions.length > 0 ? `${versions.length} 个版本` : '版本'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showVersionPanel && (
+          <div style={{
+            width: '260px',
+            flexShrink: 0,
+            borderLeft: '1px solid var(--color-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--color-bg-primary)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--color-border)' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)' }}>版本历史</span>
+              <button
+                type="button"
+                onClick={handleSaveManualVersion}
+                disabled={isSaving || isAnalyzing}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  background: '#3b82f6',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: isSaving || isAnalyzing ? 'not-allowed' : 'pointer',
+                  opacity: isSaving || isAnalyzing ? 0.6 : 1,
+                }}
+              >
+                保存版本
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+              {[...versions].reverse().map((v) => {
+                const isCurrent = v.hash === currentHash;
+                return (
+                  <div
+                    key={v.hash}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      marginBottom: '4px',
+                      background: isCurrent ? 'rgba(59,130,246,0.1)' : 'transparent',
+                      border: isCurrent ? '1px solid rgba(59,130,246,0.3)' : '1px solid transparent',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 500, color: isCurrent ? '#3b82f6' : 'var(--color-text-primary)' }}>
+                        {formatVersionTime(v.timestamp)}
+                      </span>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: v.source === 'ai' ? 'rgba(16,185,129,0.15)' :
+                                    v.source === 'manual' ? 'rgba(59,130,246,0.15)' :
+                                    v.source === 'auto' ? 'rgba(139,92,246,0.15)' :
+                                    'rgba(107,114,128,0.15)',
+                        color: v.source === 'ai' ? '#10b981' :
+                               v.source === 'manual' ? '#3b82f6' :
+                               v.source === 'auto' ? '#8b5cf6' :
+                               '#6b7280',
+                      }}>
+                        {sourceLabel(v.source)}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--color-text-tertiary)' }}>{v.hash}</span>
+                      {isCurrent && (
+                        <span style={{ fontSize: '10px', color: '#3b82f6', fontWeight: 500 }}>当前</span>
+                      )}
+                    </div>
+                    {v.label && (
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginBottom: '6px' }}>{v.label}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {!isCurrent && (
+                        <button
+                          type="button"
+                          onClick={() => handleSwitchVersion(v.hash)}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            background: 'var(--color-bg-secondary)',
+                            color: 'var(--color-text-secondary)',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          切换
+                        </button>
+                      )}
+                      {!isCurrent && (
+                        <button
+                          type="button"
+                          onClick={() => { if (confirm('确定删除此版本？')) void handleDeleteVersion(v.hash); }}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            background: 'transparent',
+                            color: '#ef4444',
+                            border: 'none',
+                            cursor: 'pointer',
+                            opacity: 0.7,
+                          }}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {versions.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--color-text-tertiary)', fontSize: '12px' }}>
+                  暂无版本记录
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

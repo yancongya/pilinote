@@ -11,8 +11,9 @@ class DeepSeekClient(BaseLLMClient):
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY")
         if not self.api_key:
             raise ValueError("DEEPSEEK_API_KEY is required")
+        self.timeout = kwargs.get("timeout", 120.0)
         self.client = OpenAI(
-            api_key=self.api_key, base_url="https://api.deepseek.com/v1"
+            api_key=self.api_key, base_url="https://api.deepseek.com/v1", timeout=self.timeout
         )
 
     def chat(
@@ -32,6 +33,7 @@ class DeepSeekClient(BaseLLMClient):
             messages=openai_messages,
             temperature=temperature,
             max_tokens=max_tokens,
+            timeout=self.timeout,
             **kwargs,
         )
 
@@ -66,6 +68,7 @@ class DeepSeekClient(BaseLLMClient):
             temperature=temperature,
             max_tokens=max_tokens,
             stream=True,
+            timeout=self.timeout,
             **kwargs,
         )
 
