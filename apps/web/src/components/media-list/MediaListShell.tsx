@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import MediaListState from './MediaListState'
+import './MediaListShell.css'
 
 export interface MediaListShellProps {
   title?: ReactNode
@@ -41,56 +42,60 @@ export default function MediaListShell({
 
   return (
     <section className={shellClassName}>
-      {topBar ? (
-        <div className="media-list-shell-topbar">{topBar}</div>
-      ) : (
-        <>
-          <div className="section-header media-list-shell-header">
-            <div className="section-title media-list-shell-title">
-              <h2>{title}</h2>
-              {countLabel !== undefined && <span className="video-count">{countLabel}</span>}
+      <div className="media-list-shell-topbar">
+        {topBar ? (
+          topBar
+        ) : (
+          <>
+            <div className="section-header media-list-shell-header">
+              <div className="section-title media-list-shell-title">
+                <h2>{title}</h2>
+                {countLabel !== undefined && <span className="video-count">{countLabel}</span>}
+              </div>
             </div>
-          </div>
 
-          {controls && <div className="media-list-shell-controls">{controls}</div>}
-        </>
-      )}
+            {controls && <div className="media-list-shell-controls">{controls}</div>}
+          </>
+        )}
+      </div>
 
-      {loading ? (
-        <MediaListState
-          kind="loading"
-          skeletonCount={loadingSkeletonCount}
-          className="media-list-shell-state"
-        />
-      ) : error ? (
-        <MediaListState
-          kind="error"
-          message={error}
-          className="media-list-shell-state"
-        />
-      ) : !hasItems ? (
-        <MediaListState
-          kind="empty"
-          message={emptyText}
-          className="media-list-shell-state"
-        />
-      ) : (
-        <>
-          {refreshingHint && (
-            <div className="media-list-shell-refreshing" role="status" aria-live="polite">
-              {refreshingHint}
-            </div>
-          )}
-          <div className={contentClassName}>{children}</div>
-          {loadingMore && (
-            <MediaListState
-              kind="loadingMore"
-              skeletonCount={loadingMoreSkeletonCount}
-              className="media-list-shell-state"
-            />
-          )}
-        </>
-      )}
+      <div className="media-list-shell-body">
+        {loading ? (
+          <MediaListState
+            kind="loading"
+            skeletonCount={loadingSkeletonCount}
+            className="media-list-shell-state"
+          />
+        ) : error ? (
+          <MediaListState
+            kind="error"
+            message={error}
+            className="media-list-shell-state"
+          />
+        ) : !hasItems ? (
+          <MediaListState
+            kind="empty"
+            message={emptyText}
+            className="media-list-shell-state"
+          />
+        ) : (
+          <>
+            {refreshingHint && (
+              <div className="media-list-shell-refreshing" role="status" aria-live="polite">
+                {refreshingHint}
+              </div>
+            )}
+            <div className={contentClassName}>{children}</div>
+            {loadingMore && (
+              <MediaListState
+                kind="loadingMore"
+                skeletonCount={loadingMoreSkeletonCount}
+                className="media-list-shell-state"
+              />
+            )}
+          </>
+        )}
+      </div>
     </section>
   )
 }
