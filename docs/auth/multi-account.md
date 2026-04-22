@@ -67,7 +67,10 @@ GET /api/auth/status
 ```
 
 - `is_logged_in: true` → 已登录，显示用户信息
-- `is_logged_in: false` → 游客，调用 logout() 清除本地状态
+- `is_logged_in: false` → 明确没有活跃账号或登录凭证已清空，调用 `logout()` 清除本地状态
+- `is_logged_in: true` + `message` 包含 `登录状态待验证` → 当前有活跃账号，但 B 站验签/探活临时失败，前端应保留当前登录态，不要自动踢回游客
+
+> 说明：现在 `/api/auth/status` 采用非破坏性校验策略。只要数据库里仍有活跃账号且存在 `SESSDATA`，临时探活失败不会立刻把前端状态清空。
 
 ---
 

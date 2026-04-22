@@ -45,6 +45,7 @@ apps/web/src/pages/components/FavoritesContent.tsx
    - 收藏夹列表缓存（5分钟过期）
    - 静默刷新机制
    - 切换 Tab 不闪烁
+   - 实时请求失败时优先回退到缓存，避免刷新后直接报错或清空页面
 
 7. **登录验证**
    - 未登录显示登录提示

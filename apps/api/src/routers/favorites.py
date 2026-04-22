@@ -78,9 +78,9 @@ async def get_folders(
     """获取收藏夹列表"""
     cache_service = VideoCacheService()
     user, sessdata = user_sessdata
+    cached = cache_service.get("favorites", user_id=user.mid, page=page)
 
     # 尝试获取缓存
-    cached = cache_service.get("favorites", user_id=user.mid, page=page)
     if cached and cached.get("success"):
         return cached
 
@@ -117,7 +117,17 @@ async def get_folders(
             }
             cache_service.set("favorites", response, user_id=user.mid, page=page)
             return response
+        if cached and cached.get("success"):
+            return cached
         raise HTTPException(status_code=400, detail=result["message"])
+    except HTTPException:
+        if cached and cached.get("success"):
+            return cached
+        raise
+    except Exception:
+        if cached and cached.get("success"):
+            return cached
+        raise
     finally:
         service.close()
 

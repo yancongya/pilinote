@@ -642,8 +642,8 @@ async def get_login_status(db: Session = Depends(get_db)):
                 return {
                     "success": True,
                     "data": {
-                        "is_logged_in": False,
-                        "message": f"登录已失效: {user_info.get('message', '未知错误')}",
+                        "is_logged_in": True,
+                        "message": f"登录状态待验证: {user_info.get('message', '未知错误')}",
                         "user": {
                             "id": active_user.id,
                             "mid": active_user.mid,
@@ -672,8 +672,8 @@ async def get_login_status(db: Session = Depends(get_db)):
             return {
                 "success": True,
                 "data": {
-                    "is_logged_in": False,
-                    "message": f"验证登录状态失败: {str(e)}",
+                    "is_logged_in": True,
+                    "message": f"登录状态待验证: {str(e)}",
                     "user": {
                         "id": active_user.id,
                         "mid": active_user.mid,

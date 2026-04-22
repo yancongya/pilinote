@@ -50,6 +50,21 @@
 - 避免当前活跃账号的 Cookie 错刷到别的账号上
 - 路径参数版刷新接口作为前端首选调用方式
 
+##### 4. 登录状态与列表回退修复
+**影响范围**: 顶部登录状态、收藏页、稍后再看页
+**相关文件**:
+- `apps/api/src/routers/auth.py`
+- `apps/api/src/routers/favorites.py`
+- `apps/api/src/routers/watchlater.py`
+- `apps/api/src/routers/history.py`
+- `apps/api/src/services/bilibili.py`
+- `apps/web/src/stores/auth.ts`
+
+**更新内容**:
+- `/api/auth/status` 采用非破坏性校验，临时探活失败不再直接把前端踢回游客
+- 收藏夹列表每次都使用当前活跃账号的 `SESSDATA`，避免共享 headers 残留旧账号状态
+- 收藏页、稍后再看页、历史记录页在实时请求失败时优先回退缓存，减少刷新时的报错和空白页
+
 #### 验证结果
 
 - `apps/web` 的 `tsc --noEmit` 已通过

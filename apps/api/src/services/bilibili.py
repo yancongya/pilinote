@@ -478,10 +478,8 @@ class BilibiliService:
 
     async def get_folder_list(self, sessdata: str, up_mid: int, page: int = 1, page_size: int = 20) -> Dict:
         """获取收藏夹列表（使用HeadersManager获取headers）"""
-        # 确保SESSDATA在headers中（如果 HeadersManager 中没有 SESSDATA，才更新）
-        current_sessdata = self.headers_manager.get_cookie("SESSDATA")
-        if not current_sessdata:
-            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+        # 始终使用当前活跃账号的 SESSDATA，避免共享 HeadersManager 里残留旧账号 cookie
+        await self.headers_manager.update_cookie("SESSDATA", sessdata)
 
         url = f"{self.api_base}/x/v3/fav/folder/created/list"
         headers = await self.headers_manager.get_headers()
@@ -518,10 +516,8 @@ class BilibiliService:
     async def get_folder_detail(self, sessdata: str, media_id: int, page: int = 1, page_size: int = 20,
                          keyword: str = "", order: str = "mtime", type: str = "0", tid: int = 0, sort_direction: str = "desc") -> Dict:
         """获取收藏夹详情（使用HeadersManager获取headers）"""
-        # 确保SESSDATA在headers中（如果 HeadersManager 中没有 SESSDATA，才更新）
-        current_sessdata = self.headers_manager.get_cookie("SESSDATA")
-        if not current_sessdata:
-            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+        # 始终使用当前活跃账号的 SESSDATA，避免共享 HeadersManager 里残留旧账号 cookie
+        await self.headers_manager.update_cookie("SESSDATA", sessdata)
 
         url = f"{self.api_base}/x/v3/fav/resource/list"
         headers = await self.headers_manager.get_headers()

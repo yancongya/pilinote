@@ -57,10 +57,10 @@ export const useAuthStore = create<AuthState>()(
             throw new Error('Failed to fetch user status')
           }
           const data = await response.json()
+          const currentUser = get().user
 
-          if (data.success && data.data?.is_logged_in && data.data?.user) {
+          if (data.success && data.data?.user) {
             const userData = data.data.user
-            const currentUser = get().user
             
             // 保留原有的字段，只更新基本信息字段
             const newUser = {
@@ -74,13 +74,19 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               isLoading: false,
             })
-          } else {
+          } else if (data.success && data.data?.is_logged_in === false) {
+            if (currentUser) {
+              set({ isLoading: false })
+              return
+            }
             // 服务器返回未登录，清除状态
             set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
             })
+          } else {
+            set({ isLoading: false })
           }
         } catch (error) {
           console.error('[Auth] fetchUser失败:', error)
