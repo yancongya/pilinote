@@ -68,7 +68,7 @@ apps/web/src/
 | 组件 | 说明 |
 |------|------|
 | LoginPage | 登录页面（SESSDATA/二维码/手机验证码）|
-| SettingsPage | 设置页面（下载/存储/通用/自动下载）|
+| SettingsPage | 设置页面（统一 settings 设计系统，含下载/存储/通用/自动下载/AI 笔记）|
 | VideoDetailPage | 视频详情页面 |
 | HomeContent | 首页内容 |
 
@@ -178,6 +178,27 @@ const routes = [
 - `SchedulerCard.tsx` - 调度器卡片
 - `VideoLibrary.tsx` - 视频库
 - `ScanResultContent.tsx` - 扫描结果
+
+### SettingsPage 页面系统
+
+设置页已经从“单页局部样式”升级为统一的页面级设计系统，后续所有设置 tab 默认都应先复用这套结构。
+
+**核心组件**：
+- `SettingsPageShell` - 页面壳层
+- `SettingsTabPanel` - tab 切换过渡容器
+- `SettingsSection` - 面板组
+- `SettingsField` - 字段块
+- `SettingsToggleRow` - 开关行
+- `SettingsActionRow` - 操作行
+- `SettingsStatusBadge` - 状态徽章
+- `SettingsLoadingState` / `SettingsEmptyState` - 状态页
+
+**设计原则**：
+- 保持一层主 surface
+- 减少嵌套卡片和深色容器
+- 按钮默认使用 outlined / tonal 语义
+- tab 过渡使用淡入与轻微位移
+- 优先让局部布局服从统一节奏，而不是反过来定义新的视觉语言
 
 ## WebSocket 连接
 

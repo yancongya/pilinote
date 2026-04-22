@@ -22,6 +22,7 @@
 | 组件 | 说明 | 文档 |
 |------|------|------|
 | MainLayout | 主布局组件（智能响应式侧边栏） | [main-layout.md](main-layout.md) |
+| SettingsPage | 设置页主入口（统一 settings 设计系统） | [../web/theme-system.md](../web/theme-system.md) |
 | NewDownload | 新下载页面（完整暗色模式适配） | [new-download.md](new-download.md) |
 | HomeContent | 首页内容（链接解析/预览卡片） | [home-content.md](home-content.md) |
 | VideoDetailPage | 视频/图文详情页 | [video-detail-page.md](video-detail-page.md) |

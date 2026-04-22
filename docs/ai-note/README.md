@@ -38,8 +38,14 @@
 
 **当前结构**：
 1. **prompt管理**：T0/T1/T2/T3 + formats 卡片管理
-2. **LLM / 本地 ASR**：提供商、模型和本地模型状态管理
-3. **风格选择**：来自 prompt 卡片的风格源，不再依赖旧的 `ai_note.style.style`
+2. **LLM 提供商**：服务商、Base URL、API Key、模型列表
+3. **本地 ASR 模型**：独立 `SettingsSection`，负责模型选择、下载状态和切换
+4. **风格选择**：来自 prompt 卡片的风格源，不再依赖旧的 `ai_note.style.style`
+
+**UI 说明**：
+- 该设置弹窗复用设置页统一设计系统
+- section、字段、按钮和弹窗 footer 遵循同一套移动端 Material 风格
+- 尽量避免嵌套卡片和深色容器，保持一层 surface + 分隔线的结构
 
 ### 3. 详情页
 
@@ -99,6 +105,7 @@
 |------|------|----------|
 | AiNoteButton | `src/components/ai/AiNoteButton.tsx` | 媒体库卡片 AI 按钮 |
 | AiNoteModal | `src/components/ai/AiNoteModal.tsx` | 设置弹窗（读取 prompt 卡片与 runtime state） |
+| LocalAsrModelPanel | `src/components/ai/LocalAsrModelPanel.tsx` | 本地 ASR 模型面板 |
 | MarkdownViewer | `src/components/ai/MarkdownViewer.tsx` | 渲染生成的笔记 |
 | MindMapViewer | `src/components/ai/MindMapViewer.tsx` | 思维导图展示 |
 

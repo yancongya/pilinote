@@ -70,6 +70,21 @@
 - 自动刷新设置
 - 性能设置
 
+### 8. 设置页 UI 规范
+
+设置页当前使用统一的页面级设计系统，适合后续所有设置 tab 按同一套视觉语言迁移。
+
+内容：
+- 页面壳层统一：标题、tab、内容区、底部操作区
+- section 统一：标题、副标题、动作区、内容区
+- 字段统一：输入框、选择器、开关、行内操作按钮
+- 状态统一：加载中、空态、状态徽章、错误提示
+- 交互统一：tab 切换过渡、outlined 按钮、轻量 Material 风格
+
+**相关文档**：
+- [web/theme-system.md](../web/theme-system.md) - 主题系统与设置页设计系统
+- [ai-note/README.md](../ai-note/README.md) - AI 笔记设置页与 prompt 管理说明
+
 ---
 
 ## 配置结构
@@ -132,6 +147,8 @@
 - `apps/web/src/pages/settings/StorageSettings.tsx` - 存储设置页面
 - `apps/web/src/pages/settings/AccountsSettings.tsx` - 通用设置页面
 - `apps/web/src/pages/settings/AutoDownloadSettings.tsx` - 自动下载设置页面
+- `apps/web/src/pages/settings/AiNoteSettings.tsx` - AI 笔记设置页面
+- `apps/web/src/components/ai/LocalAsrModelPanel.tsx` - 本地 ASR 模型面板
 
 ---
 
