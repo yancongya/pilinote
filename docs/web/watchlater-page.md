@@ -178,10 +178,13 @@ const fetchWatchLaterVideos = useCallback(async (page: number, pageSize: number)
 }, [user?.mid]);
 
 // 使用 useVideoList Hook 管理列表
-const { videos, loading, hasMore, loadMoreRef } = useVideoList({
+const watchLaterCacheKey = `watchlater:${user?.mid || 'anon'}:${keyword.trim() || '__all__'}:${order}:${sortDirection}`
+
+const { videos, loading, loadingMore, loadMoreError, hasMore, loadMoreRef } = useVideoList({
   fetchFn: fetchWatchLaterVideos,
   pageSize: 20,
   deps: [],
+  cacheKey: watchLaterCacheKey,
   formatItem: (video: any) => ({
     id: video.id,
     bvid: video.bvid,
@@ -215,7 +218,12 @@ const { videos, loading, hasMore, loadMoreRef } = useVideoList({
 
 - 首屏优先返回基础视频列表，不再强制逐条补详情
 - 前端通过 `useVideoList` 统一管理分页和加载更多
+- `useVideoList` 会对分页结果做页面缓存、首屏 sessionStorage 复用、请求去重和短暂重试
+- 加载更多失败时只显示底部提示，不会替换已加载的列表卡片
 - 刷新时保留页面壳层，减少列表抖动
+
+- `cacheKey` 以 `user.mid + keyword + order + sortDirection` 组合，切换筛选条件时不会命中旧页缓存，刷新后首屏也会优先复用同一缓存键下的第一页
+- `loadMoreError` 用于底部非阻塞错误提示
 
 ## 无限滚动
 

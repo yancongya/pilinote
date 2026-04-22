@@ -170,10 +170,16 @@ const fetchFavoriteVideos = useCallback(async (page: number, pageSize: number) =
 }, [selectedFolder?.id, user?.mid]);
 
 // 使用 useVideoList Hook 管理列表
-const { videos, loading, hasMore, loadMoreRef } = useVideoList({
+const favoriteListCacheKey = selectedFolder
+  ? `favorites:${user?.mid || 'anon'}:${selectedFolder.id}:${keyword.trim() || '__all__'}:${order}:${sortDirection}`
+  : `favorites:root:${user?.mid || 'anon'}`
+
+const { videos, loading, loadingMore, loadMoreError, hasMore, loadMoreRef } = useVideoList({
   fetchFn: fetchFavoriteVideos,
   pageSize: 10,
   deps: [],
+  cacheKey: favoriteListCacheKey,
+  autoLoad: Boolean(selectedFolder),
   formatItem: (video: any) => ({
     id: video.id,
     bvid: video.bvid,
@@ -189,6 +195,8 @@ const { videos, loading, hasMore, loadMoreRef } = useVideoList({
 
 **无限滚动**：
 - 使用 Intersection Observer 监听滚动位置
+- `useVideoList` 会做分页缓存、首屏 sessionStorage 复用、请求去重和短暂重试
+- 加载更多失败时只显示底部提示，不会清空已加载内容
 - rootMargin: 100px（提前触发）
 - threshold: 0.1（10%可见触发）
 

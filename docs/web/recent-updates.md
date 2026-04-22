@@ -2,6 +2,46 @@
 
 ## 更新时间线
 
+### 2026-04-23 - 视频源列表加载稳定性优化
+
+本次更新重点收敛了收藏夹、稍后再看和观看历史三类列表的加载链路，减少滚动翻页时的重复请求和整页报错。
+
+#### 主要更新
+
+##### 1. 列表加载容错收敛
+**影响范围**: 收藏页 / 稍后再看页 / 历史记录页
+**相关文件**:
+- `apps/web/src/hooks/useVideoList.ts`
+- `apps/web/src/components/VideoListContainer.tsx`
+- `apps/web/src/pages/components/FavoritesContent.tsx`
+- `apps/web/src/pages/components/WatchLaterContent.tsx`
+- `apps/web/src/pages/components/HistoryContent.tsx`
+
+**更新内容**:
+- `useVideoList` 增加页面缓存、请求去重、短暂重试和加载更多冷却
+- `useVideoList` 首屏第一页还会落到 `sessionStorage`，刷新同一标签页时可直接复用缓存，不再重复拉首屏
+- `VideoListContainer` 将首屏错误与加载更多错误分离，避免增量失败清空已有列表
+- 收藏页手动“加载更多”改为基于 `currentPage + 1` 推进，避免重复请求同一页
+
+##### 2. 后端缓存与错误语义统一
+**影响范围**: 收藏夹 / 稍后再看 / 历史记录 API
+**相关文件**:
+- `apps/api/src/routers/favorites.py`
+- `apps/api/src/routers/watchlater.py`
+- `apps/api/src/routers/history.py`
+- `apps/api/src/services/bilibili.py`
+- `apps/web/src/services/api.ts`
+
+**更新内容**:
+- 收藏夹详情失败时改为明确的 `502` 上游错误，不再使用 `200 + detail`
+- 稍后再看和历史记录缓存键统一为 `user.mid`
+- 前端 API 层补齐 `detail` 形态兼容，避免后端错误包装导致前端误判
+
+#### 验证结果
+
+- `apps/web` 的 `tsc --noEmit` 已通过
+- `apps/api/src` 的 `compileall` 已通过
+
 ### 2026-04-22 - 历史型列表统一与账号刷新修复
 
 本次更新统一了收藏页、稍后再看页、历史记录页的列表壳层，并修复了开发态 API 解析和账号刷新链路问题。

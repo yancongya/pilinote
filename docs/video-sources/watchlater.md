@@ -93,10 +93,13 @@ if (!user?.mid) {
 显示视频封面、标题、时长、观看进度、UP主等：
 
 ```typescript
-const { videos, loading, hasMore, loadMoreRef } = useVideoList({
+const watchLaterCacheKey = `watchlater:${user?.mid || 'anon'}:${keyword.trim() || '__all__'}:${order}:${sortDirection}`
+
+const { videos, loading, loadingMore, loadMoreError, hasMore, loadMoreRef } = useVideoList({
   fetchFn: fetchWatchLaterVideos,
   pageSize: 20,
   deps: [],
+  cacheKey: watchLaterCacheKey,
   formatItem: (video: any) => ({
     id: video.id,
     bvid: video.bvid,
@@ -173,6 +176,12 @@ const observer = new IntersectionObserver(
   }
 );
 ```
+
+#### 缓存与容错
+
+- `useVideoList` 会对分页结果做页面缓存、首屏 sessionStorage 复用、请求去重和短暂重试
+- `cacheKey` 以 `user.mid + keyword + order + sortDirection` 组合，避免切换筛选条件后复用旧页缓存
+- `loadMoreError` 仅用于底部非阻塞错误提示，不会替换已加载内容
 
 #### 5. 下载集成
 

@@ -37,6 +37,185 @@ export interface VideoListResponse {
   message?: string
 }
 
+interface CachedPageEntry {
+  response: VideoListResponse
+  timestamp: number
+}
+
+interface SessionStoredPageEntry {
+  response: VideoListResponse
+  timestamp: number
+  page: number
+  pageSize: number
+}
+
+const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000
+const DEFAULT_RETRY_COUNT = 2
+const DEFAULT_LOAD_MORE_COOLDOWN_MS = 4000
+const SESSION_STORAGE_CACHE_PREFIX = 'video-list-page-cache'
+const SESSION_STORAGE_CACHE_VERSION = 1
+
+const pageResponseCache = new Map<string, Map<number, CachedPageEntry>>()
+const inflightRequestCache = new Map<string, Promise<VideoListResponse>>()
+
+const now = () => Date.now()
+const canUseSessionStorage = () =>
+  typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined'
+
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+const buildSessionStorageKey = (cacheKey: string, page: number, pageSize: number) =>
+  `${SESSION_STORAGE_CACHE_PREFIX}:v${SESSION_STORAGE_CACHE_VERSION}:${cacheKey}:${page}:${pageSize}`
+
+const isRetryableMessage = (message?: string) => {
+  if (!message) {
+    return true
+  }
+
+  const lowerMessage = message.toLowerCase()
+  if (lowerMessage.includes('缺少必要参数')) {
+    return false
+  }
+
+  return [
+    'timeout',
+    'timed out',
+    'network',
+    'fetch',
+    'failed',
+    'request was banned',
+    'too many requests',
+    '频率过高',
+    '请求频率过高',
+    'api暂时限制',
+    '412',
+    '500',
+    '502',
+    '503',
+    '504'
+  ].some(keyword => lowerMessage.includes(keyword))
+}
+
+const getCacheBucket = (cacheKey: string) => {
+  let bucket = pageResponseCache.get(cacheKey)
+  if (!bucket) {
+    bucket = new Map<number, CachedPageEntry>()
+    pageResponseCache.set(cacheKey, bucket)
+  }
+  return bucket
+}
+
+const getCachedPageResponse = (
+  cacheKey: string,
+  page: number,
+  ttlMs: number
+): VideoListResponse | null => {
+  const bucket = pageResponseCache.get(cacheKey)
+  if (!bucket) {
+    return null
+  }
+
+  const entry = bucket.get(page)
+  if (!entry) {
+    return null
+  }
+
+  if (now() - entry.timestamp > ttlMs) {
+    bucket.delete(page)
+    if (bucket.size === 0) {
+      pageResponseCache.delete(cacheKey)
+    }
+    return null
+  }
+
+  return entry.response
+}
+
+const setCachedPageResponse = (
+  cacheKey: string,
+  page: number,
+  response: VideoListResponse
+) => {
+  getCacheBucket(cacheKey).set(page, {
+    response,
+    timestamp: now()
+  })
+}
+
+const getSessionStoredPageResponse = (
+  cacheKey: string,
+  page: number,
+  pageSize: number,
+  ttlMs: number
+): VideoListResponse | null => {
+  if (!cacheKey.trim() || !canUseSessionStorage()) {
+    return null
+  }
+
+  const storageKey = buildSessionStorageKey(cacheKey, page, pageSize)
+
+  try {
+    const raw = window.sessionStorage.getItem(storageKey)
+    if (!raw) {
+      return null
+    }
+
+    const entry = JSON.parse(raw) as SessionStoredPageEntry
+    const isValidEntry =
+      Boolean(entry) &&
+      entry.page === page &&
+      entry.pageSize === pageSize &&
+      entry.response?.success &&
+      Boolean(entry.response?.data) &&
+      now() - entry.timestamp <= ttlMs
+
+    if (!isValidEntry) {
+      window.sessionStorage.removeItem(storageKey)
+      return null
+    }
+
+    return entry.response
+  } catch {
+    try {
+      window.sessionStorage.removeItem(storageKey)
+    } catch {
+      // 忽略 sessionStorage 清理失败
+    }
+
+    return null
+  }
+}
+
+const setSessionStoredPageResponse = (
+  cacheKey: string,
+  page: number,
+  pageSize: number,
+  response: VideoListResponse
+) => {
+  if (!cacheKey.trim() || !canUseSessionStorage()) {
+    return
+  }
+
+  const storageKey = buildSessionStorageKey(cacheKey, page, pageSize)
+
+  try {
+    const payload: SessionStoredPageEntry = {
+      response,
+      timestamp: now(),
+      page,
+      pageSize
+    }
+
+    window.sessionStorage.setItem(storageKey, JSON.stringify(payload))
+  } catch {
+    // sessionStorage 容量或权限异常时静默降级
+  }
+}
+
+const getResponseItems = (response: VideoListResponse['data']) => {
+  return response?.list || response?.medias || []
+}
+
 /**
  * fetchFn 函数类型
  * @param page - 页码
@@ -85,6 +264,26 @@ export interface UseVideoListOptions {
   autoLoad?: boolean
 
   /**
+   * 用于跨渲染缓存、请求去重和首屏 sessionStorage 持久化的稳定键
+   */
+  cacheKey?: string
+
+  /**
+   * 缓存有效期，默认 5 分钟
+   */
+  cacheTtlMs?: number
+
+  /**
+   * 失败后的重试次数，默认 2
+   */
+  retryCount?: number
+
+  /**
+   * 加载更多失败后的冷却时间，默认 4 秒
+   */
+  loadMoreCooldownMs?: number
+
+  /**
    * 检查是否有更多数据的函数
    * @param response - API 响应数据
    * @param currentVideos - 当前视频列表
@@ -121,6 +320,11 @@ export interface UseVideoListReturn {
   error: string
 
   /**
+   * 加载更多失败信息
+   */
+  loadMoreError: string
+
+  /**
    * 当前页码
    */
   currentPage: number
@@ -144,8 +348,9 @@ export interface UseVideoListReturn {
    * 手动获取视频列表
    * @param page - 页码，默认为 1
    * @param isLoadMore - 是否为加载更多，默认为 false
+   * @param forceRefresh - 是否绕过缓存，默认为 false
    */
-  fetchVideos: (page?: number, isLoadMore?: boolean) => Promise<void>
+  fetchVideos: (page?: number, isLoadMore?: boolean, forceRefresh?: boolean) => Promise<void>
 
   /**
    * 重新加载当前页
@@ -180,14 +385,21 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
     deps = [],
     formatItem,
     autoLoad = true,
+    cacheKey,
+    cacheTtlMs = DEFAULT_CACHE_TTL_MS,
+    retryCount = DEFAULT_RETRY_COUNT,
+    loadMoreCooldownMs = DEFAULT_LOAD_MORE_COOLDOWN_MS,
     checkHasMore
   } = options
 
+  const persistentCacheKey = cacheKey?.trim() || ''
+
   // 状态管理
   const [videos, setVideos] = useState<VideoData[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(autoLoad)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
+  const [loadMoreError, setLoadMoreError] = useState('')
   const [currentPage, setCurrentPage] = useState(initialPage)
   const [hasMore, setHasMore] = useState(true)
   const [total, setTotal] = useState(0)
@@ -195,6 +407,13 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
   // 引用
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const latestRequestIdRef = useRef(0)
+  const videosRef = useRef<VideoData[]>([])
+  const blockedLoadMorePageRef = useRef<{ page: number; until: number } | null>(null)
+  const instanceCacheKeyRef = useRef(
+    `video-list-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
+  )
+  const resolvedCacheKey = (cacheKey || instanceCacheKeyRef.current).trim()
 
   // 默认的 hasMore 检查函数
   const defaultCheckHasMore = useCallback(
@@ -231,101 +450,220 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
     [formatItem]
   )
 
-  // 获取视频列表
-  const fetchVideos = useCallback(
-    async (page: number = 1, isLoadMore: boolean = false) => {
-      // 设置加载状态
-      if (isLoadMore) {
-        setLoadingMore(true)
-      } else {
-        setLoading(true)
+  useEffect(() => {
+    videosRef.current = videos
+  }, [videos])
+
+  const determineHasMore = useCallback(
+    (response: VideoListResponse['data'], currentVideos: VideoData[]) => {
+      if (checkHasMore) {
+        return checkHasMore(response, currentVideos)
       }
-      setError('')
+      return defaultCheckHasMore(response, currentVideos)
+    },
+    [checkHasMore, defaultCheckHasMore]
+  )
 
-      try {
-        // 调用 fetchFn 获取数据
-        const response = await fetchFn(page, customPageSize)
+  const isLoadMorePageBlocked = useCallback((page: number) => {
+    const blocked = blockedLoadMorePageRef.current
+    return Boolean(blocked && blocked.page === page && blocked.until > now())
+  }, [])
 
-        if (!response.success || !response.data) {
-          throw new Error(response.message || '获取视频列表失败')
+  const resolveFetchResponse = useCallback(
+    async (page: number, forceRefresh = false): Promise<VideoListResponse> => {
+      const requestKey = `${resolvedCacheKey}:${page}:${customPageSize}`
+
+      if (!forceRefresh) {
+        const cachedResponse = getCachedPageResponse(resolvedCacheKey, page, cacheTtlMs)
+        if (cachedResponse) {
+          return cachedResponse
         }
 
-        // 提取视频列表（支持 list 或 medias 字段）
-        const videoList = response.data.list || response.data.medias || []
+        if (page === initialPage) {
+          const sessionCachedResponse = getSessionStoredPageResponse(
+            persistentCacheKey,
+            page,
+            customPageSize,
+            cacheTtlMs
+          )
 
-        // 格式化视频数据
+          if (sessionCachedResponse) {
+            setCachedPageResponse(resolvedCacheKey, page, sessionCachedResponse)
+            return sessionCachedResponse
+          }
+        }
+      }
+
+      const inFlight = inflightRequestCache.get(requestKey)
+      if (inFlight) {
+        return inFlight
+      }
+
+      const requestPromise = (async () => {
+        let lastResponse: VideoListResponse = {
+          success: false,
+          message: '获取视频列表失败'
+        }
+
+        for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+          const response = await fetchFn(page, customPageSize)
+          lastResponse = response
+
+          if (response.success && response.data) {
+            setCachedPageResponse(resolvedCacheKey, page, response)
+
+            if (page === initialPage) {
+              setSessionStoredPageResponse(persistentCacheKey, page, customPageSize, response)
+            }
+
+            return response
+          }
+
+          if (attempt < retryCount && isRetryableMessage(response.message)) {
+            await wait(250 * (attempt + 1))
+            continue
+          }
+
+          return response
+        }
+
+        return lastResponse
+      })()
+
+      inflightRequestCache.set(requestKey, requestPromise)
+
+      try {
+        return await requestPromise
+      } finally {
+        inflightRequestCache.delete(requestKey)
+      }
+    },
+    [
+      cacheTtlMs,
+      customPageSize,
+      fetchFn,
+      initialPage,
+      persistentCacheKey,
+      retryCount,
+      resolvedCacheKey
+    ]
+  )
+
+  // 获取视频列表
+  const fetchVideos = useCallback(
+    async (page: number = 1, isLoadMore: boolean = false, forceRefresh = false) => {
+      if (isLoadMore) {
+        if (isLoadMorePageBlocked(page)) {
+          return
+        }
+        setLoadingMore(true)
+        setLoadMoreError('')
+      } else {
+        blockedLoadMorePageRef.current = null
+        setLoading(true)
+        setError('')
+        setLoadMoreError('')
+      }
+
+      const requestId = latestRequestIdRef.current + 1
+      latestRequestIdRef.current = requestId
+
+      try {
+        const response = await resolveFetchResponse(page, forceRefresh)
+
+        if (latestRequestIdRef.current !== requestId) {
+          return
+        }
+
+        if (!response.success || !response.data) {
+          const message = response.message || '获取视频列表失败'
+          if (isLoadMore && videosRef.current.length > 0) {
+            setLoadMoreError(message)
+            blockedLoadMorePageRef.current = {
+              page,
+              until: now() + loadMoreCooldownMs
+            }
+            return
+          }
+
+          setError(message)
+          return
+        }
+
+        const videoList = getResponseItems(response.data)
         const formattedVideos = videoList.map(formatVideoItem)
-
-        // 更新total状态
         const totalVideos = response.total || response.data?.total || 0
+
         if (typeof totalVideos === 'number') {
           setTotal(totalVideos)
         }
 
-        // 更新视频列表
+        setLoadMoreError('')
+        blockedLoadMorePageRef.current = null
+
         if (isLoadMore) {
           setVideos(prevVideos => {
-            // 使用Map去重，以bvid为唯一标识
-            const videoMap = new Map()
+            const videoMap = new Map<string, VideoData>()
             prevVideos.forEach(video => videoMap.set(video.bvid, video))
             formattedVideos.forEach(video => videoMap.set(video.bvid, video))
-            
+
             const newVideos = Array.from(videoMap.values())
-            
-            // 手动计算hasMore
-            const returnedList = response.data?.list || response.data?.medias || []
-            const pageSize = response.data?.page_size || customPageSize
-            const totalVideos = response.total || response.data?.total || 0
-            
-            let newHasMore = true
-            if (typeof totalVideos === 'number' && totalVideos > 0) {
-              newHasMore = newVideos.length < totalVideos
-            } else if (returnedList.length < pageSize) {
-              newHasMore = false
-            }
-            
+            const newHasMore = determineHasMore(response.data, newVideos)
             setHasMore(newHasMore)
             return newVideos
           })
         } else {
           setVideos(formattedVideos)
-          
-          // 手动计算hasMore
-          const returnedList = response.data?.list || response.data?.medias || []
-          const pageSize = response.data?.page_size || customPageSize
-          const totalVideos = response.total || response.data?.total || 0
-          
-          let newHasMore = true
-          if (typeof totalVideos === 'number' && totalVideos > 0) {
-            newHasMore = formattedVideos.length < totalVideos
-          } else if (returnedList.length < pageSize) {
-            newHasMore = false
-          }
-          
+          const newHasMore = determineHasMore(response.data, formattedVideos)
           setHasMore(newHasMore)
         }
+
+        setCurrentPage(page)
       } catch (err) {
-        setError(err instanceof Error ? err.message : '网络请求失败')
+        if (latestRequestIdRef.current !== requestId) {
+          return
+        }
+
+        const message = err instanceof Error ? err.message : '网络请求失败'
+        if (isLoadMore && videosRef.current.length > 0) {
+          setLoadMoreError(message)
+          blockedLoadMorePageRef.current = {
+            page,
+            until: now() + loadMoreCooldownMs
+          }
+          return
+        }
+
+        setError(message)
       } finally {
-        setLoading(false)
-        setLoadingMore(false)
+        if (latestRequestIdRef.current === requestId) {
+          setLoading(false)
+          setLoadingMore(false)
+        }
       }
     },
-    [fetchFn, customPageSize, formatVideoItem, checkHasMore, defaultCheckHasMore]
+    [
+      customPageSize,
+      determineHasMore,
+      formatVideoItem,
+      isLoadMorePageBlocked,
+      loadMoreCooldownMs,
+      resolveFetchResponse
+    ]
   )
 
   // 重新加载当前页
   const refresh = useCallback(async () => {
-    await fetchVideos(currentPage, false)
+    await fetchVideos(currentPage, false, true)
   }, [fetchVideos, currentPage])
 
   // 初始加载或依赖变化时重新加载
   useEffect(() => {
     if (autoLoad) {
-      fetchVideos(1, false)
-      setCurrentPage(1)
+      setCurrentPage(initialPage)
+      fetchVideos(initialPage, false)
     }
-  }, [...deps, fetchFn]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [...deps, fetchFn, autoLoad, initialPage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 使用 Intersection Observer 实现无限滚动
   useEffect(() => {
@@ -346,7 +684,6 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
         if (target.isIntersecting && !loading && !loadingMore && hasMore) {
           const nextPage = currentPage + 1
           fetchVideos(nextPage, true)
-          setCurrentPage(nextPage)
         }
       },
       {
@@ -378,6 +715,7 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
     total,
     loadMoreRef,
     fetchVideos,
-    refresh
+    refresh,
+    loadMoreError
   }
 }

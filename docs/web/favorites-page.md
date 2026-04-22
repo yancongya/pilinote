@@ -269,7 +269,8 @@ useEffect(() => {
 - 首屏优先返回基础视频卡片，不再逐条补全视频详情
 - `lazy=true` 时只返回基础数据，减少首屏等待
 - 视频详情补强信息改为后续按需加载或缓存命中
-- 前端列表缓存按 `folderId + page + 筛选条件` 维度命中
+- 前端列表缓存按 `user.mid + folderId + page + 筛选条件` 维度命中
+- `useVideoList` 会对同一页做请求去重和短暂重试，首屏会优先命中 sessionStorage，加载更多失败时只显示底部提示，不会清空已加载卡片
 
 ## 无限滚动
 
@@ -309,18 +310,28 @@ useEffect(() => {
 ### 防止重复加载
 
 ```typescript
-const { videos, loading, loadingMore, hasMore, loadMoreRef } = useVideoList({
+const favoriteListCacheKey = selectedFolder
+  ? `favorites:${user?.mid || 'anon'}:${selectedFolder.id}:${keyword.trim() || '__all__'}:${order}:${sortDirection}`
+  : `favorites:root:${user?.mid || 'anon'}`
+
+const { videos, loading, loadingMore, loadMoreError, hasMore, loadMoreRef, currentPage } = useVideoList({
   fetchFn: fetchFavoriteVideos,
   pageSize: 10,
   deps: [],
+  cacheKey: favoriteListCacheKey,
+  autoLoad: Boolean(selectedFolder),
   formatItem: (video: any) => ({
     id: video.id,
     bvid: video.bvid,
     title: video.title,
     // ... 其他字段
   })
-});
+})
 ```
+
+- `cacheKey` 以 `user.mid + folderId + keyword + order + sortDirection` 组合，首屏缓存会跟随筛选条件自动切换
+- `currentPage + 1` 作为下一页页码，避免手动“更多”按钮与滚动观察器同时推进同一页
+- `loadMoreError` 仅用于增量失败提示，不会替换已加载内容
 
 ## 下载集成
 
