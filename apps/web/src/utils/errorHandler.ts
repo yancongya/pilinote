@@ -885,11 +885,3 @@ export class ErrorStatsCollector {
     return this.errors.slice(-count)
   }
 }
-
-// ========== 导出 ==========
-
-export {
-  ErrorCategory,
-  ErrorSeverity,
-  RecoveryStrategy
-}

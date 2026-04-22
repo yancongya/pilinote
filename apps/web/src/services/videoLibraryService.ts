@@ -77,6 +77,30 @@ class VideoLibraryService {
   // ============== Core Methods ==============
 
   /**
+   * Map numeric task state codes to human-readable states.
+   * Kept for test compatibility with legacy queue data.
+   */
+  _mapTaskState(state: number): 'pending' | 'active' | 'completed' | 'paused' | 'failed' | 'cancelled' | 'none' {
+    switch (state) {
+      case 0:
+      case 1:
+        return 'pending'
+      case 2:
+        return 'active'
+      case 3:
+        return 'completed'
+      case 4:
+        return 'paused'
+      case 5:
+        return 'failed'
+      case 6:
+        return 'cancelled'
+      default:
+        return 'none'
+    }
+  }
+
+  /**
    * Check if a video is downloaded in the library
    * @param bvid - Video BVID
    * @param cid - Optional CID for multi-part videos
@@ -511,7 +535,7 @@ class VideoLibraryService {
    * @param bvid - Video BVID
    * @param cid - Optional CID for multi-part videos
    */
-  private checkLibraryCache(bvid: string, cid?: number): boolean {
+  private checkLibraryCache(bvid: string, _cid?: number): boolean {
     // Direct check: if bvid exists in cache, video is downloaded
     return this.cache.has(bvid)
   }

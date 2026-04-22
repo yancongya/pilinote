@@ -105,7 +105,6 @@ const getTraceStatus = (step: AiTraceStep, nextStep?: AiTraceStep): TraceDotStat
   const parts = stage.split('.')
   const stageRoot = parts[parts.length - 1] || stage
   const title = step.title || ''
-  const summary = step.summary || ''
   const stageStr = step.stage || ''
   if (/失败|错误/i.test(title) || /失败|错误/i.test(stageStr)) return 'error'
   if (stageRoot === 'ERROR' || stage.includes('FAIL')) return 'error'

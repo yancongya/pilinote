@@ -11,6 +11,7 @@ import { apiService } from '../../services/api'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
 import type { FolderScanConfig } from '../../stores/settings'
+import { SettingsActionRow, SettingsField, SettingsSection, SettingsToggleRow } from './shared'
 
 interface AutoDownloadSettingsRef {
   hasUnsavedChanges: () => boolean
@@ -159,7 +160,6 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
   const customScanEnabled = getCurrentValue('custom_scan.enabled') ?? false
   const folderList = (getCurrentValue('custom_scan.folder_list') ?? []) as FolderScanConfig[]
   const [loadingFavorites, setLoadingFavorites] = useState(false)
-  const [isHoveringRefresh, setIsHoveringRefresh] = useState(false)
 
   // 加载收藏夹列表
   const loadFavorites = async () => {
@@ -205,175 +205,119 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
   }
 
   return (
-    <div className="stg-panel">
-      {/* 启用开关 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">自动下载</span>
-          <span className="stg-group-subtitle">定时扫描并下载</span>
-        </div>
-        
-        <div className="stg-toggles">
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用自动下载</span>
-            </div>
+    <div>
+      <SettingsSection title="自动下载" subtitle="定时扫描并下载">
+        <SettingsToggleRow
+          label="启用自动下载"
+          checked={getCurrentValue('enabled') ?? currentSettings.enabled}
+          onChange={(checked) => handleLocalUpdate('enabled', checked)}
+        />
+      </SettingsSection>
+
+      <SettingsSection title="触发方式" subtitle="定时扫描的执行方式">
+        <SettingsField label="触发方式" icon={<Clock size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('trigger_type') ?? currentSettings.trigger_type}
+            onChange={(e) => handleLocalUpdate('trigger_type', e.target.value)}
+          >
+            <option value="interval">间隔执行</option>
+            <option value="cron">Cron 表达式</option>
+          </select>
+        </SettingsField>
+
+        {(getCurrentValue('trigger_type') ?? currentSettings.trigger_type) === 'interval' && (
+          <SettingsField label="扫描间隔 (分钟)" icon={<Clock size={18} />}>
+            <select
+              className="settings-control settings-select"
+              value={getCurrentValue('scan_interval') ?? currentSettings.scan_interval}
+              onChange={(e) => handleLocalUpdate('scan_interval', parseInt(e.target.value))}
+            >
+              <option value={15}>15 分钟</option>
+              <option value={30}>30 分钟</option>
+              <option value={60}>1 小时</option>
+              <option value={120}>2 小时</option>
+              <option value={360}>6 小时</option>
+              <option value={720}>12 小时</option>
+              <option value={1440}>24 小时</option>
+            </select>
+          </SettingsField>
+        )}
+
+        {(getCurrentValue('trigger_type') ?? currentSettings.trigger_type) === 'cron' && (
+          <SettingsField
+            label="Cron 表达式"
+            icon={<Hash size={18} />}
+            hint="例：0 0 * * * 表示每天 0 点"
+          >
             <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('enabled') ?? currentSettings.enabled}
-              onChange={(e) => handleLocalUpdate('enabled', e.target.checked)}
+              type="text"
+              className="settings-control settings-input"
+              value={getCurrentValue('cron_expression') ?? currentSettings.cron_expression}
+              onChange={(e) => handleLocalUpdate('cron_expression', e.target.value)}
+              placeholder="秒 分 时 日 月 周"
             />
-          </label>
-        </div>
-      </div>
+          </SettingsField>
+        )}
+      </SettingsSection>
 
-      {/* 触发方式 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">触发方式</span>
-          <span className="stg-group-subtitle">定时扫描的执行方式</span>
-        </div>
-        
-        <div className="stg-list">
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Clock size={18} className="stg-item-icon" />
-              <span className="stg-item-label">触发方式</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('trigger_type') ?? currentSettings.trigger_type}
-              onChange={(e) => handleLocalUpdate('trigger_type', e.target.value)}
-            >
-              <option value="interval">间隔执行</option>
-              <option value="cron">Cron 表达式</option>
-            </select>
-          </div>
+      <SettingsSection title="并发限制" subtitle="控制同时下载的任务数">
+        <SettingsField label="视频并发数" icon={<Zap size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('concurrent_limit.video') ?? currentSettings.concurrent_limit.video}
+            onChange={(e) => handleLocalUpdate('concurrent_limit.video', parseInt(e.target.value))}
+          >
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+            <option value={5}>5</option>
+          </select>
+        </SettingsField>
 
-          {(getCurrentValue('trigger_type') ?? currentSettings.trigger_type) === 'interval' && (
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <Clock size={18} className="stg-item-icon" />
-                <span className="stg-item-label">扫描间隔 (分钟)</span>
-              </div>
-              <select
-                className="stg-select"
-                value={getCurrentValue('scan_interval') ?? currentSettings.scan_interval}
-                onChange={(e) => handleLocalUpdate('scan_interval', parseInt(e.target.value))}
-              >
-                <option value={15}>15 分钟</option>
-                <option value={30}>30 分钟</option>
-                <option value={60}>1 小时</option>
-                <option value={120}>2 小时</option>
-                <option value={360}>6 小时</option>
-                <option value={720}>12 小时</option>
-                <option value={1440}>24 小时</option>
-              </select>
-            </div>
-          )}
+        <SettingsField label="分页并发数" icon={<Zap size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('concurrent_limit.page') ?? currentSettings.concurrent_limit.page}
+            onChange={(e) => handleLocalUpdate('concurrent_limit.page', parseInt(e.target.value))}
+          >
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+            <option value={5}>5</option>
+          </select>
+        </SettingsField>
+      </SettingsSection>
 
-          {(getCurrentValue('trigger_type') ?? currentSettings.trigger_type) === 'cron' && (
-            <div className="stg-item stg-item-col">
-              <div className="stg-item-label-row">
-                <Hash size={18} className="stg-item-icon" />
-                <span className="stg-item-label">Cron 表达式</span>
-                <span className="stg-hint-inline">例：0 0 * * * 表示每天 0 点</span>
-              </div>
-              <input
-                type="text"
-                className="stg-input"
-                value={getCurrentValue('cron_expression') ?? currentSettings.cron_expression}
-                onChange={(e) => handleLocalUpdate('cron_expression', e.target.value)}
-                placeholder="秒 分 时 日 月 周"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 并发限制 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">并发限制</span>
-          <span className="stg-group-subtitle">控制同时下载的任务数</span>
-        </div>
-        
-        <div className="stg-list">
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Zap size={18} className="stg-item-icon" />
-              <span className="stg-item-label">视频并发数</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('concurrent_limit.video') ?? currentSettings.concurrent_limit.video}
-              onChange={(e) => handleLocalUpdate('concurrent_limit.video', parseInt(e.target.value))}
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-              <option value={5}>5</option>
-            </select>
-          </div>
-
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Zap size={18} className="stg-item-icon" />
-              <span className="stg-item-label">分页并发数</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('concurrent_limit.page') ?? currentSettings.concurrent_limit.page}
-              onChange={(e) => handleLocalUpdate('concurrent_limit.page', parseInt(e.target.value))}
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-              <option value={5}>5</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* 自定义扫描列表 */}
-      <div className="stg-group">
-        <div className="stg-group-header flex justify-between items-center">
-          <span className="stg-group-title">自定义扫描列表</span>
+      <SettingsSection
+        title="自定义扫描列表"
+        subtitle="自定义收藏夹扫描策略"
+        actions={(
           <div className="flex items-center gap-3">
-            <div
+            <button
               onClick={loadFavorites}
-              className={`flex items-center justify-center p-1 transition-all duration-200 ${loadingFavorites ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-              style={{ 
-                color: isHoveringRefresh && !loadingFavorites ? 'var(--color-primary-600)' : 'var(--color-text-secondary)'
-              }}
-              onMouseEnter={() => setIsHoveringRefresh(true)}
-              onMouseLeave={() => setIsHoveringRefresh(false)}
+              className="settings-icon-button"
+              disabled={loadingFavorites}
               aria-label="刷新收藏夹列表"
               title="刷新收藏夹列表"
             >
-              <RotateCw size={16} className={loadingFavorites ? 'animate-spin' : ''} />
-            </div>
-            <label className="stg-toggle mb-0">
-              <div className="stg-toggle-content">
-                <span className="stg-toggle-label">启用</span>
-              </div>
-              <input
-                type="checkbox"
-                className="stg-toggle-input"
-                checked={customScanEnabled}
-                onChange={(e) => {
-                  handleLocalUpdate('custom_scan.enabled', e.target.checked)
-                  if (e.target.checked && folderList.length === 0) {
-                    loadFavorites()
-                  }
-                }}
-              />
-            </label>
+              <RotateCw size={16} className={loadingFavorites ? 'is-spinning' : ''} />
+            </button>
+            <SettingsToggleRow
+              label="启用"
+              checked={customScanEnabled}
+              onChange={(checked) => {
+                handleLocalUpdate('custom_scan.enabled', checked)
+                if (checked && folderList.length === 0) {
+                  loadFavorites()
+                }
+              }}
+            />
           </div>
-        </div>
+        )}
+      >
 
         {customScanEnabled && (
           <div className="mt-4">
@@ -440,7 +384,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
                   </div>
                   <input
                     type="number"
-                    className="stg-input"
+                  className="settings-input"
                     value={config.max_videos}
                     onChange={(e) => updateFolderConfig(index, 'max_videos', parseInt(e.target.value) || 0)}
                     min={0}
@@ -456,9 +400,9 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
 
         {/* 稍后再看数量设置 */}
         <div className="mt-4">
-          <div className="stg-item-label-row mb-2">
-            <ClockIcon size={18} className="stg-item-icon" />
-            <span className="stg-item-label">稍后再看数量限制</span>
+          <div className="settings-field-label-row mb-2">
+            <ClockIcon size={18} className="settings-field-icon" />
+            <span className="settings-field-label">稍后再看数量限制</span>
           </div>
           <div 
             className="grid gap-3 p-3 mb-2 font-medium text-sm"
@@ -503,7 +447,7 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             <div>
               <input
                 type="number"
-                className="stg-input w-full"
+                className="settings-input"
                 min="0"
                 max="999"
                 value={getCurrentValue('watch_later_max') ?? currentSettings.watch_later_max}
@@ -515,89 +459,69 @@ const AutoDownloadSettings = forwardRef<AutoDownloadSettingsRef>((_props, ref) =
             </div>
           </div>
         </div>
-      </div>
+      </SettingsSection>
 
-      {/* 自动开始下载和存储阈值设置 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">下载触发控制</span>
-          <span className="stg-group-subtitle">控制扫描后是否自动开始下载及存储空间限制</span>
-        </div>
-        
-        <div className="stg-list">
-          {/* 自动开始下载开关 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Zap size={18} className="stg-item-icon" />
-              <span className="stg-item-label">扫描后自动开始下载</span>
-              <span className="stg-hint-inline">开启后，扫描完成会自动开始下载新视频</span>
-            </div>
-            <label className="stg-toggle">
-              <input
-                type="checkbox"
-                className="stg-toggle-input"
-                checked={getCurrentValue('auto_start_after_scan') ?? currentSettings.auto_start_after_scan}
-                onChange={(e) => handleLocalUpdate('auto_start_after_scan', e.target.checked)}
-              />
-            </label>
-          </div>
+      <SettingsSection title="下载触发控制" subtitle="控制扫描后是否自动开始下载及存储空间限制">
+        <SettingsToggleRow
+          label="扫描后自动开始下载"
+          hint="开启后，扫描完成会自动开始下载新视频"
+          checked={getCurrentValue('auto_start_after_scan') ?? currentSettings.auto_start_after_scan}
+          onChange={(checked) => handleLocalUpdate('auto_start_after_scan', checked)}
+        />
 
-          {/* 存储空间阈值设置 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Hash size={18} className="stg-item-icon" />
-              <span className="stg-item-label">存储空间阈值 (GB)</span>
-              <span className="stg-hint-inline">超过此值时不触发自动下载，避免空间不足</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('storage_threshold_gb') ?? currentSettings.storage_threshold_gb}
-              onChange={(e) => handleLocalUpdate('storage_threshold_gb', parseInt(e.target.value))}
-            >
-              <option value={5}>5 GB</option>
-              <option value={10}>10 GB</option>
-              <option value={20}>20 GB</option>
-              <option value={30}>30 GB</option>
-              <option value={50}>50 GB</option>
-              <option value={100}>100 GB</option>
-              <option value={200}>200 GB</option>
-              <option value={500}>500 GB</option>
-              <option value={1024}>1 TB</option>
-            </select>
-          </div>
-        </div>
+        <SettingsField
+          label="存储空间阈值 (GB)"
+          icon={<Hash size={18} />}
+          hint="超过此值时不触发自动下载，避免空间不足"
+        >
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('storage_threshold_gb') ?? currentSettings.storage_threshold_gb}
+            onChange={(e) => handleLocalUpdate('storage_threshold_gb', parseInt(e.target.value))}
+          >
+            <option value={5}>5 GB</option>
+            <option value={10}>10 GB</option>
+            <option value={20}>20 GB</option>
+            <option value={30}>30 GB</option>
+            <option value={50}>50 GB</option>
+            <option value={100}>100 GB</option>
+            <option value={200}>200 GB</option>
+            <option value={500}>500 GB</option>
+            <option value={1024}>1 TB</option>
+          </select>
+        </SettingsField>
 
-        {/* 说明信息 */}
-        <div 
+        <div
           className="p-3 mt-3 text-xs border"
-          style={{ 
+          style={{
             backgroundColor: 'var(--color-info-50)',
             borderRadius: '8px',
             color: 'var(--color-info-700)',
-            borderColor: 'var(--color-info-200)'
+            borderColor: 'var(--color-info-200)',
           }}
         >
           <div className="font-semibold mb-1">💡 工作流程说明：</div>
           <div className="leading-relaxed">
-            1. 当"扫描后自动开始下载"开启时，扫描完成后会自动触发下载<br/>
-            2. 触发下载前会检查当前视频库占用空间<br/>
-            3. 如果占用空间超过设定的阈值，则不会触发下载，避免磁盘空间不足<br/>
+            1. 当"扫描后自动开始下载"开启时，扫描完成后会自动触发下载<br />
+            2. 触发下载前会检查当前视频库占用空间<br />
+            3. 如果占用空间超过设定的阈值，则不会触发下载，避免磁盘空间不足<br />
             4. 即使自动下载被禁用，你也可以手动选择扫描结果进行下载
           </div>
         </div>
-      </div>
+      </SettingsSection>
 
-      {/* 重置按钮 */}
-      <div className="stg-actions">
-        <button 
-          className="stg-btn stg-btn-secondary"
-          onClick={() => setShowResetConfirm(true)}
-          aria-label="重置自动下载设置"
-        >
-          <RotateCw size={16} className="stg-item-icon" />
-          <span>重置自动下载设置</span>
-        </button>
-      </div>
+      <SettingsSection>
+        <SettingsActionRow>
+          <button
+            className="settings-button settings-button-secondary settings-button-block"
+            onClick={() => setShowResetConfirm(true)}
+            aria-label="重置自动下载设置"
+          >
+            <RotateCw size={16} />
+            <span>重置自动下载设置</span>
+          </button>
+        </SettingsActionRow>
+      </SettingsSection>
 
       {/* 重置确认弹窗 */}
       <ConfirmModal

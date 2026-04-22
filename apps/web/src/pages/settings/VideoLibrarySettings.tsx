@@ -3,6 +3,7 @@ import { RefreshCw, Clock, Zap, CheckCircle } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { useToast } from '../../components/Toast'
+import { SettingsField, SettingsSection, SettingsToggleRow } from './shared'
 
 // 定义ref类型
 interface VideoLibrarySettingsRef {
@@ -120,166 +121,116 @@ const VideoLibrarySettings = forwardRef<VideoLibrarySettingsRef>((_props, ref) =
   })()
 
   return (
-    <div className="stg-panel">
-      {/* 视频库设置部分 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">视频库配置</span>
-          <span className="stg-group-subtitle">缓存和刷新设置</span>
-        </div>
+    <div>
+      <SettingsSection title="视频库配置" subtitle="缓存和刷新设置">
+        <SettingsField
+          label="缓存过期时间"
+          icon={<Clock size={18} />}
+          hint="视频库缓存的过期时间，超过此时间后首次查询会刷新缓存"
+        >
+          <select
+            value={localConfig.cacheTTL}
+            onChange={(e) => handleConfigChange('cacheTTL', parseInt(e.target.value) || 1)}
+            className="settings-control settings-select"
+          >
+            <option value={1}>1 分钟</option>
+            <option value={5}>5 分钟</option>
+            <option value={10}>10 分钟</option>
+            <option value={30}>30 分钟</option>
+            <option value={60}>60 分钟</option>
+          </select>
+        </SettingsField>
 
-        <div className="stg-list">
-          {/* 缓存过期时间 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Clock size={18} className="stg-item-icon" />
-              <span className="stg-item-label">缓存过期时间</span>
-            </div>
-            <select
-              value={localConfig.cacheTTL}
-              onChange={(e) => handleConfigChange('cacheTTL', parseInt(e.target.value) || 1)}
-              className="stg-select"
-            >
-              <option value={1}>1 分钟</option>
-              <option value={5}>5 分钟</option>
-              <option value={10}>10 分钟</option>
-              <option value={30}>30 分钟</option>
-              <option value={60}>60 分钟</option>
-            </select>
-            <p className="stg-hint">视频库缓存的过期时间，超过此时间后首次查询会刷新缓存</p>
+        <SettingsField
+          label="自动刷新延迟"
+          icon={<Zap size={18} />}
+          hint="下载完成后自动刷新视频库的延迟时间，避免频繁刷新"
+        >
+          <select
+            value={localConfig.autoRefreshDelay}
+            onChange={(e) => handleConfigChange('autoRefreshDelay', parseInt(e.target.value) || 1)}
+            className="settings-control settings-select"
+          >
+            <option value={1}>1 秒</option>
+            <option value={5}>5 秒</option>
+            <option value={10}>10 秒</option>
+            <option value={15}>15 秒</option>
+            <option value={30}>30 秒</option>
+          </select>
+        </SettingsField>
+
+        <SettingsField
+          label="最大并发检查数"
+          icon={<CheckCircle size={18} />}
+          hint="批量检查视频状态时的最大并发请求数，避免后端压力过大"
+        >
+          <select
+            value={localConfig.maxConcurrentChecks}
+            onChange={(e) => handleConfigChange('maxConcurrentChecks', parseInt(e.target.value) || 1)}
+            className="settings-control settings-select"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={30}>30</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </SettingsField>
+
+        <SettingsToggleRow
+          label="启用智能刷新"
+          checked={localConfig.enableSmartRefresh}
+          onChange={(checked) => handleConfigChange('enableSmartRefresh', checked)}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="缓存状态"
+        subtitle="当前缓存信息"
+        actions={(
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="settings-icon-button"
+            title="刷新视频库"
+            aria-label="刷新视频库"
+          >
+            <RefreshCw size={16} className={refreshing ? 'is-spinning' : ''} />
+          </button>
+        )}
+      >
+        <SettingsField label="当前状态" icon={<RefreshCw size={18} />}>
+          <div className="settings-meta">
+            <span className={cacheStatusInfo.color}>
+              {cacheStatusInfo.text}
+            </span>
           </div>
+        </SettingsField>
 
-          {/* 自动刷新延迟 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Zap size={18} className="stg-item-icon" />
-              <span className="stg-item-label">自动刷新延迟</span>
+        {cachedFolderCount > 0 && (
+          <SettingsField label="缓存系列数" icon={<Zap size={18} />}>
+            <div className="settings-meta">
+              {cachedFolderCount} 个系列
             </div>
-            <select
-              value={localConfig.autoRefreshDelay}
-              onChange={(e) => handleConfigChange('autoRefreshDelay', parseInt(e.target.value) || 1)}
-              className="stg-select"
-            >
-              <option value={1}>1 秒</option>
-              <option value={5}>5 秒</option>
-              <option value={10}>10 秒</option>
-              <option value={15}>15 秒</option>
-              <option value={30}>30 秒</option>
-            </select>
-            <p className="stg-hint">下载完成后自动刷新视频库的延迟时间，避免频繁刷新</p>
-          </div>
+          </SettingsField>
+        )}
 
-          {/* 最大并发检查数 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <CheckCircle size={18} className="stg-item-icon" />
-              <span className="stg-item-label">最大并发检查数</span>
+        {cachedVideoCount > 0 && (
+          <SettingsField label="缓存视频数" icon={<CheckCircle size={18} />}>
+            <div className="settings-meta">
+              {cachedVideoCount} 个视频
             </div>
-            <select
-              value={localConfig.maxConcurrentChecks}
-              onChange={(e) => handleConfigChange('maxConcurrentChecks', parseInt(e.target.value) || 1)}
-              className="stg-select"
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={30}>30</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <p className="stg-hint">批量检查视频状态时的最大并发请求数，避免后端压力过大</p>
-          </div>
-        </div>
+          </SettingsField>
+        )}
 
-        {/* 开关选项 */}
-        <div className="stg-toggles">
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用智能刷新</span>
+        {lastRefreshTime && (
+          <SettingsField label="最后刷新时间" icon={<Clock size={18} />}>
+            <div className="settings-meta">
+              {lastRefreshTime.toLocaleString('zh-CN')}
             </div>
-            <input
-              type="checkbox"
-              checked={localConfig.enableSmartRefresh}
-              onChange={(e) => handleConfigChange('enableSmartRefresh', e.target.checked)}
-              className="stg-toggle-input"
-            />
-          </label>
-        </div>
-      </div>
-
-      {/* 缓存状态部分 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">缓存状态</span>
-          <span className="stg-group-subtitle">当前缓存信息</span>
-        </div>
-
-        <div className="stg-list">
-          <div className="stg-item">
-            <div className="stg-icon-badge">
-              <RefreshCw size={18} className="stg-item-icon" />
-            </div>
-            <div className="stg-item-content">
-              <div className="stg-item-label">当前状态</div>
-              <div className="stg-meta">
-                <span className={cacheStatusInfo.color}>
-                  {cacheStatusInfo.text}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="stg-btn-icon"
-              style={{ color: 'var(--color-text-secondary)' }}
-              title="刷新视频库"
-            >
-              <RefreshCw size={16} className={refreshing ? 'stg-spin' : ''} />
-            </button>
-          </div>
-
-          {cachedFolderCount > 0 && (
-            <div className="stg-item">
-              <div className="stg-icon-badge">
-                <Zap size={18} className="stg-item-icon" />
-              </div>
-              <div className="stg-item-content">
-                <div className="stg-item-label">缓存系列数</div>
-                <div className="stg-meta">
-                  {cachedFolderCount} 个系列
-                </div>
-              </div>
-            </div>
-          )}
-
-          {cachedVideoCount > 0 && (
-            <div className="stg-item">
-              <div className="stg-icon-badge">
-                <CheckCircle size={18} className="stg-item-icon" />
-              </div>
-              <div className="stg-item-content">
-                <div className="stg-item-label">缓存视频数</div>
-                <div className="stg-meta">
-                  {cachedVideoCount} 个视频
-                </div>
-              </div>
-            </div>
-          )}
-
-          {lastRefreshTime && (
-            <div className="stg-item">
-              <div className="stg-icon-badge">
-                <Clock size={18} className="stg-item-icon" />
-              </div>
-              <div className="stg-item-content">
-                <div className="stg-item-label">最后刷新时间</div>
-                <div className="stg-meta">
-                  {lastRefreshTime.toLocaleString('zh-CN')}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+          </SettingsField>
+        )}
+      </SettingsSection>
     </div>
   )
 })

@@ -83,6 +83,9 @@ export interface QueueConfig {
   sort_strategy: 'priority' | 'created_at' | 'estimated_size' | 'manual'
   retry_failed: boolean                // 自动重试失败的下载
   retry_delay: number                  // 重试延迟（秒）
+  max_retries: number                  // 最大重试次数
+  retry_backoff: boolean               // 启用退避策略
+  retry_backoff_multiplier: number     // 退避倍数
   clear_completed: boolean             // 自动清理完成的下载
 }
 
@@ -263,9 +266,6 @@ interface QueueState {
   // 获取队列统计信息
   getQueueStats: () => QueueStats
 
-  // 获取可以重试的任务
-  getRetryableTasks: () => QueueTask[]
-
   // ========== 配置管理 ==========
 
   // 更新队列配置
@@ -345,6 +345,9 @@ const DEFAULT_CONFIG: QueueConfig = {
   sort_strategy: 'priority',
   retry_failed: true,
   retry_delay: 5,
+  max_retries: 3,
+  retry_backoff: true,
+  retry_backoff_multiplier: 2,
   clear_completed: false
 }
 
@@ -1240,14 +1243,6 @@ export const useQueueStore = create<QueueState>()(
           downloaded_size: downloadedSize,
           average_speed: downloadingCount > 0 ? totalSpeed / downloadingCount : 0
         }
-      },
-
-      getRetryableTasks: () => {
-        const { tasks } = get()
-        return Array.from(tasks.values()).filter(task =>
-          task.state === 'failed' &&
-          task.statusInfo.retry_count < task.statusInfo.max_retries
-        )
       },
 
       // ========== 配置管理 ==========

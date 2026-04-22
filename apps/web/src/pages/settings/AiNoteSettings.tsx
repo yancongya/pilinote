@@ -1,11 +1,11 @@
 import { useState, useRef, forwardRef, useImperativeHandle, useEffect, useMemo } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
+import type { Settings } from '../../stores/settings'
 import { useSettingsStore } from '../../stores/settings'
 import { useAiRuntimeState } from '../../hooks/useAiRuntimeState'
 import { 
   Brain, 
   Key, 
-  Clock, 
   Sparkles,
   Plus,
   Trash2,
@@ -31,6 +31,7 @@ import AiPromptTemplates from './AiPromptTemplates'
 import { PROMPT_TEMPLATE_CARDS, type PromptTemplateMeta } from '../../services/promptCatalog'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { aiRuntimeStateService } from '../../services/aiRuntimeState'
+import { SettingsField, SettingsSection, SettingsToggleRow } from './shared'
 
 interface LLMProvider {
   id: string
@@ -740,11 +741,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     hasUnsavedChanges: () => false,
     saveSettings: async () => {
       try {
-        const currentAiNote = settings?.ai_note || {
-          style: { length: 500 },
+        const currentAiNote = (settings?.ai_note ?? {
+          style: { style: 'default', length: 500, custom_styles: [] },
           format: { format: 'markdown', include_timestamp: true, include_summary: true },
           auto_analyze: false,
-        }
+        }) as Settings['ai_note']
         await updateSettings({
           llm: {
             ...((settings as any)?.llm || {
@@ -764,9 +765,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           ai_note: {
             ...currentAiNote,
             style: {
+              ...currentAiNote.style,
               length: localSettings.style.length,
               custom_styles: customStyles,
-            } as any,
+            },
             format: {
               ...currentAiNote.format,
               ...localSettings.format,
@@ -787,26 +789,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   }))
 
   return (
-    <div className="stg-panel">
-      {/* 服务商管理 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <h3 className="stg-group-title">
-            <Brain size={18} />
-            AI 服务商
-          </h3>
-          <div className="settings-group-actions">
-            <button 
-              type="button" 
-              className="settings-icon-btn" 
-              style={{ zIndex: 9999, position: 'relative' }}
-              onClick={handleAddProvider}
-              title="新建服务商"
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
+    <div className="ai-note-settings">
+      <SettingsSection
+        title="AI 服务商"
+        subtitle="管理模型提供方、Base URL 和 API Key"
+        actions={(
+          <button
+            type="button"
+            className="settings-icon-button"
+            onClick={handleAddProvider}
+            title="新建服务商"
+          >
+            <Plus size={18} />
+          </button>
+        )}
+      >
         
         {/* 服务商Tabs */}
         <div
@@ -887,11 +884,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               </div>
             </div>
             <div className="settings-provider-edit">
-              <div className="stg-item">
-                <label className="stg-label">服务商名称</label>
+              <div className="settings-provider-row">
+                <label className="settings-provider-row-label">服务商名称</label>
                 <input
                   type="text"
-                  className={`stg-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
+                  className={`settings-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
                   placeholder="如：OpenAI"
                   value={isEditingCurrentProvider ? providerForm.name : currentProvider.name}
                   readOnly={!isEditingCurrentProvider}
@@ -900,14 +897,14 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     setProviderForm(prev => ({ ...prev, name: e.target.value }))
                   }}
                 />
-                <div className="stg-item-actions"></div>
+                <div className="settings-provider-row-actions"></div>
               </div>
 
-              <div className="stg-item">
-                <label className="stg-label">Base URL</label>
+              <div className="settings-provider-row">
+                <label className="settings-provider-row-label">Base URL</label>
                 <input
                   type="text"
-                  className={`stg-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
+                  className={`settings-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
                   placeholder="API地址"
                   value={isEditingCurrentProvider ? providerForm.baseUrl : currentProvider.baseUrl}
                   readOnly={!isEditingCurrentProvider}
@@ -916,17 +913,17 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     setProviderForm(prev => ({ ...prev, baseUrl: e.target.value }))
                   }}
                 />
-                <div className="stg-item-actions"></div>
+                <div className="settings-provider-row-actions"></div>
               </div>
               
-              <div className="stg-item">
-                <label className="stg-label">
+              <div className="settings-provider-row">
+                <label className="settings-provider-row-label">
                   <Key size={14} />
                   API Key
                 </label>
                 <input
                   type={showApiKey ? 'text' : 'password'}
-                  className={`stg-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
+                  className={`settings-input ${isEditingCurrentProvider ? 'is-editing' : 'is-readonly'}`}
                   placeholder="留空使用环境变量"
                   value={isEditingCurrentProvider ? providerForm.apiKey : currentProvider.apiKey}
                   readOnly={!isEditingCurrentProvider}
@@ -935,7 +932,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     setProviderForm(prev => ({ ...prev, apiKey: e.target.value }))
                   }}
                 />
-                <div className="stg-item-actions">
+                <div className="settings-provider-row-actions">
                   <button
                     type="button"
                     className="settings-icon-btn"
@@ -958,8 +955,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                
             </div>
             
-            <div className="stg-item">
-              <label className="stg-label">模型列表</label>
+            <div className="settings-provider-row">
+              <label className="settings-provider-row-label">模型列表</label>
               <button
                 type="button"
                 className="settings-icon-btn"
@@ -979,7 +976,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     <span className="settings-model-name">
                       {modelEditIndex === index ? (
                         <input
-                          className="stg-input settings-model-input"
+                          className="settings-input settings-model-input"
                           value={modelDraft}
                           autoFocus
                           onChange={(e) => setModelDraft(e.target.value)}
@@ -1033,18 +1030,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             </div>
           </div>
         )}
-        </div>
+      </SettingsSection>
 
-        <LocalAsrModelPanel />
+      <SettingsSection
+        title="本地 ASR 模型"
+        subtitle="管理本地语音识别模型、下载状态和切换操作"
+      >
+        <LocalAsrModelPanel compact />
+      </SettingsSection>
 
-      {/* prompt 管理 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <h3 className="stg-group-title">
-            <Sparkles size={18} />
-            prompt管理
-          </h3>
-        </div>
+      <SettingsSection title="prompt管理">
         <div className="settings-style-section">
           <div className="settings-style-section-title settings-style-section-title-row">
             <span>{selectedPromptCategory}</span>
@@ -1124,12 +1119,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             )}
           </div>
         </div>
-      </div>
+      </SettingsSection>
 
       <AiPromptTemplates
         isOpen={Boolean(selectedPromptCard)}
         onClose={() => setSelectedPromptCard(null)}
         card={selectedPromptCard}
+        onSaved={(nextTemplates) => setPromptTemplates(nextTemplates)}
       />
 
       {showCreateStyleModal && (
@@ -1146,37 +1142,34 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               </button>
             </div>
             <div className="settings-modal-body">
-              <div className="stg-item">
-                <label className="stg-label">风格名称</label>
+              <SettingsField label="风格名称">
                 <input
                   type="text"
-                  className="stg-input"
+                  className="settings-input"
                   value={createStyleForm.label}
                   onChange={(e) => setCreateStyleForm(prev => ({ ...prev, label: e.target.value }))}
                 />
-              </div>
-              <div className="stg-item">
-                <label className="stg-label">描述</label>
+              </SettingsField>
+              <SettingsField label="描述">
                 <textarea
                   className="settings-textarea"
                   value={createStyleForm.description}
                   onChange={(e) => setCreateStyleForm(prev => ({ ...prev, description: e.target.value }))}
                 />
-              </div>
-              <div className="stg-item">
-                <label className="stg-label">Prompt</label>
+              </SettingsField>
+              <SettingsField label="Prompt">
                 <textarea
                   className="settings-textarea"
                   value={createStyleForm.prompt}
                   onChange={(e) => setCreateStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
                 />
-              </div>
+              </SettingsField>
             </div>
             <div className="settings-modal-footer">
-              <button className="settings-btn-secondary" onClick={() => setShowCreateStyleModal(false)}>
+              <button className="settings-button settings-button-secondary" onClick={() => setShowCreateStyleModal(false)}>
                 取消
               </button>
-              <button className="settings-btn-primary" onClick={handleCreateCustomStyle}>
+              <button className="settings-button settings-button-primary" onClick={handleCreateCustomStyle}>
                 创建
               </button>
             </div>
@@ -1184,29 +1177,30 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         </div>
       )}
 
-      {/* 自动功能 */}
-      <div className="stg-group">
-        <h3 className="stg-group-title">
-          <Clock size={18} />
-          自动功能
-        </h3>
-        
-        <div className="stg-item">
-          <label className="settings-checkbox-label">
-            <input
-              type="checkbox"
-              checked={localSettings.auto_analyze}
-              onChange={(e) => setLocalSettings(prev => ({ ...prev, auto_analyze: e.target.checked }))}
-            />
-            下载完成后自动生成AI笔记
-          </label>
-        </div>
-      </div>
+      <SettingsSection title="自动功能">
+        <SettingsToggleRow
+          label="下载完成后自动生成AI笔记"
+          checked={localSettings.auto_analyze}
+          onChange={(checked) => setLocalSettings(prev => ({ ...prev, auto_analyze: checked }))}
+        />
+      </SettingsSection>
 
       <style>{`
+        .ai-note-settings .settings-section + .settings-section {
+          margin-top: 8px;
+        }
+
+        .ai-note-settings .settings-section-header {
+          padding: 12px 14px;
+        }
+
+        .ai-note-settings .settings-page-content {
+          padding-bottom: 96px;
+        }
+
         .settings-section {
           padding: 16px;
-          padding-bottom: 80px;
+          padding-bottom: 24px;
         }
 
         .settings-group {
@@ -1246,9 +1240,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           display: inline-flex !important;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           border: none !important;
+          border-radius: 12px;
           background: transparent !important;
           color: var(--color-text-secondary) !important;
           cursor: pointer !important;
@@ -1270,7 +1265,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           height: 18px;
           display: block;
         }
-        }
 
         .settings-secondary-btn {
           background: var(--color-bg-tertiary);
@@ -1281,10 +1275,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         .settings-provider-tabs {
           display: flex;
           gap: 6px;
-          padding: 6px;
-          background: var(--color-bg-tertiary);
-          border-radius: 8px;
-          margin-bottom: 12px;
+          padding: 0 0 8px;
+          background: transparent;
+          border-bottom: 1px solid var(--color-border);
+          border-radius: 0;
+          margin-bottom: 16px;
           overflow-x: auto;
           scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
@@ -1316,10 +1311,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-provider-tab.active {
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
-          border-radius: 8px 8px 0 0;
+          color: var(--color-primary-600);
+          box-shadow: inset 0 -2px 0 var(--color-primary-600);
         }
 
         .settings-provider-icon {
@@ -1339,21 +1332,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-provider-config {
-          padding: 20px;
-          background: var(--color-bg-secondary);
-          border-radius: 8px;
-          border: 1px solid var(--color-border);
+          padding: 12px 0 0;
+          background: transparent;
+          border: none;
+          border-top: 1px solid transparent;
         }
 
         .settings-provider-edit {
           display: grid;
           gap: 12px;
-          margin-bottom: 20px;
-          padding-bottom: 20px;
+          margin-bottom: 16px;
+          padding-bottom: 16px;
           border-bottom: 1px solid var(--color-border);
         }
 
-        .settings-provider-edit .stg-item {
+        .settings-provider-row {
           display: flex;
           align-items: center;
           gap: 12px;
@@ -1363,7 +1356,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           min-height: auto;
         }
 
-        .settings-provider-edit .stg-label {
+        .settings-provider-row-label {
           flex: 0 0 90px;
           display: flex;
           align-items: center;
@@ -1374,11 +1367,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           white-space: nowrap;
         }
 
-        .settings-provider-edit .stg-label svg {
+        .settings-provider-row-label svg {
           flex-shrink: 0;
         }
 
-        .settings-provider-edit .stg-input {
+        .settings-provider-edit .settings-input {
           flex: 1 1 auto;
           min-width: 0;
           width: 0;
@@ -1387,21 +1380,22 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           background: var(--color-bg-primary);
           border: 1px solid var(--color-border);
           color: var(--color-text-primary);
+          box-sizing: border-box;
         }
 
-        .settings-provider-edit .stg-input.is-readonly {
+        .settings-provider-edit .settings-input.is-readonly {
           background: var(--color-bg-secondary);
           color: var(--color-text-secondary);
           cursor: default;
         }
 
-        .settings-provider-edit .stg-input.is-editing {
+        .settings-provider-edit .settings-input.is-editing {
           background: var(--color-bg-primary);
           border-color: var(--color-primary-400);
           box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.08);
         }
 
-        .stg-item-actions {
+        .settings-provider-row-actions {
           flex: 0 0 auto;
           display: flex;
           align-items: center;
@@ -1449,16 +1443,21 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .settings-modal-close {
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           border: none;
-          border-radius: 10px;
-          background: var(--color-bg-tertiary);
+          border-radius: 12px;
+          background: transparent;
           color: var(--color-text-secondary);
           cursor: pointer;
+        }
+
+        .settings-modal-close:hover {
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
         }
 
         .settings-modal-body {
@@ -1510,37 +1509,34 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           margin-bottom: 8px;
         }
 
-        .settings-label-row .stg-label {
+        .settings-label-row .settings-field-label {
           display: flex;
           align-items: center;
           gap: 6px;
         }
 
-        .settings-inline-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-          margin-top: 4px;
-        }
-
         .settings-model-list {
           display: flex;
           flex-direction: column;
-          gap: 4px;
-          background: var(--color-bg-secondary);
-          padding: 8px;
-          border-radius: 8px;
-          border: 1px solid var(--color-border);
+          gap: 0;
+          background: transparent;
+          padding: 0;
+          border: none;
         }
 
         .settings-model-item {
-          display: flex;
+          display: grid;
+          grid-template-columns: 32px minmax(0, 1fr) auto auto;
           align-items: center;
-          gap: 12px;
-          padding: 10px 12px;
-          background: var(--color-bg-primary);
-          border: 1px solid transparent;
-          border-radius: 6px;
+          gap: 10px;
+          padding: 12px 0;
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .settings-model-item:last-child {
+          border-bottom: none;
         }
 
         .settings-model-index {
@@ -1554,13 +1550,17 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         .settings-model-name {
           flex: 1 1 auto;
           min-width: 0;
+          display: flex;
+          align-items: center;
+          min-height: 32px;
           font-size: 13px;
           color: var(--color-text-primary);
         }
 
-        .settings-model-name .stg-input {
+        .settings-model-name .settings-input {
           width: 100%;
-          padding: 6px 10px;
+          box-sizing: border-box;
+          padding: 7px 10px;
           font-size: 13px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-primary-400);
@@ -1570,6 +1570,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         .settings-model-status {
           flex: 0 0 auto;
           font-size: 11px;
+          justify-self: end;
         }
 
         .settings-model-status-loading {
@@ -1594,6 +1595,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           display: flex;
           align-items: center;
           gap: 2px;
+          justify-self: end;
         }
 
         .settings-provider-bar {
@@ -1706,6 +1708,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
           gap: 12px;
+        }
+
+        .settings-provider-row .settings-input {
+          flex: 1 1 auto;
+          min-width: 0;
+          width: 0;
+        }
+
+        .settings-provider-row-actions:empty {
+          width: 4px;
         }
 
         .settings-model-grid {
@@ -1895,22 +1907,38 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           justify-content: center;
           width: 32px;
           height: 32px;
-          border: 1px solid var(--color-border);
+          border: none;
           border-radius: 10px;
-          background: var(--color-bg-primary);
-          color: var(--color-text-primary);
+          background: transparent;
+          color: var(--color-text-secondary);
           cursor: pointer;
           flex: 0 0 auto;
+          transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
         }
 
         .settings-model-icon-btn.primary {
-          background: var(--color-primary-600);
-          border-color: var(--color-primary-600);
-          color: white;
+          background: rgba(67, 110, 238, 0.12);
+          color: var(--color-primary-600);
         }
 
         .settings-model-icon-btn.danger {
-          color: var(--color-error);
+          background: rgba(239, 68, 68, 0.12);
+          color: var(--color-error-600);
+        }
+
+        .settings-model-icon-btn:hover:not(:disabled) {
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+        }
+
+        .settings-model-icon-btn.primary:hover:not(:disabled) {
+          background: rgba(67, 110, 238, 0.18);
+          color: var(--color-primary-700);
+        }
+
+        .settings-model-icon-btn.danger:hover:not(:disabled) {
+          background: rgba(239, 68, 68, 0.18);
+          color: var(--color-error-700);
         }
 
         .settings-model-icon-btn:disabled {
@@ -2016,94 +2044,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           background: var(--color-primary-600);
           border-color: var(--color-primary-600);
           color: white;
-        }
-
-        .settings-style-card {
-          padding: 8px 9px 7px;
-          background: var(--color-bg-secondary);
-          border-radius: 9px;
-          border: 1px solid transparent;
-          cursor: pointer;
-          transition: all 0.15s;
-          min-height: 68px;
-        }
-
-        .settings-style-card.active {
-          border-color: var(--color-primary-600);
-          background: linear-gradient(180deg, rgba(67, 110, 238, 0.06), rgba(67, 110, 238, 0.02));
-        }
-
-        .settings-style-card-top {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 6px;
-        }
-
-        .settings-style-card-badge {
-          display: inline-flex;
-          align-items: center;
-          height: 18px;
-          padding: 0 6px;
-          border-radius: 999px;
-          font-size: 10px;
-          color: var(--color-text-tertiary);
-          background: rgba(255,255,255,0.04);
-        }
-
-        .settings-style-card-meta {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .settings-style-card-action {
-          width: 18px;
-          height: 18px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-          border-radius: 6px;
-          background: transparent;
-          color: var(--color-text-tertiary);
-          cursor: pointer;
-        }
-
-        .settings-style-card-action.danger {
-          color: var(--color-error);
-        }
-
-        .settings-style-card-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .settings-style-card-label {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--color-text-primary);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .settings-check {
-          color: var(--color-primary-600);
-        }
-
-        .settings-style-card-desc {
-          font-size: 10px;
-          color: var(--color-text-tertiary);
-          margin-top: 2px;
-          line-height: 1.35;
-          min-height: 2.6em;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
         }
 
         /* Form Elements */

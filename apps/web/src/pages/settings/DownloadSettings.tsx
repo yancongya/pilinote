@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { 
-  Monitor, 
-  Music, 
-  HardDrive, 
-  Gauge, 
-  RotateCw, 
-  Video
-} from 'lucide-react'
+import { Monitor, Music, HardDrive, Gauge, RotateCw, Video } from 'lucide-react'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
+import {
+  SettingsActionRow,
+  SettingsField,
+  SettingsLoadingState,
+  SettingsSection,
+  SettingsToggleRow,
+} from './shared'
 
 // 定义ref类型
 interface DownloadSettingsRef {
@@ -155,221 +155,141 @@ const DownloadSettings = forwardRef<DownloadSettingsRef>((_props, ref) => {
   }
 
   if (!settings) {
-    return (
-      <div className="stg-loading" role="status" aria-live="polite">
-        <RotateCw className="stg-spinner" />
-        <p>加载中...</p>
-      </div>
-    )
+    return <SettingsLoadingState label="加载中..." />
   }
 
   return (
-    <div className="stg-panel">
-      {/* 视频参数设置组 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">视频参数</span>
-          <span className="stg-group-subtitle">分辨率、音频和编码</span>
-        </div>
-        
-        <div className="stg-list">
-          {/* 分辨率 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Monitor size={18} className="stg-item-icon" />
-              <span className="stg-item-label">分辨率</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('video.default_quality') || 64}
-              onChange={(e) => handleLocalUpdate('video.default_quality', parseInt(e.target.value))}
-              disabled={loading}
-              aria-label="选择默认分辨率"
-            >
-              <option value={16}>360P</option>
-              <option value={32}>480P</option>
-              <option value={64}>720P</option>
-              <option value={80}>1080P</option>
-              <option value={112}>1080P+</option>
-              <option value={116}>4K</option>
-            </select>
-            <p className="stg-hint">下载时，将会优先使用此处参数。若目标资源不支持此处选定的参数，则会使用其支持的最高参数。</p>
-          </div>
+    <div>
+      <SettingsSection title="视频参数" subtitle="分辨率、音频和编码">
+        <SettingsField
+          label="分辨率"
+          icon={<Monitor size={18} />}
+          hint="下载时，将会优先使用此处参数。若目标资源不支持此处选定的参数，则会使用其支持的最高参数。"
+        >
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('video.default_quality') || 64}
+            onChange={(e) => handleLocalUpdate('video.default_quality', parseInt(e.target.value))}
+            disabled={loading}
+            aria-label="选择默认分辨率"
+          >
+            <option value={16}>360P</option>
+            <option value={32}>480P</option>
+            <option value={64}>720P</option>
+            <option value={80}>1080P</option>
+            <option value={112}>1080P+</option>
+            <option value={116}>4K</option>
+          </select>
+        </SettingsField>
 
-          {/* 音频码率 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Music size={18} className="stg-item-icon" />
-              <span className="stg-item-label">音频码率</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('video.audio_bitrate') || 192}
-              onChange={(e) => handleLocalUpdate('video.audio_bitrate', parseInt(e.target.value))}
-              disabled={loading}
-              aria-label="选择默认音频码率"
-            >
-              <option value={64}>64K</option>
-              <option value={128}>128K</option>
-              <option value={132}>132K</option>
-              <option value={192}>192K</option>
-              <option value={30232}>杜比全景声320K</option>
-              <option value={30251}>Hi-Res 无损</option>
-              <option value={30250}>无损FLAC</option>
-            </select>
-          </div>
+        <SettingsField label="音频码率" icon={<Music size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('video.audio_bitrate') || 192}
+            onChange={(e) => handleLocalUpdate('video.audio_bitrate', parseInt(e.target.value))}
+            disabled={loading}
+            aria-label="选择默认音频码率"
+          >
+            <option value={64}>64K</option>
+            <option value={128}>128K</option>
+            <option value={132}>132K</option>
+            <option value={192}>192K</option>
+            <option value={30232}>杜比全景声320K</option>
+            <option value={30251}>Hi-Res 无损</option>
+            <option value={30250}>无损FLAC</option>
+          </select>
+        </SettingsField>
 
-          {/* 编码格式 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Video size={18} className="stg-item-icon" />
-              <span className="stg-item-label">编码格式</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('video.codec') || 'avc'}
-              onChange={(e) => handleLocalUpdate('video.codec', e.target.value)}
-              disabled={loading}
-              aria-label="选择默认编码格式"
-            >
-              <option value="avc">AVC (H.264)</option>
-              <option value="hevc">HEVC (H.265)</option>
-              <option value="av1">AV1</option>
-              <option value="vp9">VP9</option>
-            </select>
-          </div>
-        </div>
-      </div>
+        <SettingsField label="编码格式" icon={<Video size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('video.codec') || 'avc'}
+            onChange={(e) => handleLocalUpdate('video.codec', e.target.value)}
+            disabled={loading}
+            aria-label="选择默认编码格式"
+          >
+            <option value="avc">AVC (H.264)</option>
+            <option value="hevc">HEVC (H.265)</option>
+            <option value="av1">AV1</option>
+            <option value="vp9">VP9</option>
+          </select>
+        </SettingsField>
+      </SettingsSection>
 
-      {/* 下载性能组 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">下载性能</span>
-          <span className="stg-group-subtitle">并发和速度控制</span>
-        </div>
-        
-        <div className="stg-list">
-          {/* 最大并发下载数 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <HardDrive size={18} className="stg-item-icon" />
-              <span className="stg-item-label">最大并发下载数</span>
-            </div>
-            <select
-              className="stg-select"
-              value={getCurrentValue('max_concurrent') || 3}
-              onChange={(e) => handleLocalUpdate('max_concurrent', parseInt(e.target.value))}
-              disabled={loading}
-              aria-label="选择最大并发下载数"
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-              <option value={5}>5</option>
-            </select>
-          </div>
+      <SettingsSection title="下载性能" subtitle="并发和速度控制">
+        <SettingsField label="最大并发下载数" icon={<HardDrive size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={getCurrentValue('max_concurrent') || 3}
+            onChange={(e) => handleLocalUpdate('max_concurrent', parseInt(e.target.value))}
+            disabled={loading}
+            aria-label="选择最大并发下载数"
+          >
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
+            <option value={5}>5</option>
+          </select>
+        </SettingsField>
 
-          {/* 速度限制 */}
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Gauge size={18} className="stg-item-icon" />
-              <span className="stg-item-label">速度限制 (KB/s)</span>
-            </div>
-            <input
-              type="number"
-              className="stg-input"
-              value={getCurrentValue('speed_limit') || 0}
-              onChange={(e) => handleLocalUpdate('speed_limit', parseInt(e.target.value) || 0)}
-              min="0"
-              disabled={loading}
-              placeholder="0 表示不限制"
-              aria-label="输入速度限制"
-              inputMode="numeric"
-            />
-            <p className="stg-hint">0 表示不限制速度</p>
-          </div>
-        </div>
-      </div>
+        <SettingsField
+          label="速度限制 (KB/s)"
+          icon={<Gauge size={18} />}
+          hint="0 表示不限制速度"
+        >
+          <input
+            type="number"
+            className="settings-control settings-input"
+            value={getCurrentValue('speed_limit') || 0}
+            onChange={(e) => handleLocalUpdate('speed_limit', parseInt(e.target.value) || 0)}
+            min="0"
+            disabled={loading}
+            placeholder="0 表示不限制"
+            aria-label="输入速度限制"
+            inputMode="numeric"
+          />
+        </SettingsField>
+      </SettingsSection>
 
-      {/* 元数据设置组 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">元数据</span>
-          <span className="stg-group-subtitle">字幕、封面和头像</span>
-        </div>
-        
-        <div className="stg-toggles">
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用字幕下载</span>
-            </div>
-            <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('metadata.enable_subtitle') as boolean ?? true}
-              onChange={(e) => handleLocalUpdate('metadata.enable_subtitle', e.target.checked)}
-              disabled={loading}
-              aria-label="启用字幕下载"
-            />
-          </label>
+      <SettingsSection title="元数据" subtitle="字幕、封面和头像">
+        <SettingsToggleRow
+          label="启用字幕下载"
+          checked={(getCurrentValue('metadata.enable_subtitle') as boolean) ?? true}
+          onChange={(checked) => handleLocalUpdate('metadata.enable_subtitle', checked)}
+          disabled={loading}
+        />
+        <SettingsToggleRow
+          label="启用 NFO 文件"
+          checked={(getCurrentValue('metadata.enable_nfo') as boolean) ?? true}
+          onChange={(checked) => handleLocalUpdate('metadata.enable_nfo', checked)}
+          disabled={loading}
+        />
+        <SettingsToggleRow
+          label="启用封面下载"
+          checked={(getCurrentValue('metadata.enable_cover') as boolean) ?? true}
+          onChange={(checked) => handleLocalUpdate('metadata.enable_cover', checked)}
+          disabled={loading}
+        />
+        <SettingsToggleRow
+          label="启用头像下载"
+          checked={(getCurrentValue('metadata.enable_avatar') as boolean) ?? false}
+          onChange={(checked) => handleLocalUpdate('metadata.enable_avatar', checked)}
+          disabled={loading}
+        />
+      </SettingsSection>
 
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用 NFO 文件</span>
-            </div>
-            <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('metadata.enable_nfo') as boolean ?? true}
-              onChange={(e) => handleLocalUpdate('metadata.enable_nfo', e.target.checked)}
-              disabled={loading}
-              aria-label="启用 NFO 文件"
-            />
-          </label>
-
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用封面下载</span>
-            </div>
-            <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('metadata.enable_cover') as boolean ?? true}
-              onChange={(e) => handleLocalUpdate('metadata.enable_cover', e.target.checked)}
-              disabled={loading}
-              aria-label="启用封面下载"
-            />
-          </label>
-
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">启用头像下载</span>
-            </div>
-            <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('metadata.enable_avatar') as boolean ?? false}
-              onChange={(e) => handleLocalUpdate('metadata.enable_avatar', e.target.checked)}
-              disabled={loading}
-              aria-label="启用头像下载"
-            />
-          </label>
-        </div>
-      </div>
-
-      {/* 重置按钮 */}
-      <div className="stg-actions">
-        <button 
-          className="stg-btn stg-btn-secondary"
+      <SettingsActionRow>
+        <button
+          className="settings-button settings-button-secondary settings-button-block"
           onClick={handleReset}
           disabled={loading}
           aria-label="重置下载设置"
         >
-          <RotateCw size={16} className="stg-item-icon" />
+          <RotateCw size={16} />
           <span>重置下载设置</span>
         </button>
-      </div>
+      </SettingsActionRow>
 
       {/* 重置确认弹窗 */}
       <ConfirmModal

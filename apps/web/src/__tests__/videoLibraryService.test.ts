@@ -30,7 +30,6 @@ describe('VideoLibraryService', () => {
 
   describe('Cache Management', () => {
     it('should clear cache', () => {
-      const status = videoLibraryService.getCacheStatus()
       videoLibraryService.clearCache()
       
       const newStatus = videoLibraryService.getCacheStatus()
@@ -308,7 +307,7 @@ describe('VideoLibraryService', () => {
 
   describe('Download Completion Handling', () => {
     it('should handle download complete event', () => {
-      const mockSetTimeout = vi.spyOn(global, 'setTimeout')
+      const mockSetTimeout = vi.spyOn(globalThis, 'setTimeout')
       videoLibraryService.handleDownloadComplete('test-task-id')
       
       expect(mockSetTimeout).toHaveBeenCalled()
@@ -316,8 +315,10 @@ describe('VideoLibraryService', () => {
     })
 
     it('should schedule library refresh with delay', () => {
-      const mockSetTimeout = vi.spyOn(global, 'setTimeout').mockImplementation((cb) => {
-        cb()
+      const mockSetTimeout = vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler: TimerHandler, ...args: any[]) => {
+        if (typeof handler === 'function') {
+          handler(...args)
+        }
         return 0 as any
       })
 
@@ -328,8 +329,10 @@ describe('VideoLibraryService', () => {
     })
 
     it('should skip refresh if cache is still fresh', async () => {
-      const mockSetTimeout = vi.spyOn(global, 'setTimeout').mockImplementation((cb) => {
-        cb()
+      const mockSetTimeout = vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler: TimerHandler, ...args: any[]) => {
+        if (typeof handler === 'function') {
+          handler(...args)
+        }
         return 0 as any
       })
 

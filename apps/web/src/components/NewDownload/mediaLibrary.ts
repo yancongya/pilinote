@@ -15,6 +15,7 @@ export interface MediaLibraryFolderMetadata {
   path: string
   file_count: number
   size: number
+  content_size?: number
   metadata_size: number
   total_size: number
   size_mb: number

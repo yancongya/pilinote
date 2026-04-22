@@ -16,6 +16,7 @@ import { getApiUrl } from '../../config/api'
 import ConfirmModal from '../../components/ConfirmModal'
 import Modal from '../../components/Modal'
 import { useToast } from '../../components/Toast'
+import { SettingsActionRow, SettingsField, SettingsLoadingState, SettingsSection, SettingsToggleRow } from './shared'
 
 interface CacheInfo {
   exists: boolean
@@ -443,47 +444,21 @@ const getCurrentValue = useCallback((field: string) => {
   }
 
   if (!settings) {
-    return (
-      <div className="stg-loading">
-        <Database className="stg-spinner" />
-        <p>加载中...</p>
-      </div>
-    )
+    return <SettingsLoadingState label="加载中..." />
   }
 
   return (
-    <div className="stg-panel">
-      {/* 路径设置组 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">路径设置</span>
-          <span className="stg-group-subtitle">手动输入或拖拽目录设置</span>
-        </div>
-        
-        <div className="stg-list">
-          {/* 下载路径 */}
-          <div 
-            className="stg-item stg-item-col"
-            onDrop={(e) => handleDrop(e, 'download_path')}
-            onDragOver={handleDragOver}
-          >
-            <div className="stg-item-label-row">
-              <span className="flex items-center gap-1.5">
-                <Folder size={18} className="stg-item-icon" />
-                <span className="stg-item-label">下载路径</span>
-              </span>
-              <button
-                className="stg-btn-icon p-1 w-auto h-auto flex-shrink-0"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onClick={() => handleEditPath('download_path')}
-                title="编辑路径"
-              >
-                <Edit2 size={14} />
-              </button>
-            </div>
+    <div>
+      <SettingsSection title="路径设置" subtitle="手动输入或拖拽目录设置">
+        <SettingsField
+          label="下载路径"
+          icon={<Folder size={18} />}
+          hint="点击编辑按钮手动输入，或拖拽目录到此处"
+        >
+          <div className="settings-inline-control" onDrop={(e) => handleDrop(e, 'download_path')} onDragOver={handleDragOver}>
             <input
               type="text"
-              className="stg-input"
+              className="settings-control settings-input"
               value={getCurrentValue('download_path') ?? ''}
               onChange={(e) => handleLocalUpdate('download_path', e.target.value)}
               disabled={loading}
@@ -491,34 +466,25 @@ const getCurrentValue = useCallback((field: string) => {
               aria-label="输入下载路径"
               readOnly
             />
-            <div className="stg-hint">
-              点击编辑按钮手动输入，或拖拽目录到此处
-            </div>
+            <button
+              className="settings-icon-button"
+              onClick={() => handleEditPath('download_path')}
+              title="编辑路径"
+            >
+              <Edit2 size={14} />
+            </button>
           </div>
+        </SettingsField>
 
-          {/* 临时路径 */}
-          <div 
-            className="stg-item stg-item-col"
-            onDrop={(e) => handleDrop(e, 'temp_path')}
-            onDragOver={handleDragOver}
-          >
-            <div className="stg-item-label-row">
-              <span className="flex items-center gap-1.5">
-                <Database size={18} className="stg-item-icon" />
-                <span className="stg-item-label">临时路径</span>
-              </span>
-              <button
-                className="stg-btn-icon p-1 w-auto h-auto flex-shrink-0"
-                style={{ color: 'var(--color-text-secondary)' }}
-                onClick={() => handleEditPath('temp_path')}
-                title="编辑路径"
-              >
-                <Edit2 size={14} />
-              </button>
-            </div>
+        <SettingsField
+          label="临时路径"
+          icon={<Database size={18} />}
+          hint="点击编辑按钮手动输入，或拖拽目录到此处"
+        >
+          <div className="settings-inline-control" onDrop={(e) => handleDrop(e, 'temp_path')} onDragOver={handleDragOver}>
             <input
               type="text"
-              className="stg-input"
+              className="settings-control settings-input"
               value={getCurrentValue('temp_path') ?? ''}
               onChange={(e) => handleLocalUpdate('temp_path', e.target.value)}
               disabled={loading}
@@ -526,219 +492,149 @@ const getCurrentValue = useCallback((field: string) => {
               aria-label="输入临时文件路径"
               readOnly
             />
-            <div className="stg-hint">
-              点击编辑按钮手动输入，或拖拽目录到此处
-            </div>
+            <button
+              className="settings-icon-button"
+              onClick={() => handleEditPath('temp_path')}
+              title="编辑路径"
+            >
+              <Edit2 size={14} />
+            </button>
           </div>
-        </div>
+        </SettingsField>
 
-        {/* 开关选项 */}
-        <div className="stg-toggles">
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">自动清理临时文件</span>
-            </div>
+        <SettingsToggleRow
+          label="自动清理临时文件"
+          checked={(getCurrentValue('auto_cleanup') as boolean) || false}
+          onChange={(checked) => handleLocalUpdate('auto_cleanup', checked)}
+          disabled={loading}
+        />
+        <SettingsToggleRow
+          label="保留失败的任务"
+          checked={(getCurrentValue('keep_failed') as boolean) || false}
+          onChange={(checked) => handleLocalUpdate('keep_failed', checked)}
+          disabled={loading}
+        />
+      </SettingsSection>
+
+      <SettingsSection title="工具路径" subtitle="自定义执行路径">
+        <SettingsField label="FFmpeg" icon={<FileVideo size={18} />}>
+          <div className="settings-inline-control">
             <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('auto_cleanup') as boolean || false}
-              onChange={(e) => handleLocalUpdate('auto_cleanup', e.target.checked)}
+              type="text"
+              className="settings-control settings-input"
+              value={getCurrentValue('sidecar.ffmpeg') ?? 'ffmpeg'}
+              onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
               disabled={loading}
-              aria-label="自动清理临时文件"
+              placeholder="ffmpeg"
+              aria-label="输入FFmpeg路径"
             />
-          </label>
+            <button
+              className="settings-icon-button"
+              onClick={() => handleResetToolPath('ffmpeg')}
+              disabled={loading}
+              aria-label="重置FFmpeg路径"
+              title="重置为默认路径"
+            >
+              <RotateCcw size={14} />
+            </button>
+          </div>
+        </SettingsField>
 
-          <label className="stg-toggle">
-            <div className="stg-toggle-content">
-              <span className="stg-toggle-label">保留失败的任务</span>
-            </div>
+        <SettingsField label="Aria2c" icon={<Zap size={18} />}>
+          <div className="settings-inline-control">
             <input
-              type="checkbox"
-              className="stg-toggle-input"
-              checked={getCurrentValue('keep_failed') as boolean || false}
-              onChange={(e) => handleLocalUpdate('keep_failed', e.target.checked)}
+              type="text"
+              className="settings-control settings-input"
+              value={getCurrentValue('sidecar.aria2c') ?? 'aria2c'}
+              onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
               disabled={loading}
-              aria-label="保留失败的任务"
+              placeholder="aria2c"
+              aria-label="输入Aria2c路径"
             />
-          </label>
-        </div>
-      </div>
-
-      {/* 工具路径组 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">工具路径</span>
-          <span className="stg-group-subtitle">自定义执行路径</span>
-        </div>
-        
-        <div className="stg-list">
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <FileVideo size={18} className="stg-item-icon" />
-              <span className="stg-item-label">FFmpeg</span>
-            </div>
-            <div className="stg-input-wrapper flex items-center gap-1.5 w-full">
-              <input
-                type="text"
-                className="stg-input flex-1 min-w-0"
-                value={getCurrentValue('sidecar.ffmpeg') ?? 'ffmpeg'}
-                onChange={(e) => handleLocalUpdateSidecar('ffmpeg', e.target.value)}
-                disabled={loading}
-                placeholder="ffmpeg"
-                aria-label="输入FFmpeg路径"
-              />
-              <button
-                className="stg-reset-btn p-1.5 flex-shrink-0 cursor-pointer"
-                style={{ 
-                  border: '1px solid var(--color-border)', 
-                  borderRadius: '6px', 
-                  background: 'var(--color-bg-secondary)', 
-                  color: 'var(--color-text-secondary)' 
-                }}
-                onClick={() => handleResetToolPath('ffmpeg')}
-                disabled={loading}
-                aria-label="重置FFmpeg路径"
-                title="重置为默认路径"
-              >
-                <RotateCcw size={14} className="w-3.5 h-3.5" style={{ color: 'var(--color-text-secondary)' }} />
-              </button>
-            </div>
+            <button
+              className="settings-icon-button"
+              onClick={() => handleResetToolPath('aria2c')}
+              disabled={loading}
+              aria-label="重置Aria2c路径"
+              title="重置为默认路径"
+            >
+              <RotateCcw size={14} />
+            </button>
           </div>
+        </SettingsField>
+      </SettingsSection>
 
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Zap size={18} className="stg-item-icon" />
-              <span className="stg-item-label">Aria2c</span>
-            </div>
-            <div className="stg-input-wrapper flex items-center gap-1.5 w-full">
-              <input
-                type="text"
-                className="stg-input flex-1 min-w-0"
-                value={getCurrentValue('sidecar.aria2c') ?? 'aria2c'}
-                onChange={(e) => handleLocalUpdateSidecar('aria2c', e.target.value)}
-                disabled={loading}
-                placeholder="aria2c"
-                aria-label="输入Aria2c路径"
-              />
-              <button
-                className="stg-reset-btn p-1.5 flex-shrink-0 cursor-pointer"
-                style={{ 
-                  border: '1px solid var(--color-border)', 
-                  borderRadius: '6px', 
-                  background: 'var(--color-bg-secondary)', 
-                  color: 'var(--color-text-secondary)' 
-                }}
-                onClick={() => handleResetToolPath('aria2c')}
-                disabled={loading}
-                aria-label="重置Aria2c路径"
-                title="重置为默认路径"
-              >
-                <RotateCcw size={14} className="w-3.5 h-3.5" style={{ color: 'var(--color-text-secondary)' }} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 缓存管理组 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">缓存管理</span>
-          <span className="stg-group-subtitle">清理不必要的文件</span>
-        </div>
-        
-        <div className="stg-list">
+      <SettingsSection title="缓存管理" subtitle="清理不必要的文件">
+        <SettingsActionRow>
           <button
-            className="stg-btn-full stg-item"
+            className="settings-button settings-button-secondary settings-button-block"
             onClick={() => handleClearCache('log')}
             disabled={clearingCache === 'log'}
             aria-label="清理日志文件"
           >
-            <div className="stg-icon-badge">
-              <Trash2 size={18} className="stg-item-icon" />
-            </div>
-            <div className="stg-item-content">
-              <div className="stg-item-label">清理日志文件</div>
-              <div className="stg-meta">
-                {cacheData.log?.size_formatted || '0 B'}
-              </div>
-            </div>
-            <ChevronRight size={16} className="stg-chevron" />
+            <Trash2 size={18} />
+            <span>清理日志文件</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }}>{cacheData.log?.size_formatted || '0 B'}</span>
+            <ChevronRight size={16} />
           </button>
+        </SettingsActionRow>
 
+        <SettingsActionRow>
           <button
-            className="stg-btn-full stg-item"
+            className="settings-button settings-button-secondary settings-button-block"
             onClick={() => handleClearCache('temp')}
             disabled={clearingCache === 'temp'}
             aria-label="清理临时文件"
           >
-            <div className="stg-icon-badge">
-              <Trash2 size={18} className="stg-item-icon" />
-            </div>
-            <div className="stg-item-content">
-              <div className="stg-item-label">清理临时文件</div>
-              <div className="stg-meta">
-                {cacheData.temp?.size_formatted || '0 B'}
-              </div>
-            </div>
-            <ChevronRight size={16} className="stg-chevron" />
+            <Trash2 size={18} />
+            <span>清理临时文件</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }}>{cacheData.temp?.size_formatted || '0 B'}</span>
+            <ChevronRight size={16} />
           </button>
+        </SettingsActionRow>
 
+        <SettingsActionRow>
           <button
-            className="stg-btn-full stg-item"
+            className="settings-button settings-button-secondary settings-button-block"
             onClick={() => handleClearCache('webview')}
             disabled={clearingCache === 'webview'}
             aria-label="清理WebView缓存"
           >
-            <div className="stg-icon-badge">
-              <Trash2 size={18} className="stg-item-icon" />
-            </div>
-            <div className="stg-item-content">
-              <div className="stg-item-label">清理WebView缓存</div>
-              <div className="stg-meta">
-                {cacheData.webview?.size_formatted || '0 B'}
-              </div>
-            </div>
-            <ChevronRight size={16} className="stg-chevron" />
+            <Trash2 size={18} />
+            <span>清理WebView缓存</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }}>{cacheData.webview?.size_formatted || '0 B'}</span>
+            <ChevronRight size={16} />
           </button>
+        </SettingsActionRow>
 
+        <SettingsActionRow>
           <button
-            className="stg-btn-full stg-item"
+            className="settings-button settings-button-secondary settings-button-block"
             onClick={handleExportDatabase}
             disabled={exportingDatabase}
             aria-label="导出数据库"
           >
-            <div className="stg-icon-badge">
-              <Download size={18} className="stg-item-icon" />
-            </div>
-            <div className="stg-item-content">
-              <div className="stg-item-label">导出数据库</div>
-              <div className="stg-meta">
-                {exportingDatabase ? '导出中...' : cacheData.database?.size_formatted || '0 B'}
-              </div>
-            </div>
-            <ChevronRight size={16} className="stg-chevron" />
+            <Download size={18} />
+            <span>导出数据库</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }}>{exportingDatabase ? '导出中...' : cacheData.database?.size_formatted || '0 B'}</span>
+            <ChevronRight size={16} />
           </button>
+        </SettingsActionRow>
 
+        <SettingsActionRow>
           <button
-            className="stg-btn-full stg-item"
+            className="settings-button settings-button-secondary settings-button-block"
             onClick={handleImportDatabase}
             disabled={importingDatabase}
             aria-label="导入数据库"
           >
-            <div className="stg-icon-badge">
-              <Upload size={18} className="stg-item-icon" />
-            </div>
-            <div className="stg-item-content">
-              <div className="stg-item-label">导入数据库</div>
-              <div className="stg-meta">
-                {importingDatabase ? '导入中...' : '从备份恢复数据库'}
-              </div>
-            </div>
-            <ChevronRight size={16} className="stg-chevron" />
+            <Upload size={18} />
+            <span>导入数据库</span>
+            <span style={{ marginLeft: 'auto', color: 'var(--color-text-secondary)' }}>{importingDatabase ? '导入中...' : '从备份恢复数据库'}</span>
+            <ChevronRight size={16} />
           </button>
-        </div>
-      </div>
+        </SettingsActionRow>
+      </SettingsSection>
         
               {/* 手动输入路径弹窗 */}
               <Modal
@@ -752,7 +648,7 @@ const getCurrentValue = useCallback((field: string) => {
                 footer={
                   <>
                     <button
-                      className="stg-btn stg-btn-secondary"
+                      className="settings-button settings-button-secondary"
                       onClick={() => {
                         setShowEditModal({ show: false, field: null })
                         setEditingPath('')
@@ -761,7 +657,7 @@ const getCurrentValue = useCallback((field: string) => {
                       取消
                     </button>
                     <button
-                      className="stg-btn stg-btn-primary"
+                      className="settings-button settings-button-primary"
                       onClick={saveEditedPath}
                     >
                       保存
@@ -769,18 +665,18 @@ const getCurrentValue = useCallback((field: string) => {
                   </>
                 }
               >
-                <p className="stg-modal-description">
+                <p className="settings-meta">
                   输入目录路径，支持相对路径或绝对路径
                 </p>
                 <input
                   type="text"
-                  className="stg-modal-input"
+                  className="settings-input"
                   value={editingPath}
                   onChange={(e) => setEditingPath(e.target.value)}
                   placeholder={showEditModal.field === 'download_path' ? './downloads 或 /path/to/downloads' : './temp 或 /path/to/temp'}
                   autoFocus
                 />
-                <p className="stg-modal-hint">
+                <p className="settings-field-hint">
                   <strong>示例：</strong><br/>
                   相对路径：./downloads, ./temp<br/>
                   绝对路径：/home/user/downloads, C:\Users\User\Downloads<br/>

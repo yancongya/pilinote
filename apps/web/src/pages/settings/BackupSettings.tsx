@@ -1,17 +1,9 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import { useSettingsStore } from '../../stores/settings'
-import { 
-  Cloud, 
-  Loader2,
-  Server,
-  Lock,
-  Folder,
-  RefreshCw,
-  Shield,
-  Database
-} from 'lucide-react'
+import { Cloud, Loader2, Server, Lock, Folder, RefreshCw, Shield, Database } from 'lucide-react'
 import { useToast } from '../../components/Toast'
 import { getApiUrl } from '../../config/api'
+import { SettingsActionRow, SettingsField, SettingsSection } from './shared'
 
 interface BackupSettingsRef {
   hasUnsavedChanges: () => boolean
@@ -229,20 +221,20 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
     const totalSize = formatFileSize(backupProgress.total_size)
 
     return (
-      <div className="stg-progress-card">
-        <div className="stg-progress-header">
-          <span className="stg-progress-message">{backupProgress.message}</span>
-          <span className="stg-progress-count">{backupProgress.completed_files}/{backupProgress.total_files} 个文件</span>
+      <div className="settings-progress-card">
+        <div className="settings-progress-header">
+          <span className="settings-progress-message">{backupProgress.message}</span>
+          <span className="settings-progress-count">{backupProgress.completed_files}/{backupProgress.total_files} 个文件</span>
         </div>
-        <div className="stg-progress-track">
-          <div 
-            className="stg-progress-fill"
+        <div className="settings-progress-track">
+          <div
+            className="settings-progress-fill"
             style={{ width: `${percentage}%` }}
           />
         </div>
-        <div className="stg-progress-footer">
+        <div className="settings-progress-footer">
           <span>{completedSize} / {totalSize}</span>
-          <span className="stg-progress-filename">{backupProgress.current_file}</span>
+          <span className="settings-progress-filename">{backupProgress.current_file}</span>
         </div>
       </div>
     )
@@ -251,163 +243,126 @@ const BackupSettings = forwardRef<BackupSettingsRef>((_props, ref) => {
   const isProcessing = testingConnection || isBackingUp
 
   return (
-    <div className="stg-panel">
-      {/* FTP 配置 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">FTP 备份配置</span>
-          <span className="stg-group-subtitle">配置 FTP 服务器以备份文件</span>
-        </div>
+    <div>
+      <SettingsSection title="FTP 备份配置" subtitle="配置 FTP 服务器以备份文件">
+        <SettingsField label="服务器地址" icon={<Server size={18} />}>
+          <input
+            type="text"
+            className="settings-control settings-input"
+            placeholder="ftp.example.com:21"
+            value={localSettings.ftp?.host || ''}
+            onChange={(e) => handleChange('host', e.target.value)}
+            disabled={isProcessing}
+          />
+        </SettingsField>
 
-        <div className="stg-list">
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Server size={18} className="stg-item-icon" />
-              <span className="stg-item-label">服务器地址</span>
-            </div>
-            <input
-              type="text"
-              className="stg-input"
-              placeholder="ftp.example.com:21"
-              value={localSettings.ftp?.host || ''}
-              onChange={(e) => handleChange('host', e.target.value)}
-              disabled={isProcessing}
-            />
-          </div>
+        <SettingsField label="用户名" icon={<RefreshCw size={18} />}>
+          <input
+            type="text"
+            className="settings-control settings-input"
+            placeholder="用户名"
+            value={localSettings.ftp?.username || ''}
+            onChange={(e) => handleChange('username', e.target.value)}
+            disabled={isProcessing}
+          />
+        </SettingsField>
 
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <RefreshCw size={18} className="stg-item-icon" />
-              <span className="stg-item-label">用户名</span>
-            </div>
-            <input
-              type="text"
-              className="stg-input"
-              placeholder="用户名"
-              value={localSettings.ftp?.username || ''}
-              onChange={(e) => handleChange('username', e.target.value)}
-              disabled={isProcessing}
-            />
-          </div>
+        <SettingsField label="密码" icon={<Lock size={18} />}>
+          <input
+            type="password"
+            className="settings-control settings-input"
+            placeholder="密码"
+            value={localSettings.ftp?.password || ''}
+            onChange={(e) => handleChange('password', e.target.value)}
+            disabled={isProcessing}
+          />
+        </SettingsField>
 
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Lock size={18} className="stg-item-icon" />
-              <span className="stg-item-label">密码</span>
-            </div>
-            <input
-              type="password"
-              className="stg-input"
-              placeholder="密码"
-              value={localSettings.ftp?.password || ''}
-              onChange={(e) => handleChange('password', e.target.value)}
-              disabled={isProcessing}
-            />
-          </div>
+        <SettingsField label="远程路径" icon={<Folder size={18} />}>
+          <input
+            type="text"
+            className="settings-control settings-input"
+            placeholder="/pilinote"
+            value={localSettings.ftp?.remote_path || ''}
+            onChange={(e) => handleChange('remote_path', e.target.value)}
+            disabled={isProcessing}
+          />
+        </SettingsField>
 
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Folder size={18} className="stg-item-icon" />
-              <span className="stg-item-label">远程路径</span>
-            </div>
-            <input
-              type="text"
-              className="stg-input"
-              placeholder="/pilinote"
-              value={localSettings.ftp?.remote_path || ''}
-              onChange={(e) => handleChange('remote_path', e.target.value)}
-              disabled={isProcessing}
-            />
-          </div>
+        <SettingsField label="TLS 加密" icon={<Shield size={18} />}>
+          <select
+            className="settings-control settings-select"
+            value={localSettings.ftp?.use_tls ? 'true' : 'false'}
+            onChange={(e) => handleChange('use_tls', e.target.value === 'true')}
+            disabled={isProcessing}
+          >
+            <option value="false">否</option>
+            <option value="true">是（FTPS）</option>
+          </select>
+        </SettingsField>
 
-          <div className="stg-item stg-item-col">
-            <div className="stg-item-label-row">
-              <Shield size={18} className="stg-item-icon" />
-              <span className="stg-item-label">TLS 加密</span>
-            </div>
-            <select
-              className="stg-select"
-              value={localSettings.ftp?.use_tls ? 'true' : 'false'}
-              onChange={(e) => handleChange('use_tls', e.target.value === 'true')}
-              disabled={isProcessing}
-            >
-              <option value="false">否</option>
-              <option value="true">是（FTPS）</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="stg-actions">
+        <SettingsActionRow>
           <button
-            className="stg-btn stg-btn-secondary stg-btn-block"
+            className="settings-button settings-button-secondary settings-button-block"
             onClick={handleTestConnection}
             disabled={testingConnection || isBackingUp}
             aria-label="测试 FTP 连接"
           >
             {testingConnection ? (
               <>
-                <Loader2 size={16} className="stg-item-icon stg-spin" />
+                <Loader2 size={16} />
                 测试中...
               </>
             ) : (
               <>
-                <RefreshCw size={16} className="stg-item-icon" />
+                <RefreshCw size={16} />
                 测试连接
               </>
             )}
           </button>
-        </div>
-      </div>
+        </SettingsActionRow>
+      </SettingsSection>
 
-      {/* 备份操作 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">备份操作</span>
-          <span className="stg-group-subtitle">将文件和数据库备份到 FTP</span>
-        </div>
+      <SettingsSection title="备份操作" subtitle="将文件和数据库备份到 FTP">
+        {renderProgressBar()}
+        <SettingsActionRow>
+          <button
+            className="settings-button settings-button-primary settings-button-block"
+            onClick={handleBackupDownload}
+            disabled={isBackingUp}
+          >
+            {isBackingUp ? (
+              <>
+                <Loader2 size={16} />
+                备份中...
+              </>
+            ) : (
+              <>
+                <Cloud size={16} />
+                备份下载目录
+              </>
+            )}
+          </button>
 
-        <div className="stg-list">
-          {renderProgressBar()}
-
-          <div className="stg-backup-actions">
-            <button
-              className="stg-btn stg-btn-primary stg-btn-lg stg-btn-block"
-              onClick={handleBackupDownload}
-              disabled={isBackingUp}
-            >
-              {isBackingUp ? (
-                <>
-                  <Loader2 size={16} className="stg-spin" />
-                  备份中...
-                </>
-              ) : (
-                <>
-                  <Cloud size={16} />
-                  备份下载目录
-                </>
-              )}
-            </button>
-
-            <button
-              className="stg-btn stg-btn-secondary stg-btn-lg stg-btn-block"
-              onClick={handleBackupDatabase}
-              disabled={isBackingUp}
-            >
-              {isBackingUp ? (
-                <>
-                  <Loader2 size={16} className="stg-spin" />
-                  备份中...
-                </>
-              ) : (
-                <>
-                  <Database size={16} />
-                  备份数据库
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
+          <button
+            className="settings-button settings-button-secondary settings-button-block"
+            onClick={handleBackupDatabase}
+            disabled={isBackingUp}
+          >
+            {isBackingUp ? (
+              <>
+                <Loader2 size={16} />
+                备份中...
+              </>
+            ) : (
+              <>
+                <Database size={16} />
+                备份数据库
+              </>
+            )}
+          </button>
+        </SettingsActionRow>
+      </SettingsSection>
     </div>
   )
 })

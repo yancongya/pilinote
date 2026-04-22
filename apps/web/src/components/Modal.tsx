@@ -87,7 +87,7 @@ export default function Modal({
             {showCloseButton && (
               <button
                 ref={firstFocusableRef}
-                className="w-8 h-8 min-w-[32px] min-h-[32px] border-none dark:bg-secondary-700 dark:hover:bg-secondary-600 dark:text-secondary-300 dark:hover:text-secondary-100 bg-secondary-100 rounded-lg cursor-pointer flex items-center justify-center text-secondary-500 transition-all duration-150 ease-out hover:bg-secondary-200 hover:text-secondary-800 active:scale-95 focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2 settings-modal-close"
+                className="w-10 h-10 min-w-[40px] min-h-[40px] border-none bg-transparent rounded-xl cursor-pointer flex items-center justify-center text-slate-500 dark:text-slate-300 transition-colors duration-150 ease-out hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100 active:bg-slate-200 active:scale-95 focus-visible:outline-2 focus-visible:outline-primary-600 focus-visible:outline-offset-2 settings-modal-close"
                 onClick={onClose}
                 aria-label="关闭"
                 tabIndex={0}

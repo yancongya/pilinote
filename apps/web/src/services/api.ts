@@ -710,17 +710,6 @@ class ApiService {
     if (response.success && response.data) {
       const tasks = response.data
       
-      // 状态映射
-      const stateMap: Record<number, string> = {
-        0: 'pending',
-        1: 'pending',
-        2: 'downloading',
-        3: 'completed',
-        4: 'paused',
-        5: 'failed',
-        6: 'cancelled'
-      }
-      
       // 统计信息
       const total = tasks.length
       const completed = tasks.filter((t: any) => t.state === 3).length
@@ -798,7 +787,7 @@ class ApiService {
     }
   }
 
-  async updateDownloadSettings(settings: any): Promise<ApiResponse<any>> {
+  async updateDownloadSettings(_settings: any): Promise<ApiResponse<any>> {
     // TODO: 下载设置功能尚未实现，需要后端支持
     return {
       success: false,
@@ -806,7 +795,7 @@ class ApiService {
     }
   }
 
-  async resetDownloadSettings(category?: string): Promise<ApiResponse<any>> {
+  async resetDownloadSettings(_category?: string): Promise<ApiResponse<any>> {
     // TODO: 下载设置功能尚未实现，需要后端支持
     return {
       success: false,
@@ -822,7 +811,7 @@ class ApiService {
     }
   }
 
-  async importDownloadSettings(data: any): Promise<ApiResponse<any>> {
+  async importDownloadSettings(_data: any): Promise<ApiResponse<any>> {
     // TODO: 下载设置功能尚未实现，需要后端支持
     return {
       success: false,
@@ -830,7 +819,7 @@ class ApiService {
     }
   }
 
-  async validateDownloadSettings(settings: any): Promise<ApiResponse<any>> {
+  async validateDownloadSettings(_settings: any): Promise<ApiResponse<any>> {
     // TODO: 下载设置功能尚未实现，需要后端支持
     return {
       success: false,

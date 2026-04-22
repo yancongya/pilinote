@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CheckCircle, Download, Loader2, Trash2, Cpu, AlertCircle, RefreshCw, Play, ChevronDown } from 'lucide-react'
+import { AlertCircle, CheckCircle, ChevronDown, Cpu, Download, Loader2, Play, RefreshCw, Trash2 } from 'lucide-react'
 import { useToast } from '../Toast'
 import { localAsrModelService, type LocalAsrModel } from '../../services/localAsrModels'
 
-export function LocalAsrModelPanel() {
+type LocalAsrModelPanelProps = {
+  compact?: boolean
+}
+
+export function LocalAsrModelPanel({ compact = false }: LocalAsrModelPanelProps) {
   const { showToast } = useToast()
   const [models, setModels] = useState<LocalAsrModel[]>([])
   const [activeModelId, setActiveModelId] = useState('base')
@@ -159,21 +163,8 @@ export function LocalAsrModelPanel() {
       } as const)[selectedModel.status] || '未知'
     : '未知'
 
-  return (
-    <div className="settings-group">
-      <div className="settings-group-header">
-        <h3 className="settings-group-title">
-          <Cpu size={18} />
-          本地 ASR 模型
-        </h3>
-        <div className="settings-group-actions">
-          <button className="settings-add-btn settings-secondary-btn" onClick={() => void refresh()} disabled={loading}>
-            {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-            刷新
-          </button>
-        </div>
-      </div>
-
+  const content = (
+    <>
       <div className="settings-item settings-model-selector">
         <div className="settings-label-row">
           <label className="settings-label">模型选择</label>
@@ -228,11 +219,12 @@ export function LocalAsrModelPanel() {
             {busyModelId === selectedModelKey ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
           </button>
         </div>
+
         {selectedModel && (
           <div className={`settings-model-card ${selectedModel.active ? 'active' : ''} settings-model-preview`}>
             <div className="settings-model-card-header">
               <div className="settings-model-card-main">
-              <div className="settings-model-card-title">
+                <div className="settings-model-card-title">
                   {selectedModel.name}
                   {selectedModel.active && <CheckCircle size={14} />}
                 </div>
@@ -242,16 +234,19 @@ export function LocalAsrModelPanel() {
               </div>
             </div>
 
+            <div className="settings-model-card-subtitle">
+              {selectedModel.model_id || selectedModel.id}
+            </div>
+
             <div className="settings-model-progress">
               <div className="settings-model-progress-bar">
                 <div style={{ width: `${selectedProgress}%` }} />
               </div>
-            <div className="settings-model-progress-meta">
-              <span>{selectedProgress}%</span>
-              <span>{selectedDownloadedText} / {selectedSizeText}</span>
-              <span>{selectedSpeedText}</span>
+              <div className="settings-model-progress-meta">
+                <span>{selectedDownloadedText} / {selectedSizeText}</span>
+                <span>{selectedSpeedText}</span>
+              </div>
             </div>
-          </div>
 
             {selectedModel.error && (
               <div className="settings-model-error">
@@ -262,6 +257,49 @@ export function LocalAsrModelPanel() {
           </div>
         )}
       </div>
+
+    </>
+  )
+
+  if (compact) {
+    return (
+      <div className="settings-model-panel">
+        <div className="settings-model-panel-toolbar">
+          <button
+            type="button"
+            className="settings-button settings-button-secondary settings-refresh-btn"
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+            刷新
+          </button>
+        </div>
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <div className="settings-group">
+      <div className="settings-group-header">
+        <h3 className="settings-group-title">
+          <Cpu size={18} />
+          本地 ASR 模型
+        </h3>
+        <div className="settings-group-actions">
+          <button
+            type="button"
+            className="settings-button settings-button-secondary settings-refresh-btn"
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+            刷新
+          </button>
+        </div>
+      </div>
+      {content}
     </div>
   )
 }

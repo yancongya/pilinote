@@ -7,6 +7,7 @@ import Modal from '../../components/Modal'
 import ConfirmModal from '../../components/ConfirmModal'
 import { useToast } from '../../components/Toast'
 import { getAvatarProxyUrl } from '../../config/api'
+import { SettingsActionRow, SettingsEmptyState, SettingsLoadingState, SettingsSection } from './shared'
 
 interface Account {
   id: number
@@ -192,55 +193,44 @@ function AccountsSettings() {
   }
 
   return (
-    <div className="stg-panel">
-      {/* 已登录账号列表 */}
-      <div className="stg-group">
-        <div className="stg-group-header">
-          <span className="stg-group-title">已登录账号</span>
-          <span className="stg-group-subtitle">{accounts.length} 个账号</span>
-        </div>
-        
+    <div>
+      <SettingsSection title="已登录账号" subtitle={`${accounts.length} 个账号`}>
         {loading ? (
-          <div className="stg-loading">
-            <RefreshCw className="stg-spinner" />
-            <p>加载中...</p>
-          </div>
+          <SettingsLoadingState label="加载中..." />
         ) : accounts.length === 0 ? (
-          <div className="stg-empty">
-            <User size={32} className="stg-empty-icon" />
-            <p className="stg-empty-text">暂无已登录账号</p>
-            <p className="stg-empty-hint">点击下方按钮添加新账号</p>
-          </div>
+          <SettingsEmptyState
+            icon={<User size={32} />}
+            title="暂无已登录账号"
+            description="点击下方按钮添加新账号"
+          />
         ) : (
-          <div className="stg-list">
+          <div className="accounts-list">
             {accounts.map((account) => (
               <div
                 key={account.id}
-                className={`stg-item ${account.is_active ? 'stg-item-active' : ''}`}
+                className={`account-row ${account.is_active ? 'is-active' : ''}`}
               >
-                {/* 主内容 */}
-                <div className="stg-item-main">
+                <div className="account-row-main">
                   <img
                     src={getAvatarUrl(account.avatar)}
                     alt={account.username}
-                    className={`stg-avatar ${account.is_active ? 'stg-avatar-active' : ''}`}
+                    className={`account-avatar ${account.is_active ? 'is-active' : ''}`}
                     onError={(e) => handleAvatarError(e, account.username)}
                   />
-                  <div className="stg-item-info">
-                    <div className="stg-item-name-row">
-                      <span className="stg-item-name">{account.username}</span>
-                      {account.is_active && <span className="stg-badge">当前</span>}
+                  <div className="account-row-info">
+                    <div className="account-row-name-line">
+                      <span className="account-row-name">{account.username}</span>
+                      {account.is_active && <span className="account-badge">当前</span>}
                     </div>
-                    <span className="stg-item-mid">MID: {account.mid}</span>
-                    <span className="stg-item-refresh">上次刷新: {formatRefreshTime(account.last_refresh_time)}</span>
+                    <span className="account-row-mid">MID: {account.mid}</span>
+                    <span className="account-row-refresh">上次刷新: {formatRefreshTime(account.last_refresh_time)}</span>
                   </div>
                 </div>
 
-                {/* 操作按钮 */}
-                <div className="stg-item-actions">
+                <div className="account-row-actions">
                   {!account.is_active && (
                     <button
-                      className="stg-btn stg-btn-sm stg-btn-primary"
+                      className="settings-button settings-button-secondary settings-button-block account-switch-btn"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleSwitchAccount(account.id)
@@ -251,7 +241,7 @@ function AccountsSettings() {
                     </button>
                   )}
                   <button
-                    className="stg-btn-icon"
+                    className="settings-icon-button"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleRefreshAccount(account.id)
@@ -260,13 +250,13 @@ function AccountsSettings() {
                     title="刷新账号"
                   >
                     {refreshingId === account.id ? (
-                      <RefreshCw size={16} className="stg-spin" />
+                      <RefreshCw size={16} className="is-spinning" />
                     ) : (
                       <RefreshCw size={16} />
                     )}
                   </button>
                   <button
-                    className="stg-btn-icon"
+                    className="settings-icon-button"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleShowCredentials(account.id)
@@ -276,7 +266,7 @@ function AccountsSettings() {
                     <Info size={16} />
                   </button>
                   <button
-                    className="stg-btn-icon danger"
+                    className="settings-icon-button is-danger"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleDeleteAccount(account.id)
@@ -285,7 +275,7 @@ function AccountsSettings() {
                     title="删除账号"
                   >
                     {deletingId === account.id ? (
-                      <RefreshCw size={16} className="stg-spin" />
+                      <RefreshCw size={16} className="is-spinning" />
                     ) : (
                       <Trash2 size={16} />
                     )}
@@ -295,53 +285,45 @@ function AccountsSettings() {
             ))}
           </div>
         )}
-      </div>
+      </SettingsSection>
 
-      {/* 游客模式 */}
       {user && (
-        <div className="stg-group">
-          <div className="stg-group-header">
-            <span className="stg-group-title">其他</span>
-          </div>
-          <div className="stg-list">
-            <div
-              className="stg-item stg-item-guest"
-              onClick={logout}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  logout()
-                }
-              }}
-            >
-              <div className="stg-item-main">
-                <div className="stg-avatar-guest">
-                  <User size={20} />
-                </div>
-                <div className="stg-item-info">
-                  <span className="stg-item-name">游客模式</span>
-                  <span className="stg-item-mid">点击切换到未登录状态</span>
-                </div>
+        <SettingsSection title="其他">
+          <div
+            className="account-row account-row-guest"
+            onClick={logout}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                logout()
+              }
+            }}
+          >
+            <div className="account-row-main">
+              <div className="account-avatar-guest">
+                <User size={20} />
+              </div>
+              <div className="account-row-info">
+                <span className="account-row-name">游客模式</span>
+                <span className="account-row-mid">点击切换到未登录状态</span>
               </div>
             </div>
           </div>
-        </div>
+        </SettingsSection>
       )}
 
-      {/* 添加账号按钮 */}
-      <div className="stg-add-group">
+      <SettingsActionRow>
         <button
-          className="stg-add-btn"
+          className="settings-button settings-button-secondary settings-button-block"
           onClick={() => navigate('/login?mode=add')}
         >
           <Plus size={20} />
           <span>添加新账号</span>
         </button>
-      </div>
+      </SettingsActionRow>
 
-      {/* 底部操作区域 */}
       <footer className="settings-footer">
         {/* 应用信息卡片 */}
         <div className="settings-info-card">
@@ -507,339 +489,6 @@ function AccountsSettings() {
         loading={switchingAccountId !== null}
       />
 
-      <style>{`
-
-              .credentials-tabs {
-
-                display: flex;
-
-                gap: 4px;
-
-                border-bottom: 1px solid var(--color-border);
-
-                margin-bottom: 16px;
-
-              }
-
-      
-
-              .credentials-tab {
-
-                display: flex;
-
-                align-items: center;
-
-                gap: 6px;
-
-                padding: 10px 16px;
-
-                background: transparent;
-
-                border: none;
-
-                border-bottom: 2px solid transparent;
-
-                color: var(--color-text-secondary);
-
-                font-size: 14px;
-
-                font-weight: 500;
-
-                cursor: pointer;
-
-                transition: all 0.15s ease;
-
-                margin-bottom: -1px;
-
-              }
-
-      
-
-              .credentials-tab:hover {
-
-                color: var(--color-primary-600);
-
-              }
-
-      
-
-              .credentials-tab.active {
-
-                color: var(--color-primary-600);
-
-                border-bottom-color: var(--color-primary-600);
-
-              }
-
-      
-
-              .credentials-tab-icon {
-
-                width: 16px;
-
-                height: 16px;
-
-              }
-
-      
-
-              .credentials-tab-badge {
-
-                background: var(--color-bg-tertiary);
-
-                color: var(--color-text-secondary);
-
-                font-size: 11px;
-
-                padding: 1px 6px;
-
-                border-radius: 10px;
-
-              }
-
-      
-
-              .credentials-tab.active .credentials-tab-badge {
-
-                background: var(--color-primary-50);
-
-                color: var(--color-primary-600);
-
-              }
-
-      
-
-      
-
-              .credentials-tab-content {
-
-                max-height: 400px;
-
-                overflow-y: auto;
-
-              }
-
-      
-
-              .credentials-content-basic {
-
-                display: flex;
-
-                flex-direction: column;
-
-                gap: 12px;
-
-              }
-
-      
-
-              .credentials-field {
-
-                display: flex;
-
-                flex-direction: column;
-
-                gap: 4px;
-
-              }
-
-      
-
-              .credentials-field label {
-
-                font-size: 12px;
-
-                font-weight: 600;
-
-                color: var(--color-text-secondary);
-
-                text-transform: uppercase;
-
-                letter-spacing: 0.5px;
-
-              }
-
-      
-
-              .credentials-field code {
-
-                font-size: 12px;
-
-                color: var(--color-text-primary);
-
-                background: var(--color-bg-secondary);
-
-                padding: 8px 12px;
-
-                border-radius: 6px;
-
-                word-break: break-all;
-
-                border: 1px solid var(--color-border);
-
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-              }
-
-      
-
-              .credentials-content-cookies {
-
-                display: flex;
-
-                flex-direction: column;
-
-                gap: 8px;
-
-              }
-
-      
-
-              .cookies-list {
-
-                display: flex;
-
-                flex-direction: column;
-
-                gap: 8px;
-
-              }
-
-      
-
-              .cookie-item {
-
-                display: flex;
-
-                flex-direction: column;
-
-                gap: 2px;
-
-                padding: 8px 12px;
-
-                background: var(--color-bg-secondary);
-
-                border-radius: 6px;
-
-                border: 1px solid var(--color-border);
-
-              }
-
-      
-
-              .cookie-name {
-
-                font-size: 11px;
-
-                font-weight: 600;
-
-                color: var(--color-text-secondary);
-
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-              }
-
-      
-
-              .cookie-value {
-
-                font-size: 11px;
-
-                color: var(--color-text-primary);
-
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-                word-break: break-all;
-
-              }
-
-      
-
-              .credentials-content-wbi {
-
-                display: flex;
-
-                flex-direction: column;
-
-                gap: 12px;
-
-              }
-
-      
-
-              .wbi-url-container {
-
-                display: flex;
-
-                align-items: center;
-
-                gap: 8px;
-
-                flex-wrap: wrap;
-
-              }
-
-      
-
-              .wbi-url-code {
-
-                font-size: 11px;
-
-                color: var(--color-text-primary);
-
-                background: var(--color-bg-secondary);
-
-                padding: 8px 12px;
-
-                border-radius: 6px;
-
-                border: 1px solid var(--color-border);
-
-                word-break: break-all;
-
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-                flex: 1;
-
-                min-width: 200px;
-
-              }
-
-      
-
-              .credentials-link {
-
-                font-size: 13px;
-
-                color: var(--color-primary-600);
-
-                text-decoration: none;
-
-                padding: 6px 12px;
-
-                border: 1px solid var(--color-primary-200);
-
-                border-radius: 6px;
-
-                background: var(--color-primary-50);
-
-                white-space: nowrap;
-
-                transition: all 0.15s ease;
-
-              }
-
-      
-
-              .credentials-link:hover {
-
-                background: var(--color-primary-100);
-
-                border-color: var(--color-primary-600);
-
-              }
-
-            `}</style>
     </div>
   )
 }

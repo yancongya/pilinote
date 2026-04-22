@@ -735,7 +735,6 @@ export const useDownloadSettingsStore = create<DownloadSettingsState>()(
         path: string,
         variables: Record<string, any>
       ): string => {
-        const { path: pathSettings } = get().settings
         let formattedPath = path
         
         // 替换变量
@@ -745,7 +744,10 @@ export const useDownloadSettingsStore = create<DownloadSettingsState>()(
         })
         
         // 展开环境变量
-        formattedPath = formattedPath.replace(/^~/, process.env.HOME || '~')
+        const homeDir = typeof globalThis !== 'undefined' && typeof (globalThis as any).process?.env?.HOME === 'string'
+          ? (globalThis as any).process.env.HOME
+          : '~'
+        formattedPath = formattedPath.replace(/^~/, homeDir)
         
         return formattedPath
       },
@@ -897,20 +899,3 @@ export const useDownloadSettingsStore = create<DownloadSettingsState>()(
     }
   )
 )
-
-// ========== TypeScript 类型导出 ==========
-
-export type {
-  DownloadSettings,
-  QualitySettings,
-  PathSettings,
-  NamingRule,
-  ConcurrencySettings,
-  RetrySettings,
-  PostDownloadSettings,
-  MetadataSettings,
-  SpeedLimitSettings,
-  ScheduleLimit,
-  AdvancedSettings,
-  ValidationResult
-}
