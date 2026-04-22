@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { apiService } from '../../../services/api';
 import { TranscriptTab } from './TranscriptTab';
 import { NoteTab } from './NoteTab';
+import { MindMapTab } from './MindMapTab';
 
-export { TranscriptTab, NoteTab };
+export { TranscriptTab, NoteTab, MindMapTab };
 
-type TabType = 'subtitle' | 'note';
+type TabType = 'subtitle' | 'note' | 'mindmap';
 
 const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
   {
@@ -26,12 +28,23 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    id: 'mindmap',
+    label: '导图',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h6M9 19h6M5 9h4m6 6h4M12 5v14m0-14a2 2 0 110 4 2 2 0 010-4zm0 10a2 2 0 110 4 2 2 0 010-4z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function AiNotePanel() {
   const { videoId } = useParams<{ videoId: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('subtitle');
   const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
+  const [noteMarkdown, setNoteMarkdown] = useState('');
+  const [noteTitle, setNoteTitle] = useState('mindmap');
   const [mountedTabs, setMountedTabs] = useState<Set<TabType>>(() => new Set(['subtitle']));
 
   useEffect(() => {
@@ -42,6 +55,36 @@ export default function AiNotePanel() {
       return next;
     });
   }, [activeTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNoteSnapshot = async () => {
+      if (!videoId) return;
+      try {
+        const response = await apiService.getLocalFile(videoId, 'note');
+        if (!cancelled && response.success) {
+          setNoteMarkdown(typeof response.data === 'string' ? response.data : '');
+          const fileName = response.file_path?.split('/').pop() || 'mindmap';
+          setNoteTitle(
+            fileName.replace(/\.ai-note\.md$/i, '').replace(/\.md$/i, '') || 'mindmap',
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setNoteMarkdown('');
+          setNoteTitle('mindmap');
+        }
+        console.error('加载笔记快照失败:', err);
+      }
+    };
+
+    void loadNoteSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
 
   if (!videoId) {
     return (
@@ -183,7 +226,13 @@ export default function AiNotePanel() {
             <NoteTab
               videoId={videoId}
               selectedSubtitleFilename={selectedSubtitleFilename}
+              onContentSnapshotChange={setNoteMarkdown}
             />
+          </div>
+        )}
+        {mountedTabs.has('mindmap') && (
+          <div style={{ display: activeTab === 'mindmap' ? 'block' : 'none', height: '100%' }}>
+            <MindMapTab content={noteMarkdown} title={noteTitle} />
           </div>
         )}
       </main>

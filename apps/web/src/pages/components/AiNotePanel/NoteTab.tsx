@@ -147,7 +147,13 @@ function estimateNoteWordCount(content: string): number {
   return plainText ? plainText.replace(/\s+/g, '').length : 0;
 }
 
-export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string; selectedSubtitleFilename?: string }) {
+interface NoteTabProps {
+  videoId: string;
+  selectedSubtitleFilename?: string;
+  onContentSnapshotChange?: (content: string) => void;
+}
+
+export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotChange }: NoteTabProps) {
   const { settings } = useSettingsStore();
   const runtimeState = useAiRuntimeState();
   const { showToast } = useToast();
@@ -294,8 +300,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
         throw new Error(response.message || '加载笔记失败');
       }
 
-      setContent(typeof response.data === 'string' ? response.data : '');
-      originalContentRef.current = typeof response.data === 'string' ? response.data : '';
+      const loadedContent = typeof response.data === 'string' ? response.data : '';
+      setContent(loadedContent);
+      originalContentRef.current = loadedContent;
+      onContentSnapshotChange?.(loadedContent);
       setNoteFilePath(response.file_path || null);
       setNoteFolderPath(response.folder_path || deriveFolderPath(response.file_path));
       setEditorMode('preview');
@@ -310,6 +318,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
       setError('加载笔记失败');
       setContent('');
       originalContentRef.current = '';
+      onContentSnapshotChange?.('');
       setNoteFilePath(null);
       setNoteFolderPath(null);
       setNoteRevision((value) => value + 1);
@@ -332,6 +341,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
       setEditorMode('preview');
       setNoteRevision((value) => value + 1);
       await loadVersions();
+      onContentSnapshotChange?.(content);
       showToast('笔记已保存', 'success');
     } catch (err) {
       console.error('保存笔记失败:', err);
@@ -346,7 +356,13 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     setContent(originalContentRef.current);
     setEditorMode('preview');
     setNoteRevision((value) => value + 1);
-  }, []);
+    onContentSnapshotChange?.(originalContentRef.current);
+  }, [onContentSnapshotChange]);
+
+  const handleContentChange = useCallback((nextContent: string) => {
+    setContent(nextContent);
+    onContentSnapshotChange?.(nextContent);
+  }, [onContentSnapshotChange]);
 
   const handleSaveManualVersion = useCallback(async () => {
     try {
@@ -690,7 +706,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
               content={content}
               documentKey={`${videoId}:${noteRevision}`}
               mode={editorMode}
-              onChange={setContent}
+              onChange={handleContentChange}
               sourceFolderPath={previewFolderPath}
               className="h-full"
             />
