@@ -131,130 +131,134 @@ export default function VideoListControls({
       className={`video-list-controls ${compact ? 'video-list-controls--compact' : ''} ${sticky ? '' : 'video-list-controls--inline'} ${className}`.trim()}
     >
       <div className={`controls-wrapper ${compact ? 'controls-wrapper--compact' : ''}`}>
-        {/* 搜索框 */}
-        {showSearch && (
-          <form className="search-box" onSubmit={handleSearchSubmit}>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={handleSearchChange}
-              placeholder="搜索视频..."
-              className="search-input"
-            />
-            {searchInput && (
-              <button
-                type="button"
-                className="clear-search-btn"
-                onClick={handleClearSearch}
-                aria-label="清除搜索"
-              >
-                ✕
-              </button>
-            )}
-            <button type="submit" className="search-btn" aria-label="搜索">
-              🔍
-            </button>
-          </form>
-        )}
+        <div className="controls-primary">
+          {/* 搜索框 */}
+          {showSearch && (
+            <form className="search-box" onSubmit={handleSearchSubmit}>
+              <span className="search-box-icon" aria-hidden="true">🔍</span>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={handleSearchChange}
+                placeholder="搜索视频..."
+                className="search-input"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  className="clear-search-btn"
+                  onClick={handleClearSearch}
+                  aria-label="清除搜索"
+                >
+                  ✕
+                </button>
+              )}
+            </form>
+          )}
+        </div>
 
-        {/* 排序选择器 */}
-        {showSort && (
-          <div className="sort-box">
-            <label htmlFor="sort-select" className="sort-label">
-              排序:
-            </label>
-            <select
-              id="sort-select"
-              value={order}
-              onChange={(e) => onOrderChange(e.target.value)}
-              className="sort-select"
-            >
-              {sortOptions.map((option: { value: string; label: string }) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+        <div className="controls-secondary">
+          <div className="controls-chip-row">
+            {/* 排序选择器 */}
+            {showSort && (
+              <div className="sort-box controls-chip">
+                <label htmlFor="sort-select" className="sort-label">
+                  排序
+                </label>
+                <select
+                  id="sort-select"
+                  value={order}
+                  onChange={(e) => onOrderChange(e.target.value)}
+                  className="sort-select"
+                >
+                  {sortOptions.map((option: { value: string; label: string }) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
 
-            {/* 排序方向切换按钮 */}
-            {showSortDirection && order !== 'default' && (
-              <button
-                className="sort-direction-btn"
-                onClick={handleSortDirectionToggle}
-                aria-label={`当前${sortDirection === 'desc' ? '降序' : '升序'}，点击切换`}
-                title={sortDirection === 'desc' ? '降序排列' : '升序排列'}
-              >
-                {sortDirection === 'desc' ? '⬇️' : '⬆️'}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* 已加载视频数量显示和加载更多按钮 */}
-        {loadedCount !== undefined && totalCount !== undefined && (
-          <div className="load-info-box">
-            <span className="load-info-text">
-              已加载 {loadedCount} / {totalCount} 个视频
-            </span>
-            {canLoadMore && onLoadMore && (
-              <button
-                className="load-more-btn"
-                onClick={handleLoadMore}
-                disabled={isLoading}
-                title="加载更多视频"
-              >
-                {isLoading ? '加载中...' : '加载更多'}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* 统计信息和刷新按钮 */}
-        {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined || onRefresh || onUpdateNfo) && (
-          <div className="info-refresh-box">
-            {/* 统计信息 */}
-            {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined) && (
-              <div className="library-stats-info">
-                {seriesCount !== undefined && (
-                  <>
-                    <span className="stat-item">{seriesCount} 个系列</span>
-                    <span className="stats-divider">·</span>
-                  </>
-                )}
-                {videoCount !== undefined && (
-                  <>
-                    <span className="stat-item">{videoCount} 个视频</span>
-                    <span className="stats-divider">·</span>
-                  </>
-                )}
-                {totalSize !== undefined && totalSize > 0 && formatFileSize && (
-                  <span className="stat-item">{formatFileSize(totalSize)}</span>
+                {/* 排序方向切换按钮 */}
+                {showSortDirection && order !== 'default' && (
+                  <button
+                    className="sort-direction-btn"
+                    onClick={handleSortDirectionToggle}
+                    aria-label={`当前${sortDirection === 'desc' ? '降序' : '升序'}，点击切换`}
+                    title={sortDirection === 'desc' ? '降序排列' : '升序排列'}
+                  >
+                    {sortDirection === 'desc' ? '↓' : '↑'}
+                  </button>
                 )}
               </div>
             )}
-            
-            {/* 统一刷新按钮 */}
-            {(onRefresh || onUpdateNfo) && (
-              <button
-                className="library-refresh-btn"
-                onClick={handleRefresh}
-                disabled={isOperating}
-                aria-label="刷新"
-                title={refreshTitle}
-              >
-                <span className={`refresh-icon ${isOperating ? 'rotating' : ''}`}>🔄</span>
-                <span>{refreshLabel}</span>
-              </button>
+
+            {/* 已加载视频数量显示和加载更多按钮 */}
+            {loadedCount !== undefined && totalCount !== undefined && (
+              <div className="load-info-box controls-chip">
+                <span className="load-info-text">
+                  已加载 {loadedCount} / {totalCount}
+                </span>
+                {canLoadMore && onLoadMore && (
+                  <button
+                    className="load-more-btn"
+                    onClick={handleLoadMore}
+                    disabled={isLoading}
+                    title="加载更多视频"
+                  >
+                    {isLoading ? '加载中' : '更多'}
+                  </button>
+                )}
+              </div>
             )}
-            
-            {/* NFO更新进度显示 */}
-            {isUpdatingNfo && nfoUpdateProgress && nfoUpdateProgress.total > 0 && (
-              <div className="nfo-update-progress">
-                <span>成功: {nfoUpdateProgress.success}</span>
-                <span>失败: {nfoUpdateProgress.failed}</span>
-                <span>总计: {nfoUpdateProgress.total}</span>
+
+            {/* 统计信息和刷新按钮 */}
+            {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined || onRefresh || onUpdateNfo) && (
+              <div className="info-refresh-box controls-chip">
+                {/* 统计信息 */}
+                {(seriesCount !== undefined || videoCount !== undefined || totalSize !== undefined) && (
+                  <div className="library-stats-info">
+                    {seriesCount !== undefined && (
+                      <>
+                        <span className="stat-item">{seriesCount} 系列</span>
+                        <span className="stats-divider">·</span>
+                      </>
+                    )}
+                    {videoCount !== undefined && (
+                      <>
+                        <span className="stat-item">{videoCount} 视频</span>
+                        <span className="stats-divider">·</span>
+                      </>
+                    )}
+                    {totalSize !== undefined && totalSize > 0 && formatFileSize && (
+                      <span className="stat-item">{formatFileSize(totalSize)}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* 统一刷新按钮 */}
+                {(onRefresh || onUpdateNfo) && (
+                  <button
+                    className="library-refresh-btn"
+                    onClick={handleRefresh}
+                    disabled={isOperating}
+                    aria-label="刷新"
+                    title={refreshTitle}
+                  >
+                    <span className={`refresh-icon ${isOperating ? 'rotating' : ''}`}>↻</span>
+                    <span>{refreshLabel}</span>
+                  </button>
+                )}
+
+                {/* NFO更新进度显示 */}
+                {isUpdatingNfo && nfoUpdateProgress && nfoUpdateProgress.total > 0 && (
+                  <div className="nfo-update-progress">
+                    <span>成功 {nfoUpdateProgress.success}</span>
+                    <span>失败 {nfoUpdateProgress.failed}</span>
+                    <span>总计 {nfoUpdateProgress.total}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
