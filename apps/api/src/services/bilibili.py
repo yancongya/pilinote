@@ -1001,8 +1001,45 @@ class BilibiliService:
                 "message": f"获取UP主信息异常: {str(e)}"
             }
 
+    async def _fetch_video_tags(
+        self,
+        client: httpx.AsyncClient,
+        bvid: str,
+        headers: Dict[str, str],
+    ) -> list[str]:
+        """获取视频标签，优先尝试官方标签接口。"""
+        tag_urls = [
+            f"{self.api_base}/x/tag/archive/tags",
+            f"{self.api_base}/x/web-interface/view/detail/tag",
+        ]
+
+        for tag_url in tag_urls:
+            try:
+                response = await client.get(
+                    tag_url,
+                    params={"bvid": bvid},
+                    headers=headers,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                if payload.get("code") != 0:
+                    continue
+
+                data = payload.get("data", [])
+                if isinstance(data, list):
+                    return [
+                        item.get("tag_name", "")
+                        for item in data
+                        if isinstance(item, dict) and item.get("tag_name")
+                    ]
+            except Exception as exc:
+                logger.debug("获取视频标签失败，继续尝试其他接口: %s, %s", tag_url, exc)
+                continue
+
+        return []
+
     async def get_video_info(self, bvid: str, sessdata: str = "") -> Dict:
-        """获取视频详情信息（使用HTML解析方法）
+        """获取视频详情信息（优先官方API，回退HTML解析）
 
         Args:
             bvid: 视频BV号
@@ -1022,8 +1059,59 @@ class BilibiliService:
         headers = await self.headers_manager.get_headers()
         headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
 
+        api_error_message = None
         try:
-            # 使用HTML解析方法（绕过API限制）
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(
+                    f"{self.api_base}/x/web-interface/view",
+                    params={"bvid": bvid},
+                    headers=headers
+                )
+                response.raise_for_status()
+                data = response.json()
+                if data.get("code") == 0:
+                    video_data = data.get("data", {})
+                    aid = video_data.get("aid", 0)
+                    duration = 0
+                    pages = video_data.get("pages", [])
+                    if pages and len(pages) > 0:
+                        duration = pages[0].get("duration", 0)
+
+                    tags = await self._fetch_video_tags(client, bvid, headers)
+
+                    return {
+                        "success": True,
+                        "data": {
+                            "aid": aid,
+                            "bvid": bvid,
+                            "desc": video_data.get("desc", ""),
+                            "stat": video_data.get("stat", {}),
+                            "owner": video_data.get("owner", {}),
+                            "pic": video_data.get("pic", ""),
+                            "title": video_data.get("title", ""),
+                            "pubdate": video_data.get("pubdate", 0),
+                            "duration": duration,
+                            "tags": tags
+                        }
+                    }
+
+                api_error_message = data.get("message", "获取视频信息失败")
+                logger.warning(
+                    "官方视频信息接口返回错误，回退HTML解析: bvid=%s, code=%s, message=%s",
+                    bvid,
+                    data.get("code"),
+                    api_error_message,
+                )
+        except Exception as e:
+            api_error_message = str(e)
+            logger.warning(
+                "官方视频信息接口调用失败，回退HTML解析: bvid=%s, error=%s",
+                bvid,
+                e,
+            )
+
+        try:
+            # 回退到HTML解析方法
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(
                     f"https://www.bilibili.com/video/{bvid}",
@@ -1052,7 +1140,7 @@ class BilibiliService:
                 if not data or 'videoData' not in data:
                     return {
                         "success": False,
-                        "message": "无法从页面中提取视频信息"
+                        "message": api_error_message or "无法从页面中提取视频信息"
                     }
 
                 video_data = data['videoData']
@@ -1082,7 +1170,7 @@ class BilibiliService:
         except Exception as e:
             return {
                 "success": False,
-                "message": f"获取视频信息失败: {str(e)}"
+                "message": f"获取视频信息失败: {api_error_message or str(e)}"
             }
 
     async def get_player_info(self, aid: int, cid: int, sessdata: str = "") -> Dict:

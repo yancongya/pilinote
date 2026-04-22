@@ -132,40 +132,31 @@ class MediaDataProcessor:
         # 设置动态Referer，包含具体的视频URL
         headers["Referer"] = f"https://www.bilibili.com/video/{bvid}"
         
+        api_error_message = None
         try:
-            # 使用HTML解析方法替代API调用
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(
-                    f"https://www.bilibili.com/video/{bvid}",
+                    f"{self.api_base}/x/web-interface/view",
+                    params={"bvid": bvid},
                     headers=headers
                 )
                 response.raise_for_status()
-                html = response.text
-                
-                # 从HTML中提取__INITIAL_STATE__数据
-                patterns = [
-                    r'__INITIAL_STATE__\s*=\s*({.*?});',
-                    r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
-                    r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'
-                ]
-                
-                data = None
-                for pattern in patterns:
-                    match = re.search(pattern, html)
-                    if match:
-                        try:
-                            data = json.loads(match.group(1))
-                            break
-                        except json.JSONDecodeError:
-                            continue
-                
-                if not data or 'videoData' not in data:
-                    return {
-                        "success": False,
-                        "message": "无法从页面中提取视频信息"
-                    }
-                
-                video_data = data['videoData']
+                data = response.json()
+                if data.get("code") != 0:
+                    api_error_message = data.get("message", "获取视频信息失败")
+                    logger.warning(
+                        "媒体处理器官方视频接口返回错误，回退HTML解析: bvid=%s, code=%s, message=%s",
+                        bvid,
+                        data.get("code"),
+                        api_error_message,
+                    )
+                    raise RuntimeError(api_error_message)
+
+                video_data = data.get("data", {})
+                pages = video_data.get("pages", [])
+                duration = pages[0].get("duration", 0) if pages else 0
+                if not duration:
+                    duration = 0
             
             # 构建统计信息
             stat = MediaStats(
@@ -219,24 +210,125 @@ class MediaDataProcessor:
                 items.append(item)
             
             return {
-                "success": True,
-                "data": MediaInfo(
-                    type=MediaType.VIDEO,
-                    id=bvid,
-                    title=nfo.showtitle or nfo.title or "",
+                    "success": True,
+                    "data": MediaInfo(
+                        type=MediaType.VIDEO,
+                        id=bvid,
+                        title=nfo.showtitle or nfo.title or "",
                     cover=nfo.thumb or "",
                     desc=nfo.intro or nfo.plot or "",
                     nfo=nfo,
                     stats=nfo.stat or MediaStats(),
-                    list=items
-                )
-            }
+                        list=items
+                    )
+                }
                 
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"获取视频信息失败: {str(e)}"
-            }
+        except Exception as api_error:
+            api_error_message = api_error_message or str(api_error)
+            try:
+                # 回退到HTML解析方法
+                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                    response = await client.get(
+                        f"https://www.bilibili.com/video/{bvid}",
+                        headers=headers
+                    )
+                    response.raise_for_status()
+                    html = response.text
+                    
+                    # 从HTML中提取__INITIAL_STATE__数据
+                    patterns = [
+                        r'__INITIAL_STATE__\s*=\s*({.*?});',
+                        r'window\.__INITIAL_STATE__\s*=\s*({.*?});',
+                        r'<script>__INITIAL_STATE__\s*=\s*({.*?});</script>'
+                    ]
+                    
+                    data = None
+                    for pattern in patterns:
+                        match = re.search(pattern, html)
+                        if match:
+                            try:
+                                data = json.loads(match.group(1))
+                                break
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    if not data or 'videoData' not in data:
+                        return {
+                            "success": False,
+                            "message": api_error_message or "无法从页面中提取视频信息"
+                        }
+                    
+                    video_data = data['videoData']
+                    
+                    # 构建统计信息
+                    stat = MediaStats(
+                        play=video_data.get("stat", {}).get("view", 0),
+                        danmaku=video_data.get("stat", {}).get("danmaku", 0),
+                        reply=video_data.get("stat", {}).get("reply", 0),
+                        like=video_data.get("stat", {}).get("like", 0),
+                        coin=video_data.get("stat", {}).get("coin", 0),
+                        favorite=video_data.get("stat", {}).get("favorite", 0),
+                        share=video_data.get("stat", {}).get("share", 0)
+                    )
+                    
+                    # 构建上传者信息
+                    owner = video_data.get("owner", {})
+                    upper = MediaUpper(
+                        name=owner.get("name", ""),
+                        mid=owner.get("mid", 0),
+                        avatar=owner.get("face", "")
+                    )
+                    
+                    # 构建媒体元数据
+                    nfo = MediaNfo(
+                        showtitle=video_data.get("title", ""),
+                        intro=video_data.get("desc", ""),
+                        url=f"https://www.bilibili.com/video/{bvid}",
+                        stat=stat,
+                        thumbs=[MediaThumbnail(id="cover", url=video_data.get("pic", ""))],
+                        premiered=_format_timestamp(video_data.get("pubdate", 0)),
+                        upper=upper,
+                        comments=video_data.get("comments", [])
+                    )
+                    
+                    # 构建媒体项目列表
+                    items = []
+                    pages = video_data.get("pages", [])
+                    for i, page in enumerate(pages):
+                        item = MediaItem(
+                            title=page.get("part", f"P{i+1}"),
+                            cover=video_data.get("pic", ""),
+                            desc=video_data.get("desc", ""),
+                            duration=page.get("duration", 0),
+                            pubtime=video_data.get("pubdate", 0),
+                            is_target=(i == 0),
+                            type=MediaType.VIDEO,
+                            url=f"https://www.bilibili.com/video/{bvid}",
+                            aid=video_data.get("aid", 0),
+                            bvid=bvid,
+                            cid=page.get("cid", 0),
+                            index=i
+                        )
+                        items.append(item)
+                    
+                    return {
+                        "success": True,
+                        "data": MediaInfo(
+                            type=MediaType.VIDEO,
+                            id=bvid,
+                            title=nfo.showtitle or nfo.title or "",
+                            cover=nfo.thumb or "",
+                            desc=nfo.intro or nfo.plot or "",
+                            nfo=nfo,
+                            stats=nfo.stat or MediaStats(),
+                            list=items
+                        )
+                    }
+            except Exception as html_error:
+                return {
+                    "success": False,
+                    "message": f"获取视频信息失败: {api_error_message or str(html_error)}"
+                }
     
     async def _process_bangumi(self, id_str: str, sessdata: Optional[str]) -> Dict[str, Any]:
         """处理番剧类型"""
