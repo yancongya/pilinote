@@ -9455,7 +9455,8 @@ html body #root .home-container .home-content .content-wrapper #history-panel {
 }
 
 #favorites-panel .section-title h2,
-#watchlater-panel .section-title h2 {
+#watchlater-panel .section-title h2,
+#history-panel .section-title h2 {
   margin: 0 !important;
   font-size: 20px !important;
   font-weight: 700 !important;
@@ -9663,7 +9664,8 @@ html body #root .home-container .home-content .content-wrapper #history-panel {
   }
   
   #favorites-panel .section-title,
-  #watchlater-panel .section-title {
+  #watchlater-panel .section-title,
+  #history-panel .section-title {
     flex: 1 !important;
     min-width: 0 !important;
     gap: 6px !important;
@@ -9700,25 +9702,29 @@ html body #root .home-container .home-content .content-wrapper #history-panel {
   }
   
   #favorites-panel .batch-select-header,
-  #watchlater-panel .batch-select-header {
+  #watchlater-panel .batch-select-header,
+  #history-panel .batch-select-header {
     padding: 8px 10px !important;
     gap: 8px !important;
   }
   
   #favorites-panel .batch-select-left,
-  #watchlater-panel .batch-select-left {
+  #watchlater-panel .batch-select-left,
+  #history-panel .batch-select-left {
     gap: 6px !important;
   }
   
   #favorites-panel .select-all-btn,
-  #watchlater-panel .select-all-btn {
+  #watchlater-panel .select-all-btn,
+  #history-panel .select-all-btn {
     padding: 4px 8px !important;
     font-size: 11px !important;
     min-height: 26px !important;
   }
   
   #favorites-panel .selected-count,
-  #watchlater-panel .selected-count {
+  #watchlater-panel .selected-count,
+  #history-panel .selected-count {
     font-size: 11px !important;
   }
   
@@ -9731,7 +9737,8 @@ html body #root .home-container .home-content .content-wrapper #history-panel {
 /* 平板模式优化 */
 @media (min-width: 641px) and (max-width: 1024px) {
   #favorites-panel .batch-actions,
-  #watchlater-panel .batch-actions {
+  #watchlater-panel .batch-actions,
+  #history-panel .batch-actions {
     gap: 8px !important;
   }
   
