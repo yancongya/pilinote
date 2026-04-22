@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-import AiNotePanel from '../index'
+import AiNotePanel, { getAiNoteTabFromHash, getAiNoteTabHash } from '../index'
 
 vi.mock('../../../../services/api', () => ({
   apiService: {
@@ -28,6 +28,16 @@ vi.mock('../MindMapTab', () => ({
 }))
 
 describe('AiNotePanel', () => {
+  it('maps only supported hashes to tabs', () => {
+    expect(getAiNoteTabFromHash('#subtitle')).toBe('subtitle')
+    expect(getAiNoteTabFromHash('#note')).toBe('note')
+    expect(getAiNoteTabFromHash('#mindmap')).toBe('mindmap')
+    expect(getAiNoteTabFromHash('#something-else')).toBe('subtitle')
+    expect(getAiNoteTabHash('subtitle')).toBe('#subtitle')
+    expect(getAiNoteTabHash('note')).toBe('#note')
+    expect(getAiNoteTabHash('mindmap')).toBe('#mindmap')
+  })
+
   it('renders the mindmap tab entry', async () => {
     render(
       <MemoryRouter initialEntries={['/video/BV1x/ai-note']}>

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../../services/api';
 import { TranscriptTab } from './TranscriptTab';
 import { NoteTab } from './NoteTab';
@@ -8,6 +8,18 @@ import { MindMapTab } from './MindMapTab';
 export { TranscriptTab, NoteTab, MindMapTab };
 
 type TabType = 'subtitle' | 'note' | 'mindmap';
+
+export function getAiNoteTabFromHash(hash: string): TabType {
+  const normalized = hash.replace(/^#/, '')
+  if (normalized === 'note' || normalized === 'mindmap' || normalized === 'subtitle') {
+    return normalized
+  }
+  return 'subtitle'
+}
+
+export function getAiNoteTabHash(tab: TabType): string {
+  return `#${tab}`
+}
 
 const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
   {
@@ -41,11 +53,19 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
 
 export default function AiNotePanel() {
   const { videoId } = useParams<{ videoId: string }>();
-  const [activeTab, setActiveTab] = useState<TabType>('subtitle');
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const [noteTitle, setNoteTitle] = useState('mindmap');
   const [mountedTabs, setMountedTabs] = useState<Set<TabType>>(() => new Set(['subtitle']));
+  const activeTab = useMemo(() => getAiNoteTabFromHash(location.hash), [location.hash]);
+
+  useEffect(() => {
+    if (!location.hash || !['#subtitle', '#note', '#mindmap'].includes(location.hash)) {
+      navigate('#subtitle', { replace: true });
+    }
+  }, [location.hash, navigate]);
 
   useEffect(() => {
     setMountedTabs(prev => {
@@ -172,7 +192,11 @@ export default function AiNotePanel() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              window.requestAnimationFrame(() => {
+                navigate(getAiNoteTabHash(tab.id), { replace: true });
+              });
+            }}
             style={{
               flex: 1,
               display: 'flex',

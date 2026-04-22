@@ -220,7 +220,6 @@ function renderHeading(
       onClick={() => {
         const target = document.getElementById(id)
         target?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-        window.location.hash = id
       }}
     >
       {children}
@@ -261,7 +260,6 @@ export function MarkdownPreview({ content, sourceFolderPath, className }: Markdo
             const targetId = href.slice(1)
             const target = document.getElementById(targetId)
             target?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-            window.location.hash = targetId
           }}
           rel={isInternalAnchor ? undefined : 'noreferrer noopener'}
           target={isInternalAnchor ? undefined : '_blank'}

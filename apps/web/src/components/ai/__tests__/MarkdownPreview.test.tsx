@@ -74,6 +74,6 @@ const answer = 42;
 
     fireEvent.click(screen.getByRole('heading', { level: 1, name: '目标章节' }))
 
-    expect(decodeURIComponent(window.location.hash.slice(1))).toBe('目标章节')
+    expect(window.location.hash).toBe('')
   })
 })
