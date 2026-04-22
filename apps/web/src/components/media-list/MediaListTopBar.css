@@ -1,0 +1,123 @@
+.media-list-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  background: color-mix(in srgb, var(--color-bg-primary) 96%, transparent);
+  border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.media-list-topbar-header {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  gap: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.media-list-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.media-list-topbar-title-content {
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.media-list-topbar .back-btn {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.media-list-topbar .back-btn:hover {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-success-500);
+}
+
+.media-list-topbar .back-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.media-list-topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.media-list-topbar-secondary,
+.media-list-topbar-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.media-list-topbar-filters {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .media-list-topbar-header {
+    padding: 14px 12px 10px;
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .media-list-topbar-title {
+    width: 100%;
+  }
+
+  .media-list-topbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .media-list-topbar-filters {
+    padding: 0 0 12px;
+    gap: 10px;
+  }
+}

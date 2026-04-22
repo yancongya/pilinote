@@ -10,6 +10,7 @@ import { formatDuration, formatNumber, formatTime } from '../../utils/videoForma
 import { useVideoList } from '../../hooks/useVideoList'
 import { getAvatarProxyUrl } from '../../config/api'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
+import MediaListTopBar from '../../components/media-list/MediaListTopBar'
 import MediaListShell from '../../components/media-list/MediaListShell'
 import VideoListContainer from '../../components/VideoListContainer'
 import VideoListControls from '../../components/VideoListControls'
@@ -438,43 +439,47 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
 
       {selectedFolder && (
         <MediaListShell
-          title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <button
-                className="back-btn"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleBackToFolders()
-                }}
-                aria-label="返回收藏夹列表"
-              >
-                <ArrowLeft />
-              </button>
-              <span>{selectedFolder.title}</span>
-            </div>
-          }
-          countLabel={`共${selectedFolder.media_count}条视频`}
-          controls={(
-            <VideoListControls
-              keyword={keyword}
-              order={order}
-              sortDirection={sortDirection}
-              onKeywordChange={setKeyword}
-              onOrderChange={setOrder}
-              onSortDirectionChange={setSortDirection}
-              sortOptions={[
-                { value: 'default', label: '默认' },
-                { value: 'view', label: '按播放量' },
-                { value: 'pubtime', label: '按发布时间' },
-                { value: 'favorite', label: '按收藏时间' }
-              ]}
-              loadedCount={loadedCount}
-              totalCount={totalCount}
-              canLoadMore={hasMore}
-              onLoadMore={handleLoadMore}
-              isLoading={loadingMore}
-              compact
-              sticky={false}
+          topBar={(
+            <MediaListTopBar
+              title={(
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    className="back-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleBackToFolders()
+                    }}
+                    aria-label="返回收藏夹列表"
+                  >
+                    <ArrowLeft />
+                  </button>
+                  <span>{selectedFolder.title}</span>
+                </div>
+              )}
+              countLabel={`共${selectedFolder.media_count}条视频`}
+              filters={(
+                <VideoListControls
+                  keyword={keyword}
+                  order={order}
+                  sortDirection={sortDirection}
+                  onKeywordChange={setKeyword}
+                  onOrderChange={setOrder}
+                  onSortDirectionChange={setSortDirection}
+                  sortOptions={[
+                    { value: 'default', label: '默认' },
+                    { value: 'view', label: '按播放量' },
+                    { value: 'pubtime', label: '按发布时间' },
+                    { value: 'favorite', label: '按收藏时间' }
+                  ]}
+                  loadedCount={loadedCount}
+                  totalCount={totalCount}
+                  canLoadMore={hasMore}
+                  onLoadMore={handleLoadMore}
+                  isLoading={loadingMore}
+                  compact
+                  sticky={false}
+                />
+              )}
             />
           )}
           loading={videosLoading}

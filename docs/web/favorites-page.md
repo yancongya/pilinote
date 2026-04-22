@@ -39,6 +39,7 @@ apps/web/src/pages/components/FavoritesContent.tsx
    - 收藏夹视频详情页已接入 `MediaListShell`
    - 与稍后再看、历史记录共用同一套加载态/空态/错误态
    - 筛选和刷新时不会让旧列表继续挂在新标题下面
+   - 顶部导航和筛选区通过 `MediaListTopBar` 吸顶并填满内容区左右边缘
 
 6. **缓存优化**
    - 收藏夹列表缓存（5分钟过期）

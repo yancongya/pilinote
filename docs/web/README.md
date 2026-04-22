@@ -43,6 +43,7 @@
 - ConfirmModal - 确认模态框
 - VideoListContainer - 视频列表容器
 - MediaListShell - 收藏/稍后再看/历史记录共用列表壳
+- MediaListTopBar - 历史型列表吸顶导航/筛选条
 - BatchActionsBar - 批量操作栏
 
 ### 4. 下载列表组件

@@ -3,8 +3,9 @@ import type { ReactNode } from 'react'
 import MediaListState from './MediaListState'
 
 export interface MediaListShellProps {
-  title: ReactNode
+  title?: ReactNode
   countLabel?: ReactNode
+  topBar?: ReactNode
   controls?: ReactNode
   children?: ReactNode
   loading?: boolean
@@ -22,6 +23,7 @@ export interface MediaListShellProps {
 export default function MediaListShell({
   title,
   countLabel,
+  topBar,
   controls,
   children,
   loading = false,
@@ -39,14 +41,20 @@ export default function MediaListShell({
 
   return (
     <section className={shellClassName}>
-      <div className="section-header media-list-shell-header">
-        <div className="section-title media-list-shell-title">
-          <h2>{title}</h2>
-          {countLabel !== undefined && <span className="video-count">{countLabel}</span>}
-        </div>
-      </div>
+      {topBar ? (
+        <div className="media-list-shell-topbar">{topBar}</div>
+      ) : (
+        <>
+          <div className="section-header media-list-shell-header">
+            <div className="section-title media-list-shell-title">
+              <h2>{title}</h2>
+              {countLabel !== undefined && <span className="video-count">{countLabel}</span>}
+            </div>
+          </div>
 
-      {controls && <div className="media-list-shell-controls">{controls}</div>}
+          {controls && <div className="media-list-shell-controls">{controls}</div>}
+        </>
+      )}
 
       {loading ? (
         <MediaListState

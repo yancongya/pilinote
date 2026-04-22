@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "lastUpdated": "2026-04-22T13:00:00Z",
+  "lastUpdated": "2026-04-22T13:30:00Z",
   "root": "docs",
   "directories": {
     "ai-note": {
@@ -81,6 +81,7 @@
         {"name": "video-list-container.md", "type": "component"},
         {"name": "video-list-controls.md", "type": "component"},
         {"name": "media-list-shell.md", "type": "component"},
+        {"name": "media-list-topbar.md", "type": "component"},
         {"name": "modal.md", "type": "component"},
         {"name": "alert-modal.md", "type": "component"},
         {"name": "confirm-modal.md", "type": "component"},

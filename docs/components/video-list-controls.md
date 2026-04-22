@@ -12,7 +12,7 @@
 - ✅ 灵活配置：通过sortOptions支持不同页面的排序选项
 - ✅ 响应式设计：适配移动端和桌面端
 - ✅ 现代化UI：包含hover效果和过渡动画
-- ✅ 紧凑模式：适配上层 `MediaListShell` 的吸顶工具条
+- ✅ 紧凑模式：适配上层 `MediaListTopBar` / `MediaListShell` 的吸顶工具条
 
 ## 组件结构
 
@@ -86,6 +86,14 @@ const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   ]}
 />
 ```
+
+### 吸顶顶部条
+
+当 `VideoListControls` 放进 `MediaListTopBar` 时，通常会设置：
+
+- `compact={true}`：减少控件间距
+- `sticky={false}`：关闭组件自身的吸顶定位
+- 由 `MediaListTopBar` 统一负责 sticky、宽度和底部分隔线
 
 ## 样式特性
 

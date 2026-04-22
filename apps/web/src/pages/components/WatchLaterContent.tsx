@@ -7,6 +7,7 @@ import { videoLibraryService } from '../../services/videoLibraryService'
 import { formatDuration, formatNumber, formatProgress, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
+import MediaListTopBar from '../../components/media-list/MediaListTopBar'
 import MediaListShell from '../../components/media-list/MediaListShell'
 import VideoListContainer from '../../components/VideoListContainer'
 import VideoListControls from '../../components/VideoListControls'
@@ -222,24 +223,28 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       className="content-section"
     >
       <MediaListShell
-        title="稍后再看"
-        countLabel={`共${total || videos.length}个视频`}
-        controls={(
-          <VideoListControls
-            keyword={keyword}
-            order={order}
-            sortDirection={sortDirection}
-            onKeywordChange={setKeyword}
-            onOrderChange={setOrder}
-            onSortDirectionChange={setSortDirection}
-            sortOptions={[
-              { value: 'default', label: '默认' },
-              { value: 'view', label: '按播放量' },
-              { value: 'pubtime', label: '按发布时间' },
-              { value: 'add_time', label: '按添加时间' }
-            ]}
-            compact
-            sticky={false}
+        topBar={(
+          <MediaListTopBar
+            title="稍后再看"
+            countLabel={`共${total || videos.length}个视频`}
+            filters={(
+              <VideoListControls
+                keyword={keyword}
+                order={order}
+                sortDirection={sortDirection}
+                onKeywordChange={setKeyword}
+                onOrderChange={setOrder}
+                onSortDirectionChange={setSortDirection}
+                sortOptions={[
+                  { value: 'default', label: '默认' },
+                  { value: 'view', label: '按播放量' },
+                  { value: 'pubtime', label: '按发布时间' },
+                  { value: 'add_time', label: '按添加时间' }
+                ]}
+                compact
+                sticky={false}
+              />
+            )}
           />
         )}
         loading={videosLoading}

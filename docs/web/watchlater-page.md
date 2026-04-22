@@ -69,6 +69,7 @@ const getActiveTabFromPath = () => {
    - 稍后再看页已接入 `MediaListShell`
    - 与收藏页、历史记录共用同一套加载态/空态/错误态
    - 首屏和加载更多的骨架表现一致
+   - 顶部导航和筛选区通过 `MediaListTopBar` 吸顶并填满内容区左右边缘
 
 6. **登录验证**
    - 未登录显示登录提示
