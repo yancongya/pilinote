@@ -52,6 +52,7 @@ interface TraceDotItem {
   status: TraceDotStatus
   statusLabel: string
   detailText: string
+  detailPreview: string
   steps: AiTraceStep[]
   progress?: number
 }
@@ -122,6 +123,29 @@ const getTraceStatus = (step: AiTraceStep, nextStep?: AiTraceStep): TraceDotStat
   return step.stage ? 'running' : 'pending'
 }
 
+const buildDetailPreview = (detail: AiTraceStep['detail']): string => {
+  if (!detail || typeof detail !== 'object') return '暂无补充字段'
+
+  const lines: string[] = []
+  const pushLine = (label: string, value: unknown) => {
+    if (typeof value === 'string' && value.trim()) {
+      lines.push(`${label}: ${value.trim()}`)
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${label}: ${String(value)}`)
+    }
+  }
+
+  pushLine('摘要补充', (detail as any).summary || (detail as any).message || (detail as any).text)
+  pushLine('Prompt 预览', (detail as any).prompt_preview)
+  pushLine('响应预览', (detail as any).response_preview)
+  pushLine('状态', (detail as any).status)
+  pushLine('Provider', (detail as any).provider)
+  pushLine('Model', (detail as any).model)
+  pushLine('长度', (detail as any).prompt_length || (detail as any).response_length)
+
+  return lines.length ? lines.join('\n') : '暂无补充字段'
+}
+
 const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEFAULT_PIPELINE_MODE): TraceDotItem[] => {
   const templates = getStageTemplates(mode)
   const grouped = new Map<string, AiTraceStep[]>()
@@ -147,7 +171,8 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
         summary: '等待执行',
         status: 'pending',
         statusLabel: TRACE_STATUS_META.pending.label,
-        detailText: '暂无原始详情',
+        detailText: '暂无日志',
+        detailPreview: '暂无原始详情',
         steps: [],
         progress: 0,
       }
@@ -164,11 +189,16 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
 
     const detailText = items
       .map((step, idx) => {
-        const detail = step.detail ? JSON.stringify(step.detail, null, 2) : '暂无原始详情'
         const ts = step.ts ? `\n时间: ${step.ts}` : ''
         const summaryText = step.summary?.trim() || '暂无摘要'
-        return `步骤 ${idx + 1}: ${step.title || step.stage}${ts}\n摘要: ${summaryText}\n原始详情:\n${detail}`
+        const detailLine = step.detail ? buildDetailPreview(step.detail) : '暂无补充字段'
+        return `步骤 ${idx + 1}: ${step.title || step.stage}${ts}\n摘要: ${summaryText}\n${detailLine}`
       })
+      .join('\n\n')
+
+    const detailPreview = items
+      .map(step => buildDetailPreview(step.detail))
+      .filter(Boolean)
       .join('\n\n')
 
     const nextTemplate = templates[index + 1]
@@ -183,7 +213,8 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
       summary: summary || last.summary || '暂无摘要',
       status,
       statusLabel: TRACE_STATUS_META[status].label,
-      detailText: detailText || '暂无原始详情',
+      detailText: detailText || '暂无日志',
+      detailPreview: detailPreview || '暂无原始详情',
       steps: items,
       progress: last.progress,
     }
@@ -199,7 +230,8 @@ const buildDefaultTraceDotItems = (mode: AiNotePipelineMode = DEFAULT_PIPELINE_M
     summary: '等待执行',
     status: 'pending',
     statusLabel: TRACE_STATUS_META.pending.label,
-    detailText: '暂无原始详情',
+    detailText: '暂无日志',
+    detailPreview: '暂无原始详情',
     steps: [],
     progress: 0,
   }))
@@ -458,7 +490,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   }, [isOpen])
 
   const activeProvider = settings?.llm?.provider || 'openai'
-  const activeProviderLabel = settings?.llm?.providers?.find(item => item.id === activeProvider)?.name || activeProvider
 
   const providerModels = useMemo(() => {
     return runtimeState.testedModels[activeProvider] || []
@@ -742,15 +773,17 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   }
 
   const copyTraceItem = async (item: TraceDotItem) => {
-    const text = item.detailText && item.detailText !== '暂无原始详情'
+    const text = item.detailText && item.detailText !== '暂无日志'
       ? item.detailText
-      : '{}'
+      : item.detailPreview && item.detailPreview !== '暂无原始详情'
+        ? item.detailPreview
+        : item.summary
 
     try {
       await navigator.clipboard.writeText(text)
-      showToast('已复制 JSON', 'success')
+      showToast('已复制日志', 'success')
     } catch {
-      showToast('复制 JSON 失败', 'error')
+      showToast('复制日志失败', 'error')
     }
   }
 
@@ -956,12 +989,8 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
               <div className="ai-note-trace-detail-meta">进度 {Math.round(selectedTraceItem.progress)}%</div>
             )}
             <div className="ai-note-trace-detail-block">
-              <div className="ai-note-trace-detail-block-title">日志文本</div>
-              <pre className="ai-note-trace-detail-json">{selectedTraceItem.detailText}</pre>
-            </div>
-            <div className="ai-note-trace-detail-block">
-              <div className="ai-note-trace-detail-block-title">字段预览</div>
-              <pre className="ai-note-trace-detail-json">{JSON.stringify(selectedTraceItem.steps[selectedTraceItem.steps.length - 1]?.detail || {}, null, 2)}</pre>
+              <div className="ai-note-trace-detail-block-title">补充字段</div>
+              <pre className="ai-note-trace-detail-json">{selectedTraceItem.detailPreview}</pre>
             </div>
           </div>
         )}
