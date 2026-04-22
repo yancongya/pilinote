@@ -4,6 +4,8 @@
 
 统一的视频列表容器组件，支持列表显示、批量选择、无限滚动。
 
+> 说明：收藏页、稍后再看页、历史记录页现在进一步抽出了 `MediaListShell` 作为上层壳层，`VideoListContainer` 负责真正的视频网格渲染和局部状态展示。
+
 ## 文件位置
 
 `apps/web/src/components/VideoListContainer.tsx`
@@ -26,6 +28,7 @@ interface VideoListContainerProps {
   extraHeader?: ReactNode        // 额外头部
   extraActions?: ReactNode      // 额外操作
   loadMoreRef?: RefObject<HTMLDivElement>  // 加载更多引用
+  compact?: boolean              // 紧凑模式（由上层壳层控制）
 }
 ```
 

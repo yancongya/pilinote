@@ -135,12 +135,16 @@ DELETE /api/auth/accounts/{account_id}
 POST /api/auth/accounts/refresh?account_id=1
 ```
 
-2. **路径参数**（兼容）：
+2. **路径参数**（推荐）：
 ```
 POST /api/auth/accounts/1/refresh
 ```
 
-> 说明：后端同时支持查询参数和路径参数两种格式，前端可以根据需要选择使用哪种方式。
+> 说明：后端同时支持查询参数和路径参数两种格式，但前端账号设置页现在优先使用路径参数版本，避免刷新按钮和账号 ID 脱节。
+
+### 刷新链路
+
+账号刷新前会先同步目标账号自己的 Cookie 到内存，再执行刷新流程，避免当前活跃账号的 Cookie 覆盖到别的账号上。
 
 ---
 

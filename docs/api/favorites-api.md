@@ -20,7 +20,7 @@ user, sessdata = await get_current_user_with_sessdata(
 ### 基础 URL
 
 ```
-http://localhost:8000
+http://127.0.0.1:8000
 ```
 
 ### 通用响应格式
@@ -167,10 +167,10 @@ async def get_folders(
 
 **重要特性**：
 - **分页加载**：采用简单分页机制，每次只返回请求页面的数据
-- **高性能响应**：避免长时间加载，提供流畅的用户体验
-- **完整数据支持**：通过并发获取视频详情，确保评论数、分享数等数据准确
+- **高性能响应**：收藏夹详情默认懒加载，首屏不再逐条补视频详情
+- **完整数据支持**：需要时仍可通过补强逻辑获取评论数、分享数等信息
 - **智能缓存机制**：使用多层缓存（内存+数据库）提升性能
-- **并发优化**：限制并发数为3，平衡速度和系统负载
+- **并发优化**：补强模式下限制并发数为3，平衡速度和系统负载
 - **完整功能支持**：支持搜索、排序等所有功能
 - **错误友好提示**：对B站API限制等情况提供友好的错误提示
 
@@ -191,6 +191,7 @@ async def get_folders(
 | `sort_direction` | string | 否 | "desc" | 排序方向 |
 | `type` | string | 否 | "0" | 内容类型筛选 |
 | `tid` | int | 否 | 0 | 分区 ID 筛选 |
+| `lazy` | bool | 否 | true | 是否启用懒加载模式，默认只返回基础数据 |
 
 **排序方式（order）**：
 - `default`：默认排序（按收藏时间）
@@ -353,7 +354,8 @@ async def get_folder_detail(
     order: str = Query("mtime", description="排序方式: mtime=收藏时间, pubtime=发布时间, view=播放量"),
     sort_direction: str = Query("desc", description="排序方向: desc=降序, asc=升序"),
     type: str = Query("0", description="类型: 0=全部, 2=视频, 21=音频, 12=文章"),
-    tid: int = Query(0, description="分区ID")
+    tid: int = Query(0, description="分区ID"),
+    lazy: bool = Query(True, description="是否启用懒加载模式（默认只返回基础数据）")
 ):
     """获取收藏夹详情 - 使用B站原生API快速加载
     

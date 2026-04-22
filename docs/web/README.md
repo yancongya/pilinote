@@ -42,6 +42,7 @@
 - AlertModal - 警告模态框
 - ConfirmModal - 确认模态框
 - VideoListContainer - 视频列表容器
+- MediaListShell - 收藏/稍后再看/历史记录共用列表壳
 - BatchActionsBar - 批量操作栏
 
 ### 4. 下载列表组件
@@ -97,6 +98,14 @@
 - 点击底部折叠按钮切换展开/收缩
 - 侧边栏和内容区域独立滚动
 - 实时响应窗口尺寸变化
+
+### 7. 开发环境 API 解析
+
+前端开发环境默认会将 `localhost` 统一改写为 `127.0.0.1`，避免浏览器在本机 IPv6/IPv4 解析上出现不一致导致的接口异常。
+
+- API 基址：`http://127.0.0.1:8000`
+- WebSocket：`ws://127.0.0.1:8000`
+- 相关实现：`apps/web/src/config/api.ts`
 
 ---
 

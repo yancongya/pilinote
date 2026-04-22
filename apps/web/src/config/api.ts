@@ -14,7 +14,9 @@ export const getApiBaseUrl = (): string => {
   }
   
   // 开发环境：使用当前页面的主机名，端口改为 8000
-  const hostname = window.location.hostname;
+  const hostname = window.location.hostname === 'localhost' || window.location.hostname === '::1'
+    ? '127.0.0.1'
+    : window.location.hostname;
   return `http://${hostname}:8000`;
 };
 
@@ -50,6 +52,8 @@ export const getLocalImageUrl = (filePath: string): string => {
  * 获取 WebSocket URL
  */
 export const getWebSocketUrl = (path: string = '/ws/queue'): string => {
-  const hostname = window.location.hostname;
+  const hostname = window.location.hostname === 'localhost' || window.location.hostname === '::1'
+    ? '127.0.0.1'
+    : window.location.hostname;
   return `ws://${hostname}:8000${path}`;
 };

@@ -25,7 +25,7 @@ user, sessdata = await get_current_user_with_sessdata(
 ### 基础 URL
 
 ```
-http://localhost:8000
+http://127.0.0.1:8000
 ```
 
 ### 通用响应格式

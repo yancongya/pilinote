@@ -882,9 +882,16 @@ async def _refresh_account_impl(account_id: int, db: Session):
         
         # 初始化 service
         await service.init()
+
+        # 先把目标账号自己的 cookies 从数据库同步到内存，避免刷新时继续使用当前活跃账号的 cookie
+        sync_result = await service.headers_manager.sync_cookies_from_db(user.id)
+        if not sync_result.get("success"):
+            print(f"[Account Refresh] 同步账号cookies失败: {sync_result.get('message')}")
         
-        # 设置SESSDATA
-        await service.headers_manager.update_cookie("SESSDATA", user.sessdata)
+        # 优先使用同步后的 SESSDATA；如果数据库中缺失，则回退到 user.sessdata
+        current_sessdata = service.headers_manager.cookie_manager.get_cookie("SESSDATA") or user.sessdata
+        if current_sessdata:
+            await service.headers_manager.update_cookie("SESSDATA", current_sessdata)
         
         # 检查并刷新cookie
         print(f"[Account Refresh] 开始刷新账号: {user.username} (mid={user.mid})")
@@ -910,16 +917,13 @@ async def _refresh_account_impl(account_id: int, db: Session):
             print(f"[Account Refresh] 访问页面失败: {str(e)}")
 
         # 获取用户信息（验证有效性）
-        user_info_result = await service.get_user_info(user.sessdata)
-
-        if not user_info_result.get("success"):
-            raise HTTPException(status_code=400, detail="SESSDATA无效或已过期")
+        user_info_result = await service.get_user_info(current_sessdata)
+        user_info = user_info_result.get("data", {}) if user_info_result.get("success") else {}
 
         # 获取当前所有cookies
         cookies_dict = service.headers_manager.cookie_manager.get_cookies()
 
         # 保存 WBI 信息到 cookies
-        user_info = user_info_result.get("data", {})
         wbi_img = user_info.get("wbi_img", {})
         if wbi_img.get("img_url"):
             await service.headers_manager.update_cookie("wbi_img_url", wbi_img.get("img_url"))
@@ -927,9 +931,9 @@ async def _refresh_account_impl(account_id: int, db: Session):
             await service.headers_manager.update_cookie("wbi_sub_url", wbi_img.get("sub_url"))
         
         # 更新用户信息
-        user_info = user_info_result.get("data", {})
-        user.username = user_info.get("uname", user.username)
-        user.avatar = user_info.get("face", user.avatar)
+        if user_info_result.get("success"):
+            user.username = user_info.get("uname", user.username)
+            user.avatar = user_info.get("face", user.avatar)
         user.bili_jct = cookies_dict.get("bili_jct", user.bili_jct)
         user.dedeuserid = cookies_dict.get("DedeUserID", user.dedeuserid)
         user.access_token = cookies_dict.get("access_token", user.access_token)
@@ -942,6 +946,11 @@ async def _refresh_account_impl(account_id: int, db: Session):
         save_result = await service.headers_manager.cookie_manager.save_to_db(user.id)
         print(f"[Account Refresh] 保存了{save_result.get('saved_count', 0)}个cookie")
         
+        if not user_info_result.get("success"):
+            print(
+                f"[Account Refresh] 账号 cookie 已刷新，但获取用户信息失败: {user_info_result.get('message', '未知错误')}"
+            )
+
         print(f"[Account Refresh] 账号刷新成功: {user.username}")
         
         return {
@@ -952,7 +961,7 @@ async def _refresh_account_impl(account_id: int, db: Session):
                 "username": user.username,
                 "avatar": user.avatar,
                 "last_refresh_time": user.last_refresh_time.isoformat() if user.last_refresh_time else None,
-                "user_info": user_info
+                "user_info": user_info if user_info_result.get("success") else {}
             }
         }
     except HTTPException:

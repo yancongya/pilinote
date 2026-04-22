@@ -110,9 +110,15 @@ class AccountRefreshService:
         try:
             # 初始化 service
             await service.init()
-            
-            # 设置SESSDATA
-            await service.headers_manager.update_cookie("SESSDATA", user.sessdata)
+
+            # 先把目标账号自己的 cookies 从数据库同步到内存，避免刷到别的账号
+            sync_result = await service.headers_manager.sync_cookies_from_db(user.id)
+            if not sync_result.get("success"):
+                logger.warning(f"账号 {user.username} 同步 cookies 失败: {sync_result.get('message')}")
+
+            current_sessdata = service.headers_manager.cookie_manager.get_cookie("SESSDATA") or user.sessdata
+            if current_sessdata:
+                await service.headers_manager.update_cookie("SESSDATA", current_sessdata)
             
             # 检查并刷新cookie
             refresh_result = await service.headers_manager.check_and_refresh_cookies()
@@ -123,19 +129,21 @@ class AccountRefreshService:
                 logger.warning(f"账号 {user.username} cookie刷新失败: {refresh_result.get('message')}")
             
             # 获取用户信息（验证有效性）
-            user_info_result = await service.get_user_info(user.sessdata)
-            
+            user_info_result = await service.get_user_info(current_sessdata)
             if not user_info_result.get("success"):
-                logger.warning(f"账号 {user.username} SESSDATA无效或已过期")
-                return
+                logger.warning(
+                    f"账号 {user.username} 获取用户信息失败: {user_info_result.get('message', '未知错误')}"
+                )
+                user_info_result = {"success": False, "data": {}}
             
             # 获取当前所有cookies
             cookies_dict = service.headers_manager.cookie_manager.get_cookies()
             
             # 更新用户信息
             user_info = user_info_result.get("data", {})
-            user.username = user_info.get("uname", user.username)
-            user.avatar = user_info.get("face", user.avatar)
+            if user_info_result.get("success"):
+                user.username = user_info.get("uname", user.username)
+                user.avatar = user_info.get("face", user.avatar)
             user.bili_jct = cookies_dict.get("bili_jct", user.bili_jct)
             user.dedeuserid = cookies_dict.get("DedeUserID", user.dedeuserid)
             user.access_token = cookies_dict.get("access_token", user.access_token)

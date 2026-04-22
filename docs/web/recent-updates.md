@@ -2,6 +2,57 @@
 
 ## 更新时间线
 
+### 2026-04-22 - 历史型列表统一与账号刷新修复
+
+本次更新统一了收藏页、稍后再看页、历史记录页的列表壳层，并修复了开发态 API 解析和账号刷新链路问题。
+
+#### 主要更新
+
+##### 1. 历史型视频列表统一
+**影响范围**: 收藏页 / 稍后再看页 / 历史记录页
+**相关文件**:
+- `apps/web/src/components/media-list/MediaListShell.tsx`
+- `apps/web/src/components/media-list/MediaListState.tsx`
+- `apps/web/src/components/VideoCardSkeleton.tsx`
+- `apps/web/src/components/VideoListContainer.tsx`
+- `apps/web/src/pages/components/FavoritesContent.tsx`
+- `apps/web/src/pages/components/WatchLaterContent.tsx`
+- `apps/web/src/pages/components/HistoryContent.tsx`
+
+**更新内容**:
+- 三页统一使用同一套列表壳层和交互规范
+- 首屏加载、加载更多、空态、错误态统一
+- 收藏页详情默认采用懒加载，避免首屏逐条补全视频详情
+
+##### 2. 开发态 API 基址修复
+**影响范围**: 前端开发环境
+**相关文件**:
+- `apps/web/src/config/api.ts`
+- `apps/web/src/components/NewDownload/TaskCard.tsx`
+- `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+
+**更新内容**:
+- 开发环境下将 `localhost` 和 `::1` 统一映射到 `127.0.0.1`
+- 避免浏览器本机地址解析差异导致 API 请求异常
+- 视频库中手写的 `localhost` 请求一并收口
+
+##### 3. 账号刷新修复
+**影响范围**: 设置页账号管理
+**相关文件**:
+- `apps/api/src/routers/auth.py`
+- `apps/api/src/services/account_refresh_service.py`
+- `apps/web/src/pages/settings/AccountsSettings.tsx`
+
+**更新内容**:
+- 刷新前先同步目标账号自己的 Cookie 到内存
+- 避免当前活跃账号的 Cookie 错刷到别的账号上
+- 路径参数版刷新接口作为前端首选调用方式
+
+#### 验证结果
+
+- `apps/web` 的 `tsc --noEmit` 已通过
+- 本地接口在 `127.0.0.1:8000` 下可正常返回历史、稍后再看、收藏夹和账号刷新数据
+
 ### 2026-04-15 - 主题系统全面升级和功能增强
 
 本次更新实现了完整的暗色模式支持和统一的设计令牌系统，确保在亮色和暗色主题下都有良好的用户体验。

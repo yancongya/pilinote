@@ -1,6 +1,6 @@
 import { ReactNode, RefObject } from 'react'
 import VideoListCard from '../pages/components/VideoListCard.refactored'
-import VideoCardSkeleton from './VideoCardSkeleton'
+import MediaListState from './media-list/MediaListState'
 
 export interface Video {
   id: string
@@ -59,6 +59,14 @@ export interface VideoListContainerProps {
   cardClickable?: boolean
   /** 视频列表的额外类名 */
   className?: string
+  /** 首屏骨架数量 */
+  initialLoadingSkeletonCount?: number
+  /** 加载更多骨架数量 */
+  appendLoadingSkeletonCount?: number
+  /** 首屏骨架是否显示头部占位 */
+  showLoadingSkeletonHeader?: boolean
+  /** 骨架是否紧凑 */
+  loadingSkeletonDense?: boolean
 }
 
 export default function VideoListContainer({
@@ -80,7 +88,11 @@ export default function VideoListContainer({
   emptyText = '暂无视频',
   renderVideoCard,
   cardClickable = true,
-  className = ''
+  className = '',
+  initialLoadingSkeletonCount = 6,
+  appendLoadingSkeletonCount = 3,
+  showLoadingSkeletonHeader = false,
+  loadingSkeletonDense = false
 }: VideoListContainerProps) {
   return (
     <div className={`video-list-container ${className}`}>
@@ -88,21 +100,26 @@ export default function VideoListContainer({
       {extraHeader && <div className="video-list-extra-header">{extraHeader}</div>}
 
       {/* 加载状态 */}
-      {loading && <VideoCardSkeleton count={6} />}
+      {loading && (
+        <MediaListState
+          kind="loading"
+          skeletonCount={initialLoadingSkeletonCount}
+          showHeader={showLoadingSkeletonHeader}
+          dense={loadingSkeletonDense}
+        />
+      )}
 
       {/* 错误状态 */}
       {error && (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--color-error-500)' }}>
-          {error.includes('请求频率过高') || error.includes('API暂时限制') ? (
-            <>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
-              <div style={{ fontSize: '16px', marginBottom: '8px' }}>请求频率过高</div>
-              <div style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>请稍后再试</div>
-            </>
-          ) : (
-            error
-          )}
-        </div>
+        <MediaListState
+          kind="error"
+          message={
+            error.includes('请求频率过高') || error.includes('API暂时限制')
+              ? '请稍后再试'
+              : error
+          }
+          title={error.includes('请求频率过高') || error.includes('API暂时限制') ? '请求频率过高' : undefined}
+        />
       )}
 
       {/* 视频列表 */}
@@ -128,9 +145,7 @@ export default function VideoListContainer({
 
           {/* 视频列表内容 */}
           {videos.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--color-text-tertiary)' }}>
-              {emptyText}
-            </div>
+            <MediaListState kind="empty" message={emptyText} />
           ) : (
             <>
               {/* 视频卡片列表 */}
@@ -152,7 +167,13 @@ export default function VideoListContainer({
               )}
 
               {/* 加载更多状态 */}
-              {loadingMore && <VideoCardSkeleton count={3} />}
+              {loadingMore && (
+                <MediaListState
+                  kind="loadingMore"
+                  skeletonCount={appendLoadingSkeletonCount}
+                  dense
+                />
+              )}
 
               {/* 没有更多数据提示 */}
               {!hasMore && videos.length > 0 && (

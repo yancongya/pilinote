@@ -10,6 +10,7 @@ import { formatDuration, formatNumber, formatTime } from '../../utils/videoForma
 import { useVideoList } from '../../hooks/useVideoList'
 import { getAvatarProxyUrl } from '../../config/api'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
+import MediaListShell from '../../components/media-list/MediaListShell'
 import VideoListContainer from '../../components/VideoListContainer'
 import VideoListControls from '../../components/VideoListControls'
 import AlertModal from '../../components/AlertModal'
@@ -21,7 +22,9 @@ export default function FavoritesContent() {
   const newQueueStore = useNewQueueStore()
   const { 
     getFoldersCache, 
-    setFoldersCache
+    setFoldersCache,
+    getFolderVideosCache,
+    setFolderVideosCache
   } = useCacheStore()
 
   // 初始化时从缓存恢复 folders 状态，避免切换 tab 时闪烁
@@ -121,15 +124,76 @@ export default function FavoritesContent() {
     navigate('/favorites', { replace: true })
   }
 
+  const buildFolderVideosCacheKey = useCallback(
+    (folderId: number, page: number, pageSize: number) => {
+      const normalizedKeyword = keyword.trim()
+      return [
+        folderId,
+        page,
+        pageSize,
+        normalizedKeyword || '__all__',
+        order,
+        sortDirection
+      ].join(':')
+    },
+    [keyword, order, sortDirection]
+  )
+
   // 使用 useCallback 缓存 fetchFn，避免每次渲染创建新函数引用
   const fetchFavoriteVideos = useCallback(async (page: number, pageSize: number) => {
     if (!selectedFolder || !user?.mid) {
       // 当 selectedFolder 为 null 时（返回收藏夹列表页），返回空的成功结果
       return { success: true, data: { list: [], total: 0 } }
     }
+
+    const cacheKey = buildFolderVideosCacheKey(selectedFolder.id, page, pageSize)
+    const cached = getFolderVideosCache(cacheKey)
+    if (cached) {
+      return {
+        success: true,
+        data: {
+          medias: cached.data,
+          page: cached.page,
+          page_size: cached.pageSize,
+          info: selectedFolder
+        },
+        total: cached.total
+      }
+    }
+
     // 调用getFolderDetail时不需要传递sessdata，后端会从cookie中获取
-    return apiService.getFolderDetail(selectedFolder.id, page, pageSize, keyword, order, sortDirection)
-  }, [selectedFolder?.id, user?.mid, keyword, order, sortDirection])
+    const response = await apiService.getFolderDetail(
+      selectedFolder.id,
+      page,
+      pageSize,
+      keyword,
+      order,
+      sortDirection,
+      true
+    )
+
+    if (response.success && response.data) {
+      const medias = response.data.medias || []
+      const total = response.total || response.data.total || selectedFolder.media_count || medias.length
+      setFolderVideosCache(cacheKey, medias, {
+        total,
+        page,
+        pageSize
+      })
+    }
+
+    return response
+  }, [
+    selectedFolder?.id,
+    selectedFolder?.media_count,
+    user?.mid,
+    keyword,
+    order,
+    sortDirection,
+    buildFolderVideosCacheKey,
+    getFolderVideosCache,
+    setFolderVideosCache
+  ])
 
   // 使用 useVideoList Hook 管理视频列表
   const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, total, loadMoreRef, fetchVideos } = useVideoList({
@@ -324,60 +388,15 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       aria-labelledby="favorites-tab"
       className="content-section"
     >
-      <div className="section-header">
-        <div className="section-title">
-          {selectedFolder && (
-            <button
-              className="back-btn"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleBackToFolders()
-              }}
-              aria-label="返回收藏夹列表"
-            >
-              <ArrowLeft />
-            </button>
-          )}
-          <h2>{selectedFolder ? selectedFolder.title : '我的收藏'}</h2>
-          <span className="video-count">
-            {selectedFolder
-              ? `共${selectedFolder.media_count}条视频`
-              : `${folders.length}个收藏夹`}
-          </span>
-        </div>
-      </div>
-
-      {selectedFolder && (
-        <VideoListControls
-          keyword={keyword}
-          order={order}
-          sortDirection={sortDirection}
-          onKeywordChange={setKeyword}
-          onOrderChange={setOrder}
-          onSortDirectionChange={setSortDirection}
-          sortOptions={[
-            { value: 'default', label: '默认' },
-            { value: 'view', label: '按播放量' },
-            { value: 'pubtime', label: '按发布时间' },
-            { value: 'favorite', label: '按收藏时间' }  // 收藏页专用
-          ]}
-          loadedCount={loadedCount}
-          totalCount={totalCount}
-          canLoadMore={hasMore}
-          onLoadMore={handleLoadMore}
-          isLoading={loadingMore}
-        />
-      )}
-
-      {loading && (
+      {!selectedFolder && loading && (
         <div className="text-center py-10 text-secondary-400 dark:text-secondary-500">加载中...</div>
       )}
 
-      {error && (
+      {!selectedFolder && error && (
         <div className="text-center py-10 text-error-600 dark:text-error-500">{error}</div>
       )}
 
-      {!loading && !error && !selectedFolder && (
+      {!selectedFolder && !loading && !error && (
         <div className="fav-folder-list" role="list" aria-label="收藏夹列表">
           {folders.length === 0 ? (
             <div className="text-center py-16 px-5 text-secondary-400 dark:text-secondary-500">暂无收藏夹</div>
@@ -417,19 +436,68 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
         </div>
       )}
 
-      {!loading && !error && selectedFolder && (
-        <VideoListContainer
-          videos={videos}
+      {selectedFolder && (
+        <MediaListShell
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                className="back-btn"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleBackToFolders()
+                }}
+                aria-label="返回收藏夹列表"
+              >
+                <ArrowLeft />
+              </button>
+              <span>{selectedFolder.title}</span>
+            </div>
+          }
+          countLabel={`共${selectedFolder.media_count}条视频`}
+          controls={(
+            <VideoListControls
+              keyword={keyword}
+              order={order}
+              sortDirection={sortDirection}
+              onKeywordChange={setKeyword}
+              onOrderChange={setOrder}
+              onSortDirectionChange={setSortDirection}
+              sortOptions={[
+                { value: 'default', label: '默认' },
+                { value: 'view', label: '按播放量' },
+                { value: 'pubtime', label: '按发布时间' },
+                { value: 'favorite', label: '按收藏时间' }
+              ]}
+              loadedCount={loadedCount}
+              totalCount={totalCount}
+              canLoadMore={hasMore}
+              onLoadMore={handleLoadMore}
+              isLoading={loadingMore}
+              compact
+              sticky={false}
+            />
+          )}
           loading={videosLoading}
           loadingMore={loadingMore}
           error={videosError}
-          onDownloadToggle={toggleDownload}
-          getDownloadStatus={getDownloadStatus}
-          loadMoreRef={loadMoreRef}
-          hasMore={hasMore}
+          hasItems={videos.length > 0}
           emptyText="暂无视频"
-          cardClickable={true}
-        />
+          refreshingHint={videosLoading && videos.length > 0 ? '正在刷新收藏视频...' : undefined}
+          contentClassName="media-list-shell-content"
+        >
+          <VideoListContainer
+            videos={videos}
+            loading={false}
+            loadingMore={false}
+            error=""
+            onDownloadToggle={toggleDownload}
+            getDownloadStatus={getDownloadStatus}
+            loadMoreRef={loadMoreRef}
+            hasMore={hasMore}
+            emptyText="暂无视频"
+            cardClickable={true}
+          />
+        </MediaListShell>
       )}
 
       {/* AlertModal */}

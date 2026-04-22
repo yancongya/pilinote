@@ -34,7 +34,7 @@ interface Account {
 |------|------|-----|
 | 查看凭据 | 获取账号详细 Cookie 信息 | GET /api/auth/accounts/{id}/credentials |
 | 切换账号 | 切换当前活跃账号 | POST /api/auth/accounts/switch |
-| 刷新账号 | 手动刷新Cookie | POST /api/auth/accounts/refresh |
+| 刷新账号 | 手动刷新Cookie | POST /api/auth/accounts/{id}/refresh |
 | 删除账号 | 删除账号及其Cookie | DELETE /api/auth/accounts/{id} |
 
 ### 3. Cookie 查看
@@ -143,8 +143,14 @@ POST /api/auth/accounts/switch?account_id=1
 ### 刷新账号
 
 ```
-POST /api/auth/accounts/refresh?account_id=1
+POST /api/auth/accounts/1/refresh
 ```
+
+> 说明：后端同时支持查询参数和路径参数两种格式，但前端刷新按钮现在优先使用路径参数版本，和账号 ID 的关联更清晰。
+
+### 刷新实现说明
+
+账号刷新会先把目标账号的 Cookie 从数据库同步到内存，再刷新 `HeadersManager`，避免把当前活跃账号的 Cookie 错刷到别的账号上。
 
 响应：
 ```json

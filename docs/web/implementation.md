@@ -72,6 +72,34 @@ apps/web/src/
 | VideoDetailPage | 视频详情页面 |
 | HomeContent | 首页内容 |
 
+### 历史型视频列表
+
+收藏页、稍后再看页和历史记录页已经统一到同一套列表壳层和交互规范中：
+
+- `MediaListShell` 统一页面壳、标题区、控制区和状态层
+- `MediaListState` 统一首屏加载、加载更多、空态和错误态
+- `VideoCardSkeleton` 统一骨架布局
+- `VideoListContainer` 作为列表内容渲染器继续复用
+
+这三页现在的共同规则是：
+
+- 首屏先显示骨架，再填充内容
+- 刷新时保留页面壳，不直接清空旧数据
+- 加载更多只追加底部骨架，不打断当前滚动位置
+- 筛选/排序变更后重新挂载当前面板，避免旧内容残留
+
+### 开发环境 API 基址
+
+开发环境下 `apps/web/src/config/api.ts` 会把 `localhost` 和 `::1` 统一映射到 `127.0.0.1`，避免本地浏览器因为 IPv6/主机名解析差异导致访问 API 异常。
+
+- 推荐开发基址：`http://127.0.0.1:8000`
+- WebSocket 也使用同样的主机名规则
+
+相关文件：
+- `apps/web/src/config/api.ts`
+- `apps/web/src/components/NewDownload/TaskCard.tsx`
+- `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+
 ### 视频列表
 
 | 组件 | 说明 |

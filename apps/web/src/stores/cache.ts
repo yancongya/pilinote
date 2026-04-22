@@ -10,8 +10,11 @@ interface CacheState {
   
   // 收藏夹详情缓存
   folderVideosCache: {
-    [folderId: string]: {
+    [cacheKey: string]: {
       data: any[]
+      total: number
+      page: number
+      pageSize: number
       timestamp: number
     }
   }
@@ -32,10 +35,20 @@ interface CacheState {
   getFoldersCache: () => any[] | null
   
   // 设置收藏夹详情缓存
-  setFolderVideosCache: (folderId: string, data: any[]) => void
+  setFolderVideosCache: (
+    cacheKey: string,
+    data: any[],
+    options?: {
+      total?: number
+      page?: number
+      pageSize?: number
+    }
+  ) => void
   
   // 获取收藏夹详情缓存
-  getFolderVideosCache: (folderId: string) => any[] | null
+  getFolderVideosCache: (
+    cacheKey: string
+  ) => { data: any[]; total: number; page: number; pageSize: number } | null
   
   // 设置稍后再看缓存
   setWatchLaterCache: (data: any[]) => void
@@ -79,21 +92,24 @@ export const useCacheStore = create<CacheState>()(
         return foldersCache.data
       },
       
-      setFolderVideosCache: (folderId: string, data: any[]) => {
+      setFolderVideosCache: (cacheKey: string, data: any[], options = {}) => {
         set((state) => ({
           folderVideosCache: {
             ...state.folderVideosCache,
-            [folderId]: {
+            [cacheKey]: {
               data,
+              total: options.total ?? data.length,
+              page: options.page ?? 1,
+              pageSize: options.pageSize ?? data.length,
               timestamp: Date.now()
             }
           }
         }))
       },
       
-      getFolderVideosCache: (folderId: string) => {
+      getFolderVideosCache: (cacheKey: string) => {
         const { folderVideosCache, cacheExpiry } = get()
-        const cache = folderVideosCache[folderId]
+        const cache = folderVideosCache[cacheKey]
         
         if (!cache) return null
         
@@ -101,13 +117,20 @@ export const useCacheStore = create<CacheState>()(
         if (isExpired) {
           set((state) => {
             const newCache = { ...state.folderVideosCache }
-            delete newCache[folderId]
+            delete newCache[cacheKey]
             return { folderVideosCache: newCache }
           })
           return null
         }
         
-        return cache.data
+        const data = Array.isArray(cache.data) ? cache.data : []
+
+        return {
+          data,
+          total: typeof cache.total === 'number' ? cache.total : data.length,
+          page: typeof cache.page === 'number' ? cache.page : 1,
+          pageSize: typeof cache.pageSize === 'number' ? cache.pageSize : data.length
+        }
       },
       
       setWatchLaterCache: (data: any[]) => {

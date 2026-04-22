@@ -7,13 +7,13 @@ import { videoLibraryService } from '../../services/videoLibraryService'
 import { formatDuration, formatNumber, formatProgress, formatTime } from '../../utils/videoFormatters'
 import { useVideoList } from '../../hooks/useVideoList'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
+import MediaListShell from '../../components/media-list/MediaListShell'
 import VideoListContainer from '../../components/VideoListContainer'
 import VideoListControls from '../../components/VideoListControls'
 import AlertModal from '../../components/AlertModal'
 import ConfirmModal from '../../components/ConfirmModal'
 
 export default function WatchLaterContent() {
-  const [totalCount, setTotalCount] = useState(0)
   const [keyword, setKeyword] = useState('')
   const [order, setOrder] = useState<string>('default')
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
@@ -98,7 +98,7 @@ export default function WatchLaterContent() {
   }, [user?.mid, keyword, order, sortDirection])
 
   // 使用 useVideoList Hook 管理视频列表
-  const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, loadMoreRef } = useVideoList({
+  const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, total, loadMoreRef } = useVideoList({
     fetchFn: fetchWatchLaterVideos,
     pageSize: 20,
     deps: [],  // ✅ 不需要deps，因为fetchFn已经用useCallback处理了依赖
@@ -206,13 +206,6 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       }
     }, [baseToggleDownload, navigate])
 
-  // 更新总数（从响应中获取）
-  useEffect(() => {
-    if (videos.length > 0 && videos.length >= totalCount) {
-      setTotalCount(videos.length)
-    }
-  }, [videos.length, totalCount])
-
   if (!user?.mid) {
     return (
       <section className="content-section text-center py-15 px-5">
@@ -228,40 +221,47 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       aria-labelledby="watchlater-tab"
       className="content-section"
     >
-      <div className="section-header">
-        <div className="section-title">
-          <h2>稍后再看</h2>
-          <span className="video-count">共{totalCount || videos.length}个视频</span>
-        </div>
-      </div>
-
-<VideoListControls
-          keyword={keyword}
-          order={order}
-          sortDirection={sortDirection}
-          onKeywordChange={setKeyword}
-          onOrderChange={setOrder}
-          onSortDirectionChange={setSortDirection}
-          sortOptions={[
-            { value: 'default', label: '默认' },
-            { value: 'view', label: '按播放量' },
-            { value: 'pubtime', label: '按发布时间' },
-            { value: 'add_time', label: '按添加时间' }
-          ]}
-        />
-
-      <VideoListContainer
-        videos={videos}
+      <MediaListShell
+        title="稍后再看"
+        countLabel={`共${total || videos.length}个视频`}
+        controls={(
+          <VideoListControls
+            keyword={keyword}
+            order={order}
+            sortDirection={sortDirection}
+            onKeywordChange={setKeyword}
+            onOrderChange={setOrder}
+            onSortDirectionChange={setSortDirection}
+            sortOptions={[
+              { value: 'default', label: '默认' },
+              { value: 'view', label: '按播放量' },
+              { value: 'pubtime', label: '按发布时间' },
+              { value: 'add_time', label: '按添加时间' }
+            ]}
+            compact
+            sticky={false}
+          />
+        )}
         loading={videosLoading}
         loadingMore={loadingMore}
         error={videosError}
-        onDownloadToggle={toggleDownload}
-        getDownloadStatus={getDownloadStatus}
-        loadMoreRef={loadMoreRef}
-        hasMore={hasMore}
+        hasItems={videos.length > 0}
         emptyText="暂无视频"
-        cardClickable={true}
-      />
+        contentClassName="media-list-shell-content"
+      >
+        <VideoListContainer
+          videos={videos}
+          loading={false}
+          loadingMore={false}
+          error=""
+          onDownloadToggle={toggleDownload}
+          getDownloadStatus={getDownloadStatus}
+          loadMoreRef={loadMoreRef}
+          hasMore={hasMore}
+          emptyText="暂无视频"
+          cardClickable={true}
+        />
+      </MediaListShell>
 
       {/* AlertModal */}
       <AlertModal

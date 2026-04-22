@@ -12,6 +12,63 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/favorites", tags=["收藏夹"])
 
 
+async def build_favorite_video_cards(
+    medias: list[dict],
+    sessdata: str,
+    enrich: bool = False,
+    cache_service: VideoCacheService | None = None,
+) -> list[dict]:
+    """构建收藏夹视频卡片列表。
+
+    默认只返回基础卡片数据，避免首屏为了补全评论/分享等信息而逐条请求视频详情。
+    当 enrich=True 时，才对当前页视频进行逐条补全。
+    """
+    from src.services.media_data_transformer import transformer
+
+    list_data = [card.model_dump() for card in transformer.transform_favorite_list(medias)]
+
+    if not enrich:
+        return list_data
+
+    cache_service = cache_service or VideoCacheService()
+
+    async def enrich_video_data(video: dict) -> dict:
+        """为单个视频补充评论数和分享数。"""
+        bvid = video.get("bvid", "")
+        if not bvid:
+            return video
+
+        try:
+            video_info = await cache_service.get_video_info(bvid, sessdata)
+            if video_info.get("success") and video_info.get("data"):
+                stat = video_info["data"].get("stat", {})
+                if stat.get("reply", 0) > 0:
+                    video["comment"] = stat["reply"]
+                    video["stats"]["comment"] = stat["reply"]
+                if stat.get("share", 0) > 0:
+                    video["share"] = stat["share"]
+                    video["stats"]["share"] = stat["share"]
+        except Exception as e:
+            logger.warning(f"获取视频详情失败: {bvid}, 错误: {e}")
+
+        return video
+
+    import asyncio
+
+    semaphore = asyncio.Semaphore(3)
+
+    async def enrich_with_semaphore(video: dict) -> dict:
+        async with semaphore:
+            return await enrich_video_data(video)
+
+    enriched_list = await asyncio.gather(
+        *[enrich_with_semaphore(video) for video in list_data],
+        return_exceptions=True,
+    )
+
+    return [video for video in enriched_list if isinstance(video, dict)]
+
+
 @router.get("/folders", response_model=dict)
 async def get_folders(
     user_sessdata: tuple = Depends(get_current_user_with_sessdata),
@@ -78,6 +135,7 @@ async def get_folder_detail(
     sort_direction: str = Query("desc", description="排序方向: desc=降序, asc=升序"),
     type: str = Query("0", description="类型: 0=全部, 2=视频, 21=音频, 12=文章"),
     tid: int = Query(0, description="分区ID"),
+    lazy: bool = Query(True, description="是否启用懒加载模式（默认只返回基础数据）"),
 ):
     """获取收藏夹详情 - 使用B站原生API快速加载
 
@@ -120,58 +178,12 @@ async def get_folder_detail(
             medias = data.get("medias", [])
             info = data.get("info", {})
 
-            from src.services.media_data_transformer import transformer
-
-            # 使用统一转换器转换当前页数据
-            video_list = transformer.transform_favorite_list(medias)
-
-            # 转换为字典格式（保持向后兼容）
-            list_data = [card.model_dump() for card in video_list]
-
-            # 异步获取视频详情，限制并发数为3以提高响应速度
-            import asyncio
-
-            cache_service = VideoCacheService()
-
-            async def enrich_video_data(video):
-                """为单个视频补充评论数和分享数"""
-                bvid = video.get("bvid", "")
-                if not bvid:
-                    return video
-
-                try:
-                    # 从缓存或API获取视频详情
-                    video_info = await cache_service.get_video_info(bvid, sessdata)
-                    if video_info.get("success") and video_info.get("data"):
-                        stat = video_info["data"].get("stat", {})
-                        # 补充评论数和分享数
-                        if stat.get("reply", 0) > 0:
-                            video["comment"] = stat["reply"]
-                            video["stats"]["comment"] = stat["reply"]
-                        if stat.get("share", 0) > 0:
-                            video["share"] = stat["share"]
-                            video["stats"]["share"] = stat["share"]
-                except Exception as e:
-                    # 如果获取视频信息失败，使用默认值0，不影响其他视频
-                    logger.warning(f"获取视频详情失败: {bvid}, 错误: {e}")
-
-                return video
-
-            # 使用并发限制，最多同时获取3个视频的详细信息
-            semaphore = asyncio.Semaphore(3)
-
-            async def enrich_with_semaphore(video):
-                async with semaphore:
-                    return await enrich_video_data(video)
-
-            # 并发获取所有视频的详细信息
-            enriched_list = await asyncio.gather(
-                *[enrich_with_semaphore(video) for video in list_data],
-                return_exceptions=True,
+            list_data = await build_favorite_video_cards(
+                medias,
+                sessdata,
+                enrich=not lazy,
+                cache_service=VideoCacheService(),
             )
-
-            # 过滤掉异常结果
-            list_data = [video for video in enriched_list if isinstance(video, dict)]
 
             return CardListResponse(
                 success=True,

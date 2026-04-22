@@ -1,7 +1,7 @@
 // components/NewDownload/TaskCard.tsx
 import { useNewQueueStore, Task, DownloadStage } from '../../stores/newQueue'
 import { Play, Pause, Trash2, RefreshCw, Film, Square } from 'lucide-react'
-import { getAvatarProxyUrl } from '../../config/api'
+import { getApiBaseUrl, getAvatarProxyUrl } from '../../config/api'
 import { useToast } from '../Toast'
 
 interface Props {
@@ -19,7 +19,7 @@ const getProxyImageUrl = (url: string | null | undefined): string => {
   if (url.startsWith('/') || url.startsWith('file://')) {
     // 使用视频库图片代理
     const cleanPath = url.replace('file://', '')
-    return `http://localhost:8000/api/library/image?file_path=${encodeURIComponent(cleanPath)}`
+    return `${getApiBaseUrl()}/api/library/image?file_path=${encodeURIComponent(cleanPath)}`
   }
   
   // 使用头像代理

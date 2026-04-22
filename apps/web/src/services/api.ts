@@ -6,6 +6,7 @@ export interface ApiResponse<T> {
   success: boolean;
   message?: string;
   data?: T;
+  total?: number;
   code?: number;
   error_type?: string;
   hint?: string;
@@ -170,10 +171,11 @@ class ApiService {
     pageSize: number = 20,
     keyword: string = '',
     order: string = 'mtime',
-    sortDirection: string = 'desc'
+    sortDirection: string = 'desc',
+    lazy: boolean = true
   ): Promise<ApiResponse<any>> {
     return this.request<any>(
-      `/api/favorites/folders/${folderId}?page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}&sort_direction=${sortDirection}`,
+      `/api/favorites/folders/${folderId}?page=${page}&page_size=${pageSize}&keyword=${keyword}&order=${order}&sort_direction=${sortDirection}&lazy=${lazy}`,
       { method: 'GET' }
     );
   }

@@ -10,6 +10,20 @@
   box-sizing: border-box;
 }
 
+.video-list-controls--inline {
+  position: relative;
+  top: auto;
+  z-index: auto;
+  border-bottom: 0;
+  background: transparent;
+  padding-top: 0;
+}
+
+.video-list-controls--compact {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
 .controls-wrapper {
   display: flex;
   gap: 12px;
@@ -17,6 +31,10 @@
   flex-wrap: wrap;
   width: 100%;
   background: transparent;
+}
+
+.controls-wrapper--compact {
+  gap: 10px;
 }
 
 .search-box {

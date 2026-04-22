@@ -11,6 +11,7 @@ import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFil
 import { AiNoteButton } from '../ai/AiNoteButton'
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup'
 import { localAsrModelService } from '../../services/localAsrModels'
+import { getApiBaseUrl } from '../../config/api'
 
 interface LibraryCardProps {
   task: Task
@@ -348,7 +349,7 @@ export default function VideoLibrary() {
   // 获取本地图片URL（通过API代理）
   const getLocalImageUrl = (filePath: string | undefined): string => {
     if (!filePath) return ''
-    return `http://localhost:8000/api/library/image?file_path=${encodeURIComponent(filePath)}`
+    return `${getApiBaseUrl()}/api/library/image?file_path=${encodeURIComponent(filePath)}`
   }
 
   // 排序函数
@@ -485,7 +486,7 @@ export default function VideoLibrary() {
   // 扫描媒体库
   const scanLibrary = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/library/scan', {
+      const response = await fetch(`${getApiBaseUrl()}/api/library/scan`, {
         method: 'POST'
       })
       if (response.ok) {
@@ -528,7 +529,7 @@ export default function VideoLibrary() {
       // 轮询处理，直到所有文件都被处理
       while (hasMore) {
         batchIndex++
-        const response = await fetch('http://localhost:8000/api/library/nfo/batch-update', {
+        const response = await fetch(`${getApiBaseUrl()}/api/library/nfo/batch-update`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

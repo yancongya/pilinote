@@ -52,6 +52,10 @@ export interface VideoListControlsProps {
   isUpdatingNfo?: boolean
   /** NFO更新进度 */
   nfoUpdateProgress?: { success: number; failed: number; total: number }
+  /** 是否使用紧凑布局 */
+  compact?: boolean
+  /** 是否保持粘性定位 */
+  sticky?: boolean
 }
 
 export default function VideoListControls({
@@ -79,7 +83,9 @@ export default function VideoListControls({
   formatFileSize,
   onUpdateNfo,
   isUpdatingNfo = false,
-  nfoUpdateProgress
+  nfoUpdateProgress,
+  compact = false,
+  sticky = true
 }: VideoListControlsProps) {
   const [searchInput, setSearchInput] = useState(keyword)
 
@@ -121,8 +127,10 @@ export default function VideoListControls({
   const refreshTitle = onUpdateNfo ? '刷新列表并更新NFO' : '刷新列表'
 
   return (
-    <div className={`video-list-controls ${className}`}>
-      <div className="controls-wrapper">
+    <div
+      className={`video-list-controls ${compact ? 'video-list-controls--compact' : ''} ${sticky ? '' : 'video-list-controls--inline'} ${className}`.trim()}
+    >
+      <div className={`controls-wrapper ${compact ? 'controls-wrapper--compact' : ''}`}>
         {/* 搜索框 */}
         {showSearch && (
           <form className="search-box" onSubmit={handleSearchSubmit}>
