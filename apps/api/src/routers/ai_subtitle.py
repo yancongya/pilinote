@@ -1,16 +1,19 @@
 from fastapi import APIRouter, Query, Body, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
+import logging
 import uuid
 
 from src.services.ai.term_base_service import term_base_service
 from src.services.ai.subtitle_analyzer import subtitle_analyzer
+from src.services.ai.subtitle_context import build_video_context, parse_srt_blocks
 from src.services.ai.task_control import task_control_registry
 
 router = APIRouter(prefix="/api/ai", tags=["AI字幕处理"])
+logger = logging.getLogger(__name__)
 
 
 # ============ 术语库 ============
@@ -187,7 +190,6 @@ async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
     4. DONE - 完成，附带 issues 结果
     """
     from src.routers.local import find_video_dir
-    from src.services.ai.nfo_reader import NFOReader
 
     task_id = str(uuid.uuid4())
     task_control_registry.register(task_id, "subtitle_analysis", state="running")
@@ -195,65 +197,120 @@ async def pipeline_analyze_subtitle(request: PipelineAnalyzeRequest):
 
     async def event_stream():
         yield f"data: {json.dumps({'stage': 'META', 'status': 'completed', 'data': {'task_id': task_id}}, ensure_ascii=False)}\n\n"
+        logger.info("[subtitle-analysis] task=%s stage=META status=completed", task_id)
         await asyncio.sleep(0.01)
         # ---- Stage 1: 读取 NFO ----
-        nfo_info = {}
-        try:
-            # 在视频目录中找 NFO 文件
-            nfo_file = None
-            if video_dir:
-                for candidate in video_dir.glob("*.nfo"):
-                    nfo_file = candidate
-                    break
-            if nfo_file:
-                nfo_result = NFOReader.read_t0_text(str(nfo_file))
-                nfo_info = nfo_result.get("data", {})
-                nfo_text = nfo_result.get("text", "")
-            else:
-                nfo_text = "未找到 NFO 文件"
-        except Exception as e:
-            nfo_text = f"读取 NFO 失败: {e}"
+        video_context = build_video_context(video_dir)
+        nfo_text = video_context.get("nfo_text", "") or "未找到 NFO 文件"
 
-        yield f"data: {json.dumps({'stage': 'READ_NFO', 'status': 'completed', 'data': {'nfo_text': nfo_text, 'title': nfo_info.get('title', ''), 'studio': nfo_info.get('studio', ''), 'runtime': nfo_info.get('runtime', '')}}, ensure_ascii=False)}\n\n"
+        logger.info(
+            "[subtitle-analysis] task=%s stage=READ_NFO status=completed title=%s studio=%s runtime=%s nfo_files=%s",
+            task_id,
+            video_context.get("title", ""),
+            video_context.get("studio", ""),
+            video_context.get("runtime", ""),
+            ",".join(video_context.get("nfo_files", []) or []),
+        )
+
+        yield f"data: {json.dumps({'stage': 'READ_NFO', 'status': 'completed', 'data': {'nfo_text': nfo_text, 'title': video_context.get('title', ''), 'showtitle': video_context.get('showtitle', ''), 'studio': video_context.get('studio', ''), 'runtime': video_context.get('runtime', ''), 'nfo_files': video_context.get('nfo_files', [])}}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.1)
 
         # ---- Stage 2: 字幕概况 ----
-        lines = request.content.strip().split("\n")
-        subtitle_blocks = [b for b in request.content.strip().split("\n\n") if b.strip()]
-        total_lines = len(lines)
+        subtitle_blocks = parse_srt_blocks(request.content)
+        total_lines = len(request.content.strip().split("\n"))
         total_blocks = len(subtitle_blocks)
+        batch_plan = subtitle_analyzer.build_subtitle_batches(subtitle_blocks)
 
         # 统计字幕概况
         avg_text_len = 0
         if total_blocks > 0:
             text_lens = []
             for block in subtitle_blocks:
-                parts = block.strip().split("\n")
-                if len(parts) >= 3:
-                    text_lens.append(len(parts[2]))
+                text_lens.append(len(block.get("text", "")))
             avg_text_len = sum(text_lens) // len(text_lens) if text_lens else 0
 
-        overview = f"共 {total_blocks} 条字幕，{total_lines} 行，平均每条 {avg_text_len} 字"
-        yield f"data: {json.dumps({'stage': 'SUBTITLE_OVERVIEW', 'status': 'completed', 'data': {'overview': overview, 'total_blocks': total_blocks, 'total_lines': total_lines}}, ensure_ascii=False)}\n\n"
+        overview = f"共 {total_blocks} 条字幕，{len(batch_plan)} 批，{total_lines} 行，平均每条 {avg_text_len} 字"
+        logger.info(
+            "[subtitle-analysis] task=%s stage=SUBTITLE_OVERVIEW status=completed total_blocks=%s total_batches=%s total_lines=%s",
+            task_id,
+            total_blocks,
+            len(batch_plan),
+            total_lines,
+        )
+        yield f"data: {json.dumps({'stage': 'SUBTITLE_OVERVIEW', 'status': 'completed', 'data': {'overview': overview, 'total_blocks': total_blocks, 'total_lines': total_lines, 'total_batches': len(batch_plan), 'covered_blocks': total_blocks}}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.1)
 
         # ---- Stage 3: AI 修正分析 ----
+        logger.info(
+            "[subtitle-analysis] task=%s stage=AI_ANALYZE status=processing batches=%s",
+            task_id,
+            len(batch_plan),
+        )
         yield f"data: {json.dumps({'stage': 'AI_ANALYZE', 'status': 'processing', 'data': {}}, ensure_ascii=False)}\n\n"
 
         try:
-            result = await subtitle_analyzer.analyze(
-                subtitle_content=request.content,
-                model_provider=request.model_provider,
-                model_name=request.model_name,
-                task_id=task_id,
+            progress_queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+
+            async def on_progress(event: Dict[str, Any]) -> None:
+                await progress_queue.put(event)
+
+            analysis_task = asyncio.create_task(
+                subtitle_analyzer.analyze(
+                    subtitle_content=request.content,
+                    model_provider=request.model_provider,
+                    model_name=request.model_name,
+                    video_context=video_context,
+                    subtitle_blocks=subtitle_blocks,
+                    task_id=task_id,
+                    progress_callback=on_progress,
+                )
             )
+
+            while not analysis_task.done() or not progress_queue.empty():
+                if not progress_queue.empty():
+                    event = await progress_queue.get()
+                    stage = event.get("stage", "AI_ANALYZE")
+                    status = event.get("status", "processing")
+                    data = event.get("data", {})
+                    logger.info(
+                        "[subtitle-analysis] task=%s stage=%s status=%s phase=%s batch=%s/%s parsed=%s issues=%s",
+                        task_id,
+                        stage,
+                        status,
+                        data.get("phase", ""),
+                        data.get("batch_index", 0),
+                        data.get("total_batches", 0),
+                        data.get("parsed_batches", 0),
+                        data.get("issues", 0),
+                    )
+                    yield f"data: {json.dumps({'stage': stage, 'status': status, 'data': data}, ensure_ascii=False)}\n\n"
+                    continue
+
+                await asyncio.sleep(0.2)
+
+            result = await analysis_task
             if result.get("success"):
-                yield f"data: {json.dumps({'stage': 'DONE', 'status': 'completed', 'data': {'issues': result.get('issues', []), 'summary': result.get('summary', '')}}, ensure_ascii=False)}\n\n"
+                logger.info(
+                    "[subtitle-analysis] task=%s stage=DONE status=completed total_blocks=%s total_batches=%s covered_blocks=%s issues=%s",
+                    task_id,
+                    result.get("total_blocks", total_blocks),
+                    result.get("total_batches", len(batch_plan)),
+                    result.get("covered_blocks", total_blocks),
+                    len(result.get("issues", [])),
+                )
+                yield f"data: {json.dumps({'stage': 'DONE', 'status': 'completed', 'data': {'issues': result.get('issues', []), 'summary': result.get('summary', ''), 'total_blocks': result.get('total_blocks', total_blocks), 'total_batches': result.get('total_batches', len(batch_plan)), 'covered_blocks': result.get('covered_blocks', total_blocks), 'video_context': result.get('video_context', video_context)}}, ensure_ascii=False)}\n\n"
             else:
+                logger.warning(
+                    "[subtitle-analysis] task=%s stage=DONE status=error error=%s",
+                    task_id,
+                    result.get("error", "分析失败"),
+                )
                 yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': result.get('error', '分析失败')}}, ensure_ascii=False)}\n\n"
         except Exception as e:
+            logger.exception("[subtitle-analysis] task=%s stage=DONE status=error exception", task_id)
             yield f"data: {json.dumps({'stage': 'DONE', 'status': 'error', 'data': {'error': str(e)}}, ensure_ascii=False)}\n\n"
         finally:
+            logger.info("[subtitle-analysis] task=%s cleanup", task_id)
             task_control_registry.remove(task_id)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

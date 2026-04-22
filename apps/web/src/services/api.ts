@@ -11,6 +11,11 @@ export interface ApiResponse<T> {
   hint?: string;
 }
 
+export interface LocalFileResponse extends ApiResponse<string> {
+  file_path?: string;
+  folder_path?: string;
+}
+
 export interface QrcodeData {
   url: string;
   qrcode_key: string | null;
@@ -833,11 +838,15 @@ class ApiService {
     }
   }
 
-  async getLocalFile(videoId: string, fileType: string, filename?: string): Promise<ApiResponse<any>> {
+  async getLocalFile(
+    videoId: string,
+    fileType: string,
+    filename?: string
+  ): Promise<LocalFileResponse> {
     const params = new URLSearchParams();
     params.append('file_type', fileType);
     if (filename) params.append('filename', filename);
-    return this.request<any>(`/api/local/file/${videoId}?${params.toString()}`, {
+    return this.request<string>(`/api/local/file/${videoId}?${params.toString()}`, {
       method: 'GET',
     });
   }
@@ -889,10 +898,15 @@ class ApiService {
     });
   }
 
-  async analyzeSubtitle(videoId: string, content: string, modelProvider: string = 'openai'): Promise<ApiResponse<any>> {
+  async analyzeSubtitle(
+    videoId: string,
+    content: string,
+    modelProvider: string = 'openai',
+    modelName?: string
+  ): Promise<ApiResponse<any>> {
     return this.request<any>('/api/ai/subtitle/analyze', {
       method: 'POST',
-      body: JSON.stringify({ video_id: videoId, content, model_provider: modelProvider }),
+      body: JSON.stringify({ video_id: videoId, content, model_provider: modelProvider, model_name: modelName }),
       headers: { 'Content-Type': 'application/json' },
     });
   }

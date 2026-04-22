@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiService } from '../../../services/api';
+import type { LocalFileResponse } from '../../../services/api';
 import {
   aiNoteService,
   AI_NOTE_REANALYZE_STAGE_TEMPLATES,
@@ -12,172 +13,9 @@ import type { AiNotePipelineMode } from '../../../services/aiNote';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
 import { useSettingsStore } from '../../../stores/settings';
+import { MdxNoteEditor, type MdxNoteEditorMode } from '../../../components/ai/MdxNoteEditor';
 import { buildPromptStyleOptions } from '../../../services/promptCatalog';
 import { useToast } from '../../../components/Toast';
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function parseInline(text: string, onHeadingClick?: (id: string) => void): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  let remaining = text;
-  let key = 0;
-
-  while (remaining) {
-    const boldMatch = remaining.match(/^\*\*(.+?)\*\*/);
-    if (boldMatch) {
-      parts.push(<strong key={key++} style={{ fontWeight: 700, color: '#fff' }}>{boldMatch[1]}</strong>);
-      remaining = remaining.slice(boldMatch[0].length);
-      continue;
-    }
-
-    const italicMatch = remaining.match(/^\*(.+?)\*/);
-    if (italicMatch) {
-      parts.push(<em key={key++} style={{ fontStyle: 'italic' }}>{italicMatch[1]}</em>);
-      remaining = remaining.slice(italicMatch[0].length);
-      continue;
-    }
-
-    const codeMatch = remaining.match(/^`(.+?)`/);
-    if (codeMatch) {
-      parts.push(<code key={key++} style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '13px', fontFamily: 'monospace' }}>{codeMatch[1]}</code>);
-      remaining = remaining.slice(codeMatch[0].length);
-      continue;
-    }
-
-    const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
-    if (linkMatch) {
-      const linkText = linkMatch[1];
-      const linkUrl = linkMatch[2];
-
-      if (linkUrl.startsWith('#')) {
-        const anchorId = linkUrl.slice(1);
-        parts.push(
-          <a
-            key={key++}
-            href={linkUrl}
-            onClick={(e) => {
-              e.preventDefault();
-              onHeadingClick?.(anchorId);
-            }}
-            style={{ color: 'var(--color-accent)', textDecoration: 'underline', cursor: 'pointer' }}
-          >
-            {linkText}
-          </a>,
-        );
-      } else {
-        parts.push(
-          <a key={key++} href={linkUrl} style={{ color: 'var(--color-accent)', textDecoration: 'underline' }} target="_blank" rel="noopener noreferrer">
-            {linkText}
-          </a>,
-        );
-      }
-      remaining = remaining.slice(linkMatch[0].length);
-      continue;
-    }
-
-    const textMatch = remaining.match(/^[^`*\[\]>_-]+/);
-    if (textMatch) {
-      parts.push(textMatch[0]);
-      remaining = remaining.slice(textMatch[0].length);
-      continue;
-    }
-
-    parts.push(remaining[0]);
-    remaining = remaining.slice(1);
-  }
-
-  return parts;
-}
-
-function parseMarkdown(text: string, onHeadingClick?: (id: string) => void): React.ReactNode[] {
-  const lines = text.split('\n');
-  const elements: React.ReactNode[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    if (!trimmed) {
-      elements.push(<br key={`br-${i}`} />);
-      continue;
-    }
-
-    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      const content = headingMatch[2];
-      const id = slugify(content);
-
-      const headingStyles: Record<number, React.CSSProperties> = {
-        1: { fontSize: '28px', fontWeight: 700, color: '#fff', marginTop: '28px', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid var(--color-border)' },
-        2: { fontSize: '22px', fontWeight: 600, color: '#60a5fa', marginTop: '24px', marginBottom: '12px' },
-        3: { fontSize: '18px', fontWeight: 600, color: '#a78bfa', marginTop: '20px', marginBottom: '8px' },
-        4: { fontSize: '16px', fontWeight: 600, color: '#34d399', marginTop: '16px', marginBottom: '8px' },
-        5: { fontSize: '14px', fontWeight: 600, color: '#f472b6', marginTop: '14px', marginBottom: '6px' },
-        6: { fontSize: '13px', fontWeight: 600, color: '#fb923c', marginTop: '12px', marginBottom: '4px' },
-      };
-
-      switch (level) {
-        case 1:
-          elements.push(<h1 key={`h1-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h1>);
-          break;
-        case 2:
-          elements.push(<h2 key={`h2-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h2>);
-          break;
-        case 3:
-          elements.push(<h3 key={`h3-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h3>);
-          break;
-        case 4:
-          elements.push(<h4 key={`h4-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h4>);
-          break;
-        case 5:
-          elements.push(<h5 key={`h5-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h5>);
-          break;
-        case 6:
-          elements.push(<h6 key={`h6-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h6>);
-          break;
-        default:
-          elements.push(<h1 key={`h1-${i}`} id={id} style={{ ...headingStyles[level], cursor: 'pointer' }} onClick={() => onHeadingClick?.(id)}>{parseInline(content, onHeadingClick)}</h1>);
-          break;
-      }
-      continue;
-    }
-
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      const text = trimmed.slice(2);
-      elements.push(<li key={`li-${i}`} style={{ color: 'var(--color-text-primary)', marginLeft: '20px', marginBottom: '6px', listStyleType: 'disc' }}>{parseInline(text, onHeadingClick)}</li>);
-      continue;
-    }
-
-    if (/^(\d+)\.\s/.test(trimmed)) {
-      const match = trimmed.match(/^(\d+)\.\s(.*)$/);
-      if (match) {
-        elements.push(<li key={`ol-${i}`} style={{ color: 'var(--color-text-primary)', marginLeft: '20px', marginBottom: '6px', listStyleType: 'decimal' }}>{parseInline(match[2], onHeadingClick)}</li>);
-        continue;
-      }
-    }
-
-    if (trimmed.startsWith('> ')) {
-      elements.push(<blockquote key={`bq-${i}`} style={{ borderLeft: '3px solid var(--color-accent)', paddingLeft: '16px', margin: '12px 0', color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>{parseInline(trimmed.slice(2), onHeadingClick)}</blockquote>);
-      continue;
-    }
-
-    if (trimmed.startsWith('---')) {
-      elements.push(<hr key={`hr-${i}`} style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />);
-      continue;
-    }
-
-    elements.push(<p key={`p-${i}`} style={{ color: 'var(--color-text-primary)', marginBottom: '10px', lineHeight: 1.7 }}>{parseInline(line, onHeadingClick)}</p>);
-  }
-
-  return elements;
-}
 
 interface StageState {
   key: string;
@@ -240,13 +78,33 @@ function useAnalysisPipeline() {
   return { stages, isRunning, startPipeline, updateStageStatus, markComplete, markError, reset };
 }
 
+const MODEL_SELECTION_SEPARATOR = '::';
+
+interface ModelOption {
+  provider: string;
+  model: string;
+  label: string;
+  value: string;
+}
+
+function createModelValue(provider: string, model: string): string {
+  return `${provider}${MODEL_SELECTION_SEPARATOR}${model}`;
+}
+
+function deriveFolderPath(filePath?: string | null): string | null {
+  if (!filePath) return null;
+  const normalized = filePath.replace(/\\/g, '/');
+  const separatorIndex = normalized.lastIndexOf('/');
+  if (separatorIndex < 0) return null;
+  return normalized.slice(0, separatorIndex);
+}
+
 export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string; selectedSubtitleFilename?: string }) {
   const { settings } = useSettingsStore();
   const runtimeState = useAiRuntimeState();
   const { showToast } = useToast();
 
   const [content, setContent] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -254,21 +112,69 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
   const [style, setStyle] = useState(DEFAULT_STYLE);
   const [formats, setFormats] = useState(DEFAULT_FORMATS);
   const [detailLevel, setDetailLevel] = useState('detailed');
-  const [selectedModel, setSelectedModel] = useState('');
+  const [editorMode, setEditorMode] = useState<MdxNoteEditorMode>('preview');
+  const [selectedModelValue, setSelectedModelValue] = useState('');
+  const [noteFilePath, setNoteFilePath] = useState<string | null>(null);
+  const [noteFolderPath, setNoteFolderPath] = useState<string | null>(null);
+  const [noteRevision, setNoteRevision] = useState(0);
 
   const analysisAbortRef = useRef<AbortController | null>(null);
   const analysisNoteIdRef = useRef<string | null>(null);
+  const originalContentRef = useRef('');
   const pipeline = useAnalysisPipeline();
 
   const activeProvider = settings?.llm?.provider || 'openai';
-  const providerModels = runtimeState.testedModels[activeProvider] || [];
   const configuredModel = settings?.llm?.model || '';
-  const activeModel = providerModels.includes(configuredModel) ? configuredModel : (providerModels[0] || configuredModel);
 
   const styleOptions = useMemo(
     () => buildPromptStyleOptions({}, {}, settings?.ai_note?.style?.custom_styles || []),
     [settings?.ai_note?.style?.custom_styles],
   );
+
+  const modelOptions = useMemo<ModelOption[]>(() => {
+    const entries = Object.entries(runtimeState.testedModels)
+    const mergedOptions = entries.flatMap(([provider, models]) =>
+      models.map((model) => ({
+        provider,
+        model,
+        value: createModelValue(provider, model),
+        label: `${provider} · ${model}`,
+      })),
+    )
+
+    if (mergedOptions.length > 0) {
+      return mergedOptions
+    }
+
+    if (configuredModel) {
+      return [{
+        provider: activeProvider,
+        model: configuredModel,
+        value: createModelValue(activeProvider, configuredModel),
+        label: `${activeProvider} · ${configuredModel}`,
+      }]
+    }
+
+    return []
+  }, [activeProvider, configuredModel, runtimeState.testedModels])
+
+  const selectedModelSelection = useMemo(() => {
+    if (modelOptions.length === 0) {
+      if (!configuredModel) {
+        return null
+      }
+      return {
+        provider: activeProvider,
+        model: configuredModel,
+        value: createModelValue(activeProvider, configuredModel),
+        label: `${activeProvider} · ${configuredModel}`,
+      }
+    }
+
+    return modelOptions.find((option) => option.value === selectedModelValue) || modelOptions[0]
+  }, [activeProvider, configuredModel, modelOptions, selectedModelValue])
+
+  const previewFolderPath = noteFolderPath || deriveFolderPath(noteFilePath)
 
   const stageToastLabels: Record<string, string> = {
     'video.AUDIO.FETCH': '音频读取完成',
@@ -288,8 +194,23 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
   };
 
   useEffect(() => {
-    setSelectedModel(activeModel);
-  }, [activeModel]);
+    if (modelOptions.length === 0) {
+      setSelectedModelValue('')
+      return
+    }
+
+    setSelectedModelValue((current) => {
+      if (modelOptions.some((option) => option.value === current)) {
+        return current
+      }
+
+      const preferred = modelOptions.find(
+        (option) => option.provider === activeProvider && option.model === configuredModel,
+      ) || modelOptions.find((option) => option.model === configuredModel) || modelOptions[0]
+
+      return preferred?.value || ''
+    })
+  }, [activeProvider, configuredModel, modelOptions])
 
   useEffect(() => {
     void aiRuntimeStateService.refresh();
@@ -299,15 +220,34 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     setLoading(true);
     setError(null);
     try {
-      const response: any = await apiService.getLocalFile(videoId, 'note');
-      if (response.success && response.data) {
-        setContent(response.data);
-        if (response.meta?.style) setStyle(response.meta.style || DEFAULT_STYLE);
-        if (response.meta?.formats && Array.isArray(response.meta.formats)) setFormats(response.meta.formats);
+      const response = await apiService.getLocalFile(videoId, 'note') as LocalFileResponse & {
+        meta?: {
+          style?: string;
+          formats?: string[];
+        };
+      };
+
+      if (!response.success) {
+        throw new Error(response.message || '加载笔记失败');
       }
+
+      setContent(typeof response.data === 'string' ? response.data : '');
+      originalContentRef.current = typeof response.data === 'string' ? response.data : '';
+      setNoteFilePath(response.file_path || null);
+      setNoteFolderPath(response.folder_path || deriveFolderPath(response.file_path));
+      setEditorMode('preview');
+      setNoteRevision((value) => value + 1);
+
+      if (response.meta?.style) setStyle(response.meta.style || DEFAULT_STYLE);
+      if (response.meta?.formats && Array.isArray(response.meta.formats)) setFormats(response.meta.formats);
     } catch (err) {
       console.error('加载笔记失败:', err);
       setError('加载笔记失败');
+      setContent('');
+      originalContentRef.current = '';
+      setNoteFilePath(null);
+      setNoteFolderPath(null);
+      setNoteRevision((value) => value + 1);
     } finally {
       setLoading(false);
     }
@@ -321,7 +261,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     setIsSaving(true);
     try {
       await apiService.saveLocalFile(videoId, 'note', content);
-      setIsEditing(false);
+      originalContentRef.current = content;
+      setEditorMode('preview');
       showToast('笔记已保存', 'success');
     } catch (err) {
       console.error('保存笔记失败:', err);
@@ -332,11 +273,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
     }
   }, [content, showToast, videoId]);
 
-  const handleHeadingClick = useCallback((id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  const handleCancelEdit = useCallback(() => {
+    setContent(originalContentRef.current);
+    setEditorMode('preview');
+    setNoteRevision((value) => value + 1);
   }, []);
 
   const handleStopAnalysis = useCallback(async () => {
@@ -358,7 +298,9 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
 
   const startAnalyze = useCallback(async () => {
     if (isAnalyzing) return;
-    if (!selectedModel) {
+
+    const modelSelection = selectedModelSelection;
+    if (!modelSelection?.model) {
       showToast('请先选择 AI 模型', 'warning');
       return;
     }
@@ -396,8 +338,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
           style,
           level: detailLevel,
           formats,
-          model_provider: activeProvider,
-          model_name: selectedModel,
+          model_provider: modelSelection.provider || activeProvider,
+          model_name: modelSelection.model,
           subtitle_filename: subtitleFilename || undefined,
         },
         (event) => {
@@ -458,11 +400,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
       analysisNoteIdRef.current = null;
       showToast(err.message || '启动分析失败', 'error');
     }
-  }, [activeProvider, detailLevel, formats, isAnalyzing, loadNote, pipeline, selectedModel, selectedSubtitleFilename, showToast, style, videoId]);
-
-  const handleDoubleClick = useCallback(() => {
-    setIsEditing(true);
-  }, []);
+  }, [activeProvider, detailLevel, formats, isAnalyzing, loadNote, pipeline, selectedModelSelection, selectedSubtitleFilename, showToast, style, videoId]);
 
   useEffect(() => {
     return () => {
@@ -513,34 +451,55 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
             <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>AI 模型</span>
             <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+              value={selectedModelValue}
+              onChange={(e) => setSelectedModelValue(e.target.value)}
               disabled={isAnalyzing}
-              style={{ minWidth: '170px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+              style={{ minWidth: '220px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
             >
-              {providerModels.length > 0 ? (
-                providerModels.map(model => <option key={model} value={model}>{model}</option>)
+              {modelOptions.length > 0 ? (
+                modelOptions.map(model => <option key={model.value} value={model.value}>{model.label}</option>)
               ) : (
-                <option value={activeModel}>{activeModel || '未配置模型'}</option>
+                <option value="">未配置模型</option>
               )}
             </select>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-            {isEditing ? (
+            {(['edit', 'preview', 'split'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setEditorMode(mode)}
+                disabled={isAnalyzing}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '9999px',
+                  fontSize: '13px',
+                  background: editorMode === mode ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                  color: editorMode === mode ? '#fff' : 'var(--color-text-primary)',
+                  border: 'none',
+                  cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {mode === 'edit' ? '编辑' : mode === 'preview' ? '预览' : '分屏'}
+              </button>
+            ))}
+            {editorMode === 'edit' && (
               <>
-                <button onClick={() => setIsEditing(false)} style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}>取消</button>
-                <button onClick={saveNote} disabled={isSaving} style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: '#22c55e', color: '#fff', border: 'none', cursor: isSaving ? 'not-allowed' : 'pointer', opacity: isSaving ? 0.5 : 1 }}>
+                <button
+                  onClick={handleCancelEdit}
+                  style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)', border: 'none', cursor: 'pointer' }}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={saveNote}
+                  disabled={isSaving}
+                  style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: '#22c55e', color: '#fff', border: 'none', cursor: isSaving ? 'not-allowed' : 'pointer', opacity: isSaving ? 0.5 : 1 }}
+                >
                   {isSaving ? '保存中...' : '保存'}
                 </button>
               </>
-            ) : (
-              <button onClick={() => setIsEditing(true)} style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                编辑
-              </button>
             )}
           </div>
 
@@ -616,35 +575,15 @@ export function NoteTab({ videoId, selectedSubtitleFilename }: { videoId: string
         </div>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '16px', cursor: isEditing ? 'text' : 'default' }}>
-        {isEditing ? (
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            style={{
-              width: '100%',
-              minHeight: '100%',
-              background: 'var(--color-bg-secondary)',
-              color: 'var(--color-text-primary)',
-              padding: '16px',
-              fontSize: '14px',
-              fontFamily: 'monospace',
-              borderRadius: '8px',
-              border: 'none',
-              resize: 'none',
-              outline: 'none',
-              lineHeight: 1.6,
-            }}
-          />
-        ) : content ? (
-          <div style={{ maxWidth: '800px' }} onDoubleClick={handleDoubleClick}>
-            {parseMarkdown(content, handleHeadingClick)}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-text-tertiary)', fontSize: '13px' }}>
-            暂无笔记，点击上方重新生成按钮创建笔记
-          </div>
-        )}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '16px' }}>
+        <MdxNoteEditor
+          content={content}
+          documentKey={`${videoId}:${noteRevision}`}
+          mode={editorMode}
+          onChange={setContent}
+          sourceFolderPath={previewFolderPath}
+          className="h-full"
+        />
       </div>
     </div>
   );

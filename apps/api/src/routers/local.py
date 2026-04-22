@@ -12,8 +12,10 @@ router = APIRouter(prefix="/api/local", tags=["本地文件"])
 
 class LocalFileResponse(BaseModel):
     success: bool
-    data: str = None
-    error: str = None
+    data: Optional[str] = None
+    error: Optional[str] = None
+    file_path: Optional[str] = None
+    folder_path: Optional[str] = None
 
 
 def find_video_dir(video_id: str) -> Path:
@@ -50,6 +52,26 @@ def find_video_dir(video_id: str) -> Path:
     return None
 
 
+def build_note_file_response(video_dir: Path) -> LocalFileResponse:
+    """构造笔记文件响应，携带目录与文件路径信息。"""
+    md_files = list(video_dir.glob("*.ai-note.md"))
+    if not md_files:
+        return LocalFileResponse(
+            success=True,
+            data="",
+            folder_path=str(video_dir),
+        )
+
+    note_file = md_files[0]
+    content = note_file.read_text(encoding="utf-8")
+    return LocalFileResponse(
+        success=True,
+        data=content,
+        file_path=str(note_file),
+        folder_path=str(video_dir),
+    )
+
+
 @router.get("/file/{video_id}", response_model=LocalFileResponse)
 async def get_local_file(
     video_id: str,
@@ -80,12 +102,7 @@ async def get_local_file(
             return LocalFileResponse(success=True, data=content)
 
         elif file_type == "note":
-            # 查找笔记文件
-            md_files = list(video_dir.glob("*.ai-note.md"))
-            if not md_files:
-                return LocalFileResponse(success=True, data="")
-            content = md_files[0].read_text(encoding="utf-8")
-            return LocalFileResponse(success=True, data=content)
+            return build_note_file_response(video_dir)
 
         else:
             return LocalFileResponse(

@@ -99,6 +99,67 @@
 - 只返回中文：只会生成中文字幕文件
 - 返回字幕元数据但没有 `subtitle_url`：不报错为下载失败，直接提示不可下载
 
+## AI 字幕纠正接口
+
+AI 字幕纠正会先读取视频目录中的 NFO 信息，再对整份 SRT 分批分析，最后由前端手动确认修正结果并写回本地字幕文件。
+
+### 1. 流水线分析
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/ai/subtitle/pipeline-analyze` | 通过 SSE 推送 NFO 读取、字幕概况和 AI 分析进度 |
+
+**请求体**：
+
+```json
+{
+  "video_id": "BV1xx411c7mD",
+  "content": "1\\n00:00:01,000 --> 00:00:03,000\\n我门去看看",
+  "model_provider": "openai",
+  "model_name": "gpt-4o-mini"
+}
+```
+
+**阶段事件**：
+
+- `META`：返回任务 ID
+- `READ_NFO`：返回 NFO 背景信息
+- `SUBTITLE_OVERVIEW`：返回字幕概况和批次数
+- `AI_ANALYZE`：执行纠错分析
+- `DONE`：返回 `issues`、`summary`、`total_blocks`、`total_batches`、`covered_blocks`
+
+### 2. 单次分析
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/ai/subtitle/analyze` | 直接返回字幕纠错结果，不走 SSE |
+
+**说明**：
+
+- 适合需要一次性获取分析结果的场景
+- 返回结果兼容旧字段 `text` / `suggestion`
+- 新字段包括 `original_text`、`corrected_text`、`reason`、`confidence`
+
+### 3. 取消任务
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/ai/subtitle/cancel/{task_id}` | 取消当前字幕分析任务 |
+
+### 4. 本地写回
+
+分析结果应用后仍通过本地文件接口写回字幕：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/local/file/{video_id}` | 保存字幕文件并自动生成版本快照 |
+
+**保存规则**：
+
+- 字幕按 `file_type=subtitle` 写入
+- 如果传入 `filename`，会保存到指定字幕文件
+- 保存后会自动生成 `ai-versions` 快照，便于回滚
+
 ## 媒体接口
 
 | 方法 | 路径 | 说明 |

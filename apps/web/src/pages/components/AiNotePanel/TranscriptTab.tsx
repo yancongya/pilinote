@@ -6,6 +6,13 @@ import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
 import { getApiBaseUrl } from '../../../config/api';
 import { useToast } from '../../../components/Toast';
 import TermReplacementModal from '../../../components/ai/TermReplacementModal';
+import {
+  formatAnalysisStageSummary,
+  getIssueCorrectedText,
+  getIssueOriginalText,
+  normalizeAnalysisIssues,
+  type SubtitleAnalysisIssue,
+} from '../../../components/ai/subtitleCorrection';
 
 interface Subtitle {
   index: number;
@@ -26,13 +33,6 @@ interface SubtitleFile {
   name: string;
   path: string;
   source_label: string;
-}
-
-interface AnalysisIssue {
-  index: number;
-  type: 'typo' | 'grammar' | 'term';
-  text: string;
-  suggestion: string;
 }
 
 interface AnalysisStage {
@@ -96,7 +96,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const [selectedModelKey, setSelectedModelKey] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStages, setAnalysisStages] = useState<AnalysisStage[]>(ANALYSIS_STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const })));
-  const [analysisIssues, setAnalysisIssues] = useState<AnalysisIssue[]>([]);
+  const [analysisIssues, setAnalysisIssues] = useState<SubtitleAnalysisIssue[]>([]);
   const [analysisSummary, setAnalysisSummary] = useState('');
   const [analysisError, setAnalysisError] = useState('');
   const [analysisTaskId, setAnalysisTaskId] = useState('');
@@ -116,6 +116,12 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const aiRuntimeState = useAiRuntimeState();
   const testedModels = aiRuntimeState.testedModels || {};
   const { showToast } = useToast();
+  const logAnalysis = useCallback((message: string, payload?: Record<string, any>) => {
+    console.info('[subtitle-analysis]', message, payload || {});
+  }, []);
+  const logAnalysisEvent = useCallback((stage: string, status: string, data?: Record<string, any>) => {
+    console.info('[subtitle-analysis]', formatAnalysisStageSummary(stage, status, data));
+  }, []);
 
   const modelOptions = useMemo(() => {
     const providers = settings?.llm?.providers || [];
@@ -155,6 +161,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   }, []);
 
   const stopAnalysis = useCallback(async () => {
+    logAnalysis('cancel_requested', { taskId: analysisTaskId });
     analysisAbortRef.current?.abort();
     if (analysisTaskId) {
       try {
@@ -169,13 +176,14 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
     setIsAnalyzing(false);
   }, [analysisTaskId, showToast]);
 
-  const handleApplyFix = useCallback(async (fixIssues: AnalysisIssue[]) => {
+  const handleApplyFix = useCallback(async (fixIssues: SubtitleAnalysisIssue[]) => {
     if (!fixIssues?.length) return;
 
     const blocks = content.split(/\n\n+/);
-    const issueMap = new Map<number, AnalysisIssue>();
+    const issueMap = new Map<number, SubtitleAnalysisIssue>();
     for (const issue of fixIssues) {
-      if (issue.index && issue.suggestion) {
+      const correctedText = getIssueCorrectedText(issue);
+      if (issue.index && correctedText) {
         issueMap.set(issue.index, issue);
       }
     }
@@ -186,7 +194,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       const idx = parseInt(lines[0]);
       const fix = issueMap.get(idx);
       if (fix) {
-        lines[2] = fix.suggestion;
+        lines[2] = getIssueCorrectedText(fix);
       }
       return lines.join('\n');
     });
@@ -214,6 +222,11 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
     resetAnalysisState();
     setIsAnalyzing(true);
     showToast('已开始字幕纠正', 'info');
+    logAnalysis('start', {
+      videoId,
+      provider: selectedModel.providerId,
+      model: selectedModel.model,
+    });
 
     const ac = new AbortController();
     analysisAbortRef.current = ac;
@@ -253,16 +266,24 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
 
             if (stage === 'META' && data?.task_id) {
               setAnalysisTaskId(data.task_id);
+              logAnalysis('meta', { taskId: data.task_id });
             }
 
+            logAnalysisEvent(stage, status, data);
             setAnalysisStages(prev => prev.map(s => (s.key === stage ? { ...s, status, data } : s)));
 
             if (stage === 'DONE' && status === 'completed') {
-              setAnalysisIssues(data?.issues || []);
+              setAnalysisIssues(normalizeAnalysisIssues(data?.issues || []));
               setAnalysisSummary(data?.summary || '');
               setIsAnalyzing(false);
               analysisAbortRef.current = null;
               setShowAnalysisResult(true);
+              logAnalysis('done', {
+                totalBlocks: data?.total_blocks,
+                totalBatches: data?.total_batches,
+                coveredBlocks: data?.covered_blocks,
+                issueCount: (data?.issues || []).length,
+              });
               showToast('字幕纠正完成', 'success');
             }
 
@@ -271,6 +292,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
               setAnalysisError(message);
               setIsAnalyzing(false);
               analysisAbortRef.current = null;
+              logAnalysis('done_error', { message, data });
               showToast(message, 'error');
             }
           } catch {}
@@ -280,6 +302,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       if (err.name === 'AbortError') {
         setIsAnalyzing(false);
         analysisAbortRef.current = null;
+        logAnalysis('aborted', { reason: 'AbortError' });
         showToast('已取消字幕纠正', 'info');
         return;
       }
@@ -287,6 +310,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       setAnalysisError(message);
       setIsAnalyzing(false);
       analysisAbortRef.current = null;
+      logAnalysis('error', { message });
       showToast(message, 'error');
     }
   }, [content, isAnalyzing, selectedModel, showToast, videoId, resetAnalysisState]);
@@ -951,15 +975,21 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
                 </div>
               ))}
             </div>
+            {analysisStages.find(stage => stage.key === 'DONE')?.data && (
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px', fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                {analysisStages.find(stage => stage.key === 'DONE')?.data?.total_batches !== undefined && <span>批次: {analysisStages.find(stage => stage.key === 'DONE')?.data?.total_batches}</span>}
+                {analysisStages.find(stage => stage.key === 'DONE')?.data?.covered_blocks !== undefined && <span>覆盖: {analysisStages.find(stage => stage.key === 'DONE')?.data?.covered_blocks} 条</span>}
+              </div>
+            )}
             {analysisIssues.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>发现 {analysisIssues.length} 个问题</div>
                 {analysisIssues.map((issue, index) => (
                   <div key={`${issue.index}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'var(--color-bg-secondary)' }}>
                     <span style={{ padding: '1px 6px', borderRadius: '4px', fontSize: '10px', color: '#fff', background: issue.type === 'typo' ? '#ef4444' : issue.type === 'grammar' ? '#f59e0b' : '#8b5cf6' }}>{issue.type === 'typo' ? '错字' : issue.type === 'grammar' ? '语法' : '术语'}</span>
-                    <span style={{ color: '#ef4444', textDecoration: 'line-through', flex: 1, minWidth: 0 }}>{issue.text}</span>
+                    <span style={{ color: '#ef4444', textDecoration: 'line-through', flex: 1, minWidth: 0 }}>{getIssueOriginalText(issue)}</span>
                     <span style={{ color: 'var(--color-text-tertiary)' }}>→</span>
-                    <span style={{ color: '#22c55e', flex: 1, minWidth: 0 }}>{issue.suggestion}</span>
+                    <span style={{ color: '#22c55e', flex: 1, minWidth: 0 }}>{getIssueCorrectedText(issue)}</span>
                   </div>
                 ))}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>

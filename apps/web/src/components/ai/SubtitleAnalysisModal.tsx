@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getApiBaseUrl } from '../../config/api';
 import { useToast } from '../Toast';
-
-interface Issue {
-  index: number;
-  type: 'typo' | 'grammar' | 'term';
-  text: string;
-  suggestion: string;
-}
+import {
+  formatAnalysisStageSummary,
+  getIssueCorrectedText,
+  getIssueOriginalText,
+  normalizeAnalysisIssues,
+  type SubtitleAnalysisIssue,
+} from './subtitleCorrection';
 
 interface PipelineStage {
   key: string;
@@ -30,7 +30,7 @@ interface Props {
   content: string;
   modelProvider: string;
   modelName?: string;
-  onApplyFix: (issues: Issue[]) => void;
+  onApplyFix: (issues: SubtitleAnalysisIssue[]) => void;
 }
 
 export default function SubtitleAnalysisModal({
@@ -46,12 +46,19 @@ export default function SubtitleAnalysisModal({
   const [stages, setStages] = useState<PipelineStage[]>(
     STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const }))
   );
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const [issues, setIssues] = useState<SubtitleAnalysisIssue[]>([]);
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [taskId, setTaskId] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const logStage = useCallback((message: string, payload?: Record<string, any>) => {
+    console.info('[subtitle-analysis]', message, payload || {});
+  }, []);
+
+  const logStageEvent = useCallback((stage: string, status: string, data?: Record<string, any>) => {
+    console.info('[subtitle-analysis]', formatAnalysisStageSummary(stage, status, data));
+  }, []);
 
   const reset = useCallback(() => {
     setStages(STAGE_DEFS.map(d => ({ ...d, status: 'pending' as const })));
@@ -62,6 +69,7 @@ export default function SubtitleAnalysisModal({
   }, []);
 
   const handleCancel = useCallback(async () => {
+    logStage('cancel_requested', { taskId });
     abortRef.current?.abort();
     if (taskId) {
       try {
@@ -81,6 +89,7 @@ export default function SubtitleAnalysisModal({
     reset();
     setIsRunning(true);
     showToast('已开始字幕分析', 'info');
+    logStage('start', { videoId, modelProvider, modelName });
 
     const ac = new AbortController();
     abortRef.current = ac;
@@ -129,8 +138,10 @@ export default function SubtitleAnalysisModal({
 
             if (stage === 'META' && data?.task_id) {
               setTaskId(data.task_id);
+              logStage('meta', { taskId: data.task_id });
             }
 
+            logStageEvent(stage, status, data);
             setStages(prev => prev.map(s => (s.key === stage ? { ...s, status, data } : s)));
 
             if (status === 'completed' && stageToastLabels[stage]) {
@@ -138,10 +149,16 @@ export default function SubtitleAnalysisModal({
             }
 
             if (stage === 'DONE' && status === 'completed') {
-              setIssues(data?.issues || []);
+              setIssues(normalizeAnalysisIssues(data?.issues || []));
               setSummary(data?.summary || '');
               setIsRunning(false);
               abortRef.current = null;
+              logStage('done', {
+                totalBlocks: data?.total_blocks,
+                totalBatches: data?.total_batches,
+                coveredBlocks: data?.covered_blocks,
+                issueCount: (data?.issues || []).length,
+              });
             }
 
             if (stage === 'DONE' && status === 'error') {
@@ -149,6 +166,7 @@ export default function SubtitleAnalysisModal({
               setError(message);
               setIsRunning(false);
               abortRef.current = null;
+              logStage('done_error', { message, data });
               showToast(message, 'error');
             }
           } catch {
@@ -161,12 +179,14 @@ export default function SubtitleAnalysisModal({
         setIsRunning(false);
         abortRef.current = null;
         showToast('已取消字幕分析', 'info');
+        logStage('aborted', { reason: 'AbortError' });
         return;
       }
       const message = err?.message || '连接失败';
       setError(message);
       setIsRunning(false);
       abortRef.current = null;
+      logStage('error', { message });
       showToast(message, 'error');
     }
   }, [content, isRunning, modelProvider, reset, showToast, videoId]);
@@ -296,6 +316,16 @@ export default function SubtitleAnalysisModal({
                   {summary}
                 </div>
               )}
+              {(stages.find(s => s.key === 'DONE')?.data?.total_batches !== undefined || stages.find(s => s.key === 'DONE')?.data?.covered_blocks !== undefined) && (
+                <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginBottom: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  {stages.find(s => s.key === 'DONE')?.data?.total_batches !== undefined && (
+                    <span>批次: {stages.find(s => s.key === 'DONE')?.data?.total_batches}</span>
+                  )}
+                  {stages.find(s => s.key === 'DONE')?.data?.covered_blocks !== undefined && (
+                    <span>覆盖: {stages.find(s => s.key === 'DONE')?.data?.covered_blocks} 条</span>
+                  )}
+                </div>
+              )}
               {issues.length > 0 ? (
                 <div>
                   <div style={{ fontSize: 12, color: '#f59e0b', marginBottom: 8, fontWeight: 500 }}>
@@ -303,17 +333,26 @@ export default function SubtitleAnalysisModal({
                   </div>
                   <div style={{ maxHeight: 200, overflow: 'auto' }}>
                     {issues.map((issue, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 12, borderBottom: '1px solid var(--color-border)' }}>
-                        <span style={{
-                          padding: '1px 6px', borderRadius: 3, fontSize: 10,
-                          background: issue.type === 'typo' ? 'rgba(239,68,68,0.15)' : issue.type === 'grammar' ? 'rgba(245,158,11,0.15)' : 'rgba(139,92,246,0.15)',
-                          color: issue.type === 'typo' ? '#ef4444' : issue.type === 'grammar' ? '#f59e0b' : '#8b5cf6',
-                        }}>
-                          {issue.type === 'typo' ? '错字' : issue.type === 'grammar' ? '语法' : '术语'}
-                        </span>
-                        <span style={{ color: '#ef4444', textDecoration: 'line-through', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.text}</span>
-                        <span style={{ color: 'var(--color-text-tertiary)' }}>→</span>
-                        <span style={{ color: '#22c55e', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{issue.suggestion}</span>
+                      <div key={i} style={{ padding: '6px 0', borderBottom: '1px solid var(--color-border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                          <span style={{
+                            padding: '1px 6px', borderRadius: 3, fontSize: 10,
+                            background: issue.type === 'typo' ? 'rgba(239,68,68,0.15)' : issue.type === 'grammar' ? 'rgba(245,158,11,0.15)' : 'rgba(139,92,246,0.15)',
+                            color: issue.type === 'typo' ? '#ef4444' : issue.type === 'grammar' ? '#f59e0b' : '#8b5cf6',
+                          }}>
+                            {issue.type === 'typo' ? '错字' : issue.type === 'grammar' ? '语法' : '术语'}
+                          </span>
+                          <span style={{ color: '#ef4444', textDecoration: 'line-through', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getIssueOriginalText(issue)}</span>
+                          <span style={{ color: 'var(--color-text-tertiary)' }}>→</span>
+                          <span style={{ color: '#22c55e', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getIssueCorrectedText(issue)}</span>
+                        </div>
+                        {(issue.reason || issue.confidence !== undefined) && (
+                          <div style={{ marginLeft: 34, marginTop: 2, fontSize: 11, color: 'var(--color-text-tertiary)' }}>
+                            {issue.reason && <span>原因: {issue.reason}</span>}
+                            {issue.reason && issue.confidence !== undefined && <span style={{ margin: '0 6px' }}>·</span>}
+                            {issue.confidence !== undefined && <span>置信度: {Math.round(issue.confidence * 100)}%</span>}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -329,11 +368,11 @@ export default function SubtitleAnalysisModal({
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 0 0', borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
-        {isComplete && issues.length > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              onApplyFix(issues);
+          {isComplete && issues.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                onApplyFix(issues);
               onClose();
             }}
             style={{ padding: '8px 16px', borderRadius: 8, fontSize: 13, background: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500 }}

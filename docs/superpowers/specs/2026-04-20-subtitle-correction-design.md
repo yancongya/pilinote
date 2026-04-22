@@ -2,10 +2,22 @@
 
 ## 概述
 
-在AI笔记页面添加字幕智能修正功能，支持：
+在 AI 笔记页面添加字幕智能修正功能，支持：
 - CSV文件存储术语库
 - 术语自动替换
-- AI检查错别字和语法
+- AI 检查错别字和语法
+- 读取目录内 NFO 作为视频背景上下文
+- 对整份 SRT 分批分析，而不是只截取前 50 行
+
+## 当前流程
+
+1. 根据 `video_id` 找到视频目录。
+2. 读取目录中的 NFO 文件，提取标题、UP 主 / 厂牌、时长、简介、标签和评论等信息。
+3. 将 SRT 解析为稳定字幕块，保留序号、时间轴和正文。
+4. 按批次将字幕块送入 LLM，批次之间保留少量重叠上下文。
+5. 返回结构化修正建议，兼容 `text/suggestion` 与 `original_text/corrected_text` 两套字段。
+6. 前端展示结果后由用户确认应用。
+7. 保存时通过本地文件接口写回字幕，并自动生成版本快照。
 
 ## 术语库存储
 
@@ -60,9 +72,11 @@ DELETE /api/ai/vocabulary/:filename   # 删除术语文件
 ### 字幕修正
 
 ```
-POST   /api/ai/subtitle/analyze        # AI分析字幕(错别字、语法)
+POST   /api/ai/subtitle/pipeline-analyze   # SSE 字幕分析，先读 NFO 再分批纠错
+POST   /api/ai/subtitle/analyze            # 单次 AI 分析字幕(错别字、语法)
+POST   /api/ai/subtitle/cancel/{task_id}   # 取消字幕分析任务
 POST   /api/ai/subtitle/apply-terms   # 应用术语替换
-POST   /api/ai/subtitle/save-correction # 保存修正
+POST   /api/local/file/{video_id}?file_type=subtitle # 写回字幕并生成版本快照
 ```
 
 ## 前端UI设计
@@ -140,16 +154,36 @@ POST   /api/ai/subtitle/save-correction # 保存修正
 ## LLM Prompt - 字幕分析
 
 ```
-你是一个字幕编辑助手。请分析以下字幕并指出问题：
+你是一个字幕编辑助手。请结合视频背景信息分析字幕中的错别字、语法问题和术语错误。
 
-字幕：
-{字幕文本}
+视频背景信息：
+- 标题：{title}
+- 剧集/别名：{showtitle}
+- UP主/厂牌：{studio}
+- 时长：{runtime}
+- 简介：{intro}
+- 剧情/补充：{plot}
+- 标签：{tags}
+- NFO文本：{nfo_text}
 
-请以JSON格式返回分析结果：
+字幕内容：
+{字幕块}
+
+请以 JSON 格式返回分析结果，格式如下：
 {
-  "typos": [{"text": "错字", "suggestion": "正字"}],
-  "grammar": [{"text": "问题句", "suggestion": "修正建议"}],
-  "issues": ["需要检查的问题"]
+  "issues": [
+    {
+      "index": 1,
+      "type": "typo" | "grammar" | "term",
+      "text": "原文字幕文本",
+      "suggestion": "修正后的完整字幕文本",
+      "original_text": "原文字幕文本",
+      "corrected_text": "修正后的完整字幕文本",
+      "reason": "为什么要修改",
+      "confidence": 0.0
+    }
+  ],
+  "summary": "一句话总结"
 }
 ```
 
