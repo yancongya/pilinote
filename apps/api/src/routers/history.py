@@ -74,14 +74,14 @@ async def get_history_list(
     - 使用B站原生API快速加载
     """
     user, sessdata = user_sessdata
-    cache_key = sessdata[:20]
+    cache_key = user.mid
 
     try:
         import traceback
 
         service = BilibiliService()
         try:
-            result = await service.get_history(sessdata)
+            result = await service.get_history(sessdata, cache_key=str(user.mid))
             if result["success"]:
                 return _build_history_response(result["data"], pn, ps, keyword, order, sort_direction)
 

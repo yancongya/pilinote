@@ -9,6 +9,12 @@ import {
   type AiNotePipelineMode,
   type AiNoteTraceStageTemplate,
 } from '../../services/aiNote'
+import {
+  applyAiNoteStreamEvent,
+  createAiNoteStreamState,
+  getStageLogText,
+  type AiNoteStreamState,
+} from '../../services/aiNoteStreamState'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { buildPromptStyleOptions, normalizePromptStyleValue } from '../../services/promptCatalog'
 import { useToast } from '../Toast'
@@ -160,7 +166,8 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
       .map((step, idx) => {
         const detail = step.detail ? JSON.stringify(step.detail, null, 2) : '暂无原始详情'
         const ts = step.ts ? `\n时间: ${step.ts}` : ''
-        return `步骤 ${idx + 1}: ${step.title || step.stage}${ts}\n${detail}`
+        const summaryText = step.summary?.trim() || '暂无摘要'
+        return `步骤 ${idx + 1}: ${step.title || step.stage}${ts}\n摘要: ${summaryText}\n原始详情:\n${detail}`
       })
       .join('\n\n')
 
@@ -271,17 +278,24 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [trace, setTrace] = useState<AiTraceStep[]>([])
+  const [streamState, setStreamState] = useState<AiNoteStreamState>(() => createAiNoteStreamState())
   const [localAsrReady, setLocalAsrReady] = useState(true)
   const [styleOptions, setStyleOptions] = useState<StyleOption[]>([])
   const [selectedTraceItem, setSelectedTraceItem] = useState<TraceDotItem | null>(null)
   const [controlState, setControlState] = useState<'running' | 'paused' | 'cancelled' | 'completed'>('running')
   const activeNoteIdRef = useRef<string | null>(null)
+  const analysisAbortRef = useRef<AbortController | null>(null)
+  const streamStateRef = useRef<AiNoteStreamState>(createAiNoteStreamState())
   const currentRequestRef = useRef<{ video_id: string; style: string; formats: string[]; model_provider: string; model_name: string; extras: string } | null>(null)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
     suppressLookupRef.current = isAnalyzing
   }, [isAnalyzing])
+
+  useEffect(() => {
+    streamStateRef.current = streamState
+  }, [streamState])
 
   useEffect(() => {
     if (!settings || isOpen) {
@@ -334,6 +348,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     if (isOpen && existingNote) {
       setNote(existingNote)
       setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
+      const nextStreamState = createAiNoteStreamState()
+      streamStateRef.current = nextStreamState
+      setStreamState(nextStreamState)
       activeNoteIdRef.current = existingNote.id
       setControlState(existingNote.control_state || (existingNote.meta?.control?.state as any) || 'running')
       if (existingNote.style) {
@@ -370,6 +387,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         } else {
           setNote(null)
           setTrace([])
+          const nextStreamState = createAiNoteStreamState()
+          streamStateRef.current = nextStreamState
+          setStreamState(nextStreamState)
           if (derived.errorMessage) {
             showToast(derived.errorMessage, 'error')
           }
@@ -459,6 +479,21 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const traceDots = useMemo(() => {
     return buildTraceDotItemsForNote(note, currentTrace)
   }, [currentTrace, note])
+  const liveTraceLogText = useMemo(() => {
+    if (selectedTraceItem) {
+      const selectedStageState = streamState.stages[selectedTraceItem.stage]
+      const stageLogText = getStageLogText(selectedStageState)
+      if (stageLogText) {
+        return stageLogText
+      }
+      if (selectedTraceItem.detailText) {
+        return selectedTraceItem.detailText
+      }
+    }
+    const activeStageState = streamState.activeStage ? streamState.stages[streamState.activeStage] : undefined
+    const logText = getStageLogText(activeStageState)
+    return logText || '暂无日志'
+  }, [selectedTraceItem, streamState.activeStage, streamState.stages])
 
   useEffect(() => {
     if (!isOpen) {
@@ -479,6 +514,9 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     setNote(null)
     setError(null)
     setTrace([])
+    const nextStreamState = createAiNoteStreamState()
+    streamStateRef.current = nextStreamState
+    setStreamState(nextStreamState)
     setSelectedTraceItem(null)
     setControlState('running')
     activeNoteIdRef.current = null
@@ -557,6 +595,11 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     setIsAnalyzing(true)
     setViewState('config')
     setTrace([])
+    {
+      const nextStreamState = createAiNoteStreamState()
+      streamStateRef.current = nextStreamState
+      setStreamState(nextStreamState)
+    }
     setControlState('running')
 
     if (!localAsrReady) {
@@ -572,32 +615,90 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
       return
     }
 
+    const abortController = new AbortController()
+    analysisAbortRef.current = abortController
+
     try {
-      const response = await aiNoteService.analyze({
+      const request = {
+        video_id: videoId,
+        style,
+        formats,
+        model_provider: activeProvider,
+        model_name: selectedModel,
+        level: detailLevel,
+      }
+
+      currentRequestRef.current = {
         video_id: videoId,
         style,
         formats,
         model_provider: activeProvider,
         model_name: selectedModel,
         extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
-      })
-
-      if (response.success && response.note_id) {
-        activeNoteIdRef.current = response.note_id
-        currentRequestRef.current = {
-          video_id: videoId,
-          style,
-          formats,
-          model_provider: activeProvider,
-          model_name: selectedModel,
-          extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
-        }
-        await pollStatus(response.note_id)
-        return
       }
 
-      setError(response.message || '分析失败')
+      const finalizeCompletedNote = async (noteId: string) => {
+        const completed = await aiNoteService.getNote(noteId)
+        setNote(completed)
+        onComplete?.(completed)
+        setViewState('result')
+        return completed
+      }
+
+      await aiNoteService.analyzeStream(
+        '/api/note/pipeline-analyze',
+        request,
+        (event) => {
+          const next = applyAiNoteStreamEvent(streamStateRef.current, event)
+          streamStateRef.current = next
+          setStreamState(next)
+          setTrace(next.trace)
+
+          if (event.stage === 'INIT' && event.data?.note_id) {
+            activeNoteIdRef.current = event.data.note_id
+            return
+          }
+
+          if (event.stage === 'DONE' && event.status === 'completed') {
+            const noteId = activeNoteIdRef.current || event.data?.note_id || note?.id
+            if (noteId) {
+              void finalizeCompletedNote(noteId)
+                .then(() => {
+                  setIsAnalyzing(false)
+                  analysisAbortRef.current = null
+                  showToast('AI 笔记生成完成', 'success')
+                })
+                .catch((err) => {
+                  setIsAnalyzing(false)
+                  analysisAbortRef.current = null
+                  showToast(err instanceof Error ? err.message : '获取笔记失败', 'error')
+                })
+              return
+            }
+
+            setIsAnalyzing(false)
+            analysisAbortRef.current = null
+            showToast('AI 笔记生成完成', 'success')
+            return
+          }
+
+          if (event.stage === 'DONE' && event.status === 'error') {
+            const message = event.data?.error || '分析失败'
+            setError(message)
+            setIsAnalyzing(false)
+            analysisAbortRef.current = null
+            showToast(message, 'error')
+          }
+        },
+        abortController.signal,
+      )
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setIsAnalyzing(false)
+        analysisAbortRef.current = null
+        showToast('已取消 AI 笔记重新生成', 'info')
+        return
+      }
       setError(err instanceof Error ? err.message : '分析失败')
     } finally {
       setIsAnalyzing(false)
@@ -712,11 +813,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         {viewState === 'config' && (
           <>
             <div className="ai-note-modal-content">
-              <div className="ai-note-select-group">
-                <label>AI 服务商</label>
-                <div className="ai-note-summary-chip">{activeProviderLabel}</div>
-              </div>
-
               <div className="ai-note-select-group">
                 <label>模型</label>
                 {providerModels.length > 0 ? (
@@ -848,12 +944,24 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
                 {selectedTraceItem.statusLabel}
               </span>
             </div>
+            <div className="ai-note-trace-detail-block">
+              <div className="ai-note-trace-detail-block-title">节点摘要</div>
+              <pre className="ai-note-trace-detail-summary-box">{selectedTraceItem.summary}</pre>
+            </div>
+            <div className="ai-note-trace-detail-block">
+              <div className="ai-note-trace-detail-block-title">实时日志</div>
+              <pre className="ai-note-trace-detail-json">{liveTraceLogText}</pre>
+            </div>
             {typeof selectedTraceItem.progress === 'number' && (
               <div className="ai-note-trace-detail-meta">进度 {Math.round(selectedTraceItem.progress)}%</div>
             )}
             <div className="ai-note-trace-detail-block">
               <div className="ai-note-trace-detail-block-title">日志文本</div>
               <pre className="ai-note-trace-detail-json">{selectedTraceItem.detailText}</pre>
+            </div>
+            <div className="ai-note-trace-detail-block">
+              <div className="ai-note-trace-detail-block-title">字段预览</div>
+              <pre className="ai-note-trace-detail-json">{JSON.stringify(selectedTraceItem.steps[selectedTraceItem.steps.length - 1]?.detail || {}, null, 2)}</pre>
             </div>
           </div>
         )}
@@ -935,6 +1043,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         .ai-note-trace-detail-block { display: grid; gap: 8px; }
         .ai-note-trace-detail-block-title { font-size: 12px; font-weight: 700; color: var(--color-text-primary); }
         .ai-note-trace-detail-json { margin: 0; padding: 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 12px; line-height: 1.55; white-space: pre-wrap; color: var(--color-text-secondary); overflow: auto; }
+        .ai-note-trace-detail-summary-box { margin: 0; padding: 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: var(--color-text-secondary); overflow: auto; }
         .ai-note-trace-detail-copy,.ai-note-trace-detail-close { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease; }
         .ai-note-trace-detail-copy { display: inline-flex; align-items: center; gap: 6px; background: var(--color-primary-600); color: white; }
         .ai-note-trace-detail-close { background: var(--color-bg-secondary); color: var(--color-text-primary); }

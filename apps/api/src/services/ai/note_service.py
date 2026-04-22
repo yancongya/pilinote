@@ -1518,12 +1518,13 @@ class AiNoteService:
                 self._add_trace(
                     self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
                     "AI 分析",
-                    f"正在请求 {model_provider}/{model_name}",
+                    f"正在请求 {model_provider}/{model_name}，prompt 约 {len(prompt)} 字",
                     92.0,
                     {
                         "provider": model_provider,
                         "model": model_name,
                         "prompt_length": len(prompt),
+                        "prompt_preview": prompt[:1200],
                     },
                     note=note,
                 )

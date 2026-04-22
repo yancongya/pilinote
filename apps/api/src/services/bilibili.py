@@ -544,34 +544,49 @@ class BilibiliService:
         print(f"  Cookies names: {list(cookies.keys())}")
         print(f"  Has bili_jct: {'bili_jct' in cookies}")
 
-        try:
-            # 使用异步请求
-            response = await self._request("GET", url, params=params)
-            data = response.json()
-            print(f"收藏夹详情响应: {data}")
+        last_error = None
+        for attempt in range(2):
+            try:
+                # 使用异步请求
+                response = await self._request("GET", url, params=params)
+                data = response.json()
+                print(f"收藏夹详情响应: {data}")
 
-            if data.get("code") == 0:
+                if data.get("code") == 0:
+                    return {
+                        "success": True,
+                        "data": data.get("data", {})
+                    }
+
+                last_error = data.get("message", "获取收藏夹详情失败")
+                if attempt == 0 and any(keyword in str(last_error).lower() for keyword in ["timeout", "timed out", "connect", "network", "412", "request was banned"]):
+                    continue
                 return {
-                    "success": True,
-                    "data": data.get("data", {})
+                    "success": False,
+                    "message": last_error
                 }
-            return {
-                "success": False,
-                "message": data.get("message", "获取收藏夹详情失败")
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"获取收藏夹详情异常: {str(e)}"
-            }
+            except Exception as e:
+                last_error = str(e)
+                if attempt == 0:
+                    continue
+                return {
+                    "success": False,
+                    "message": f"获取收藏夹详情异常: {last_error}"
+                }
 
-    async def get_watch_later(self, sessdata: str) -> Dict:
+        return {
+            "success": False,
+            "message": f"获取收藏夹详情失败: {last_error}"
+        }
+
+    async def get_watch_later(self, sessdata: str, cache_key: str | None = None) -> Dict:
         """获取稍后再看列表（全部，使用HeadersManager获取headers）"""
         # 尝试从缓存获取
         from src.services.cache.video_cache import video_cache
         
         # 使用用户MID作为缓存键
-        cached_data = video_cache.get('watch_later', user_id=sessdata[:20])  # 使用sessdata前20位作为用户标识
+        user_cache_key = cache_key or sessdata[:20]
+        cached_data = video_cache.get('watch_later', user_id=user_cache_key)
         if cached_data:
             print(f"[Cache] 稍后再看列表命中缓存")
             return cached_data
@@ -599,7 +614,7 @@ class BilibiliService:
                     "data": data.get("data", {})
                 }
                 # 缓存结果（5分钟）
-                video_cache.set('watch_later', result, user_id=sessdata[:20])
+                video_cache.set('watch_later', result, user_id=user_cache_key)
                 return result
             return {
                 "success": False,
@@ -613,13 +628,14 @@ class BilibiliService:
                 "message": f"获取稍后再看列表异常: {str(e)}"
             }
 
-    async def get_history(self, sessdata: str) -> Dict:
+    async def get_history(self, sessdata: str, cache_key: str | None = None) -> Dict:
         """获取观看历史列表（使用HeadersManager获取headers）"""
         # 尝试从缓存获取
         from src.services.cache.video_cache import video_cache
 
         # 使用用户MID作为缓存键
-        cached_data = video_cache.get('history', user_id=sessdata[:20])  # 使用sessdata前20位作为用户标识
+        user_cache_key = cache_key or sessdata[:20]
+        cached_data = video_cache.get('history', user_id=user_cache_key)
         if cached_data:
             print(f"[Cache] 观看历史列表命中缓存")
             return cached_data
@@ -647,7 +663,7 @@ class BilibiliService:
                     "data": data.get("data", {})
                 }
                 # 缓存结果（5分钟）
-                video_cache.set('history', result, user_id=sessdata[:20])
+                video_cache.set('history', result, user_id=user_cache_key)
                 return result
             return {
                 "success": False,

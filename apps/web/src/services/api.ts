@@ -54,50 +54,90 @@ export interface SmsLoginRequest {
 }
 
 class ApiService {
+  private async sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
   async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
+    const maxRetries = options.method === 'GET' ? 2 : 0
+    let lastErrorMessage = '网络请求失败'
+
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        ...options,
-      });
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        try {
+          const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            ...options,
+          });
 
-      const data = await response.json();
+          const data = await response.json();
 
-      // 如果HTTP状态码不是2xx，检查是否有detail字段
-      if (!response.ok) {
-        // FastAPI的HTTPException会返回detail字段
-        if (data.detail) {
-          // 如果detail是字符串
-          if (typeof data.detail === 'string') {
-            return {
-              success: false,
-              message: data.detail
-            };
+          if (response.ok) {
+            if (data && typeof data === 'object' && 'detail' in data && data.detail) {
+              if (typeof data.detail === 'string') {
+                return {
+                  success: false,
+                  message: data.detail,
+                };
+              }
+
+              if (typeof data.detail === 'object') {
+                const detail = data.detail as { success?: boolean; message?: string; code?: number }
+                return {
+                  success: detail.success ?? false,
+                  message: detail.message || '请求失败',
+                  code: detail.code,
+                };
+              }
+            }
+
+            return data;
           }
-          // 如果detail是对象（包含message、code等）
-          if (typeof data.detail === 'object') {
-            return {
-              success: false,
-              message: data.detail.message || '请求失败',
-              code: data.detail.code
-            };
+
+          // 如果HTTP状态码不是2xx，检查是否有detail字段
+          if (data.detail) {
+            if (typeof data.detail === 'string') {
+              lastErrorMessage = data.detail;
+            } else if (typeof data.detail === 'object') {
+              lastErrorMessage = data.detail.message || '请求失败';
+            }
+          } else {
+            lastErrorMessage = data.message || '请求失败';
+          }
+
+          const retryableStatus = [500, 502, 503, 504]
+          if (attempt < maxRetries && retryableStatus.includes(response.status)) {
+            await this.sleep(250 * (attempt + 1))
+            continue
+          }
+
+          return {
+            success: false,
+            message: lastErrorMessage,
+            code: data.code
+          };
+        } catch (error) {
+          lastErrorMessage = error instanceof Error ? error.message : '网络请求失败'
+          if (attempt < maxRetries) {
+            await this.sleep(250 * (attempt + 1))
+            continue
+          }
+          return {
+            success: false,
+            message: lastErrorMessage,
           }
         }
-        // 如果没有detail字段，返回整个data
-        return {
-          success: false,
-          message: data.message || '请求失败',
-          code: data.code
-        };
       }
-
-      return data;
+      return {
+        success: false,
+        message: lastErrorMessage,
+      }
     } catch (error) {
       return {
         success: false,

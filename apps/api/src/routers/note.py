@@ -551,7 +551,7 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
                             event_data = {
                                 "stage": stage_key,
                                 "status": "completed",
-                                "data": trace_entry.get("detail") or {},
+                                "data": trace_entry,
                             }
                             yield f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
                     
@@ -565,12 +565,12 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
                         stage_detail = {}
                         for t in trace:
                             if t.get("stage") == current_stage:
-                                stage_detail = t.get("detail") or {}
+                                stage_detail = t
                                 break
                         event_data = {
                             "stage": current_stage,
                             "status": "processing",
-                            "data": stage_detail or {"message": "处理中..."},
+                            "data": stage_detail or {"stage": current_stage, "summary": "处理中...", "detail": {"message": "处理中..."}},
                         }
                         yield f"data: {json.dumps(event_data, ensure_ascii=False)}\n\n"
                     
@@ -599,4 +599,3 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
 
     logger.info(f"[SSE] Starting event stream for note {note_id}")
     return StreamingResponse(event_stream(), media_type="text/event-stream")
-

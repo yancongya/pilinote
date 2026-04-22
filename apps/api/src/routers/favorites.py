@@ -156,6 +156,21 @@ async def get_folder_detail(
     - 使用统一的数据模型和认证依赖
     """
     user, sessdata = user_sessdata
+    cache_service = VideoCacheService()
+    cache_key = {
+        "folder_id": folder_id,
+        "page": page,
+        "page_size": page_size,
+        "keyword": keyword or "",
+        "order": order,
+        "sort_direction": sort_direction,
+        "type": type,
+        "tid": tid,
+        "lazy": lazy,
+    }
+    cached = cache_service.get("folder_detail", user_id=user.mid, **cache_key)
+    if cached and cached.get("success"):
+        return cached
 
     try:
         service = BilibiliService()
@@ -180,9 +195,7 @@ async def get_folder_detail(
                     error_msg = "请求频率过高，请稍后再试"
                 elif "400" in error_msg:
                     error_msg = "B站API暂时限制访问，请稍后再试"
-                raise HTTPException(
-                    status_code=200, detail={"success": False, "message": error_msg}
-                )
+                raise HTTPException(status_code=502, detail=error_msg)
 
             data = result["data"]
             medias = data.get("medias", [])
@@ -192,10 +205,10 @@ async def get_folder_detail(
                 medias,
                 sessdata,
                 enrich=not lazy,
-                cache_service=VideoCacheService(),
+                cache_service=cache_service,
             )
 
-            return CardListResponse(
+            response = CardListResponse(
                 success=True,
                 data={
                     "medias": list_data,
@@ -205,9 +218,17 @@ async def get_folder_detail(
                 },
                 total=info.get("media_count", 0),
             )
+            cache_service.set("folder_detail", response.model_dump(), user_id=user.mid, **cache_key)
+            return response
         finally:
             service.close()
+    except HTTPException:
+        if cached and cached.get("success"):
+            return cached
+        raise
     except Exception as e:
+        if cached and cached.get("success"):
+            return cached
         raise HTTPException(status_code=500, detail=f"获取收藏夹详情失败: {str(e)}")
 
 

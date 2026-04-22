@@ -29,6 +29,8 @@ export interface VideoListContainerProps {
   loadingMore: boolean
   /** 错误信息 */
   error: string
+  /** 加载更多失败信息 */
+  loadMoreError?: string
   /** 批量模式状态 */
   batchMode?: boolean
   /** 选中的视频集合 */
@@ -74,6 +76,7 @@ export default function VideoListContainer({
   loading,
   loadingMore,
   error,
+  loadMoreError = '',
   batchMode = false,
   selectedVideos = new Set(),
   onToggleSelect,
@@ -100,7 +103,7 @@ export default function VideoListContainer({
       {extraHeader && <div className="video-list-extra-header">{extraHeader}</div>}
 
       {/* 加载状态 */}
-      {loading && (
+      {loading && videos.length === 0 && (
         <MediaListState
           kind="loading"
           skeletonCount={initialLoadingSkeletonCount}
@@ -110,7 +113,7 @@ export default function VideoListContainer({
       )}
 
       {/* 错误状态 */}
-      {error && (
+      {error && videos.length === 0 && (
         <MediaListState
           kind="error"
           message={
@@ -123,7 +126,7 @@ export default function VideoListContainer({
       )}
 
       {/* 视频列表 */}
-      {!loading && !error && (
+      {!(loading && videos.length === 0) && !(error && videos.length === 0) && (
         <div className="video-list video-grid" role="list" aria-label="视频列表">
           {/* 批量选择头部 */}
           {batchMode && batchSelectHeader && onSelectAll && (
@@ -173,6 +176,25 @@ export default function VideoListContainer({
                   skeletonCount={appendLoadingSkeletonCount}
                   dense
                 />
+              )}
+
+              {/* 非阻塞错误提示 */}
+              {(loadMoreError || (error && videos.length > 0)) && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    margin: '0 16px 12px',
+                    padding: '10px 12px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-secondary)',
+                    fontSize: '13px'
+                  }}
+                >
+                  {loadMoreError || error}
+                </div>
               )}
 
               {/* 没有更多数据提示 */}

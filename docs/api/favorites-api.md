@@ -171,10 +171,10 @@ async def get_folders(
 - **分页加载**：采用简单分页机制，每次只返回请求页面的数据
 - **高性能响应**：收藏夹详情默认懒加载，首屏不再逐条补视频详情
 - **完整数据支持**：需要时仍可通过补强逻辑获取评论数、分享数等信息
-- **智能缓存机制**：使用多层缓存（内存+数据库）提升性能
+- **智能缓存机制**：使用多层缓存（内存+数据库）提升性能，缓存键包含 `user.mid + folder_id + page + page_size + keyword + order + sort_direction + type + tid + lazy`
 - **并发优化**：补强模式下限制并发数为3，平衡速度和系统负载
 - **完整功能支持**：支持搜索、排序等所有功能
-- **错误友好提示**：对B站API限制等情况提供友好的错误提示
+- **错误友好提示**：对B站API限制等情况提供友好的错误提示；上游抖动时会优先回退缓存，无法回退时返回 `502`
 
 #### 路径参数
 
@@ -212,11 +212,10 @@ async def get_folders(
 - `21`：音频
 - `12`：文章
 
-**内容类型（type）**：
-- `0`：全部（默认）
-- `2`：视频
-- `21`：音频
-- `12`：文章
+**缓存策略**：
+- 路由层按 `user.mid`、收藏夹 ID、页码和筛选条件缓存已成功返回的页面
+- 当第 2 页及后续页请求失败时，如果缓存存在，直接回退缓存，避免整页报错
+- `lazy=true` 是默认路径，只返回基础卡片数据
 
 #### 请求示例
 
@@ -339,6 +338,7 @@ curl -X GET "http://localhost:8000/api/favorites/folders/123456?keyword=技术&o
 | 400 | 请求参数错误或 B 站 API 返回错误 |
 | 401 | 未登录或 SESSDATA 无效 |
 | 404 | 收藏夹不存在 |
+| 502 | 上游 B 站 API 临时失败 |
 | 500 | 服务器内部错误 |
 
 #### 后端实现
@@ -398,10 +398,7 @@ async def get_folder_detail(
                     error_msg = "请求频率过高，请稍后再试"
                 elif "400" in error_msg:
                     error_msg = "B站API暂时限制访问，请稍后再试"
-                raise HTTPException(status_code=200, detail={
-                    "success": False,
-                    "message": error_msg
-                })
+                raise HTTPException(status_code=502, detail=error_msg)
             
             data = result["data"]
             medias = data.get("medias", [])

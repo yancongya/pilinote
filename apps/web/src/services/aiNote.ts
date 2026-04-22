@@ -150,24 +150,31 @@ export const aiNoteService = {
     throw new Error((response as any)?.message || '分析请求失败，无返回数据');
   },
 
-  /**
-   * 使用 SSE 流式分析笔记
-   * @param request 分析请求
-   * @param onEvent SSE 事件回调
-   * @param signal AbortSignal 用于取消请求
-   */
   async analyzeStream(
-    request: AnalyzeRequest,
+    endpoint: string,
+    request: unknown,
     onEvent: (event: { stage: string; status: string; data?: any }) => void,
     signal?: AbortSignal
   ): Promise<void> {
-    const baseUrl = (await import('../config/api')).getApiBaseUrl();
-    const response = await fetch(`${baseUrl}/api/note/pipeline-analyze`, {
+    const { getApiBaseUrl } = await import('../config/api');
+    const baseUrl = getApiBaseUrl();
+    const targetUrl = /^https?:\/\//i.test(endpoint) ? endpoint : `${baseUrl}${endpoint}`;
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
       signal,
     });
+
+    if (!response.ok) {
+      const fallback = `请求失败（${response.status}）`;
+      try {
+        const payload = await response.json();
+        throw new Error(payload?.detail || payload?.message || fallback);
+      } catch {
+        throw new Error(fallback);
+      }
+    }
 
     if (!response.body) {
       throw new Error('无法建立连接');
@@ -177,22 +184,31 @@ export const aiNoteService = {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    const consumeLine = (line: string) => {
+      if (!line.startsWith('data: ')) return;
+      try {
+        const event = JSON.parse(line.slice(6));
+        onEvent(event);
+      } catch {
+        // ignore malformed SSE payloads
+      }
+    };
+
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        if (buffer.trim()) {
+          buffer.split('\n').forEach(consumeLine);
+        }
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
 
       for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const event = JSON.parse(line.slice(6));
-          onEvent(event);
-        } catch {
-          // 忽略解析错误
-        }
+        consumeLine(line);
       }
     }
   },

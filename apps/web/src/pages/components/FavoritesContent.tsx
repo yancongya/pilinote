@@ -197,10 +197,16 @@ export default function FavoritesContent() {
   ])
 
   // 使用 useVideoList Hook 管理视频列表
-  const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, total, loadMoreRef, fetchVideos } = useVideoList({
+  const favoriteListCacheKey = selectedFolder
+    ? `favorites:${user?.mid || 'anon'}:${selectedFolder.id}:${keyword.trim() || '__all__'}:${order}:${sortDirection}`
+    : `favorites:root:${user?.mid || 'anon'}`
+
+  const { videos, loading: videosLoading, loadingMore, loadMoreError, error: videosError, hasMore, total, loadMoreRef, currentPage, fetchVideos } = useVideoList({
     fetchFn: fetchFavoriteVideos,
     pageSize: 10,
     deps: [],  // ✅ 不需要deps，因为fetchFn已经用useCallback处理了依赖
+    cacheKey: favoriteListCacheKey,
+    autoLoad: Boolean(selectedFolder),
     formatItem: (video: any) => ({
       id: video.id,
       bvid: video.bvid,
@@ -229,9 +235,9 @@ export default function FavoritesContent() {
   // 加载更多函数
   const handleLoadMore = useCallback(async () => {
     if (hasMore && !loadingMore) {
-      await fetchVideos(undefined, true)
+      await fetchVideos(currentPage + 1, true)
     }
-  }, [hasMore, loadingMore, fetchVideos])
+  }, [hasMore, loadingMore, currentPage, fetchVideos])
 
   // 更新loadedCount和totalCount状态
   useEffect(() => {
@@ -495,6 +501,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
             loading={false}
             loadingMore={false}
             error=""
+            loadMoreError={loadMoreError}
             onDownloadToggle={toggleDownload}
             getDownloadStatus={getDownloadStatus}
             loadMoreRef={loadMoreRef}

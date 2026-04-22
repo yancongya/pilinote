@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "lastUpdated": "2026-04-22T14:10:00Z",
+  "lastUpdated": "2026-04-22T16:52:04Z",
   "root": "docs",
   "directories": {
     "ai-note": {
@@ -179,6 +179,7 @@
       "documents": [
         {"name": "favorites.md", "type": "guide"},
         {"name": "watchlater.md", "type": "guide"},
+        {"name": "history.md", "type": "guide"},
         {"name": "link-parser.md", "type": "guide"}
       ],
       "dependencies": ["auth", "api"]

@@ -5,6 +5,7 @@
 稍后再看 API 提供了获取和管理 B 站稍后再看列表的接口，用户可以将视频添加到稍后再看，方便后续观看。
 
 > 说明：当前实现会在服务端优先使用缓存回退；实时请求失败时，若缓存存在，接口会返回缓存数据而不是直接让前端报错。
+> 现阶段缓存键以 `user.mid` 为准，服务端先获取完整列表，再在本地完成分页、搜索和排序，减少滚动加载时的重复上游请求。
 
 ### 认证方式
 
@@ -214,7 +215,7 @@ async def get_watch_later_list(
     service = BilibiliService()
     try:
         # 调用 B 站 API: /x/v2/history/toview
-        result = await service.get_watch_later(sessdata)  # 只传递 sessdata
+        result = await service.get_watch_later(sessdata, cache_key=str(user.mid))
         if result["success"]:
             data = result["data"]
             videos = data.get("list", [])
@@ -426,7 +427,7 @@ async def get_watch_later_media(
     
     service = BilibiliService()
     try:
-            result = await service.get_watch_later(sessdata)  # 只传递 sessdata
+            result = await service.get_watch_later(sessdata, cache_key=str(user.mid))
             
             if result["success"]:
                 from src.services.media_data_transformer import transformer

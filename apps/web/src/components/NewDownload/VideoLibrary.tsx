@@ -9,9 +9,11 @@ import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
 import { AiNoteButton } from '../ai/AiNoteButton'
+import { AiNoteModal } from '../ai/AiNoteModal'
 import { useAiNoteLookup } from '../../hooks/useAiNoteLookup'
 import { localAsrModelService } from '../../services/localAsrModels'
 import { getApiBaseUrl } from '../../config/api'
+import { type NoteResponse } from '../../services/aiNote'
 
 interface LibraryCardProps {
   task: Task
@@ -32,15 +34,24 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
   // AI 笔记状态
   const [isLocalAsrReady, setIsLocalAsrReady] = useState(true)
+  const [showAiNoteModal, setShowAiNoteModal] = useState(false)
+  const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
 
   const folderPath = task.meta?.folder_path
-  const videoIdForNote = folderPath || task.meta?.nfo_data?.bvid
+  const bvid = task.meta?.nfo_data?.bvid
+  const videoIdForNote = bvid || folderPath
 
   // 仅对可识别的 B 站视频提供 AI 笔记（统一使用 BV 号进行查找/触发分析）
   const canUseAiNote = Boolean(videoIdForNote) && !isOpus
   const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
   const noteForStatus = lookup.note
   const aiNoteButtonStatus = noteForStatus?.status === 'completed' ? 'completed' : 'none'
+
+  useEffect(() => {
+    if (noteForStatus) {
+      setExistingNote(noteForStatus)
+    }
+  }, [noteForStatus])
 
   useEffect(() => {
     let cancelled = false
@@ -62,8 +73,11 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
       showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
       return
     }
-    navigate(`/video/${videoIdForNote}/ai`)
-    return
+    setShowAiNoteModal(true)
+  }
+
+  const handleAiNoteComplete = (note: NoteResponse) => {
+    setExistingNote(note)
   }
 
   // 点击卡片跳转到详情页
@@ -318,6 +332,17 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             </div>
           ))}
         </div>
+      )}
+
+      {showAiNoteModal && canUseAiNote && (
+        <AiNoteModal
+          videoId={videoIdForNote}
+          videoTitle={task.title}
+          existingNote={existingNote}
+          isOpen={showAiNoteModal}
+          onClose={() => setShowAiNoteModal(false)}
+          onComplete={handleAiNoteComplete}
+        />
       )}
     </div>
   )

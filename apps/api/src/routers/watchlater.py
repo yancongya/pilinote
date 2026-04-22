@@ -74,12 +74,12 @@ async def get_watch_later_list(
     - 使用B站原生API快速加载
     """
     user, sessdata = user_sessdata
-    cache_key = sessdata[:20]
+    cache_key = user.mid
 
     try:
         service = BilibiliService()
         try:
-            result = await service.get_watch_later(sessdata)
+            result = await service.get_watch_later(sessdata, cache_key=str(user.mid))
             if result["success"]:
                 return _build_watch_later_response(result["data"], pn, ps, keyword, order, sort_direction)
 

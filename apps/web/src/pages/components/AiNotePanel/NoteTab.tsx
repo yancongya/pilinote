@@ -455,6 +455,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
       showToast('已开始重新生成 AI 笔记', 'info');
 
       await aiNoteService.analyzeStream(
+        '/api/note/pipeline-analyze',
         {
           video_id: videoId,
           style,
@@ -471,7 +472,9 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
 
           if (event.status === 'processing') {
             const processingDetail = event.data
-              ? (typeof event.data === 'string' ? event.data : JSON.stringify(event.data))
+              ? (typeof event.data === 'string'
+                ? event.data
+                : (event.data.summary || event.data.message || JSON.stringify(event.data)))
               : '处理中...';
             pipeline.updateStageStatus(event.stage, 'processing', processingDetail);
             return;
@@ -488,7 +491,11 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
               return;
             }
 
-            const detailText = event.data ? (typeof event.data === 'string' ? event.data : JSON.stringify(event.data)) : '';
+            const detailText = event.data
+              ? (typeof event.data === 'string'
+                ? event.data
+                : (event.data.summary || event.data.message || JSON.stringify(event.data)))
+              : '';
             pipeline.updateStageStatus(event.stage, 'completed', detailText || '完成');
             const toastLabel = stageToastLabels[event.stage];
             if (toastLabel) showToast(toastLabel, 'success');

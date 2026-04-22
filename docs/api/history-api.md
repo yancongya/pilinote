@@ -5,6 +5,7 @@
 观看历史 API 提供了获取用户在 B 站的观看历史记录的接口，支持分页、搜索、排序等功能，帮助用户回顾和管理观看过的视频。
 
 > 说明：当前实现会在服务端优先使用缓存回退；实时请求失败时，若缓存存在，接口会返回缓存数据而不是直接让前端报错。
+> 现阶段缓存键以 `user.mid` 为准，服务端先获取完整历史列表，再在本地完成分页、搜索和排序，减少滚动加载时的重复上游请求。
 
 ### 认证方式
 
@@ -233,7 +234,7 @@ async def get_history_list(
     try:
         service = BilibiliService()
         try:
-            result = await service.get_history(sessdata)
+            result = await service.get_history(sessdata, cache_key=str(user.mid))
             if result["success"]:
                 from src.services.media_data_transformer import transformer
                 

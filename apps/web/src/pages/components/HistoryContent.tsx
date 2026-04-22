@@ -98,11 +98,14 @@ export default function HistoryContent() {
     return response
   }, [user?.mid, keyword, order, sortDirection])
 
+  const historyCacheKey = `history:${user?.mid || 'anon'}:${keyword.trim() || '__all__'}:${order}:${sortDirection}`
+
   // 使用 useVideoList Hook 管理视频列表
-  const { videos, loading: videosLoading, loadingMore, error: videosError, hasMore, total, loadMoreRef } = useVideoList({
+  const { videos, loading: videosLoading, loadingMore, loadMoreError, error: videosError, hasMore, total, loadMoreRef } = useVideoList({
     fetchFn: fetchHistoryVideos,
     pageSize: 20,
     deps: [],  // ✅ 不需要deps，因为fetchFn已经用useCallback处理了依赖
+    cacheKey: historyCacheKey,
     formatItem: (video: any) => ({
       id: video.id,
       bvid: video.bvid,
@@ -259,6 +262,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
           loading={false}
           loadingMore={false}
           error=""
+          loadMoreError={loadMoreError}
           onDownloadToggle={toggleDownload}
           getDownloadStatus={getDownloadStatus}
           loadMoreRef={loadMoreRef}

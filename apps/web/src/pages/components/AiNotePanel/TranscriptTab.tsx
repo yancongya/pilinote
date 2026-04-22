@@ -5,6 +5,7 @@ import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';
 import { aiRuntimeStateService } from '../../../services/aiRuntimeState';
 import { getApiBaseUrl } from '../../../config/api';
 import { useToast } from '../../../components/Toast';
+import { aiNoteService } from '../../../services/aiNote';
 import TermReplacementModal from '../../../components/ai/TermReplacementModal';
 import {
   formatAnalysisStageSummary,
@@ -232,36 +233,15 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
     analysisAbortRef.current = ac;
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/api/ai/subtitle/pipeline-analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await aiNoteService.analyzeStream(
+        '/api/ai/subtitle/pipeline-analyze',
+        {
           video_id: videoId,
           content,
           model_provider: selectedModel.providerId,
           model_name: selectedModel.model,
-        }),
-        signal: ac.signal,
-      });
-
-      if (!response.body) throw new Error('无法建立连接');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
+          },
+          (event) => {
             const { stage, status, data } = event;
 
             if (stage === 'META' && data?.task_id) {
@@ -270,7 +250,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
             }
 
             logAnalysisEvent(stage, status, data);
-            setAnalysisStages(prev => prev.map(s => (s.key === stage ? { ...s, status, data } : s)));
+            setAnalysisStages(prev => prev.map(s => (s.key === stage ? { ...s, status: status as AnalysisStage['status'], data } : s)));
 
             if (stage === 'DONE' && status === 'completed') {
               setAnalysisIssues(normalizeAnalysisIssues(data?.issues || []));
@@ -295,9 +275,9 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
               logAnalysis('done_error', { message, data });
               showToast(message, 'error');
             }
-          } catch {}
-        }
-      }
+          },
+          ac.signal,
+        );
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setIsAnalyzing(false);
@@ -305,7 +285,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
         logAnalysis('aborted', { reason: 'AbortError' });
         showToast('已取消字幕纠正', 'info');
         return;
-      }
+        }
       const message = err?.message || '连接失败';
       setAnalysisError(message);
       setIsAnalyzing(false);
