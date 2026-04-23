@@ -7,8 +7,9 @@ import { useVideoDownload } from '../hooks/useVideoDownload'
 import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, Film, Play, User } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Film, Play, User } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
+import './VideoDetailPage.css'
 import {
   buildPlayablePages,
   getPlayableEntries,
@@ -118,128 +119,61 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const getResponsiveStyle = () => {
     if (isMobile) {
       return {
-        // 移动端：紧凑布局
-        padding: '12px 16px',
-        maxWidth: '100%',
         fontSize: {
           title: '18px',
           uploader: '15px',
           body: '14px',
           small: '12px'
-        },
-        spacing: {
-          section: '16px',
-          element: '12px'
-        },
-        layout: 'single-column' as const
+        }
       }
     } else if (isTablet) {
       return {
-        // 平板：中等布局
-        padding: '20px 28px',
-        maxWidth: '900px',
         fontSize: {
           title: '20px',
           uploader: '16px',
           body: '15px',
           small: '13px'
-        },
-        spacing: {
-          section: '20px',
-          element: '14px'
-        },
-        layout: 'single-column' as const
+        }
       }
     } else {
       return {
-        // 桌面：宽松双列布局
-        padding: '32px 40px',
-        maxWidth: '1400px',
         fontSize: {
           title: '24px',
           uploader: '17px',
           body: '16px',
           small: '14px'
-        },
-        spacing: {
-          section: '28px',
-          element: '16px'
-        },
-        layout: 'two-column' as const
+        }
       }
     }
   }
 
   const responsiveStyle = getResponsiveStyle()
-
-  // 添加自定义拟态滚动条样式
-  useEffect(() => {
-    // 创建样式元素
-    const style = document.createElement('style')
-    style.textContent = `
-      /* 隐藏原生滚动条 */
-      .video-detail-page::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-
-      .video-detail-page::-webkit-scrollbar-track {
-        background: transparent;
-        border-radius: 3px;
-      }
-
-      .video-detail-page::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, 
-          rgba(110, 90, 255, 0.3) 0%, 
-          rgba(106, 90, 205, 0.4) 100%);
-        border-radius: 3px;
-        border: 1px solid rgba(110, 90, 255, 0.1);
-        box-shadow: 
-          0 2px 4px rgba(0, 0, 0, 0.1),
-          inset 0 1px 0 rgba(255, 255, 255, 0.2);
-        transition: all 0.3s ease;
-      }
-
-      .video-detail-page::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(180deg, 
-          rgba(110, 90, 255, 0.5) 0%, 
-          rgba(106, 90, 205, 0.6) 100%);
-        box-shadow: 
-          0 2px 8px rgba(0, 0, 0, 0.2),
-          inset 0 1px 0 rgba(255, 255, 255, 0.3);
-      }
-
-      .video-detail-page::-webkit-scrollbar-thumb:active {
-        background: linear-gradient(180deg, 
-          rgba(110, 90, 255, 0.7) 0%, 
-          rgba(106, 90, 205, 0.8) 100%);
-      }
-
-      /* 暗色模式下的滚动条 */
-      .dark .video-detail-page::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, 
-          rgba(139, 127, 255, 0.3) 0%, 
-          rgba(138, 127, 255, 0.4) 100%);
-        border-color: rgba(139, 127, 255, 0.2);
-      }
-
-      .dark .video-detail-page::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(180deg, 
-          rgba(139, 127, 255, 0.5) 0%, 
-          rgba(138, 127, 255, 0.6) 100%);
-      }
-    `
-    document.head.appendChild(style)
-
-    return () => {
-      document.head.removeChild(style)
-    }
-  }, [])
+  const isCompactLayout = isMobile || isTablet
+  const cardRadius = isCompactLayout ? '8px' : '12px'
+  const cardPadding = isCompactLayout ? '12px' : '16px'
+  const avatarSize = isCompactLayout ? '48px' : '56px'
+  const badgePadding = isCompactLayout ? '2px 6px' : '4px 8px'
+  const listPadding = isCompactLayout ? '12px' : '16px'
+  const listMaxHeight = isCompactLayout ? '300px' : '400px'
+  const pageGap = isCompactLayout ? '16px' : '20px'
+  const statColumns = 'repeat(3, 1fr)'
 
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
     return getAvatarProxyUrl(url)
+  }
+
+  const getOriginalBilibiliUrl = (): string => {
+    if (!video) return 'https://www.bilibili.com'
+
+    if (video.isOpus) {
+      const opusMediaId = normalizeOpusMediaId(String(mediaId || video.aid || ''))
+      const opusNumericId = opusMediaId.replace(/^cv/i, '')
+      return opusNumericId ? `https://www.bilibili.com/read/cv${opusNumericId}` : 'https://www.bilibili.com'
+    }
+
+    return video.bvid ? `https://www.bilibili.com/video/${video.bvid}` : 'https://www.bilibili.com'
   }
 
   useEffect(() => {
@@ -257,7 +191,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
           try {
             localOpusResponse = await apiService.getLocalOpusContent(normalizeOpusMediaId(mediaId || ''))
           } catch (localOpusError) {
-            console.debug('[VideoDetail] 本地图文未命中，回退远端详情:', localOpusError)
+            // 本地图文未命中时回退远端详情，属于正常路径，不额外打日志
           }
         }
         
@@ -524,15 +458,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
         status = 'downloaded'
       }
       
-      console.log('[VideoDetail] 单个视频状态检查:', {
-        bvid: video.bvid,
-        cid: video.cid,
-        status,
-        hasInNewQueue,
-        hasCompleted,
-        videoLibraryResult: result.action
-      })
-      
       setDownloadedVideoStatus({ [video.cid]: status })
       
       // 如果在队列中，更新 downloadedCids
@@ -703,25 +628,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     
     const addedCount = getAddedCount()
     const status = downloadedVideoStatus[video?.cid || 0]
-    
-    console.log('[VideoDetail] 按钮文本计算:', {
-      videoBvid: video?.bvid,
-      videoCid: video?.cid,
-      addedCount,
-      status,
-      downloadedVideoStatus,
-      buttonText: video?.pages && video.pages.length > 1 
-        ? addedCount === 0 
-          ? `添加全部 ${video.pages.length} 个视频`
-          : addedCount < video.pages.length
-            ? `添加剩余 ${video.pages.length - addedCount} 个视频`
-            : '从列表移除'
-        : status === 'downloaded'
-          ? '已下载'
-          : status === 'in_list' || addedCount > 0
-            ? '从列表移除'
-            : '添加到列表'
-    })
     
     if (video?.pages && video.pages.length > 1) {
       // 多P视频
@@ -952,89 +858,51 @@ const handleReDownloadConfirm = async () => {
     )
   }
 
-  return (
-    <div 
-      className="video-detail-page"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        background: 'var(--color-bg-primary)',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        zIndex: 9999
-      }}>
-      {/* 内容容器 - 用于居中和布局 */}
-      <div style={{
-        maxWidth: responsiveStyle.maxWidth,
-        margin: '0 auto',
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: `0 ${responsiveStyle.padding}`
-      }}>
-      {/* 顶部导航 */}
-      <div style={{
-        position: 'sticky',
-        top: 0,
-        background: 'var(--color-bg-primary)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid var(--color-border)',
-        padding: responsiveStyle.layout === 'two-column' ? '16px 0' : responsiveStyle.padding,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        zIndex: 100,
-        width: '100%'
-      }}>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            border: 'none',
-            background: 'none',
-            cursor: 'pointer',
-            padding: '8px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'background 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--color-bg-tertiary)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'none'
-          }}
-        >
-          <ArrowLeft size={responsiveStyle.layout === 'two-column' ? 24 : 20} />
-        </button>
-        <h1 style={{
-          fontSize: responsiveStyle.layout === 'two-column' ? '18px' : '16px',
-          fontWeight: '600',
-          color: 'var(--color-text-primary)',
-          margin: 0,
-          flex: 1,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
-        }}>
-          {video.title}
-        </h1>
-      </div>
+  const originalBilibiliUrl = getOriginalBilibiliUrl()
 
-      {/* 主内容区 - 桌面模式为左右布局 */}
-      <div style={{
-        display: 'flex',
-        flexDirection: responsiveStyle.layout === 'two-column' ? 'row' : 'column',
-        gap: responsiveStyle.layout === 'two-column' ? '32px' : '24px',
-        marginBottom: '32px'
-      }}>
+  return (
+    <div className="video-detail-page">
+      <header className="video-detail-header">
+        <div className="video-detail-header-inner">
+          <button
+            onClick={() => navigate(-1)}
+            className="video-detail-back-button"
+            aria-label="返回"
+            type="button"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <a
+            className="video-detail-title-link"
+            href={originalBilibiliUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="打开原始 B 站网页"
+            title="打开原始 B 站网页"
+          >
+            <h1 className="video-detail-title">
+              {video.title}
+            </h1>
+          </a>
+          <a
+            className="video-detail-header-action"
+            href={originalBilibiliUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="打开原始 B 站网页"
+            title="打开原始 B 站网页"
+          >
+            <ExternalLink size={16} />
+            <span className="video-detail-header-action-label">原网页</span>
+          </a>
+        </div>
+      </header>
+
+      <main className="video-detail-content">
+      {/* 主内容区 - 统一单列竖向流 */}
+      <div className="video-detail-sections" style={{ gap: pageGap }}>
       {/* 左侧 - 视频封面 */}
       <div style={{
-        flex: responsiveStyle.layout === 'two-column' ? 1 : 'auto',
         minWidth: 0
       }}>
         <div style={{
@@ -1044,7 +912,7 @@ const handleReDownloadConfirm = async () => {
           background: 'var(--color-bg-tertiary)',
           overflow: 'hidden',
           display: video.isOpus ? 'block' : 'relative',
-          borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0',
+          borderRadius: cardRadius,
           cursor: !video.isOpus && hasLocalPlayback && mediaMode === 'poster' ? 'pointer' : 'default'
         }}
         onClick={() => {
@@ -1059,7 +927,7 @@ const handleReDownloadConfirm = async () => {
               <img
                 src={video.localOpus ? getLocalImageUrl(video.cover) : getProxyImageUrl(video.cover)}
                 alt={video.title}
-                style={{ width: '100%', borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0' }}
+                style={{ width: '100%', borderRadius: cardRadius }}
               />
             ) : null
           ) : (
@@ -1079,7 +947,7 @@ const handleReDownloadConfirm = async () => {
                   height: '100%',
                   objectFit: 'cover',
                   background: '#000',
-                  borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0'
+                  borderRadius: cardRadius
                 }}
               />
             ) : video.cover ? (
@@ -1093,7 +961,7 @@ const handleReDownloadConfirm = async () => {
                   width: '100%',
                   height: '100%',
                   objectFit: 'cover',
-                  borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '0'
+                  borderRadius: cardRadius
                 }}
               />
             ) : (
@@ -1191,9 +1059,9 @@ const handleReDownloadConfirm = async () => {
         {!video.isOpus && video.description && video.description.trim() && (
           <div style={{
             marginTop: '16px',
-            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+            padding: cardPadding,
             background: 'var(--color-bg-tertiary)',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            borderRadius: cardRadius,
             fontSize: responsiveStyle.fontSize.body,
             color: 'var(--color-text-primary)',
             lineHeight: '1.6',
@@ -1216,9 +1084,9 @@ const handleReDownloadConfirm = async () => {
         {video.comments && video.comments.length > 0 && (
           <div style={{
             marginTop: '16px',
-            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
+            padding: cardPadding,
             background: 'var(--color-bg-tertiary)',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px'
+            borderRadius: cardRadius
           }}>
             <h3 style={{
               fontSize: responsiveStyle.fontSize.small,
@@ -1278,11 +1146,10 @@ const handleReDownloadConfirm = async () => {
 
       {/* 右侧 - 视频信息和状态 */}
       <div style={{
-        flex: responsiveStyle.layout === 'two-column' ? 1 : 'auto',
         minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px'
+        gap: pageGap
       }}>
         {/* UP主信息 */}
         {!video.isOpus && (
@@ -1290,13 +1157,13 @@ const handleReDownloadConfirm = async () => {
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
-            padding: '12px',
+            padding: cardPadding,
             background: 'var(--color-bg-tertiary)',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px'
+            borderRadius: cardRadius
           }}>
             <div className="video-detail-avatar" style={{
-              width: responsiveStyle.layout === 'two-column' ? '56px' : '48px',
-              height: responsiveStyle.layout === 'two-column' ? '56px' : '48px',
+              width: avatarSize,
+              height: avatarSize,
               borderRadius: '50%',
               background: 'var(--color-bg-tertiary)',
               overflow: 'hidden',
@@ -1310,7 +1177,7 @@ const handleReDownloadConfirm = async () => {
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <User size={responsiveStyle.layout === 'two-column' ? 32 : 24} />
+                <User size={isCompactLayout ? 24 : 32} />
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1334,11 +1201,11 @@ const handleReDownloadConfirm = async () => {
         {!video.isOpus && (
           <div className="video-detail-stats" style={{
             display: 'grid',
-            gridTemplateColumns: responsiveStyle.layout === 'two-column' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+            gridTemplateColumns: statColumns,
             gap: '16px',
-            padding: '16px',
+            padding: cardPadding,
             background: 'var(--color-bg-tertiary)',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px'
+            borderRadius: cardRadius
           }}>
             <div>
               <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
@@ -1394,9 +1261,9 @@ const handleReDownloadConfirm = async () => {
         {/* 分P信息 */}
         {video.pages && video.pages.length > 1 && (
           <div style={{
-            padding: '12px',
+            padding: cardPadding,
             background: 'var(--color-bg-tertiary)',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
+            borderRadius: cardRadius,
             fontSize: responsiveStyle.fontSize.small,
             color: 'var(--color-text-primary)'
           }}>
@@ -1408,9 +1275,9 @@ const handleReDownloadConfirm = async () => {
         {video.pages && video.pages.length > 1 && (
           <div style={{
             background: 'var(--color-bg-tertiary)',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
-            padding: responsiveStyle.layout === 'two-column' ? '16px' : '12px',
-            maxHeight: responsiveStyle.layout === 'two-column' ? '400px' : '300px',
+            borderRadius: cardRadius,
+            padding: listPadding,
+            maxHeight: listMaxHeight,
             overflowY: 'auto'
           }}>
             {playablePages.map((page: any, index: number) => {
@@ -1436,10 +1303,10 @@ const handleReDownloadConfirm = async () => {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    padding: responsiveStyle.layout === 'two-column' ? '12px' : '10px',
+                    padding: isCompactLayout ? '10px' : '12px',
                     background: 'var(--color-bg-primary)',
-                    borderRadius: responsiveStyle.layout === 'two-column' ? '8px' : '6px',
-                    marginBottom: index < video.pages.length - 1 ? (responsiveStyle.layout === 'two-column' ? '10px' : '8px') : '0',
+                    borderRadius: isCompactLayout ? '6px' : '8px',
+                    marginBottom: index < video.pages.length - 1 ? (isCompactLayout ? '8px' : '10px') : '0',
                     opacity: isInList && !isDownloaded ? 0.6 : 1,
                     cursor: isPlayable ? 'pointer' : 'default',
                     border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
@@ -1459,7 +1326,7 @@ const handleReDownloadConfirm = async () => {
                       fontSize: '11px',
                       color: 'var(--color-primary-700)',
                       background: 'var(--color-primary-50)',
-                      padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
+                      padding: badgePadding,
                       borderRadius: '4px',
                       fontWeight: '600',
                       marginRight: '8px'
@@ -1472,7 +1339,7 @@ const handleReDownloadConfirm = async () => {
                       fontSize: '11px',
                       color: 'var(--color-success-600)',
                       background: 'var(--color-success-50)',
-                      padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
+                      padding: badgePadding,
                       borderRadius: '4px',
                       fontWeight: '500'
                     }}>
@@ -1484,7 +1351,7 @@ const handleReDownloadConfirm = async () => {
                       fontSize: '11px',
                       color: 'var(--color-primary-600)',
                       background: 'var(--color-primary-50)',
-                      padding: responsiveStyle.layout === 'two-column' ? '4px 8px' : '2px 6px',
+                      padding: badgePadding,
                       borderRadius: '4px',
                       fontWeight: '500'
                     }}>
@@ -1503,12 +1370,12 @@ const handleReDownloadConfirm = async () => {
           disabled={downloading}
           style={{
             width: '100%',
-            padding: responsiveStyle.layout === 'two-column' ? '16px' : '14px',
+            padding: isCompactLayout ? '14px' : '16px',
             background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
             color: 'var(--color-white)',
             border: 'none',
-            borderRadius: responsiveStyle.layout === 'two-column' ? '12px' : '8px',
-            fontSize: responsiveStyle.layout === 'two-column' ? '17px' : '16px',
+            borderRadius: cardRadius,
+            fontSize: isCompactLayout ? '16px' : '17px',
             fontWeight: '600',
             cursor: downloading ? 'not-allowed' : 'pointer',
             display: 'flex',
@@ -1644,10 +1511,10 @@ const handleReDownloadConfirm = async () => {
           }}
         />
       )}
+      </main>
 
       {/* AI笔记面板子路由 */}
       <Outlet />
-      </div>
     </div>
   )
 

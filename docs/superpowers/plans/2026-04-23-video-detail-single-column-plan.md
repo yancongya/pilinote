@@ -1,10 +1,10 @@
-# Video Detail Single-Column Redesign Implementation Plan
+# Video Detail Bilibili-Style Single-Column Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rebuild the video detail page as a PC-and-mobile unified single-column flow that feels closer to the Bilibili app while preserving every existing feature and content block.
+**Goal:** Rebuild the video detail page as a PC-and-mobile unified single-column flow that feels closer to the Bilibili app while preserving every existing feature and content block, and make the top navigation behave like a Bilibili content page with a dark-mode-safe back button and a title that opens the original Bilibili page.
 
-**Architecture:** Keep `VideoDetailPage.tsx` as the data/orchestration layer, but move all layout responsibilities into a single-column page shell and a dedicated CSS file. Reorder the existing sections into a vertical reading flow: sticky header, hero cover, metadata, actions, description/body, playlist, comments, and the AI outlet. Do not alter API contracts or feature behavior; only reshape presentation and section ordering.
+**Architecture:** Keep `VideoDetailPage.tsx` as the data/orchestration layer, but move all layout responsibilities into a single-column page shell and a dedicated CSS file. Reorder the existing sections into a vertical reading flow: sticky header, hero cover, metadata, actions, description/body, playlist, comments, and the AI outlet. The sticky header should look more like the Bilibili app: compact, dark-mode safe, and with a clickable title that opens the original Bilibili URL in a new tab. Do not alter API contracts or feature behavior; only reshape presentation and section ordering.
 
 **Tech Stack:** React + TypeScript + Vite frontend, existing `VideoDetailPage.tsx`, existing API services, existing download/local playback helpers, CSS/inline style refactor, manual browser verification.
 
@@ -18,9 +18,11 @@
   - Keep data fetching, local playback, download logic, comments, opus rendering, and `Outlet`.
   - Replace the current two-column / responsive branching layout with a single-column page structure.
   - Reorder existing sections into a Bilibili-style vertical flow.
+  - Add a Bilibili-style sticky header treatment, make the back button legible in dark mode, and make the title clickable to the original Bilibili page.
 
 - Create: `apps/web/src/pages/VideoDetailPage.css`
   - Hold the new page shell, spacing, sticky header, card surfaces, and responsive width rules.
+  - Define the header chrome, dark-mode-safe back button, title link affordance, and subtle Bilibili-like top-bar styling.
   - Remove the current layout dependence on inline width/flex branching.
 
 ### Documentation
@@ -108,6 +110,60 @@ Expected:
 ```bash
 git add apps/web/src/pages/VideoDetailPage.tsx apps/web/src/pages/VideoDetailPage.css
 git commit -m "feat(video-detail): switch to single-column shell"
+```
+
+## Task 1.5: Make the top navigation Bilibili-like and add original-page title links
+
+**Files:**
+- Modify: `apps/web/src/pages/VideoDetailPage.tsx`
+- Modify: `apps/web/src/pages/VideoDetailPage.css`
+
+- [ ] **Step 1: Make the back button and top bar visually closer to the Bilibili app**
+
+```tsx
+<header className="video-detail-header">
+  <button className="video-detail-back-button" aria-label="返回">
+    <ArrowLeft size={20} />
+  </button>
+  <button className="video-detail-title-link" type="button" title="打开原始 B 站网页">
+    <h1 className="video-detail-title">{video.title}</h1>
+  </button>
+  <a className="video-detail-header-action" href={originalBilibiliUrl} target="_blank" rel="noreferrer">
+    原网页
+  </a>
+</header>
+```
+
+- [ ] **Step 2: Add a small URL helper so title clicks open the original Bilibili page**
+
+```ts
+const getOriginalBilibiliUrl = () => {
+  if (video?.isOpus) {
+    return `https://www.bilibili.com/read/cv${String(video.aid || mediaId || '').replace(/^cv/i, '')}`
+  }
+  return video?.bvid ? `https://www.bilibili.com/video/${video.bvid}` : 'https://www.bilibili.com'
+}
+```
+
+- [ ] **Step 3: Make the navigation affordance work in dark mode and on mobile**
+
+Run:
+
+```bash
+cd apps/web
+pnpm dev
+```
+
+Expected:
+- The back button remains visible against dark backgrounds.
+- Clicking the title opens the original Bilibili page in a new tab.
+- The header still consumes only a compact amount of vertical space.
+
+- [ ] **Step 4: Commit the navigation polish**
+
+```bash
+git add apps/web/src/pages/VideoDetailPage.tsx apps/web/src/pages/VideoDetailPage.css
+git commit -m "feat(video-detail): polish app-style navigation"
 ```
 
 ---
@@ -321,4 +377,3 @@ Before merge, confirm:
 - Changing API payloads.
 - Introducing a new design system.
 - Moving AI outlet behavior out of `VideoDetailPage`.
-
