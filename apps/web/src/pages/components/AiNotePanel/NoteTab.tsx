@@ -151,9 +151,17 @@ interface NoteTabProps {
   videoId: string;
   selectedSubtitleFilename?: string;
   onContentSnapshotChange?: (content: string) => void;
+  fileType?: 'note' | 'source';
+  readOnly?: boolean;
 }
 
-export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotChange }: NoteTabProps) {
+export function NoteTab({
+  videoId,
+  selectedSubtitleFilename,
+  onContentSnapshotChange,
+  fileType = 'note',
+  readOnly = false,
+}: NoteTabProps) {
   const { settings } = useSettingsStore();
   const runtimeState = useAiRuntimeState();
   const { showToast } = useToast();
@@ -232,6 +240,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
   }, [activeProvider, configuredModel, modelOptions, selectedModelValue])
 
   const previewFolderPath = noteFolderPath || deriveFolderPath(noteFilePath)
+  const isSourceView = fileType === 'source'
+  const showAdvancedControls = !isSourceView
 
   const stageToastLabels: Record<string, string> = {
     'video.AUDIO.FETCH': '音频读取完成',
@@ -274,6 +284,11 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
   }, []);
 
   const loadVersions = useCallback(async () => {
+    if (fileType === 'source') {
+      setVersions([]);
+      setCurrentHash('');
+      return;
+    }
     try {
       const response = await apiService.getVersions(videoId, 'note');
       if (response.success && response.data) {
@@ -283,13 +298,13 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
     } catch (err) {
       console.error('加载笔记版本列表失败:', err);
     }
-  }, [videoId]);
+  }, [fileType, videoId]);
 
   const loadNote = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.getLocalFile(videoId, 'note') as LocalFileResponse & {
+      const response = await apiService.getLocalFile(videoId, fileType) as LocalFileResponse & {
         meta?: {
           style?: string;
           formats?: string[];
@@ -297,7 +312,30 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
       };
 
       if (!response.success) {
-        throw new Error(response.message || '加载笔记失败');
+        if (videoId) {
+          const sourceResponse = await apiService.getLocalFile(videoId, 'source') as LocalFileResponse & {
+            meta?: {
+              style?: string;
+              formats?: string[];
+            };
+          };
+
+          if (sourceResponse.success) {
+            const sourceContent = typeof sourceResponse.data === 'string' ? sourceResponse.data : '';
+            setContent(sourceContent);
+            originalContentRef.current = sourceContent;
+            onContentSnapshotChange?.(sourceContent);
+            setNoteFilePath(sourceResponse.file_path || null);
+            setNoteFolderPath(sourceResponse.folder_path || deriveFolderPath(sourceResponse.file_path));
+            setEditorMode('preview');
+            setNoteRevision((value) => value + 1);
+            setVersions([]);
+            setCurrentHash('');
+            return;
+          }
+        }
+
+        throw new Error(response.message || (fileType === 'source' ? '加载原文失败' : '加载笔记失败'));
       }
 
       const loadedContent = typeof response.data === 'string' ? response.data : '';
@@ -309,8 +347,10 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
       setEditorMode('preview');
       setNoteRevision((value) => value + 1);
 
-      if (response.meta?.style) setStyle(response.meta.style || DEFAULT_STYLE);
-      if (response.meta?.formats && Array.isArray(response.meta.formats)) setFormats(response.meta.formats);
+      if (fileType !== 'source') {
+        if (response.meta?.style) setStyle(response.meta.style || DEFAULT_STYLE);
+        if (response.meta?.formats && Array.isArray(response.meta.formats)) setFormats(response.meta.formats);
+      }
 
       await loadVersions();
     } catch (err) {
@@ -327,13 +367,14 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
     } finally {
       setLoading(false);
     }
-  }, [loadVersions, videoId]);
+  }, [fileType, loadVersions, videoId]);
 
   useEffect(() => {
     if (videoId) loadNote();
   }, [videoId, loadNote]);
 
   const saveNote = useCallback(async () => {
+    if (readOnly || fileType === 'source') return;
     setIsSaving(true);
     try {
       await apiService.saveLocalFile(videoId, 'note', content);
@@ -350,7 +391,7 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
     } finally {
       setIsSaving(false);
     }
-  }, [content, loadVersions, showToast, videoId]);
+  }, [content, fileType, loadVersions, readOnly, showToast, videoId]);
 
   const handleCancelEdit = useCallback(() => {
     setContent(originalContentRef.current);
@@ -611,11 +652,11 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
                   border: 'none',
                   cursor: isAnalyzing ? 'not-allowed' : 'pointer',
                 }}
-              >
-                {mode === 'edit' ? '编辑' : mode === 'preview' ? '预览' : '分屏'}
-              </button>
+                >
+                  {mode === 'edit' ? '编辑' : mode === 'preview' ? '预览' : '分屏'}
+                </button>
             ))}
-            {editorMode === 'edit' && (
+            {editorMode === 'edit' && !isSourceView && (
               <>
                 <button
                   onClick={handleCancelEdit}
@@ -630,23 +671,44 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
                 >
                   {isSaving ? '保存中...' : '保存'}
                 </button>
-              </>
+                </>
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>笔记风格</span>
-            <select
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              disabled={isAnalyzing}
-              style={{ minWidth: '150px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
-            >
-              {styleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </div>
+          {!isSourceView && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>AI 模型</span>
+              <select
+                value={selectedModelValue}
+                onChange={(e) => setSelectedModelValue(e.target.value)}
+                disabled={isAnalyzing}
+                style={{ minWidth: '220px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+              >
+                {modelOptions.length > 0 ? (
+                  modelOptions.map(model => <option key={model.value} value={model.value}>{model.label}</option>)
+                ) : (
+                  <option value="">未配置模型</option>
+                )}
+              </select>
+            </div>
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+          {!isSourceView && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>笔记风格</span>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                disabled={isAnalyzing}
+              style={{ minWidth: '150px', padding: '8px 10px', background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }}
+                >
+                  {styleOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </div>
+          )}
+
+          {!isSourceView && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
             <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>详细程度</span>
             <div style={{ display: 'flex', gap: '6px' }}>
               {[{ value: 'simple', label: '简约' }, { value: 'detailed', label: '详细' }].map(len => (
@@ -661,12 +723,13 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
                 </button>
               ))}
             </div>
-          </div>
+            </div>
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-            <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>高级设置</span>
+          {showAdvancedControls && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
             <div style={{ display: 'flex', gap: '6px' }}>
-              {NOTE_FORMATS.map(format => {
+              {NOTE_FORMATS.filter(format => format.value !== 'screenshot').map(format => {
                 const active = formats.includes(format.value);
                 return (
                   <button
@@ -683,9 +746,11 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
                 );
               })}
             </div>
-          </div>
+            </div>
+          )}
 
-          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flex: '0 0 auto' }}>
+          {!isSourceView && (
+            <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flex: '0 0 auto' }}>
             <button
               type="button"
               onClick={startAnalyze}
@@ -702,7 +767,8 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
             >
               停止
             </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -723,32 +789,34 @@ export function NoteTab({ videoId, selectedSubtitleFilename, onContentSnapshotCh
             <span>{noteWordCount.toLocaleString()} 字</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span>双击内容可编辑</span>
-              <button
-                type="button"
-                onClick={() => setShowVersionPanel(!showVersionPanel)}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  background: showVersionPanel ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
-                  color: showVersionPanel ? '#fff' : 'var(--color-text-secondary)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                {versions.length > 0 ? `${versions.length} 个版本` : '版本'}
-              </button>
+              {showAdvancedControls && (
+                <button
+                  type="button"
+                  onClick={() => setShowVersionPanel(!showVersionPanel)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    background: showVersionPanel ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                    color: showVersionPanel ? '#fff' : 'var(--color-text-secondary)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <svg style={{ width: '14px', height: '14px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {versions.length > 0 ? `${versions.length} 个版本` : '版本'}
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {showVersionPanel && (
+        {!isSourceView && showVersionPanel && (
           <div style={{
             width: '260px',
             flexShrink: 0,

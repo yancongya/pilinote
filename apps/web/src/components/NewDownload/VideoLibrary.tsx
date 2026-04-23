@@ -342,6 +342,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           videoTitle={task.title}
           existingNote={existingNote}
           pipelineModeOverride={isOpus ? 'image_text' : undefined}
+          aiRoutePath={isOpus ? `/opus/${encodeURIComponent(String(videoIdForNote))}/ai` : `/video/${encodeURIComponent(String(videoIdForNote))}/ai`}
           isOpen={showAiNoteModal}
           onClose={() => setShowAiNoteModal(false)}
           onComplete={handleAiNoteComplete}

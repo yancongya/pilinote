@@ -58,7 +58,6 @@ interface AiNoteLocalSettings {
   format: {
     format: string
     include_timestamp: boolean
-    include_summary: boolean
   }
   auto_analyze: boolean
 }
@@ -118,7 +117,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     format: {
       format: 'markdown',
       include_timestamp: true,
-      include_summary: true,
     },
     auto_analyze: false,
   })
@@ -208,7 +206,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           format: {
             format: settings?.ai_note?.format.format || 'markdown',
             include_timestamp: settings?.ai_note?.format.include_timestamp ?? true,
-            include_summary: settings?.ai_note?.format.include_summary ?? true,
           },
           auto_analyze: settings?.ai_note?.auto_analyze ?? false,
         })
@@ -743,7 +740,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       try {
         const currentAiNote = (settings?.ai_note ?? {
           style: { style: 'default', length: 500, custom_styles: [] },
-          format: { format: 'markdown', include_timestamp: true, include_summary: true },
+          format: { format: 'markdown', include_timestamp: true },
           auto_analyze: false,
         }) as Settings['ai_note']
         await updateSettings({

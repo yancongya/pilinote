@@ -24,20 +24,35 @@ class PromptBuilder:
         formats: Optional[List[str]] = None,
         extras: Optional[str] = None,
         system_prompt: Optional[str] = None,
+        pipeline_mode: str = "video",
     ) -> str:
         """Build a layered prompt for AI note generation."""
         templates = PromptBuilder._get_templates()
         layers = templates.get("layers", {})
         base = templates.get("base", {})
+        base_image_text = templates.get("base_image_text", {})
         prompt_parts = []
 
         if system_prompt:
             prompt_parts.append((system_prompt or "").strip())
         else:
-            prompt_parts.append(base.get("system") or "你是一位专业的视频内容分析师，请基于以下分层输入生成结构化 Markdown 笔记。")
+            if pipeline_mode == "image_text":
+                prompt_parts.append(
+                    base_image_text.get("system")
+                    or "你是一位专业的图文内容分析师，请基于以下分层输入生成结构化 Markdown 笔记。"
+                )
+            else:
+                prompt_parts.append(base.get("system") or "你是一位专业的视频内容分析师，请基于以下分层输入生成结构化 Markdown 笔记。")
 
-        prompt_parts.append(PromptBuilder._render_section(layers.get("t0", "## T0 视频信息\n{content}"), t0_text))
-        prompt_parts.append(PromptBuilder._render_section(layers.get("t1", "## T1 视频文本\n{content}"), t1_text))
+        if pipeline_mode == "image_text":
+            t0_template = layers.get("t0_image_text", "## T0 图文信息\n{content}")
+            t1_template = layers.get("t1_image_text", "## T1 图文正文\n{content}")
+        else:
+            t0_template = layers.get("t0", "## T0 视频信息\n{content}")
+            t1_template = layers.get("t1", "## T1 视频文本\n{content}")
+
+        prompt_parts.append(PromptBuilder._render_section(t0_template, t0_text))
+        prompt_parts.append(PromptBuilder._render_section(t1_template, t1_text))
 
         if level == "simple":
             t2_template = layers.get("t2", {}).get(
@@ -70,6 +85,17 @@ class PromptBuilder:
         if extras:
             extras_template = layers.get("extras", "## 额外要求\n{content}")
             prompt_parts.append(PromptBuilder._render_section(extras_template, extras))
+
+        if pipeline_mode == "image_text":
+            image_final_requirements = base_image_text.get("final")
+            if image_final_requirements:
+                prompt_parts.append("## 图文最终要求\n" + "\n".join(f"- {line}" for line in image_final_requirements))
+            prompt_parts.append(
+                "## 图文模式约束\n"
+                "- 只能基于图文正文与元数据生成笔记，不要假装存在视频字幕。\n"
+                "- 如果正文信息不足，请明确写出信息不足，而不是编造章节。\n"
+                "- 优先围绕正文段落、标题层级、图文结构和补充信息组织内容。"
+            )
 
         final_requirements = base.get("final") or [
             "仅输出 Markdown 正文。",

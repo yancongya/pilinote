@@ -113,7 +113,6 @@ export interface Settings {
     format: {
       format: string
       include_timestamp: boolean
-      include_summary: boolean
     }
     auto_analyze: boolean
   }

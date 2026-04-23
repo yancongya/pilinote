@@ -457,6 +457,7 @@ class PipelineAnalyzeRequest(BaseModel):
     model_provider: Optional[str] = Field("openai", description="模型提供商")
     model_name: Optional[str] = Field(None, description="模型名称")
     subtitle_filename: Optional[str] = Field(None, description="字幕文件名")
+    pipeline_mode: Optional[str] = Field(None, description="流水线模式：video/series/image_text")
 
 
 @router.post("/pipeline-analyze")

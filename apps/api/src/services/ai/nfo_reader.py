@@ -1,6 +1,7 @@
 import json
 import logging
 import xml.etree.ElementTree as ET
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +10,13 @@ logger = logging.getLogger(__name__)
 
 class NFOReader:
     """Read and normalize local NFO files into T0 text."""
+
+    @staticmethod
+    def _base_content_stem(video_file: Path) -> str:
+        stem = video_file.stem
+        if stem.endswith(".ai-note"):
+            return stem[: -len(".ai-note")]
+        return stem
 
     @staticmethod
     def find_nfo_path(video_path: str) -> Optional[Path]:
@@ -49,6 +57,55 @@ class NFOReader:
             "nfo_path": str(nfo_path),
             "data": data,
             "text": text,
+        }
+
+    @staticmethod
+    def read_image_text_context(video_path: str) -> Dict[str, Any]:
+        """为图文模式读取正文上下文。
+
+        图文正文优先来自同目录的同名 Markdown 文件，其次回退到 NFO。
+        """
+        text_data = NFOReader._read_markdown_body(video_path)
+        if text_data:
+            title = text_data.get("title", "")
+            body_text = text_data.get("body_text", "")
+            summary_text = text_data.get("summary_text", "")
+            text_parts = [part for part in [body_text, summary_text] if part]
+            return {
+                "found": True,
+                "nfo_path": text_data.get("source_path"),
+                "data": text_data.get("data", {}),
+                "text": "\n\n".join(text_parts).strip(),
+                "title": title,
+                "body_text": body_text,
+                "summary_text": summary_text,
+            }
+
+        nfo_path = NFOReader.find_nfo_path(video_path)
+        if not nfo_path:
+            return {
+                "found": False,
+                "nfo_path": None,
+                "data": {},
+                "text": "",
+                "title": "",
+                "body_text": "",
+                "summary_text": "",
+            }
+
+        data = NFOReader._parse_nfo_file(nfo_path)
+        title = (data.get("title") or data.get("showtitle") or "").strip()
+        body_text = NFOReader._build_image_text_body(data)
+        summary_text = NFOReader._build_image_text_summary(data)
+        text_parts = [part for part in [body_text, summary_text] if part]
+        return {
+            "found": True,
+            "nfo_path": str(nfo_path),
+            "data": data,
+            "text": "\n\n".join(text_parts).strip(),
+            "title": title,
+            "body_text": body_text,
+            "summary_text": summary_text,
         }
 
     @staticmethod
@@ -154,3 +211,120 @@ class NFOReader:
 
         lines.append("以上内容为后端对 NFO 元数据和评论区信息的整理结果，请据此继续分析。")
         return "\n".join(lines)
+
+    @staticmethod
+    def _build_image_text_body(data: Dict[str, Any]) -> str:
+        title = (data.get("title") or data.get("showtitle") or "未知标题").strip()
+        intro = (data.get("intro") or data.get("plot") or "").strip()
+        studio = (data.get("studio") or "").strip()
+        premiered = (data.get("premiered") or "").strip()
+        runtime = (data.get("runtime") or "").strip()
+        tags = [tag for tag in (data.get("tags") or []) if tag]
+
+        lines = [
+            "## 图文正文",
+            f"- 标题：{title}",
+        ]
+        if intro:
+            lines.append(f"- 正文/简介：{intro}")
+        if studio:
+            lines.append(f"- 来源/作者：{studio}")
+        if premiered:
+            lines.append(f"- 发布时间：{premiered}")
+        if runtime:
+            lines.append(f"- 时长：{runtime}")
+        if tags:
+            lines.append(f"- 标签：{'、'.join(tags)}")
+
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def _read_markdown_body(video_path: str) -> Dict[str, Any]:
+        video_file = Path(video_path)
+        if not video_file.exists():
+            return {}
+
+        directory = video_file.parent
+        base_stem = NFOReader._base_content_stem(video_file)
+        candidates = [
+            directory / f"{base_stem}.md",
+            directory / "README.md",
+        ]
+        md_path = next((candidate for candidate in candidates if candidate.exists()), None)
+        if not md_path:
+            return {}
+
+        try:
+            raw = md_path.read_text(encoding="utf-8").strip()
+        except Exception as exc:
+            logger.warning("读取图文正文失败: %s - %s", md_path, exc)
+            return {}
+
+        if not raw:
+            return {}
+
+        image_pattern = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+        cleaned_lines = []
+        for line in raw.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                if cleaned_lines and cleaned_lines[-1] != "":
+                    cleaned_lines.append("")
+                continue
+
+            image_matches = image_pattern.findall(stripped)
+            if image_matches and image_pattern.fullmatch(stripped):
+                for alt_text, image_path in image_matches:
+                    alt_text = alt_text.strip() or "图片"
+                    image_name = Path(image_path).name or image_path
+                    cleaned_lines.append(f"【图片】{alt_text}（{image_name}）")
+                continue
+
+            line_without_images = image_pattern.sub("", stripped).strip()
+            if not line_without_images:
+                continue
+            cleaned_lines.append(line_without_images)
+
+        title = next(
+            (
+                line.lstrip("# ").strip()
+                for line in raw.splitlines()
+                if line.lstrip().startswith("# ")
+            ),
+            video_file.stem,
+        )
+        body_text = "\n".join(cleaned_lines).strip()
+        return {
+            "source_path": str(md_path),
+            "data": {"title": title, "body": body_text},
+            "title": title,
+            "body_text": body_text,
+            "summary_text": "",
+        }
+
+    @staticmethod
+    def _build_image_text_summary(data: Dict[str, Any]) -> str:
+        comments = data.get("comments") or []
+        if not comments:
+            return ""
+
+        top_comment = next((c for c in comments if c.get("type") == "top"), None)
+        if not top_comment:
+            top_comment = comments[0]
+
+        hot_comments = sorted(
+            [c for c in comments if c is not top_comment],
+            key=lambda item: int(item.get("like", 0) or 0),
+            reverse=True,
+        )[:2]
+
+        lines = ["## 补充信息"]
+        if top_comment:
+            lines.append(
+                f"- 置顶评论：{top_comment.get('author', '匿名')}：{top_comment.get('content', '').strip() or '无内容'}"
+            )
+        for index, comment in enumerate(hot_comments, start=1):
+            lines.append(
+                f"- 热门评论{index}：{comment.get('author', '匿名')}：{comment.get('content', '').strip() or '无内容'}"
+            )
+        return "\n".join(lines).strip()

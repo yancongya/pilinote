@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Outlet } from 'react-router-dom'
+import { Link, useParams, useNavigate, Outlet } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
@@ -928,9 +928,12 @@ const handleReDownloadConfirm = async () => {
   }
 
   const originalBilibiliUrl = getOriginalBilibiliUrl()
+  const aiPanelPath = video?.isOpus
+    ? `/opus/${normalizeOpusMediaId(String(mediaId || video?.aid || ''))}/ai`
+    : `/video/${videoId}/ai`
   const handleOpenAiPanel = () => {
-    if (!videoId) return
-    navigate(`/video/${videoId}/ai`)
+    if (!videoId || !video) return
+    navigate(aiPanelPath)
   }
 
   const renderSkeleton = () => (
@@ -1003,15 +1006,16 @@ const handleReDownloadConfirm = async () => {
               {video.title}
             </h1>
           </a>
-          <button
+          <Link
             className="video-detail-header-action video-detail-header-action-ai"
-            onClick={handleOpenAiPanel}
-            type="button"
+            to={aiPanelPath}
+            state={video?.isOpus && video.localOpus?.folder_path ? { folderPath: video.localOpus.folder_path } : undefined}
             aria-label="打开 AI 面板"
             title="打开 AI 面板"
+            onClick={handleOpenAiPanel}
           >
             <Sparkles size={16} className="video-detail-header-action-icon" />
-          </button>
+          </Link>
         </div>
       </header>
 

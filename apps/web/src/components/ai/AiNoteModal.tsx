@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X, Sparkles, Loader2, RotateCcw, Copy, Pause, Play } from 'lucide-react'
 import {
   aiNoteService,
-  NOTE_FORMATS,
   AI_NOTE_TRACE_STAGE_TEMPLATES,
   type NoteResponse,
   type AiTraceStep,
@@ -29,6 +29,7 @@ interface AiNoteModalProps {
   videoTitle: string
   existingNote?: NoteResponse | null
   pipelineModeOverride?: AiNotePipelineMode
+  aiRoutePath?: string
   isOpen: boolean
   onClose: () => void
   onComplete?: (note: NoteResponse) => void
@@ -317,7 +318,8 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
   }
 }
 
-export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pipelineModeOverride, isOpen, onClose, onComplete }: AiNoteModalProps) {
+export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pipelineModeOverride, aiRoutePath, isOpen, onClose, onComplete }: AiNoteModalProps) {
+  const navigate = useNavigate()
   const { settings, fetchSettings } = useSettingsStore()
   const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
@@ -325,7 +327,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
   const [selectedModel, setSelectedModel] = useState('')
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
   const [style, setStyle] = useState('detailed')
-  const [formats, setFormats] = useState<string[]>(['summary'])
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -338,7 +339,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
   const activeNoteIdRef = useRef<string | null>(null)
   const analysisAbortRef = useRef<AbortController | null>(null)
   const streamStateRef = useRef<AiNoteStreamState>(createAiNoteStreamState())
-  const currentRequestRef = useRef<{ video_id: string; style: string; formats: string[]; model_provider: string; model_name: string; extras: string; pipeline_mode: AiNotePipelineMode } | null>(null)
+  const currentRequestRef = useRef<{ video_id: string; style: string; model_provider: string; model_name: string; extras: string; pipeline_mode: AiNotePipelineMode } | null>(null)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -483,7 +484,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
       ? configuredModel
       : (providerModels[0] || configuredModel)
     setSelectedModel(nextModel)
-    setFormats(['summary'])
   }, [isOpen, settings?.llm, runtimeState.testedModels])
 
   useEffect(() => {
@@ -674,7 +674,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
       const request = {
         video_id: videoId,
         style,
-        formats,
         model_provider: activeProvider,
         model_name: selectedModel,
         level: detailLevel,
@@ -684,7 +683,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
       currentRequestRef.current = {
         video_id: videoId,
         style,
-        formats,
         model_provider: activeProvider,
         model_name: selectedModel,
         extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
@@ -857,10 +855,22 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
     <div className="ai-note-modal-overlay" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
       <div className="ai-note-modal-panel" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
         <div className="ai-note-modal-header">
-          <div className="ai-note-modal-title">
+          <button
+            type="button"
+            className="ai-note-modal-title ai-note-modal-title-link"
+            onClick={() => {
+              if (aiRoutePath) {
+                navigate(aiRoutePath)
+                onClose()
+              }
+            }}
+            disabled={!aiRoutePath}
+            aria-label={aiRoutePath ? '打开 AI 路由' : undefined}
+            title={aiRoutePath ? '打开 AI 路由' : undefined}
+          >
             <Sparkles size={20} />
             <span>AI 笔记</span>
-          </div>
+          </button>
           <button className="ai-note-modal-close" onClick={onClose}>
             <X size={20} />
           </button>
@@ -895,30 +905,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
                 </select>
               </div>
 
-              <div className="ai-note-select-group">
-                <label>高级功能</label>
-                <div className="ai-note-format-row">
-                  {NOTE_FORMATS.map(f => {
-                    const isActive = formats.includes(f.value)
-                    return (
-                      <button
-                        key={f.value}
-                        type="button"
-                        data-active={isActive}
-                        onClick={() => {
-                          const newValue = isActive
-                            ? formats.filter(v => v !== f.value)
-                            : [...formats, f.value]
-                          setFormats(newValue)
-                        }}
-                        className={isActive ? 'ai-note-format-btn active' : 'ai-note-format-btn'}
-                      >
-                        {f.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
             </div>
 
             {error && <div className="ai-note-modal-error">{error}</div>}
@@ -1024,6 +1010,8 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
         .ai-note-modal-panel { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); background: var(--color-bg-primary); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); }
         .ai-note-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--color-border); }
         .ai-note-modal-title { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; }
+        .ai-note-modal-title-link { padding: 0; border: none; background: transparent; color: inherit; cursor: pointer; }
+        .ai-note-modal-title-link:disabled { cursor: default; opacity: 1; }
         .ai-note-modal-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--color-text-secondary); border-radius: 8px; cursor: pointer; }
         .ai-note-modal-video-info { padding: 12px 20px; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border); font-size: 14px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ai-note-modal-content { flex: 1; overflow-y: auto; padding: 20px; }
@@ -1032,12 +1020,6 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
         .ai-note-select { width: 100%; padding: 12px 16px; border-radius: 10px; font-size: 14px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); }
         .ai-note-empty-hint { padding: 12px 14px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 13px; }
         .ai-note-summary-chip { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
-        .ai-note-format-row { display: flex; flex-wrap: wrap; gap: 8px; }
-        .ai-note-format-btn { padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-bg-secondary); color: var(--color-text-secondary); cursor: pointer; }
-        .ai-note-format-btn.active { border-color: var(--color-primary-600); background: var(--color-primary-50); color: var(--color-primary-600); }
-        .ai-note-format-btn[data-active="true"] { border-color: var(--color-primary-600); background: var(--color-primary-50); color: var(--color-primary-600); }
-        .ai-note-advanced-toggle { margin-top: 4px; }
-        .ai-note-advanced-btn { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-secondary); color: var(--color-text-secondary); cursor: pointer; text-align: left; }
         .ai-note-modal-error { padding: 12px 20px; background: var(--color-error-50); font-size: 14px; color: var(--color-error-600); }
         .ai-note-empty-hint { margin-top: 8px; padding: 12px 14px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 13px; }
         .ai-note-modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); }

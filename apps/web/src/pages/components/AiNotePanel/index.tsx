@@ -52,20 +52,66 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function AiNotePanel() {
-  const { videoId } = useParams<{ videoId: string }>();
+  const { videoId, opusId } = useParams<{ videoId?: string; opusId?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const routeState = location.state as { folderPath?: string } | null;
   const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const [noteTitle, setNoteTitle] = useState('mindmap');
+  const [resolvedFileId, setResolvedFileId] = useState<string>('');
   const [mountedTabs, setMountedTabs] = useState<Set<TabType>>(() => new Set(['subtitle']));
   const activeTab = useMemo(() => getAiNoteTabFromHash(location.hash), [location.hash]);
+  const mediaId = videoId || opusId || '';
+  const backToDetailPath = opusId ? `/opus/${mediaId}` : `/video/${mediaId}`;
+  const isImageTextMode = Boolean(opusId);
+  const fallbackFolderPath = routeState?.folderPath || '';
 
   useEffect(() => {
     if (!location.hash || !['#subtitle', '#note', '#mindmap'].includes(location.hash)) {
       navigate('#subtitle', { replace: true });
     }
   }, [location.hash, navigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveLocalFileId = async () => {
+      if (fallbackFolderPath) {
+        setResolvedFileId(fallbackFolderPath);
+        return;
+      }
+
+      if (!mediaId || mediaId === 'undefined') {
+        setResolvedFileId('');
+        return;
+      }
+
+      if (!isImageTextMode) {
+        setResolvedFileId(mediaId);
+        return;
+      }
+
+      try {
+        const response = await apiService.getLocalOpusContent(mediaId);
+        if (cancelled) return;
+
+        const folderPath = response.success && response.data?.folder_path ? String(response.data.folder_path) : mediaId;
+        setResolvedFileId(folderPath);
+      } catch (err) {
+        if (!cancelled) {
+          setResolvedFileId(mediaId);
+        }
+        console.error('解析图文本地目录失败:', err);
+      }
+    };
+
+    void resolveLocalFileId();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaId, isImageTextMode, fallbackFolderPath]);
 
   useEffect(() => {
     setMountedTabs(prev => {
@@ -80,9 +126,10 @@ export default function AiNotePanel() {
     let cancelled = false;
 
     const loadNoteSnapshot = async () => {
-      if (!videoId) return;
+      const targetId = resolvedFileId || mediaId;
+      if (!targetId || targetId === 'undefined') return;
       try {
-        const response = await apiService.getLocalFile(videoId, 'note');
+        const response = await apiService.getLocalFile(targetId, 'note');
         if (!cancelled && response.success) {
           setNoteMarkdown(typeof response.data === 'string' ? response.data : '');
           const fileName = response.file_path?.split('/').pop() || 'mindmap';
@@ -104,9 +151,9 @@ export default function AiNotePanel() {
     return () => {
       cancelled = true;
     };
-  }, [videoId]);
+  }, [mediaId, resolvedFileId]);
 
-  if (!videoId) {
+  if (!mediaId) {
     return (
       <div
         style={{
@@ -149,7 +196,7 @@ export default function AiNotePanel() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link
-            to={`/video/${videoId}`}
+            to={backToDetailPath}
             style={{
               padding: '8px',
               borderRadius: '8px',
@@ -168,7 +215,7 @@ export default function AiNotePanel() {
           </div>
         </div>
         <Link
-          to={`/video/${videoId}`}
+          to={backToDetailPath}
           style={{
             padding: '6px 12px',
             fontSize: '14px',
@@ -216,7 +263,7 @@ export default function AiNotePanel() {
             <span style={{ color: activeTab === tab.id ? 'var(--color-accent)' : 'var(--color-text-secondary)' }}>
               {tab.icon}
             </span>
-            <span>{tab.label}</span>
+            <span>{tab.id === 'subtitle' && isImageTextMode ? '原文' : tab.label}</span>
             {activeTab === tab.id && (
               <div
                 style={{
@@ -239,18 +286,28 @@ export default function AiNotePanel() {
       <main style={{ flex: 1, overflow: 'hidden' }}>
         {mountedTabs.has('subtitle') && (
           <div style={{ display: activeTab === 'subtitle' ? 'block' : 'none', height: '100%' }}>
-            <TranscriptTab
-              videoId={videoId}
-              onSubtitleFileChange={setSelectedSubtitleFilename}
-            />
+            {isImageTextMode ? (
+              <NoteTab
+                videoId={resolvedFileId || mediaId}
+                fileType="source"
+                readOnly
+                onContentSnapshotChange={setNoteMarkdown}
+              />
+            ) : (
+              <TranscriptTab
+                videoId={resolvedFileId || mediaId}
+                onSubtitleFileChange={setSelectedSubtitleFilename}
+              />
+            )}
           </div>
         )}
         {mountedTabs.has('note') && (
           <div style={{ display: activeTab === 'note' ? 'block' : 'none', height: '100%' }}>
             <NoteTab
-              videoId={videoId}
+              videoId={resolvedFileId || mediaId}
               selectedSubtitleFilename={selectedSubtitleFilename}
               onContentSnapshotChange={setNoteMarkdown}
+              fileType="note"
             />
           </div>
         )}

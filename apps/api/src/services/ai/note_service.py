@@ -375,12 +375,12 @@ class AiNoteService:
         normalized = (stage or "").strip().upper()
         if not normalized:
             raise ValueError("resume_from_stage 不能为空")
+        all_stages = {stage for stages in _PIPELINE_STAGES.values() for stage in stages}
         if "." in normalized:
             suffix = normalized.split(".", 1)[-1]
-            for stages in _PIPELINE_STAGES.values():
-                if suffix in stages:
-                    return suffix
-        if normalized in _SEMANTIC_STAGES:
+            if suffix in all_stages:
+                return suffix
+        if normalized in all_stages:
             return normalized
         raise ValueError(f"未知阶段: {stage}")
 
@@ -389,7 +389,7 @@ class AiNoteService:
         for stages in _PIPELINE_STAGES.values():
             if key in stages:
                 return stages.index(key)
-        return _SEMANTIC_STAGES.index(key)
+        raise ValueError(f"未知阶段: {stage}")
 
     def _analysis_artifacts(self, note: AiNote) -> Dict[str, Any]:
         meta = note.meta if isinstance(note.meta, dict) else {}
@@ -805,6 +805,9 @@ class AiNoteService:
             actual_source_path = download.file_path
             video_title = download.title
 
+        if self._is_generated_note_file(actual_source_path):
+            raise RuntimeError("当前输入是已生成的 ai-note 文件，请从原始正文文件重新分析")
+
         if note and task_control_registry.is_cancelled(note.id):
             raise RuntimeError("分析已取消")
 
@@ -866,112 +869,168 @@ class AiNoteService:
                     "level": artifacts.get("level", self._resolve_level(style, level)),
                 }
 
-            if start_stage <= self._stage_index("AUDIO.FETCH"):
-                self._set_note_control(
-                    note.id,
-                    "running",
-                    current_stage=self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
-                )
-                context = self._prepare_analysis_context(
-                    actual_file_path,
-                    video_id,
-                    style,
-                    note,
-                    pipeline_mode=pipeline_mode,
-                    formats=formats,
-                )
-            else:
-                if start_stage <= self._stage_index("SUBTITLE.GENERATE"):
+            if pipeline_mode == "image_text":
+                context["pipeline_mode"] = pipeline_mode
+                if start_stage <= self._stage_index("DOC.READ"):
                     self._set_note_control(
                         note.id,
                         "running",
-                        current_stage=self._trace_stage(
-                            pipeline_mode, "SUBTITLE.GENERATE"
-                        ),
+                        current_stage=self._trace_stage(pipeline_mode, "DOC.READ"),
                     )
-                    transcript = self._generate_transcript(
+
+                level = self._resolve_level(style, level)
+                context["level"] = level
+                image_context = NFOReader.read_image_text_context(actual_file_path)
+                context["t0_text"] = image_context.get("body_text", "") or image_context.get("text", "")
+                context["transcript"] = image_context.get("summary_text", "")
+                context["image_body_text"] = image_context.get("body_text", "")
+                context["image_summary_text"] = image_context.get("summary_text", "")
+
+                if not context["t0_text"].strip() and not context["transcript"].strip():
+                    raise RuntimeError("图文正文为空，无法生成高质量笔记")
+
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "DOC.READ"),
+                    "文档读取",
+                    "图文笔记读取正文/元数据，不执行音频提取与 ASR",
+                    20.0,
+                    {
+                        "level": level,
+                        "source_path": actual_file_path,
+                        "t0_length": len(context.get("t0_text", "")),
+                        "t1_length": len(context.get("transcript", "")),
+                        "doc_source": image_context.get("nfo_path"),
+                    },
+                    note=note,
+                )
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "NFO.READ"),
+                    "元数据读取",
+                    f"正在读取元数据并使用 {level} 模板整理内容",
+                    70.0,
+                    {
+                        "level": level,
+                        "nfo_path": artifacts.get("nfo_path"),
+                        "nfo_found": artifacts.get("nfo_found"),
+                        "t0_length": len(context.get("t0_text", "")),
+                        "t1_length": len(context.get("transcript", "")),
+                    },
+                    note=note,
+                )
+                self._store_analysis_artifacts(
+                    note,
+                    level=level,
+                    t0_text=context["t0_text"],
+                    transcript=context["transcript"],
+                )
+            else:
+                context["pipeline_mode"] = pipeline_mode
+                if start_stage <= self._stage_index("AUDIO.FETCH"):
+                    self._set_note_control(
+                        note.id,
+                        "running",
+                        current_stage=self._trace_stage(pipeline_mode, "AUDIO.FETCH"),
+                    )
+                    context = self._prepare_analysis_context(
                         actual_file_path,
                         video_id,
-                        pipeline_mode,
-                        note=note,
+                        style,
+                        note,
+                        pipeline_mode=pipeline_mode,
+                        formats=formats,
                     )
-                    context["transcript"] = transcript
-                    if not context.get("t0_text"):
+                else:
+                    if start_stage <= self._stage_index("SUBTITLE.GENERATE"):
                         self._set_note_control(
                             note.id,
                             "running",
                             current_stage=self._trace_stage(
-                                pipeline_mode, "AUDIO.FETCH"
+                                pipeline_mode, "SUBTITLE.GENERATE"
                             ),
                         )
-                        t0 = self._read_nfo_context(
+                        transcript = self._generate_transcript(
                             actual_file_path,
                             video_id,
-                            note,
                             pipeline_mode,
+                            note=note,
                         )
-                        context["t0_text"] = t0["text"]
+                        context["transcript"] = transcript
+                        if not context.get("t0_text"):
+                            self._set_note_control(
+                                note.id,
+                                "running",
+                                current_stage=self._trace_stage(
+                                    pipeline_mode, "AUDIO.FETCH"
+                                ),
+                            )
+                            t0 = self._read_nfo_context(
+                                actual_file_path,
+                                video_id,
+                                note,
+                                pipeline_mode,
+                            )
+                            context["t0_text"] = t0["text"]
 
-                if start_stage <= self._stage_index("NFO.READ"):
-                    self._set_note_control(
-                        note.id,
-                        "running",
-                        current_stage=self._trace_stage(pipeline_mode, "NFO.READ"),
-                    )
-                    level = self._resolve_level(style, level)
-                    context["level"] = level
-
-                    # 读取 NFO 获取视频元数据（标题、描述、标签等）
-                    if not context.get("t0_text"):
-                        t0 = self._read_nfo_context(
-                            actual_file_path,
-                            video_id,
-                            note,
-                            pipeline_mode,
+                    if start_stage <= self._stage_index("NFO.READ"):
+                        self._set_note_control(
+                            note.id,
+                            "running",
+                            current_stage=self._trace_stage(pipeline_mode, "NFO.READ"),
                         )
-                        context["t0_text"] = t0["text"]
+                        level = self._resolve_level(style, level)
+                        context["level"] = level
 
-                    self._add_trace(
-                        self._trace_stage(pipeline_mode, "NFO.READ"),
-                        "NFO 读取",
-                        f"正在读取 NFO 并使用 {level} 模板整理内容",
-                        70.0,
-                        {
-                            "level": level,
-                            "nfo_path": artifacts.get("nfo_path"),
-                            "nfo_found": artifacts.get("nfo_found"),
-                            "t0_length": len(context.get("t0_text", "")),
-                        },
-                        note=note,
-                    )
-                    self._store_analysis_artifacts(note, level=level)
+                        # 读取 NFO 获取视频元数据（标题、描述、标签等）
+                        if not context.get("t0_text"):
+                            t0 = self._read_nfo_context(
+                                actual_file_path,
+                                video_id,
+                                note,
+                                pipeline_mode,
+                            )
+                            context["t0_text"] = t0["text"]
 
-                if start_stage > self._stage_index("NFO.READ") and not context.get(
-                    "t0_text"
-                ):
-                    t0_text = artifacts.get("t0_text")
-                    if not t0_text:
-                        t0 = self._read_nfo_context(
-                            actual_file_path,
-                            video_id,
-                            note,
-                            pipeline_mode,
+                        self._add_trace(
+                            self._trace_stage(pipeline_mode, "NFO.READ"),
+                            "NFO 读取",
+                            f"正在读取 NFO 并使用 {level} 模板整理内容",
+                            70.0,
+                            {
+                                "level": level,
+                                "nfo_path": artifacts.get("nfo_path"),
+                                "nfo_found": artifacts.get("nfo_found"),
+                                "t0_length": len(context.get("t0_text", "")),
+                            },
+                            note=note,
                         )
-                        context["t0_text"] = t0["text"]
-                    else:
-                        context["t0_text"] = t0_text
-                if start_stage > self._stage_index(
-                    "SUBTITLE.GENERATE"
-                ) and not context.get("transcript"):
-                    context["transcript"] = artifacts.get("transcript", "")
-                if not context.get("level"):
-                    context["level"] = artifacts.get(
-                        "level", self._resolve_level(style, level)
-                    )
+                        self._store_analysis_artifacts(note, level=level)
+
+                    if start_stage > self._stage_index("NFO.READ") and not context.get(
+                        "t0_text"
+                    ):
+                        t0_text = artifacts.get("t0_text")
+                        if not t0_text:
+                            t0 = self._read_nfo_context(
+                                actual_file_path,
+                                video_id,
+                                note,
+                                pipeline_mode,
+                            )
+                            context["t0_text"] = t0["text"]
+                        else:
+                            context["t0_text"] = t0_text
+                    if start_stage > self._stage_index(
+                        "SUBTITLE.GENERATE"
+                    ) and not context.get("transcript"):
+                        context["transcript"] = artifacts.get("transcript", "")
+                    if not context.get("level"):
+                        context["level"] = artifacts.get(
+                            "level", self._resolve_level(style, level)
+                        )
 
             if download:
                 download.transcript = context["transcript"]
-                download.transcript_lang = "whisper"
+                download.transcript_lang = "image_text" if pipeline_mode == "image_text" else "whisper"
                 self.db.commit()
 
             self._wait_for_resume(note.id)
@@ -989,6 +1048,7 @@ class AiNoteService:
                     "style": style,
                     "formats": formats,
                     "has_transcript": bool(context["transcript"]),
+                    "pipeline_mode": pipeline_mode,
                 },
                 note=note,
             )
@@ -1135,6 +1195,21 @@ class AiNoteService:
         if not path.is_dir():
             return None
 
+        # 图文模式的原始正文通常是同名 .md；这里优先挑选原始正文文件，
+        # 并显式排除已经生成过的 ai-note 文件，避免二次分析自身产物。
+        original_markdown_candidates = sorted(
+            [
+                child
+                for child in path.iterdir()
+                if child.is_file()
+                and child.suffix.lower() == ".md"
+                and not child.name.endswith(".ai-note.md")
+            ],
+            key=lambda item: item.name,
+        )
+        if original_markdown_candidates:
+            return str(original_markdown_candidates[0])
+
         preferred_exts = {
             ".mp4",
             ".mkv",
@@ -1163,10 +1238,18 @@ class AiNoteService:
                 if child.is_file()
                 and child.suffix.lower()
                 not in {".nfo", ".jpg", ".jpeg", ".png", ".bak"}
+                and not child.name.startswith(".")
+                and not child.name.endswith(".ai-note.md")
             ],
             key=lambda item: item.name,
         )
         return str(fallback_candidates[0]) if fallback_candidates else None
+
+    @staticmethod
+    def _is_generated_note_file(path: Optional[str]) -> bool:
+        if not path:
+            return False
+        return Path(path).name.endswith(".ai-note.md")
 
     def _prepare_analysis_context(
         self,
@@ -1365,6 +1448,7 @@ class AiNoteService:
             style=style,
             formats=formats,
             extras=extras,
+            pipeline_mode=context.get("pipeline_mode", "video"),
         )
 
     def _transcribe_video(
@@ -1796,7 +1880,12 @@ class AiNoteService:
         source_file = Path(source_path)
         output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{source_file.stem}.ai-note.md"
+        base_name = source_file.stem
+        if base_name.endswith(".ai-note"):
+            base_name = base_name[: -len(".ai-note")]
+        if not base_name or source_file.name.startswith("."):
+            base_name = source_file.parent.name or note_id
+        output_path = output_dir / f"{base_name}.ai-note.md"
         output_path.write_text(markdown, encoding="utf-8")
         return str(output_path)
 

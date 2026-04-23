@@ -289,8 +289,7 @@ export const NOTE_STYLES = [
 
 export const NOTE_FORMATS = [
   { label: '原片截图', value: 'screenshot', description: '插入关键帧截图' },
-  { label: 'AI 总结', value: 'summary', description: '末尾添加 AI 总结' },
 ] as const;
 
 export const DEFAULT_STYLE = 'detailed';
-export const DEFAULT_FORMATS = ['summary'];
+export const DEFAULT_FORMATS: string[] = [];

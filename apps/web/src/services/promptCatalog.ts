@@ -25,8 +25,12 @@ export function normalizePromptStyleValue(value?: string | null): string {
 export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 'base.system', title: '系统提示词', category: '基础', path: ['base', 'system'], kind: 'text' },
   { key: 'base.final', title: '最终要求', category: '基础', path: ['base', 'final'], kind: 'lines' },
+  { key: 'base_image_text.system', title: '图文系统提示词', category: '基础', path: ['base_image_text', 'system'], kind: 'text' },
+  { key: 'base_image_text.final', title: '图文最终要求', category: '基础', path: ['base_image_text', 'final'], kind: 'lines' },
   { key: 't0', title: 'T0 视频信息', category: '分层', path: ['layers', 't0'], kind: 'text' },
   { key: 't1', title: 'T1 视频文本', category: '分层', path: ['layers', 't1'], kind: 'text' },
+  { key: 't0_image_text', title: 'T0 图文信息', category: '分层', path: ['layers', 't0_image_text'], kind: 'text' },
+  { key: 't1_image_text', title: 'T1 图文正文', category: '分层', path: ['layers', 't1_image_text'], kind: 'text' },
   { key: 't2.simple', title: 'T2 简单', category: '分层', path: ['layers', 't2', 'simple'], kind: 'text' },
   { key: 't2.detailed', title: 'T2 详细', category: '分层', path: ['layers', 't2', 'detailed'], kind: 'text' },
   { key: 't3.academic', title: 'T3 学术', category: '风格', path: ['layers', 't3', 'academic'], kind: 'text' },
@@ -37,7 +41,6 @@ export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 't3.business', title: 'T3 商业风格', category: '风格', path: ['layers', 't3', 'business'], kind: 'text' },
   { key: 't3.meeting_minutes', title: 'T3 会议纪要', category: '风格', path: ['layers', 't3', 'meeting_minutes'], kind: 'text' },
   { key: 'formats.screenshot', title: '原片截图', category: '格式', path: ['layers', 'formats', 'screenshot'], kind: 'text' },
-  { key: 'formats.summary', title: 'AI 总结', category: '格式', path: ['layers', 'formats', 'summary'], kind: 'text' },
 ]
 
 export function buildPromptStyleOptions(

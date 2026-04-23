@@ -67,6 +67,7 @@ function App() {
         <Route path="/history" element={<MainLayout />} />
         <Route path="/downloads" element={<MainLayout />} />
         <Route path="/opus/:opusId" element={<VideoDetailPage type="opus" />} />
+        <Route path="/opus/:opusId/ai" element={<AiNotePanel />} />
         <Route path="/video/:videoId" element={<VideoDetailPage />} />
         <Route path="/video/:videoId/ai" element={<AiNotePanel />} />
         <Route path="/settings" element={<SettingsPage />} />

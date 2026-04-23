@@ -85,7 +85,15 @@ function sourceLabel(source: string): string {
   }
 }
 
-export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: string; onSubtitleFileChange?: (filename: string) => void }) {
+export function TranscriptTab({
+  videoId,
+  onSubtitleFileChange,
+  preferSourceMarkdown = false,
+}: {
+  videoId: string;
+  onSubtitleFileChange?: (filename: string) => void;
+  preferSourceMarkdown?: boolean;
+}) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +120,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   const [subtitleFiles, setSubtitleFiles] = useState<SubtitleFile[]>([]);
   const [showSubtitleFileSelect, setShowSubtitleFileSelect] = useState(false);
   const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
+  const isSourceMode = preferSourceMarkdown;
 
   const settings = useSettingsStore((state) => state.settings);
   const aiRuntimeState = useAiRuntimeState();
@@ -302,7 +311,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       loadSubtitleFiles();
     }
     aiRuntimeStateService.refresh();
-  }, [videoId]);
+  }, [videoId, isSourceMode]);
 
   // 当字幕文件列表加载完成后，用默认文件名重新加载
   useEffect(() => {
@@ -310,11 +319,15 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
       loadSubtitle(selectedSubtitleFilename);
       loadVersions(selectedSubtitleFilename);
     }
-  }, [selectedSubtitleFilename]);
+  }, [selectedSubtitleFilename, isSourceMode]);
 
   useEffect(() => {
+    if (isSourceMode) {
+      setSubtitles([]);
+      return;
+    }
     if (content) setSubtitles(parseSRT(content));
-  }, [content]);
+  }, [content, isSourceMode]);
 
   // ---- 数据加载 ----
 
@@ -322,19 +335,27 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.getLocalFile(videoId, 'subtitle', filename);
+      const response = await apiService.getLocalFile(videoId, isSourceMode ? 'source' : 'subtitle', filename);
       if (response.success && response.data) {
         setContent(response.data);
+      } else if (isSourceMode) {
+        const noteFallback = await apiService.getLocalFile(videoId, 'note');
+        if (noteFallback.success && noteFallback.data) {
+          setContent(noteFallback.data);
+        }
       }
     } catch (err) {
-      console.error('加载字幕失败:', err);
-      setError('加载字幕失败');
+      console.error(isSourceMode ? '加载原文失败:' : '加载字幕失败:', err);
+      setError(isSourceMode ? '加载原文失败' : '加载字幕失败');
     } finally {
       setLoading(false);
     }
   };
 
   const loadVersions = async (filename?: string) => {
+    if (isSourceMode) {
+      return;
+    }
     try {
       const response = await apiService.getVersions(videoId, 'subtitle', filename);
       if (response.success && response.data) {
@@ -347,6 +368,12 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   };
 
   const loadSubtitleFiles = async () => {
+    if (isSourceMode) {
+      setSubtitleFiles([]);
+      setSelectedSubtitleFilename('');
+      onSubtitleFileChange?.('');
+      return;
+    }
     try {
       const response = await apiService.getSubtitleFiles(videoId);
       if (response.success && response.data) {
@@ -365,11 +392,13 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   // ---- 字幕编辑 ----
 
   const handleDoubleClick = (subtitle: Subtitle, index: number) => {
+    if (isSourceMode) return;
     setEditingIndex(index);
     setEditContent(subtitle.text);
   };
 
   const handleSaveLine = async () => {
+    if (isSourceMode) return;
     if (editingIndex === null) return;
 
     const newSubtitles = [...subtitles];
@@ -396,6 +425,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   };
 
   const handleApplyTerms = () => {
+    if (isSourceMode) return;
     setShowTermModal(true);
   };
 
@@ -407,6 +437,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   // ---- 版本操作 ----
 
   const handleSwitchVersion = async (hash: string) => {
+    if (isSourceMode) return;
     try {
       const response = await apiService.switchVersion(videoId, 'subtitle', hash, selectedSubtitleFilename || undefined);
       if (response.success) {
@@ -420,6 +451,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   };
 
   const handleDeleteVersion = async (hash: string) => {
+    if (isSourceMode) return;
     try {
       const response = await apiService.deleteVersion(videoId, 'subtitle', hash, selectedSubtitleFilename || undefined);
       if (response.success) {
@@ -431,6 +463,7 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
   };
 
   const handleSaveManualVersion = async () => {
+    if (isSourceMode) return;
     try {
       await apiService.saveVersion(videoId, 'subtitle', content, 'manual', '手动保存', selectedSubtitleFilename || undefined);
       await loadVersions(selectedSubtitleFilename || undefined);
@@ -468,6 +501,39 @@ export function TranscriptTab({ videoId, onSubtitleFileChange }: { videoId: stri
         <style>{scrollbarStyle}</style>
         <p style={{ color: 'var(--color-text-secondary)', fontSize: '14px' }}>{error}</p>
         <button onClick={() => loadSubtitle(selectedSubtitleFilename || undefined)} style={{ padding: '8px 16px', background: 'var(--color-accent)', color: '#fff', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>重试</button>
+      </div>
+    );
+  }
+
+  if (isSourceMode) {
+    return (
+      <div style={{ display: 'flex', height: '100%' }}>
+        <style>{scrollbarStyle}</style>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minWidth: 0 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>图文原文</div>
+              {selectedSubtitleFilename ? (
+                <div style={{ color: 'var(--color-text-tertiary)', fontSize: '12px' }}>{selectedSubtitleFilename}</div>
+              ) : null}
+            </div>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+            <pre
+              style={{
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                color: 'var(--color-text-primary)',
+                fontSize: '14px',
+                lineHeight: 1.7,
+                fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace)',
+              }}
+            >
+              {content || '暂无原文内容'}
+            </pre>
+          </div>
+        </div>
       </div>
     );
   }

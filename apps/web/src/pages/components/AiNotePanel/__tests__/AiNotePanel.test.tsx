@@ -15,6 +15,16 @@ vi.mock('../../../../services/api', () => ({
   },
 }))
 
+vi.mock('../../../../services/aiNote', () => ({
+  aiNoteService: {
+    lookupNoteByVideo: vi.fn().mockResolvedValue({
+      success: true,
+      found: false,
+      note: null,
+    }),
+  },
+}))
+
 vi.mock('../TranscriptTab', () => ({
   TranscriptTab: () => <div data-testid="subtitle-tab" />,
 }))
@@ -40,9 +50,9 @@ describe('AiNotePanel', () => {
 
   it('renders the mindmap tab entry', async () => {
     render(
-      <MemoryRouter initialEntries={['/video/BV1x/ai-note']}>
+      <MemoryRouter initialEntries={['/video/BV1x/ai']}>
         <Routes>
-          <Route path="/video/:videoId/ai-note" element={<AiNotePanel />} />
+          <Route path="/video/:videoId/ai" element={<AiNotePanel />} />
         </Routes>
       </MemoryRouter>,
     )

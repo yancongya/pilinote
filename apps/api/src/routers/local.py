@@ -72,10 +72,33 @@ def build_note_file_response(video_dir: Path) -> LocalFileResponse:
     )
 
 
-@router.get("/file/{video_id}", response_model=LocalFileResponse)
+def build_source_markdown_response(video_dir: Path) -> LocalFileResponse:
+    """构造图文原文响应，优先返回同名 Markdown 正文。"""
+    md_files = [
+        f for f in video_dir.glob("*.md")
+        if not f.name.endswith(".ai-note.md")
+    ]
+    if not md_files:
+        return LocalFileResponse(
+            success=True,
+            data="",
+            folder_path=str(video_dir),
+        )
+
+    note_file = sorted(md_files, key=lambda f: f.name)[0]
+    content = note_file.read_text(encoding="utf-8")
+    return LocalFileResponse(
+        success=True,
+        data=content,
+        file_path=str(note_file),
+        folder_path=str(video_dir),
+    )
+
+
+@router.get("/file/{video_id:path}", response_model=LocalFileResponse)
 async def get_local_file(
     video_id: str,
-    file_type: str = Query(..., description="文件类型: subtitle, note"),
+    file_type: str = Query(..., description="文件类型: subtitle, note, source"),
     filename: Optional[str] = Query(None, description="指定字幕文件名（如 xxx.ai-zh.srt）"),
 ):
     """读取本地字幕或笔记文件"""
@@ -104,6 +127,9 @@ async def get_local_file(
         elif file_type == "note":
             return build_note_file_response(video_dir)
 
+        elif file_type == "source":
+            return build_source_markdown_response(video_dir)
+
         else:
             return LocalFileResponse(
                 success=False, error=f"不支持的文件类型: {file_type}"
@@ -117,7 +143,7 @@ class SaveFileRequest(BaseModel):
     content: str = ""
 
 
-@router.post("/file/{video_id}")
+@router.post("/file/{video_id:path}")
 async def save_local_file(
     video_id: str,
     file_type: str = Query(...),
