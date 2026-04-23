@@ -255,6 +255,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
         error={videosError}
         hasItems={videos.length > 0}
         emptyText="暂无视频"
+        refreshingHint={videosLoading && videos.length > 0 ? '正在刷新观看历史...' : undefined}
         contentClassName="media-list-shell-content"
       >
         <VideoListContainer

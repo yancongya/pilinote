@@ -49,6 +49,8 @@ export interface VideoListContainerProps {
   extraHeader?: ReactNode
   /** 额外的操作按钮 */
   extraActions?: ReactNode
+  /** 首屏加载时，保留旧列表时显示的刷新提示 */
+  refreshingHint?: ReactNode
   /** 加载更多的 ref，用于无限滚动 */
   loadMoreRef?: RefObject<HTMLDivElement | null>
   /** 是否有更多数据 */
@@ -86,6 +88,7 @@ export default function VideoListContainer({
   getDownloadStatus,
   extraHeader,
   extraActions,
+  refreshingHint,
   loadMoreRef,
   hasMore = true,
   emptyText = '暂无视频',
@@ -110,6 +113,25 @@ export default function VideoListContainer({
           showHeader={showLoadingSkeletonHeader}
           dense={loadingSkeletonDense}
         />
+      )}
+
+      {loading && videos.length > 0 && refreshingHint && (
+        <div
+          className="video-list-refreshing-hint"
+          role="status"
+          aria-live="polite"
+          style={{
+            margin: '0 0 12px',
+            padding: '10px 12px',
+            borderRadius: '12px',
+            border: '1px solid var(--color-border)',
+            background: 'var(--color-bg-secondary)',
+            color: 'var(--color-text-secondary)',
+            fontSize: '13px'
+          }}
+        >
+          {refreshingHint}
+        </div>
       )}
 
       {/* 错误状态 */}
