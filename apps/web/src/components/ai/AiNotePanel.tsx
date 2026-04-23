@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
 import { aiNoteService, NoteResponse, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS } from '../../services/aiNote';
 import { useNotePolling } from '../../hooks/useNotePolling';
 import { StyleSelector } from './StyleSelector';
@@ -9,6 +10,13 @@ import { useToast } from '../Toast';
 import { useSettingsStore } from '../../stores/settings';
 import { normalizePromptStyleValue } from '../../services/promptCatalog';
 import { useAiRuntimeState } from '../../hooks/useAiRuntimeState';
+import {
+  buildAiNoteModalCacheKey,
+  readAiNoteModalCache,
+  writeAiNoteModalCache,
+  type AiNoteModalSingleCacheSnapshot,
+} from '../../services/aiNoteModalCache';
+import { createAiNoteStreamState } from '../../services/aiNoteStreamState';
 
 type SupportedNoteFormat = (typeof NOTE_FORMATS)[number]['value']
 
@@ -22,8 +30,15 @@ interface AiNotePanelProps {
 }
 
 type ViewMode = 'form' | 'result' | 'loading';
+type CacheViewState = 'config' | 'result'
+
+function sameStringArray(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+  return left.every((item, index) => item === right[index])
+}
 
 export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
+  const { opusId } = useParams<{ opusId?: string }>();
   const { settings } = useSettingsStore();
   const runtimeState = useAiRuntimeState();
   const [viewMode, setViewMode] = useState<ViewMode>('form');
@@ -42,6 +57,45 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     ? configuredModel
     : (providerModels[0] || configuredModel);
   const generatedMarkdownPath = note?.generated_markdown_path || note?.meta?.generated_markdown_path || '';
+  const isImageTextMode = Boolean(opusId)
+  const pipelineMode = isImageTextMode ? 'image_text' : 'video'
+  const cacheKey = useMemo(() => buildAiNoteModalCacheKey({
+    videoId,
+    pipelineMode,
+  }), [pipelineMode, videoId])
+  const toCacheViewState = (mode: ViewMode): CacheViewState => (mode === 'result' ? 'result' : 'config')
+  const toPanelViewMode = (state: CacheViewState): ViewMode => (state === 'result' ? 'result' : 'form')
+
+  const writePanelCache = (next: {
+    note?: NoteResponse | null
+    viewMode?: ViewMode
+    error?: string | null
+    noteId?: string | null
+  }) => {
+    if (!videoId) return
+
+    const snapshot: AiNoteModalSingleCacheSnapshot = {
+      version: 1,
+      kind: 'single',
+      videoId,
+      pipelineMode: isImageTextMode ? 'image_text' : 'video',
+      updatedAt: Date.now(),
+      viewState: toCacheViewState(next.viewMode || viewMode),
+      note: next.note ?? note,
+      error: next.error ?? null,
+      trace: (next.note?.meta?.trace as any) || (note?.meta?.trace as any) || [],
+      streamState: createAiNoteStreamState(),
+      controlState: next.note?.status === 'completed'
+        ? 'completed'
+        : (next.note?.status === 'failed' ? 'cancelled' : 'running'),
+      activeNoteId: next.viewMode === 'loading'
+        ? (next.noteId || next.note?.id || noteId || null)
+        : null,
+      selectedTraceItemId: null,
+    }
+
+    writeAiNoteModalCache(cacheKey, snapshot)
+  }
   
   const { status, progress, error, startPolling } = useNotePolling({
     noteId,
@@ -51,33 +105,68 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
     onComplete: (n: NoteResponse) => {
       setNote(n);
       setViewMode('result');
+      writePanelCache({ note: n, viewMode: 'result', error: null, noteId: n.id });
     },
     onError: (e: string) => {
       console.error('分析失败:', e);
       setViewMode('form');
+      writePanelCache({ error: e, viewMode: 'form' });
     },
   });
 
   useEffect(() => {
-    if (!lookup.note) {
-      setNote(null)
-      setNoteId(null)
-      setViewMode('form')
+    if (!videoId) return
+
+    const cached = readAiNoteModalCache(cacheKey)
+    if (cached && cached.kind === 'single' && cached.videoId === videoId) {
+      if (cached.note) {
+        setNote(cached.note)
+        setStyle(normalizePromptStyleValue(cached.note.style) || DEFAULT_STYLE)
+        setFormats((cached.note.formats || DEFAULT_FORMATS).filter(isSupportedNoteFormat))
+      }
+      setViewMode(toPanelViewMode(cached.viewState))
+      setNoteId(
+        cached.note?.status === 'processing' || cached.note?.status === 'pending'
+          ? (cached.activeNoteId || (cached.note?.id ?? null))
+          : null,
+      )
+    }
+  }, [cacheKey, videoId])
+
+  useEffect(() => {
+    const incomingNote = lookup.note
+
+    if (!incomingNote) {
+      const cached = readAiNoteModalCache(cacheKey)
+      if (!cached || cached.kind !== 'single' || cached.videoId !== videoId) {
+        setNote(prev => (prev === null ? prev : null))
+        setNoteId(prev => (prev === null ? prev : null))
+        setViewMode(prev => (prev === 'form' ? prev : 'form'))
+        setStyle(prev => (prev === DEFAULT_STYLE ? prev : DEFAULT_STYLE))
+        setFormats(prev => (sameStringArray(prev, DEFAULT_FORMATS) ? prev : DEFAULT_FORMATS))
+      }
       return
     }
 
-    setNote(lookup.note)
-    setStyle(normalizePromptStyleValue(lookup.note.style) || DEFAULT_STYLE)
-    setFormats((lookup.note.formats || DEFAULT_FORMATS).filter(isSupportedNoteFormat))
+    const nextStyle = normalizePromptStyleValue(incomingNote.style) || DEFAULT_STYLE
+    const nextFormats = (incomingNote.formats || DEFAULT_FORMATS).filter(isSupportedNoteFormat)
+    const nextViewMode: ViewMode = incomingNote.status === 'processing' || incomingNote.status === 'pending' ? 'loading' : 'result'
+    const nextNoteId = incomingNote.status === 'processing' || incomingNote.status === 'pending' ? incomingNote.id : null
 
-    if (lookup.note.status === 'processing' || lookup.note.status === 'pending') {
-      setNoteId(lookup.note.id)
-      setViewMode('loading')
-    } else {
-      setNoteId(null)
-      setViewMode('result')
-    }
-  }, [lookup.note])
+    setNote(prev => (prev?.id === incomingNote.id && prev?.updated_at === incomingNote.updated_at ? prev : incomingNote))
+    setStyle(prev => (prev === nextStyle ? prev : nextStyle))
+    setFormats(prev => (sameStringArray(prev, nextFormats) ? prev : nextFormats))
+
+    setNoteId(prev => (prev === nextNoteId ? prev : nextNoteId))
+    setViewMode(prev => (prev === nextViewMode ? prev : nextViewMode))
+
+    writePanelCache({
+      note: incomingNote,
+      viewMode: nextViewMode,
+      error: incomingNote.error || null,
+      noteId: nextNoteId,
+    })
+  }, [cacheKey, lookup.note, videoId])
 
   useEffect(() => {
     let cancelled = false
@@ -107,11 +196,13 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
         formats,
         model_provider: activeProvider,
         model_name: activeModel,
+        pipeline_mode: pipelineMode,
       });
       
       if (response.success && response.note_id) {
         setNoteId(response.note_id);
         setViewMode('loading');
+        writePanelCache({ viewMode: 'loading', noteId: response.note_id });
         startPolling(response.note_id);
       }
     } catch (err) {
@@ -131,6 +222,7 @@ export function AiNotePanel({ videoId, videoTitle }: AiNotePanelProps) {
       if (data.success && data.recommended_style) {
         setRecommendedStyle(data.recommended_style);
         setStyle(normalizePromptStyleValue(data.recommended_style) || DEFAULT_STYLE);
+        writePanelCache({ viewMode });
       }
     } catch (err) {
       console.error('推荐失败:', err);

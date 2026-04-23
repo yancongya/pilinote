@@ -27,6 +27,7 @@ def _run_ai_analysis_background(
     extras: Optional[str],
     subtitle_filename: Optional[str] = None,
     level: Optional[str] = None,
+    pipeline_mode: Optional[str] = None,
 ):
     service = AiNoteService()
     try:
@@ -41,6 +42,7 @@ def _run_ai_analysis_background(
             extras=extras,
             subtitle_filename=subtitle_filename,
             level=level,
+            pipeline_mode=pipeline_mode,
         )
     finally:
         if service.db:
@@ -121,6 +123,10 @@ class ResumeFromStageRequest(BaseModel):
     """从指定阶段恢复请求"""
 
     resume_from_stage: str = Field(..., description="从哪个阶段开始重跑")
+
+
+class ReanalyzeRequest(BaseModel):
+    pipeline_mode: Optional[str] = Field(None, description="流水线模式：video/series/image_text")
 
 
 class ErrorResponse(BaseModel):
@@ -213,6 +219,7 @@ async def analyze_video(request: AnalyzeRequest, background_tasks: BackgroundTas
             formats=request.formats or ["summary"],
             model_provider=request.model_provider or "openai",
             model_name=request.model_name or "gpt-4o-mini",
+            pipeline_mode=request.pipeline_mode,
         )
         service.db.close()
 
@@ -227,6 +234,8 @@ async def analyze_video(request: AnalyzeRequest, background_tasks: BackgroundTas
             request.model_name or "gpt-4o-mini",
             request.extras,
             request.subtitle_filename,
+            None,
+            request.pipeline_mode,
         )
 
         return AnalyzeResponse(
@@ -353,14 +362,8 @@ async def resume_from_stage(note_id: str, request: ResumeFromStageRequest):
 
 
 @router.post("/reanalyze/{note_id}")
-async def reanalyze_note(note_id: str):
+async def reanalyze_note(note_id: str, request: ReanalyzeRequest | None = None):
     """基于之前的分析结果进行增量分析（节省 tokens）"""
-    from pydantic import BaseModel
-
-    class ReanalyzeRequest(BaseModel):
-        style: Optional[str] = None
-        formats: Optional[List[str]] = None
-
     service = AiNoteService()
     note = service.get_note(note_id)
 
@@ -370,7 +373,7 @@ async def reanalyze_note(note_id: str):
     if not note.content:
         raise HTTPException(status_code=400, detail="没有可用的之前分析结果")
 
-    result = service.reanalyze_incremental(note_id)
+    result = service.reanalyze_incremental(note_id, request.pipeline_mode if request else None)
     return result
 
 
@@ -517,6 +520,7 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
         None,
         request.subtitle_filename,
         request.level or "detailed",
+        request.pipeline_mode,
     )
     logger.info(f"[SSE] Analysis task started in background thread for note {note_id}")
 

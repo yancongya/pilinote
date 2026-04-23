@@ -2,6 +2,37 @@
 
 ## 更新时间线
 
+### 2026-04-24 - 图文 AI 流水线回退修复
+
+本次更新修复了图文 AI 笔记分析在刷新、重试和重新打开时偶尔回退到旧视频记录的问题。
+
+#### 主要更新
+
+##### 1. 图文模式稳定透传
+**影响范围**: 图文详情页 / 媒体库图文弹窗
+**相关文件**:
+- `apps/api/src/routers/note.py`
+- `apps/api/src/services/ai/note_service.py`
+- `apps/web/src/components/ai/AiNotePanel.tsx`
+- `apps/web/src/pages/components/AiNotePanel/NoteTab.tsx`
+- `apps/web/src/services/aiNote.ts`
+
+**更新内容**:
+- 图文分析和重新生成都会显式携带 `pipeline_mode=image_text`
+- 后端分析入口现在会优先使用显式传入的模式，不再在入口处回落为 `video`
+- 图文分支继续使用 `NFOReader.read_image_text_context()`，不再走音频提取 / Whisper 链路
+
+##### 2. 最新结果回填
+**更新内容**:
+- `GET /api/note/by-video` 现在按 `updated_at` / `created_at` 倒序返回最新笔记
+- 同一个图文目录如果存在多次分析记录，页面会优先展示最近一次成功结果
+- 旧失败记录不会再把图文面板和重试入口拖回过期状态
+
+#### 验证结果
+
+- `apps/web` 的 `tsc --noEmit` 已通过
+- `apps/api/src` 的 `py_compile` 已通过
+
 ### 2026-04-23 - 系列视频 AI 笔记弹窗改造
 
 本次更新把媒体库里的系列视频 AI 分析改成“单集任务队列”模式，前端统一由 `AiNoteModal` 编排每一集的分析状态和流水线日志。
@@ -26,6 +57,13 @@
 - 单集失败时会把失败 trace 回填到该 episode 自己的状态里
 - 单集完成时会把最终 trace 同步回写，避免“生成”节点一直保持加载态
 - 节点详情仍保持手动点击查看，不会在切换 episode 时自动弹出
+
+##### 3. 弹窗快照缓存
+**更新内容**:
+- `AiNoteModal` 现在会把单集和系列的运行态写入 `sessionStorage`
+- 关闭面板或刷新媒体库后，重新打开时会先回读本地快照
+- 缓存命中时会优先恢复 `trace / streamState / episode 状态`，再按需向服务端回填最新结果
+- 视频/图文详情页的 `AiNotePanel` 也复用同一套快照缓存，避免单集结果在刷新后丢失
 
 #### 验证结果
 

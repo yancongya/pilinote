@@ -365,7 +365,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
         </div>
       )}
 
-      {showAiNoteModal && canUseAiNote && (
+      {canUseAiNote && (
         <AiNoteModal
           videoId={videoIdForNote}
           videoTitle={task.title}

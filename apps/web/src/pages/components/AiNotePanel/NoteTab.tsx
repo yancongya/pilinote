@@ -152,6 +152,7 @@ interface NoteTabProps {
   selectedSubtitleFilename?: string;
   onContentSnapshotChange?: (content: string) => void;
   fileType?: 'note' | 'source';
+  analysisPipelineMode?: AiNotePipelineMode;
   readOnly?: boolean;
 }
 
@@ -160,6 +161,7 @@ export function NoteTab({
   selectedSubtitleFilename,
   onContentSnapshotChange,
   fileType = 'note',
+  analysisPipelineMode = 'video',
   readOnly = false,
 }: NoteTabProps) {
   const { settings } = useSettingsStore();
@@ -367,7 +369,7 @@ export function NoteTab({
     } finally {
       setLoading(false);
     }
-  }, [fileType, loadVersions, videoId]);
+  }, [fileType, loadVersions, onContentSnapshotChange, videoId]);
 
   useEffect(() => {
     if (videoId) loadNote();
@@ -476,7 +478,7 @@ export function NoteTab({
 
     try {
       let subtitleFilename = selectedSubtitleFilename;
-      if (!subtitleFilename) {
+      if (analysisPipelineMode !== 'image_text' && !subtitleFilename) {
         try {
           const filesResponse: any = await apiService.getSubtitleFiles(videoId);
           if (filesResponse.success && filesResponse.data) {
@@ -491,8 +493,8 @@ export function NoteTab({
         }
       }
 
-      const hasSubtitle = !!subtitleFilename;
-      pipeline.startPipeline('video', hasSubtitle);
+      const isReanalyze = analysisPipelineMode !== 'image_text' && !!subtitleFilename;
+      pipeline.startPipeline(analysisPipelineMode, isReanalyze);
       showToast('已开始重新生成 AI 笔记', 'info');
 
       await aiNoteService.analyzeStream(
@@ -504,6 +506,7 @@ export function NoteTab({
           formats,
           model_provider: modelSelection.provider || activeProvider,
           model_name: modelSelection.model,
+          pipeline_mode: analysisPipelineMode,
           subtitle_filename: subtitleFilename || undefined,
         },
         (event) => {
@@ -570,7 +573,7 @@ export function NoteTab({
       analysisNoteIdRef.current = null;
       showToast(err.message || '启动分析失败', 'error');
     }
-  }, [activeProvider, detailLevel, formats, isAnalyzing, loadNote, pipeline, selectedModelSelection, selectedSubtitleFilename, showToast, style, videoId]);
+  }, [activeProvider, analysisPipelineMode, detailLevel, formats, isAnalyzing, loadNote, pipeline, selectedModelSelection, selectedSubtitleFilename, showToast, style, videoId]);
 
   useEffect(() => {
     return () => {

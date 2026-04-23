@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { apiService } from '../../../services/api';
 import { TranscriptTab } from './TranscriptTab';
 import { NoteTab } from './NoteTab';
 import { MindMapTab } from './MindMapTab';
+import {
+  buildAiNotePanelCacheKey,
+  readAiNotePanelCache,
+  writeAiNotePanelCache,
+  type AiNotePanelCacheSnapshot,
+} from '../../../services/aiNoteModalCache';
 
 export { TranscriptTab, NoteTab, MindMapTab };
 
@@ -66,12 +72,35 @@ export default function AiNotePanel() {
   const backToDetailPath = opusId ? `/opus/${mediaId}` : `/video/${mediaId}`;
   const isImageTextMode = Boolean(opusId);
   const fallbackFolderPath = routeState?.folderPath || '';
+  const panelCacheKey = useMemo(() => buildAiNotePanelCacheKey({
+    videoId: mediaId,
+    pipelineMode: isImageTextMode ? 'image_text' : 'video',
+  }), [isImageTextMode, mediaId]);
+  const hydratedCacheRef = useRef(false);
+  const skipNextPanelCacheWriteRef = useRef(false);
 
   useEffect(() => {
     if (!location.hash || !['#subtitle', '#note', '#mindmap'].includes(location.hash)) {
-      navigate('#subtitle', { replace: true });
+      const cached = readAiNotePanelCache(panelCacheKey);
+      const fallbackTab = cached?.activeTab || 'subtitle';
+      navigate(`#${fallbackTab}`, { replace: true });
     }
-  }, [location.hash, navigate]);
+  }, [location.hash, navigate, panelCacheKey]);
+
+  useEffect(() => {
+    hydratedCacheRef.current = false;
+    if (!mediaId) return;
+
+    const cached = readAiNotePanelCache(panelCacheKey);
+    if (cached && cached.kind === 'panel' && cached.videoId === mediaId) {
+      skipNextPanelCacheWriteRef.current = true;
+      setSelectedSubtitleFilename(cached.selectedSubtitleFilename || '');
+      setNoteMarkdown(cached.noteMarkdown || '');
+      setNoteTitle(cached.noteTitle || 'mindmap');
+      setResolvedFileId(cached.resolvedFileId || '');
+    }
+    hydratedCacheRef.current = true;
+  }, [mediaId, panelCacheKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,11 +165,29 @@ export default function AiNotePanel() {
           setNoteTitle(
             fileName.replace(/\.ai-note\.md$/i, '').replace(/\.md$/i, '') || 'mindmap',
           );
+          if (hydratedCacheRef.current) {
+            const snapshot: AiNotePanelCacheSnapshot = {
+              version: 1,
+              kind: 'panel',
+              videoId: mediaId,
+              pipelineMode: isImageTextMode ? 'image_text' : 'video',
+              updatedAt: Date.now(),
+              activeTab,
+              noteMarkdown: typeof response.data === 'string' ? response.data : '',
+              noteTitle: fileName.replace(/\.ai-note\.md$/i, '').replace(/\.md$/i, '') || 'mindmap',
+              resolvedFileId: targetId,
+              selectedSubtitleFilename,
+            }
+            writeAiNotePanelCache(panelCacheKey, snapshot)
+          }
         }
       } catch (err) {
         if (!cancelled) {
-          setNoteMarkdown('');
-          setNoteTitle('mindmap');
+          const cached = readAiNotePanelCache(panelCacheKey);
+          if (!(cached && cached.kind === 'panel' && cached.videoId === mediaId)) {
+            setNoteMarkdown('');
+            setNoteTitle('mindmap');
+          }
         }
         console.error('加载笔记快照失败:', err);
       }
@@ -151,7 +198,39 @@ export default function AiNotePanel() {
     return () => {
       cancelled = true;
     };
-  }, [mediaId, resolvedFileId]);
+  }, [activeTab, isImageTextMode, mediaId, panelCacheKey, resolvedFileId, selectedSubtitleFilename]);
+
+  useEffect(() => {
+    if (!hydratedCacheRef.current) return;
+    if (skipNextPanelCacheWriteRef.current) {
+      skipNextPanelCacheWriteRef.current = false;
+      return;
+    }
+    if (!mediaId) return;
+
+    const snapshot: AiNotePanelCacheSnapshot = {
+      version: 1,
+      kind: 'panel',
+      videoId: mediaId,
+      pipelineMode: isImageTextMode ? 'image_text' : 'video',
+      updatedAt: Date.now(),
+      activeTab,
+      noteMarkdown,
+      noteTitle,
+      resolvedFileId,
+      selectedSubtitleFilename,
+    }
+    writeAiNotePanelCache(panelCacheKey, snapshot)
+  }, [
+    activeTab,
+    isImageTextMode,
+    mediaId,
+    noteMarkdown,
+    noteTitle,
+    panelCacheKey,
+    resolvedFileId,
+    selectedSubtitleFilename,
+  ])
 
   if (!mediaId) {
     return (
@@ -287,14 +366,15 @@ export default function AiNotePanel() {
         {mountedTabs.has('subtitle') && (
           <div style={{ display: activeTab === 'subtitle' ? 'block' : 'none', height: '100%' }}>
             {isImageTextMode ? (
-              <NoteTab
-                videoId={resolvedFileId || mediaId}
-                fileType="source"
-                readOnly
-                onContentSnapshotChange={setNoteMarkdown}
-              />
-            ) : (
-              <TranscriptTab
+            <NoteTab
+              videoId={resolvedFileId || mediaId}
+              fileType="source"
+              analysisPipelineMode="image_text"
+              readOnly
+              onContentSnapshotChange={setNoteMarkdown}
+            />
+          ) : (
+            <TranscriptTab
                 videoId={resolvedFileId || mediaId}
                 onSubtitleFileChange={setSelectedSubtitleFilename}
               />
@@ -308,6 +388,7 @@ export default function AiNotePanel() {
               selectedSubtitleFilename={selectedSubtitleFilename}
               onContentSnapshotChange={setNoteMarkdown}
               fileType="note"
+              analysisPipelineMode={isImageTextMode ? 'image_text' : 'video'}
             />
           </div>
         )}

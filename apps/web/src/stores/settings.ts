@@ -130,6 +130,8 @@ interface SettingsState {
   importSettings: (data: string) => Promise<void>
 }
 
+let settingsFetchPromise: Promise<void> | null = null
+
 export const useSettingsStore = create<SettingsState>()(
   (set, get) => ({
     settings: null,
@@ -137,6 +139,11 @@ export const useSettingsStore = create<SettingsState>()(
     error: null,
 
     fetchSettings: async () => {
+      if (settingsFetchPromise) {
+        return settingsFetchPromise
+      }
+
+      settingsFetchPromise = (async () => {
       set({ loading: true, error: null })
       try {
         const response = await fetch(getApiUrl('/api/settings/'))
@@ -150,7 +157,12 @@ export const useSettingsStore = create<SettingsState>()(
           error: error instanceof Error ? error.message : 'Unknown error',
           loading: false
         })
+      } finally {
+        settingsFetchPromise = null
       }
+      })()
+
+      return settingsFetchPromise
     },
 
     updateSettings: async (updates: Partial<Settings>) => {

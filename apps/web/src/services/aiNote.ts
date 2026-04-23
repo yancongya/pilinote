@@ -9,6 +9,7 @@ export interface AnalyzeRequest {
   model_name?: string;
   extras?: string;
   subtitle_filename?: string;
+  pipeline_mode?: AiNotePipelineMode;
 }
 
 export interface AnalyzeResponse {
@@ -267,9 +268,10 @@ export const aiNoteService = {
     return (response.data ?? response) as { success: boolean; message?: string };
   },
 
-  async reanalyze(noteId: string): Promise<AnalyzeResponse> {
+  async reanalyze(noteId: string, pipelineMode?: AiNotePipelineMode): Promise<AnalyzeResponse> {
     const response = await apiService.request<AnalyzeResponse>(`/api/note/reanalyze/${encodeURIComponent(noteId)}`, {
       method: 'POST',
+      body: JSON.stringify(pipelineMode ? { pipeline_mode: pipelineMode } : {}),
     });
     return (response.data ?? response) as AnalyzeResponse;
   },

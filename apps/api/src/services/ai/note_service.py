@@ -634,7 +634,7 @@ class AiNoteService:
         self.db.commit()
         return True
 
-    def reanalyze_incremental(self, note_id: str) -> Dict[str, Any]:
+    def reanalyze_incremental(self, note_id: str, pipeline_mode: Optional[str] = None) -> Dict[str, Any]:
         """重新生成笔记，覆盖之前的分析结果"""
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
         if not note:
@@ -660,6 +660,7 @@ class AiNoteService:
             model_provider=note.model_provider or "openai",
             model_name=note.model_name or "gpt-4o-mini",
             extras=note.meta.get("extras") if note.meta else None,
+            pipeline_mode=pipeline_mode or note.pipeline_mode,
         )
 
         return {"success": True, "note_id": note.id, "message": "重新分析完成"}
@@ -749,11 +750,11 @@ class AiNoteService:
         extras: Optional[str] = None,
         subtitle_filename: Optional[str] = None,
         level: Optional[str] = None,
+        pipeline_mode: Optional[str] = None,
     ) -> AiNote:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
         if not note:
             raise ValueError(f"Note not found: {note_id}")
-        self._resolve_note_pipeline_mode(note)
 
         self._run_analysis(
             note=note,
@@ -766,6 +767,7 @@ class AiNoteService:
             extras=extras,
             subtitle_filename=subtitle_filename,
             level=level,
+            pipeline_mode=pipeline_mode,
         )
         return note
 
@@ -782,6 +784,7 @@ class AiNoteService:
         resume_from_stage: Optional[str] = None,
         subtitle_filename: Optional[str] = None,
         level: Optional[str] = None,
+        pipeline_mode: Optional[str] = None,
     ) -> None:
         download = None
         actual_source_path = file_path
@@ -811,7 +814,16 @@ class AiNoteService:
         if note and task_control_registry.is_cancelled(note.id):
             raise RuntimeError("分析已取消")
 
-        pipeline_mode = self._resolve_note_pipeline_mode(note, download=download)
+        if pipeline_mode is not None:
+            pipeline_mode = self._normalize_pipeline_mode(pipeline_mode)
+            note.pipeline_mode = pipeline_mode
+            note.meta = {
+                **(note.meta or {}),
+                "pipeline_mode": pipeline_mode,
+            }
+        else:
+            pipeline_mode = self._resolve_note_pipeline_mode(note, download=download)
+
         actual_file_path = self._resolve_video_file_path(actual_source_path)
         if not actual_file_path:
             raise ValueError(f"Video file not found: {actual_source_path}")
@@ -1898,7 +1910,12 @@ class AiNoteService:
         return note
 
     def get_note_by_video(self, video_id: str) -> Optional[AiNote]:
-        note = self.db.query(AiNote).filter(AiNote.video_id == video_id).first()
+        note = (
+            self.db.query(AiNote)
+            .filter(AiNote.video_id == video_id)
+            .order_by(AiNote.updated_at.desc(), AiNote.created_at.desc())
+            .first()
+        )
         if note:
             self._resolve_note_pipeline_mode(note)
             self.db.close()
@@ -1921,7 +1938,12 @@ class AiNoteService:
                     self.db.query(Download).filter(Download.bvid == video_id).first()
                 )
         if download:
-            note = self.db.query(AiNote).filter(AiNote.video_id == download.id).first()
+            note = (
+                self.db.query(AiNote)
+                .filter(AiNote.video_id == download.id)
+                .order_by(AiNote.updated_at.desc(), AiNote.created_at.desc())
+                .first()
+            )
             if note:
                 self._resolve_note_pipeline_mode(note, download=download)
                 self.db.close()
@@ -1931,6 +1953,7 @@ class AiNoteService:
                 note = (
                     self.db.query(AiNote)
                     .filter(AiNote.video_id == download.file_path)
+                    .order_by(AiNote.updated_at.desc(), AiNote.created_at.desc())
                     .first()
                 )
                 if note:
@@ -1944,6 +1967,7 @@ class AiNoteService:
                     note = (
                         self.db.query(AiNote)
                         .filter(AiNote.video_id == folder_key)
+                        .order_by(AiNote.updated_at.desc(), AiNote.created_at.desc())
                         .first()
                     )
                     if note:

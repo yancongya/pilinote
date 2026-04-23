@@ -15,6 +15,12 @@ import {
   getStageLogText,
   type AiNoteStreamState,
 } from '../../services/aiNoteStreamState'
+import {
+  buildAiNoteModalCacheKey,
+  readAiNoteModalCache,
+  writeAiNoteModalCache,
+  type AiNoteModalCacheSnapshot,
+} from '../../services/aiNoteModalCache'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { buildPromptStyleOptions, normalizePromptStyleValue } from '../../services/promptCatalog'
 import { useToast } from '../Toast'
@@ -365,9 +371,31 @@ export function AiNoteModal({
   const activeNoteIdRef = useRef<string | null>(null)
   const analysisAbortRef = useRef<AbortController | null>(null)
   const streamStateRef = useRef<AiNoteStreamState>(createAiNoteStreamState())
+  const seriesContextKeyRef = useRef<string>('')
+  const skipNextCacheWriteRef = useRef(false)
+  const modalCacheKey = useMemo(() => {
+    const seriesFingerprint = isSeriesMode
+      ? (seriesEpisodes || [])
+        .map(item => [
+          item.id,
+          item.title,
+          item.available === false ? '0' : '1',
+          item.order ?? '',
+          item.subtitleFilename ?? '',
+        ].join(':'))
+        .join('|')
+      : ''
+
+    return buildAiNoteModalCacheKey({
+      videoId,
+      pipelineMode: isSeriesMode ? 'series' : (pipelineModeOverride || DEFAULT_PIPELINE_MODE),
+      seriesFingerprint: isSeriesMode ? seriesFingerprint : undefined,
+    })
+  }, [isSeriesMode, pipelineModeOverride, seriesEpisodes, videoId])
   const currentRequestRef = useRef<{ video_id: string; style: string; model_provider: string; model_name: string; extras: string; pipeline_mode: AiNotePipelineMode } | null>(null)
   const activeQueueTokenRef = useRef(0)
   const suppressLookupRef = useRef(false)
+  const settingsFetchRequestedRef = useRef(false)
 
   useEffect(() => {
     suppressLookupRef.current = isAnalyzing
@@ -382,7 +410,22 @@ export function AiNoteModal({
   }, [seriesEpisodeStates])
 
   useEffect(() => {
-    if (!settings || isOpen) {
+    if (!isOpen) {
+      settingsFetchRequestedRef.current = false
+      return
+    }
+
+    if (settings) {
+      settingsFetchRequestedRef.current = false
+      return
+    }
+
+    if (settingsFetchRequestedRef.current) {
+      return
+    }
+
+    settingsFetchRequestedRef.current = true
+    if (isOpen && !settings) {
       fetchSettings()
     }
   }, [settings, fetchSettings, isOpen])
@@ -431,6 +474,46 @@ export function AiNoteModal({
   useEffect(() => {
     if (!isOpen || !isSeriesMode) return
 
+    const nextContextKey = [
+      videoId,
+      ...(seriesEpisodes || []).map(item => [
+        item.id,
+        item.title,
+        item.available === false ? '0' : '1',
+        item.order ?? '',
+        item.subtitleFilename ?? '',
+      ].join(':')),
+    ].join('|')
+
+    if (seriesContextKeyRef.current === nextContextKey) {
+      return
+    }
+
+    seriesContextKeyRef.current = nextContextKey
+    skipNextCacheWriteRef.current = true
+
+    const cached = readAiNoteModalCache(modalCacheKey)
+    if (cached && cached.kind === 'series') {
+      setViewState(cached.viewState)
+      setNote(cached.note)
+      setError(cached.error)
+      setTrace(cached.trace || [])
+      setControlState(cached.controlState)
+      setSelectedTraceItem(null)
+      activeNoteIdRef.current = cached.activeNoteId
+
+      const nextStreamState = cached.streamState || createAiNoteStreamState()
+      streamStateRef.current = nextStreamState
+      setStreamState(nextStreamState)
+
+      setSeriesEpisodeStates(cached.seriesEpisodeStates || buildSeriesEpisodeStates(seriesEpisodes || []))
+      setSeriesEpisodeRuntimeStates(cached.seriesEpisodeRuntimeStates || {})
+      setSeriesRunSummary(cached.seriesRunSummary || calculateSeriesQueueSummary(cached.seriesEpisodeStates || []))
+      setActiveSeriesEpisodeId(cached.activeSeriesEpisodeId || null)
+      currentRequestRef.current = null
+      return
+    }
+
     const initialStates = buildSeriesEpisodeStates(seriesEpisodes || [])
     const initialRuntimeStates = Object.fromEntries(
       initialStates.map(item => [item.id, createAiNoteStreamState()]),
@@ -449,7 +532,7 @@ export function AiNoteModal({
     setStreamState(nextStreamState)
     activeNoteIdRef.current = null
     currentRequestRef.current = null
-  }, [isOpen, isSeriesMode, seriesEpisodes])
+  }, [isOpen, isSeriesMode, modalCacheKey, seriesEpisodes, videoId])
 
   useEffect(() => {
     if (!isOpen || isSeriesMode) return
@@ -471,6 +554,103 @@ export function AiNoteModal({
     setViewState('config')
   }, [existingNote, isOpen, isSeriesMode, showToast])
 
+  useEffect(() => {
+    if (!isOpen || isSeriesMode) return
+
+    const cached = readAiNoteModalCache(modalCacheKey)
+    if (!cached || cached.kind !== 'single' || cached.videoId !== videoId) {
+      return
+    }
+
+    skipNextCacheWriteRef.current = true
+    setViewState(cached.viewState)
+    setNote(cached.note)
+    setError(cached.error)
+    setTrace(cached.trace || [])
+    setControlState(cached.controlState)
+    setSelectedTraceItem(null)
+    activeNoteIdRef.current = cached.activeNoteId
+
+    const nextStreamState = cached.streamState || createAiNoteStreamState()
+    streamStateRef.current = nextStreamState
+    setStreamState(nextStreamState)
+  }, [isOpen, isSeriesMode, modalCacheKey, videoId])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (skipNextCacheWriteRef.current) {
+      skipNextCacheWriteRef.current = false
+      return
+    }
+
+    const snapshot: AiNoteModalCacheSnapshot = isSeriesMode
+      ? {
+          version: 1,
+          kind: 'series',
+          videoId,
+          pipelineMode: 'series',
+          seriesFingerprint: seriesEpisodes?.length
+            ? seriesEpisodes
+              .map(item => [
+                item.id,
+                item.title,
+                item.available === false ? '0' : '1',
+                item.order ?? '',
+                item.subtitleFilename ?? '',
+              ].join(':'))
+              .join('|')
+            : '',
+          updatedAt: Date.now(),
+          viewState,
+          note,
+          error,
+          trace,
+          streamState,
+          controlState,
+          activeNoteId: activeNoteIdRef.current || note?.id || null,
+          selectedTraceItemId: selectedTraceItem?.id || null,
+          seriesEpisodeStates,
+          seriesEpisodeRuntimeStates,
+          seriesRunSummary,
+          activeSeriesEpisodeId,
+        }
+      : {
+          version: 1,
+          kind: 'single',
+          videoId,
+          pipelineMode: pipelineModeOverride || DEFAULT_PIPELINE_MODE,
+          updatedAt: Date.now(),
+          viewState,
+          note,
+          error,
+          trace,
+          streamState,
+          controlState,
+          activeNoteId: activeNoteIdRef.current || note?.id || null,
+          selectedTraceItemId: selectedTraceItem?.id || null,
+        }
+
+    writeAiNoteModalCache(modalCacheKey, snapshot)
+  }, [
+    activeSeriesEpisodeId,
+    controlState,
+    error,
+    isOpen,
+    isSeriesMode,
+    modalCacheKey,
+    note,
+    pipelineModeOverride,
+    selectedTraceItem,
+    seriesEpisodeRuntimeStates,
+    seriesEpisodeStates,
+    seriesEpisodes,
+    seriesRunSummary,
+    streamState,
+    trace,
+    viewState,
+    videoId,
+  ])
+
   // Lookup latest note on open. Never treat HTTP 404 (or any success=false response) as "no note".
   useEffect(() => {
     if (!isOpen) return
@@ -479,6 +659,7 @@ export function AiNoteModal({
 
     let cancelled = false
     const run = async () => {
+      const cached = readAiNoteModalCache(modalCacheKey)
       try {
         const raw = await aiNoteService.lookupNoteByVideo(videoId)
         if (cancelled || suppressLookupRef.current) return
@@ -494,6 +675,19 @@ export function AiNoteModal({
             setStyle(normalizePromptStyleValue(derived.note.style))
           }
         } else {
+          if (cached && cached.kind === 'single' && cached.videoId === videoId) {
+            skipNextCacheWriteRef.current = true
+            setViewState(cached.viewState)
+            setNote(cached.note)
+            setError(cached.error)
+            setTrace(cached.trace || [])
+            setControlState(cached.controlState)
+            activeNoteIdRef.current = cached.activeNoteId
+            const nextStreamState = cached.streamState || createAiNoteStreamState()
+            streamStateRef.current = nextStreamState
+            setStreamState(nextStreamState)
+            return
+          }
           setNote(null)
           setTrace([])
           const nextStreamState = createAiNoteStreamState()
@@ -517,6 +711,20 @@ export function AiNoteModal({
         }
       } catch (err) {
         if (cancelled || suppressLookupRef.current) return
+        const cached = readAiNoteModalCache(modalCacheKey)
+        if (cached && cached.kind === 'single' && cached.videoId === videoId) {
+          skipNextCacheWriteRef.current = true
+          setViewState(cached.viewState)
+          setNote(cached.note)
+          setError(cached.error)
+          setTrace(cached.trace || [])
+          setControlState(cached.controlState)
+          activeNoteIdRef.current = cached.activeNoteId
+          const nextStreamState = cached.streamState || createAiNoteStreamState()
+          streamStateRef.current = nextStreamState
+          setStreamState(nextStreamState)
+          return
+        }
         setViewState('config')
         setNote(null)
         showToast(err instanceof Error ? err.message : '加载 AI 笔记失败', 'error')
@@ -1006,7 +1214,10 @@ export function AiNoteModal({
       setError(null)
       setControlState('running')
       showToast('正在重新生成...', 'info')
-      const response = await aiNoteService.reanalyze(noteId)
+      const currentMode = isSeriesMode
+        ? 'video'
+        : getPipelineMode(note, trace, videoId, effectivePipelineModeOverride)
+      const response = await aiNoteService.reanalyze(noteId, currentMode)
       if (response.success && response.note_id) {
         activeNoteIdRef.current = response.note_id
         const completed = await pollStatus(response.note_id)

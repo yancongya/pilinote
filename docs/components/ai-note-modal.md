@@ -18,6 +18,7 @@
 - 支持单集重试
 - 支持在列表中切换当前查看的 episode
 - 保持流水线节点详情手动展开，不自动弹出第一个节点
+- 将当前运行快照写入 `sessionStorage`，关闭面板或刷新页面后可回读上次状态
 
 ## 系列模式行为
 
@@ -36,6 +37,7 @@
 - 节点日志仍由用户手动点击流水线节点查看
 - 单集失败时，失败 trace 会回填到该 episode 自己的状态里
 - 单集完成时，最终 trace 也会同步回写，避免底部“生成”节点一直停留在加载态
+- 面板关闭后不会丢失快照，重新打开时优先从本地缓存恢复，再按需做服务端回填
 
 ## 数据流
 
@@ -43,6 +45,8 @@
 VideoLibrary 卡片
   -> 打开 AiNoteModal
   -> 传入当前媒体的 note / episode 上下文
+  -> 先读 session 快照，恢复上次状态
+  -> 再异步读取服务端最新 note/status，必要时合并回填
   -> 单集模式：直接执行单视频流水线
   -> 系列模式：按 episode 队列顺序执行
   -> 每个 episode 的 runtime 快照回填到列表项
@@ -54,6 +58,7 @@ VideoLibrary 卡片
 | 模块 | 文件 | 说明 |
 |------|------|------|
 | seriesAnalysis | `seriesAnalysis.ts` | 系列 episode 的默认选中、排序、状态汇总与进度计算 |
+| aiNoteModalCache | `aiNoteModalCache.ts` | 面板快照缓存读写，负责 sessionStorage 恢复与写回 |
 
 ## 相关接口
 
@@ -77,4 +82,3 @@ VideoLibrary 卡片
   activeEpisodeId={activeEpisodeId}
 />
 ```
-
