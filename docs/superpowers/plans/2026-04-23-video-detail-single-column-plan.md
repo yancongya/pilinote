@@ -125,9 +125,9 @@ git commit -m "feat(video-detail): switch to single-column shell"
   <button className="video-detail-back-button" aria-label="返回">
     <ArrowLeft size={20} />
   </button>
-  <button className="video-detail-title-link" type="button" title="打开原始 B 站网页">
+  <a className="video-detail-title-link" href={originalBilibiliUrl} target="_blank" rel="noreferrer" title="打开原始 B 站网页">
     <h1 className="video-detail-title">{video.title}</h1>
-  </button>
+  </a>
   <a className="video-detail-header-action" href={originalBilibiliUrl} target="_blank" rel="noreferrer">
     原网页
   </a>
