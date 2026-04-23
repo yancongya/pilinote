@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "lastUpdated": "2026-04-22T16:52:04Z",
+  "lastUpdated": "2026-04-23T15:08:12Z",
   "root": "docs",
   "directories": {
     "ai-note": {
@@ -71,6 +71,7 @@
         {"name": "screenshot-service.md", "type": "component"},
         {"name": "video-classifier.md", "type": "component"},
         {"name": "ai-note-panel.md", "type": "component"},
+        {"name": "ai-note-modal.md", "type": "component"},
         {"name": "home-content.md", "type": "component"},
         {"name": "video-library.md", "type": "component"},
         {"name": "video-detail-page.md", "type": "component"},

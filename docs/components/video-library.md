@@ -209,6 +209,17 @@ const getFilteredAndSortedFolders = () => {
 - `文档/图片`：`*.md` 与 `images/` 目录内文件
 - `元数据`：`*.nfo`、封面、头像等其余非正文资源
 
+### 5. AI 笔记入口
+
+每张媒体卡右下角的 AI 按钮会打开 `AiNoteModal`：
+
+- **单个视频**：沿用现有单集分析链路，直接发起分析任务
+- **系列视频**：在弹窗里以 episode 队列方式逐个分析
+- **日志展示**：底部流水线面板始终展示当前选中 episode 的独立运行快照
+- **节点查看**：节点日志保持手动点击查看，不会在切换 episode 时自动弹出
+
+系列模式下，弹窗负责排队和状态展示，分析本身仍复用单集视频流水线，不新增独立的系列聚合后端流程。
+
 ```typescript
 const handleBatchUpdateNfo = async () => {
   if (isUpdatingNfo) return

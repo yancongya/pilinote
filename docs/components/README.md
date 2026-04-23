@@ -15,7 +15,8 @@
 | TranscriberService | 转写服务 | [transcriber-service.md](transcriber-service.md) |
 | ScreenshotService | 截图服务 | [screenshot-service.md](screenshot-service.md) |
 | VideoClassifier | 视频分类器 | [video-classifier.md](video-classifier.md) |
-| AiNotePanel | AI 分析面板 (前端) | [ai-note-panel.md](ai-note-panel.md) |
+| AiNoteModal | 媒体库 AI 分析弹窗（单集 / 系列队列） | [ai-note-modal.md](ai-note-modal.md) |
+| AiNotePanel | 视频详情页 AI 分析面板 (前端) | [ai-note-panel.md](ai-note-panel.md) |
 
 ### 前端组件
 

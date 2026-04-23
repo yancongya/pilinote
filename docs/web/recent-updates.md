@@ -2,6 +2,36 @@
 
 ## 更新时间线
 
+### 2026-04-23 - 系列视频 AI 笔记弹窗改造
+
+本次更新把媒体库里的系列视频 AI 分析改成“单集任务队列”模式，前端统一由 `AiNoteModal` 编排每一集的分析状态和流水线日志。
+
+#### 主要更新
+
+##### 1. 系列按单集队列执行
+**影响范围**: 媒体库 AI 笔记弹窗
+**相关文件**:
+- `apps/web/src/components/ai/AiNoteModal.tsx`
+- `apps/web/src/components/ai/seriesAnalysis.ts`
+- `apps/web/src/components/NewDownload/VideoLibrary.tsx`
+
+**更新内容**:
+- 系列视频不再走新的聚合分析流水线，而是按 episode 队列逐个复用现有单集视频分析流程
+- 弹窗里新增 episode 选择、排队、重试和状态展示
+- 每个 episode 都维护自己的 `status / progress / currentStage / trace / runtimeState`
+- 列表点击只切换当前 episode，底部流水线面板随之切换为对应快照
+
+##### 2. 流水线日志与失败回填
+**更新内容**:
+- 单集失败时会把失败 trace 回填到该 episode 自己的状态里
+- 单集完成时会把最终 trace 同步回写，避免“生成”节点一直保持加载态
+- 节点详情仍保持手动点击查看，不会在切换 episode 时自动弹出
+
+#### 验证结果
+
+- `apps/web` 的 `tsc --noEmit` 已通过
+- `apps/web` 的 `vitest run src/__tests__/seriesAnalysis.test.ts` 已通过
+
 ### 2026-04-23 - 视频详情页加载态与详情结构优化
 
 本次更新继续收紧视频详情页的加载态、详情卡片顺序和评论区视觉表现，并同步优化了 AI 笔记入口。
