@@ -298,7 +298,7 @@ forceClearCache: () => {
                   
                   // 检测下载完成事件
                   if (oldState !== 'completed' && newState === 'completed') {
-                    videoLibraryService.handleDownloadComplete(data.id)
+                    videoLibraryService.handleDownloadComplete()
                   }
                 }
               }

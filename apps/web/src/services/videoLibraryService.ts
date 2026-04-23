@@ -122,11 +122,6 @@ class VideoLibraryService {
    * @returns Promise<CheckResult> - Result with downloaded and not_downloaded arrays
    */
   async checkVideosInLibrary(bvids: string[]): Promise<CheckResult> {
-    // Show progress for large batches
-    if (bvids.length > 50) {
-      console.log(`[VideoLibrary] Checking ${bvids.length} videos...`)
-    }
-
     // Ensure cache is loaded
     if (!this.isCacheFresh()) {
       await this.ensureCacheLoaded()
@@ -164,10 +159,6 @@ class VideoLibraryService {
       })
     }
 
-    if (bvids.length > 50) {
-      console.log(`[VideoLibrary] Check complete: ${downloaded.length} downloaded, ${not_downloaded.length} not downloaded`)
-    }
-
     return { downloaded, not_downloaded, details }
   }
 
@@ -198,7 +189,6 @@ class VideoLibraryService {
    */
   private async _doRefresh(): Promise<RefreshResult> {
     this.isRefreshing = true
-    console.log('[VideoLibrary] Starting cache refresh...')
 
     try {
       // Use video library API
@@ -247,8 +237,6 @@ class VideoLibraryService {
           }
         }
 
-        console.log('[VideoLibrary] Cache refreshed successfully')
-
         return {
           success: true,
           cached: false,
@@ -293,8 +281,6 @@ class VideoLibraryService {
         this.lastRefreshTime = Date.now()
         this.totalVideos = completedTasks.length
         this.totalFolders = completedTasks.length
-
-        console.log(`[VideoLibrary] Fallback refresh: ${completedTasks.length} completed tasks`)
 
         return {
           success: true,
@@ -385,12 +371,9 @@ class VideoLibraryService {
    * @param force - Whether to bypass smart cache freshness checks
    */
   scheduleLibraryRefresh(delay: number = 5000, force: boolean = false): void {
-    console.log(`[VideoLibrary] Scheduling refresh in ${delay}ms${force ? ' (forced)' : ''}`)
-
     setTimeout(async () => {
       // Skip if cache is still fresh
       if (!force && this.config.enableSmartRefresh && this.isCacheFresh(180000)) { // 3 minutes
-        console.log('[VideoLibrary] Cache is still fresh, skipping refresh')
         return
       }
 
@@ -402,9 +385,7 @@ class VideoLibraryService {
    * Handle download completion event
    * @param taskId - Task ID that completed
    */
-  handleDownloadComplete(taskId: string): void {
-    console.log(`[VideoLibrary] Task ${taskId} completed, scheduling library refresh`)
-    
+  handleDownloadComplete(): void {
     // Schedule refresh
     this.scheduleLibraryRefresh(this.config.autoRefreshDelay, true)
   }
@@ -437,10 +418,9 @@ class VideoLibraryService {
    * @param video - Video information
    * @returns Promise<boolean> - User's decision
    */
-  async showReDownloadDialog(video: VideoInfo): Promise<boolean> {
+  async showReDownloadDialog(): Promise<boolean> {
     // This method will be implemented in UI layer
     // For now, return false to skip re-download
-    console.log('[VideoLibrary] Re-download dialog not implemented yet for video:', video.bvid)
     return false
   }
 
@@ -450,8 +430,6 @@ class VideoLibraryService {
    * Manually refresh the video library
    */
   async manualRefresh(): Promise<void> {
-    console.log('[VideoLibrary] Manual refresh requested')
-    
     // Clear cache to force refresh
     this.cache.clear()
     this.lastRefreshTime = 0
@@ -465,7 +443,6 @@ class VideoLibraryService {
    */
   setCacheTTL(ttl: number): void {
     this.config.cacheTTL = ttl
-    console.log(`[VideoLibrary] Cache TTL set to ${ttl}ms`)
   }
 
   /**
@@ -476,7 +453,6 @@ class VideoLibraryService {
     this.lastRefreshTime = 0
     this.totalVideos = 0
     this.totalFolders = 0
-    console.log('[VideoLibrary] Cache cleared')
   }
 
   /**
@@ -495,7 +471,6 @@ class VideoLibraryService {
    */
   updateConfig(config: Partial<VideoLibraryConfig>): void {
     this.config = { ...this.config, ...config }
-    console.log('[VideoLibrary] Configuration updated:', this.config)
   }
 
   /**

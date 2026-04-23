@@ -308,7 +308,7 @@ describe('VideoLibraryService', () => {
   describe('Download Completion Handling', () => {
     it('should handle download complete event', () => {
       const mockSetTimeout = vi.spyOn(globalThis, 'setTimeout')
-      videoLibraryService.handleDownloadComplete('test-task-id')
+      videoLibraryService.handleDownloadComplete()
       
       expect(mockSetTimeout).toHaveBeenCalled()
       mockSetTimeout.mockRestore()
@@ -411,8 +411,7 @@ describe('VideoLibraryService', () => {
     })
 
     it('should show re-download dialog placeholder', async () => {
-      const video = { bvid: 'BV1dialog00', title: 'Test Video' }
-      const result = await videoLibraryService.showReDownloadDialog(video)
+      const result = await videoLibraryService.showReDownloadDialog()
 
       expect(result).toBe(false)
     })

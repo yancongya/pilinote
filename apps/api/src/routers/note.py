@@ -59,6 +59,7 @@ class AnalyzeRequest(BaseModel):
     model_name: Optional[str] = Field("gpt-4o-mini", description="模型名称")
     extras: Optional[str] = Field(None, description="额外提示词")
     subtitle_filename: Optional[str] = Field(None, description="指定使用的字幕文件名")
+    pipeline_mode: Optional[str] = Field(None, description="流水线模式：video/series/image_text")
 
 
 class AnalyzeResponse(BaseModel):
@@ -493,6 +494,7 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
         formats=request.formats or ["summary"],
         model_provider=request.model_provider or "openai",
         model_name=request.model_name or "gpt-4o-mini",
+        pipeline_mode=request.pipeline_mode,
     )
     note_id = note.id
     service.db.close()

@@ -27,7 +27,7 @@
 | MediaListTopBar | 历史型列表的吸顶导航/筛选条 | [media-list-topbar.md](media-list-topbar.md) |
 | NewDownload | 新下载页面（完整暗色模式适配） | [new-download.md](new-download.md) |
 | HomeContent | 首页内容（链接解析/预览卡片） | [home-content.md](home-content.md) |
-| VideoDetailPage | 视频/图文详情页 | [video-detail-page.md](video-detail-page.md) |
+| VideoDetailPage | 视频/图文详情页（单列流式、骨架屏、AI 入口） | [video-detail-page.md](video-detail-page.md) |
 | VideoListContainer | 视频列表容器 | [video-list-container.md](video-list-container.md) |
 | VideoListControls | 视频列表搜索和排序控件 | [video-list-controls.md](video-list-controls.md) |
 | HistoryList | 历史记录列表 | [history-list.md](history-list.md) |

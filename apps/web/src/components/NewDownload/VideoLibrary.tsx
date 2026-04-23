@@ -39,10 +39,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
   const folderPath = task.meta?.folder_path
   const bvid = task.meta?.nfo_data?.bvid
-  const videoIdForNote = bvid || folderPath
+  const cvId = task.meta?.nfo_data?.cv_id || task.meta?.nfo_data?.id
+  // 支持视频和笔记类型统一使用ID进行AI分析
+  const videoIdForNote = isOpus ? (cvId || folderPath) : (bvid || folderPath)
 
-  // 仅对可识别的 B 站视频提供 AI 笔记（统一使用 BV 号进行查找/触发分析）
-  const canUseAiNote = Boolean(videoIdForNote) && !isOpus
+  // 对可识别的B站视频或笔记提供AI笔记功能
+  const canUseAiNote = Boolean(videoIdForNote)
   const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
   const noteForStatus = lookup.note
   const aiNoteButtonStatus = noteForStatus?.status === 'completed' ? 'completed' : 'none'
@@ -197,12 +199,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               </div>
             )}
 
-            {/* AI 笔记按钮 - 仅视频显示，有本地文件 */}
-            {!isOpus && canUseAiNote && (
+            {/* AI 笔记按钮 - 支持视频和笔记类型 */}
+            {canUseAiNote && (
             <AiNoteButton
                 status={aiNoteButtonStatus}
                 onClick={handleAiNoteClick}
-                disabled={!isLocalAsrReady}
+                disabled={!isOpus && !isLocalAsrReady}
                 style={{ left: '8px', top: '8px', zIndex: 30 }}
               />
             )}
@@ -339,6 +341,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           videoId={videoIdForNote}
           videoTitle={task.title}
           existingNote={existingNote}
+          pipelineModeOverride={isOpus ? 'image_text' : undefined}
           isOpen={showAiNoteModal}
           onClose={() => setShowAiNoteModal(false)}
           onComplete={handleAiNoteComplete}

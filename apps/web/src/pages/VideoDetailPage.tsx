@@ -7,7 +7,7 @@ import { useVideoDownload } from '../hooks/useVideoDownload'
 import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, ExternalLink, Film, MessageCircle, Play, ThumbsUp, User } from 'lucide-react'
+import { ArrowLeft, Film, MessageCircle, Play, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
 import './VideoDetailPage.css'
 import {
@@ -59,6 +59,68 @@ interface VideoDetailData {
     time: number;
   }>;
   localOpus?: LocalOpusContent | null;
+}
+
+interface VideoDetailCacheEntry {
+  video: VideoDetailData
+  localOpusContent: LocalOpusContent | null
+  timestamp: number
+}
+
+const DETAIL_CACHE_PREFIX = 'video-detail-cache'
+const DETAIL_CACHE_TTL_MS = 5 * 60 * 1000
+const detailPageMemoryCache = new Map<string, VideoDetailCacheEntry>()
+
+const canUseSessionStorage = () =>
+  typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined'
+
+const buildDetailCacheKey = (type: 'video' | 'opus', mediaId: string) =>
+  `${DETAIL_CACHE_PREFIX}:${type}:${mediaId}`
+
+const readDetailCache = (cacheKey: string): VideoDetailCacheEntry | null => {
+  const memoryEntry = detailPageMemoryCache.get(cacheKey)
+  if (memoryEntry && Date.now() - memoryEntry.timestamp <= DETAIL_CACHE_TTL_MS) {
+    return memoryEntry
+  }
+
+  if (!canUseSessionStorage()) {
+    return null
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(cacheKey)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as VideoDetailCacheEntry
+    if (!parsed?.video || Date.now() - parsed.timestamp > DETAIL_CACHE_TTL_MS) {
+      window.sessionStorage.removeItem(cacheKey)
+      return null
+    }
+
+    detailPageMemoryCache.set(cacheKey, parsed)
+    return parsed
+  } catch {
+    try {
+      window.sessionStorage.removeItem(cacheKey)
+    } catch {
+      // ignore
+    }
+    return null
+  }
+}
+
+const writeDetailCache = (cacheKey: string, entry: VideoDetailCacheEntry) => {
+  detailPageMemoryCache.set(cacheKey, entry)
+
+  if (!canUseSessionStorage()) {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(cacheKey, JSON.stringify(entry))
+  } catch {
+    // storage full or unavailable; ignore
+  }
 }
 
 export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps) {
@@ -156,7 +218,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const listPadding = isCompactLayout ? '12px' : '16px'
   const listMaxHeight = isCompactLayout ? '300px' : '400px'
   const pageGap = isCompactLayout ? '16px' : '20px'
-  const statColumns = 'repeat(3, 1fr)'
 
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
@@ -164,10 +225,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     return getAvatarProxyUrl(url)
   }
 
-  const getCommentAvatarText = (author: string): string => {
-    const trimmed = author.trim()
-    if (!trimmed) return '?'
-    return trimmed.slice(0, 2)
+  const getCommentAvatarImage = (author: string): string => {
+    const urls = ['/avatar/avatar1.png', '/avatar/avatar2.png', '/avatar/avatar3.png']
+    const hash = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    return urls[hash % urls.length]
   }
 
   const getOriginalBilibiliUrl = (): string => {
@@ -185,9 +246,17 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   useEffect(() => {
     async function fetchMediaDetail() {
       if (!mediaId) return
-      
+
+      const cacheKey = buildDetailCacheKey(type, String(mediaId))
+      const cachedEntry = readDetailCache(cacheKey)
+
       setLoading(true)
       setError('')
+
+      if (cachedEntry) {
+        setVideo(cachedEntry.video)
+        setLocalOpusContent(cachedEntry.localOpusContent)
+      }
       
       try {
         let response
@@ -206,7 +275,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
             const localData = localOpusResponse.data as LocalOpusContent
             const nfoData = localData.nfo_data || {}
             setLocalOpusContent(localData)
-            setVideo({
+            const nextVideo = {
               bvid: '',
               aid: localData.opus_id,
               title: localData.title || nfoData.title || 'Untitled',
@@ -237,6 +306,12 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               staff: null,
               ugcSeason: null,
               localOpus: localData
+            }
+            setVideo(nextVideo)
+            writeDetailCache(cacheKey, {
+              video: nextVideo,
+              localOpusContent: localData,
+              timestamp: Date.now(),
             })
             return
           }
@@ -258,7 +333,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
             const opusImages = data.opus_info?.image_urls || []
             setLocalOpusContent(null)
 
-            setVideo({
+            const nextVideo = {
               bvid: '',
               aid: data.aid || mediaId,
               title: opusData.title || data.title || 'Untitled',
@@ -289,12 +364,18 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               staff: null,
               ugcSeason: null,
               localOpus: null
+            }
+            setVideo(nextVideo)
+            writeDetailCache(cacheKey, {
+              video: nextVideo,
+              localOpusContent: null,
+              timestamp: Date.now(),
             })
             
             
           } else {
             // 视频数据结构
-            setVideo({
+            const nextVideo = {
               bvid: data.bvid,
               aid: data.aid,
               title: data.title,
@@ -323,13 +404,25 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               staff: data.staff || null,
               ugcSeason: data.ugcSeason || null,
               comments: data.comments || []
+            }
+            setVideo(nextVideo)
+            writeDetailCache(cacheKey, {
+              video: nextVideo,
+              localOpusContent: null,
+              timestamp: Date.now(),
             })
           }
         } else {
-          setError(response.message || '获取详情失败')
+          if (cachedEntry) {
+            setError('')
+          } else {
+            setError(response.message || '获取详情失败')
+          }
         }
       } catch (err) {
-        setError('网络请求失败')
+        if (!cachedEntry) {
+          setError('网络请求失败')
+        }
       } finally {
         setLoading(false)
       }
@@ -804,21 +897,6 @@ const handleReDownloadConfirm = async () => {
     })
   }
 }
-  if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        background: 'var(--color-bg-primary)',
-        color: 'var(--color-text-secondary)'
-      }}>
-        加载中...
-      </div>
-    )
-  }
-
   if (error) {
     return (
       <div style={{
@@ -849,22 +927,57 @@ const handleReDownloadConfirm = async () => {
     )
   }
 
-  if (!video) {
-    return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        background: 'var(--color-bg-primary)',
-        color: 'var(--color-text-secondary)'
-      }}>
-        视频不存在
-      </div>
-    )
+  const originalBilibiliUrl = getOriginalBilibiliUrl()
+  const handleOpenAiPanel = () => {
+    if (!videoId) return
+    navigate(`/video/${videoId}/ai`)
   }
 
-  const originalBilibiliUrl = getOriginalBilibiliUrl()
+  const renderSkeleton = () => (
+    <div className="video-detail-page">
+      <header className="video-detail-header">
+        <div className="video-detail-header-inner">
+          <div className="video-detail-skeleton-header-action" aria-hidden="true" />
+          <div className="video-detail-skeleton-header-title" aria-hidden="true" />
+          <div className="video-detail-skeleton-header-action video-detail-skeleton-header-action--right" aria-hidden="true" />
+        </div>
+      </header>
+
+      <main className="video-detail-content">
+        <div className="video-detail-skeleton" aria-hidden="true">
+          <div className="video-detail-skeleton-media" />
+          <div className="video-detail-skeleton-card">
+            <div className="video-detail-skeleton-line video-detail-skeleton-line--short" />
+            <div className="video-detail-skeleton-line" />
+            <div className="video-detail-skeleton-line video-detail-skeleton-line--mid" />
+          </div>
+          <div className="video-detail-skeleton-card">
+            <div className="video-detail-skeleton-line video-detail-skeleton-line--short" />
+            <div className="video-detail-skeleton-comment" />
+            <div className="video-detail-skeleton-comment" />
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+
+  if (loading || !video) {
+    if (!loading && !video && error) {
+      return (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          background: 'var(--color-bg-primary)',
+          color: 'var(--color-text-secondary)'
+        }}>
+          视频不存在
+        </div>
+      )
+    }
+    return renderSkeleton()
+  }
 
   return (
     <div className="video-detail-page">
@@ -890,17 +1003,15 @@ const handleReDownloadConfirm = async () => {
               {video.title}
             </h1>
           </a>
-          <a
-            className="video-detail-header-action"
-            href={originalBilibiliUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="打开原始 B 站网页"
-            title="打开原始 B 站网页"
+          <button
+            className="video-detail-header-action video-detail-header-action-ai"
+            onClick={handleOpenAiPanel}
+            type="button"
+            aria-label="打开 AI 面板"
+            title="打开 AI 面板"
           >
-            <ExternalLink size={16} />
-            <span className="video-detail-header-action-label">原网页</span>
-          </a>
+            <Sparkles size={16} className="video-detail-header-action-icon" />
+          </button>
         </div>
       </header>
 
@@ -1058,82 +1169,76 @@ const handleReDownloadConfirm = async () => {
           )}
         </div>
 
-        {/* 视频简介 - 封面下方显示 */}
-        {!video.isOpus && video.description && video.description.trim() && (
-          <div style={{
-            marginTop: '16px',
-            padding: cardPadding,
+      </div>
+
+      {!video.isOpus && (
+        <div className="video-detail-uploader" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: cardPadding,
+          background: 'var(--color-bg-tertiary)',
+          borderRadius: cardRadius
+        }}>
+          <div className="video-detail-avatar" style={{
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: '50%',
             background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius,
-            fontSize: responsiveStyle.fontSize.body,
-            color: 'var(--color-text-primary)',
-            lineHeight: '1.6',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word'
+            overflow: 'hidden',
+            flexShrink: 0,
+            border: '2px solid var(--color-border)'
           }}>
-            <h3 style={{
-              fontSize: responsiveStyle.fontSize.small,
+            {video.uploader.avatar ? (
+              <img
+                src={getProxyImageUrl(video.uploader.avatar)}
+                alt={video.uploader.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              <User size={isCompactLayout ? 24 : 32} />
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="video-detail-uploader-name" style={{
+              fontSize: responsiveStyle.fontSize.uploader,
               fontWeight: '600',
               color: 'var(--color-text-primary)',
-              marginBottom: '8px'
+              marginBottom: '4px',
+              lineHeight: '1.3'
             }}>
-              视频简介
-            </h3>
-            {parseLinks(video.description)}
+              {video.uploader.name}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+              {formatTime(video.pubtime)}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 评论展示区域 */}
-        {video.comments && video.comments.length > 0 && (
-          <section className="video-detail-comments">
-            <div className="video-detail-card-header">
-              <h3 className="video-detail-card-title">热门评论</h3>
-              <span className="video-detail-card-subtitle">({video.comments.length})</span>
-            </div>
-            <div className="video-detail-comment-list">
-              {video.comments.slice(0, 3).map((comment, index) => {
-                const isTop = comment.type === 'top'
-                return (
-                  <article
-                    key={index}
-                    className={`video-detail-comment-item${isTop ? ' is-top' : ''}`}
-                  >
-                    <div className="video-detail-comment-avatar" aria-hidden="true">
-                      {getCommentAvatarText(comment.author)}
-                    </div>
-                    <div className="video-detail-comment-body">
-                      <div className="video-detail-comment-topline">
-                        <div className="video-detail-comment-author-row">
-                          <span className="video-detail-comment-author">{comment.author}</span>
-                          {isTop && (
-                            <span className="video-detail-comment-badge">置顶</span>
-                          )}
-                        </div>
-                        <span className="video-detail-comment-time">{formatTime(comment.time)}</span>
-                      </div>
-                      <p className="video-detail-comment-content">
-                        {comment.content}
-                      </p>
-                      <div className="video-detail-comment-actions">
-                        <span className="video-detail-comment-action">
-                          <ThumbsUp size={13} />
-                          {comment.like}
-                        </span>
-                        {comment.reply > 0 && (
-                          <span className="video-detail-comment-action">
-                            <MessageCircle size={13} />
-                            {comment.reply}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          </section>
-        )}
-      </div>
+      {/* 视频简介 - 作者面板下方显示 */}
+      {!video.isOpus && video.description && video.description.trim() && (
+        <div style={{
+          padding: cardPadding,
+          background: 'var(--color-bg-tertiary)',
+          borderRadius: cardRadius,
+          fontSize: responsiveStyle.fontSize.body,
+          color: 'var(--color-text-primary)',
+          lineHeight: '1.6',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word'
+        }}>
+          <h3 style={{
+            fontSize: responsiveStyle.fontSize.small,
+            fontWeight: '600',
+            color: 'var(--color-text-primary)',
+            marginBottom: '8px'
+          }}>
+            视频简介
+          </h3>
+          {parseLinks(video.description)}
+        </div>
+      )}
 
       {/* 右侧 - 视频信息和状态 */}
       <div style={{
@@ -1142,112 +1247,54 @@ const handleReDownloadConfirm = async () => {
         flexDirection: 'column',
         gap: pageGap
       }}>
-        {/* UP主信息 */}
-        {!video.isOpus && (
-          <div className="video-detail-uploader" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: cardPadding,
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius
-          }}>
-            <div className="video-detail-avatar" style={{
-              width: avatarSize,
-              height: avatarSize,
-              borderRadius: '50%',
-              background: 'var(--color-bg-tertiary)',
-              overflow: 'hidden',
-              flexShrink: 0,
-              border: '2px solid var(--color-border)'
-            }}>
-              {video.uploader.avatar ? (
-                <img
-                  src={getProxyImageUrl(video.uploader.avatar)}
-                  alt={video.uploader.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-              ) : (
-                <User size={isCompactLayout ? 24 : 32} />
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="video-detail-uploader-name" style={{
-                fontSize: responsiveStyle.fontSize.uploader,
-                fontWeight: '600',
-                color: 'var(--color-text-primary)',
-                marginBottom: '4px',
-                lineHeight: '1.3'
-              }}>
-                {video.uploader.name}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                {formatTime(video.pubtime)}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 视频统计信息 */}
         {!video.isOpus && (
-          <div className="video-detail-stats" style={{
-            display: 'grid',
-            gridTemplateColumns: statColumns,
-            gap: '16px',
-            padding: cardPadding,
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius
-          }}>
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                播放量
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-around',
+              padding: cardPadding,
+              background: 'var(--color-bg-tertiary)',
+              borderRadius: cardRadius
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Eye size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {formatNumber(video.view)}
+                </span>
               </div>
-              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                {formatNumber(video.view)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MessageSquare size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {formatNumber(video.danmaku)}
+                </span>
               </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                弹幕
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ThumbsUp size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {formatNumber(video.like)}
+                </span>
               </div>
-              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                {formatNumber(video.danmaku)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Coins size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {formatNumber(video.coin)}
+                </span>
               </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                点赞
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Bookmark size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {formatNumber(video.favorite)}
+                </span>
               </div>
-              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                {formatNumber(video.like)}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                投币
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                {formatNumber(video.coin)}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                收藏
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                {formatNumber(video.favorite)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MessageCircle size={16} style={{ color: 'var(--color-text-secondary)' }} />
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
+                  {formatNumber(video.reply)}
+                </span>
               </div>
             </div>
-            <div>
-              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginBottom: '4px' }}>
-                评论
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--color-text-primary)' }}>
-                {formatNumber(video.reply)}
-              </div>
-            </div>
-          </div>
-        )}
+          )}
 
         {/* 分P信息 */}
         {video.pages && video.pages.length > 1 && (
@@ -1355,39 +1402,6 @@ const handleReDownloadConfirm = async () => {
           </div>
         )}
 
-        {/* 下载按钮 */}
-        <button
-          onClick={handleAddToDownload}
-          disabled={downloading}
-          style={{
-            width: '100%',
-            padding: isCompactLayout ? '14px' : '16px',
-            background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
-            color: 'var(--color-white)',
-            border: 'none',
-            borderRadius: cardRadius,
-            fontSize: isCompactLayout ? '16px' : '17px',
-            fontWeight: '600',
-            cursor: downloading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if (!downloading) {
-              e.currentTarget.style.background = 'var(--color-primary-700)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!downloading) {
-              e.currentTarget.style.background = 'var(--color-primary-600)'
-            }
-          }}
-        >
-          {getButtonText()}
-        </button>
       </div>
       </div>
 
@@ -1480,6 +1494,94 @@ const handleReDownloadConfirm = async () => {
           })}
         </div>
       )}
+
+      {video.comments && video.comments.length > 0 && (
+        <section className="video-detail-comments">
+          <div className="video-detail-card-header">
+            <h3 className="video-detail-card-title">热门评论</h3>
+          </div>
+          <div className="video-detail-comment-list">
+            {video.comments.slice(0, 3).map((comment, index) => {
+              const isTop = comment.type === 'top'
+              return (
+                <article
+                  key={index}
+                  className={`video-detail-comment-item${isTop ? ' is-top' : ''}`}
+                >
+                  <div className="video-detail-comment-avatar" aria-hidden="true">
+                    <img src={getCommentAvatarImage(comment.author)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                  </div>
+                  <div className="video-detail-comment-body">
+                    <div className="video-detail-comment-topline">
+                      <div className="video-detail-comment-author-row">
+                        <span className="video-detail-comment-author">{comment.author}</span>
+                        {isTop && (
+                          <span className="video-detail-comment-badge">置顶</span>
+                        )}
+                      </div>
+                      <span className="video-detail-comment-time">{formatTime(comment.time)}</span>
+                    </div>
+                    <p className="video-detail-comment-content">
+                      {comment.content}
+                    </p>
+                    <div className="video-detail-comment-actions">
+                      <span className="video-detail-comment-action">
+                        <ThumbsUp size={13} />
+                        {comment.like}
+                      </span>
+                      {comment.reply > 0 && (
+                        <span className="video-detail-comment-action">
+                          <MessageCircle size={13} />
+                          {comment.reply}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      <div style={{
+        padding: cardPadding,
+        background: 'var(--color-bg-tertiary)',
+        borderRadius: cardRadius
+      }}>
+        <button
+          onClick={handleAddToDownload}
+          disabled={downloading}
+          style={{
+            width: '100%',
+            padding: isCompactLayout ? '14px' : '16px',
+            background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
+            color: 'var(--color-white)',
+            border: 'none',
+            borderRadius: cardRadius,
+            fontSize: isCompactLayout ? '16px' : '17px',
+            fontWeight: '600',
+            cursor: downloading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            if (!downloading) {
+              e.currentTarget.style.background = 'var(--color-primary-700)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!downloading) {
+              e.currentTarget.style.background = 'var(--color-primary-600)'
+            }
+          }}
+        >
+          {getButtonText()}
+        </button>
+      </div>
 
       {/* AlertModal */}
       <AlertModal

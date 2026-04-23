@@ -106,6 +106,21 @@ async def update_tool_paths_in_database():
         db.close()
 
 
+async def backfill_ai_note_pipeline_modes():
+    """回填历史 AI 笔记流水线模式，修正旧数据的 video/image_text 误判。"""
+    from src.services.ai.note_service import AiNoteService
+
+    service = AiNoteService()
+    try:
+        updated = service.backfill_pipeline_modes()
+        if updated:
+            logger.info("Backfilled AI note pipeline modes: %s", updated)
+    except Exception as e:
+        logger.error(f"Failed to backfill AI note pipeline modes: {e}")
+    finally:
+        service.db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
@@ -116,6 +131,10 @@ async def lifespan(app: FastAPI):
     # 更新数据库中的工具路径设置
     logger.info("Updating tool paths in database...")
     await update_tool_paths_in_database()
+
+    # 回填历史 AI 笔记流水线模式
+    logger.info("Backfilling AI note pipeline modes...")
+    await backfill_ai_note_pipeline_modes()
 
     # 初始化HeadersManager并加载活跃用户的cookie
     logger.info("Initializing HeadersManager...")

@@ -101,9 +101,8 @@ export const AI_NOTE_TRACE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNoteTra
     { stage: 'series.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
   ],
   image_text: [
-    { stage: 'image_text.AUDIO.FETCH', title: '图片识别', shortLabel: '识别' },
-    { stage: 'image_text.SUBTITLE.GENERATE', title: '文字提取', shortLabel: '提取' },
-    { stage: 'image_text.NFO.READ', title: '读取', shortLabel: '读取' },
+    { stage: 'image_text.DOC.READ', title: '文档读取', shortLabel: '文档' },
+    { stage: 'image_text.NFO.READ', title: '元数据', shortLabel: '元数据' },
     { stage: 'image_text.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'image_text.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
     { stage: 'image_text.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
@@ -125,7 +124,7 @@ export const AI_NOTE_REANALYZE_STAGE_TEMPLATES: Record<AiNotePipelineMode, AiNot
     { stage: 'series.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },
   ],
   image_text: [
-    { stage: 'image_text.NFO.READ', title: '读取', shortLabel: '读取' },
+    { stage: 'image_text.NFO.READ', title: '元数据', shortLabel: '元数据' },
     { stage: 'image_text.PROMPT.BUILD', title: 'Prompt 构建', shortLabel: 'Prompt' },
     { stage: 'image_text.LLM.ANALYZE', title: 'AI 分析', shortLabel: 'AI' },
     { stage: 'image_text.CONTENT.GENERATE', title: '生成内容', shortLabel: '生成' },

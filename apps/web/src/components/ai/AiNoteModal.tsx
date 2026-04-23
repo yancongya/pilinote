@@ -28,6 +28,7 @@ interface AiNoteModalProps {
   videoId: string
   videoTitle: string
   existingNote?: NoteResponse | null
+  pipelineModeOverride?: AiNotePipelineMode
   isOpen: boolean
   onClose: () => void
   onComplete?: (note: NoteResponse) => void
@@ -71,6 +72,7 @@ const normalizeStage = (stage: string): string => {
   const semanticStage = parts.slice(-2).join('.')
   if (semanticStage === 'AUDIO.FETCH') return 'AUDIO.FETCH'
   if (semanticStage === 'SUBTITLE.GENERATE') return 'SUBTITLE.GENERATE'
+  if (semanticStage === 'DOC.READ') return 'DOC.READ'
   if (semanticStage === 'NFO.READ') return 'NFO.READ'
   if (semanticStage === 'PROMPT.BUILD') return 'PROMPT.BUILD'
   if (semanticStage === 'LLM.ANALYZE') return 'LLM.ANALYZE'
@@ -87,7 +89,15 @@ const normalizeStage = (stage: string): string => {
 
 const DEFAULT_PIPELINE_MODE: AiNotePipelineMode = 'video'
 
-const getPipelineMode = (note?: NoteResponse | null, trace?: AiTraceStep[] | null): AiNotePipelineMode => {
+const getPipelineMode = (
+  note?: NoteResponse | null,
+  trace?: AiTraceStep[] | null,
+  videoId?: string,
+  overrideMode?: AiNotePipelineMode,
+): AiNotePipelineMode => {
+  if (overrideMode) {
+    return overrideMode
+  }
   if (note?.pipeline_mode === 'video' || note?.pipeline_mode === 'series' || note?.pipeline_mode === 'image_text') {
     return note.pipeline_mode
   }
@@ -98,8 +108,13 @@ const getPipelineMode = (note?: NoteResponse | null, trace?: AiTraceStep[] | nul
   }
 
   const firstStage = trace?.[0]?.stage?.toLowerCase?.() || ''
-  if (firstStage.includes('ocr') || firstStage.includes('image')) return 'image_text'
+  if (firstStage.includes('ocr') || firstStage.includes('image') || firstStage.includes('doc')) return 'image_text'
   if (firstStage.includes('series') || firstStage.includes('season') || firstStage.includes('episode')) return 'series'
+  
+  const vid = videoId?.toLowerCase() || ''
+  if (vid.startsWith('cv') || vid.match(/^\d{10,}/)) {
+    return 'image_text'
+  }
   return DEFAULT_PIPELINE_MODE
 }
 
@@ -237,8 +252,13 @@ const buildDefaultTraceDotItems = (mode: AiNotePipelineMode = DEFAULT_PIPELINE_M
   }))
 }
 
-export const buildTraceDotItemsForNote = (note: NoteResponse | null, trace: AiTraceStep[]): TraceDotItem[] => {
-  const mode = getPipelineMode(note, trace)
+export const buildTraceDotItemsForNote = (
+  note: NoteResponse | null,
+  trace: AiTraceStep[],
+  videoId?: string,
+  overrideMode?: AiNotePipelineMode,
+): TraceDotItem[] => {
+  const mode = getPipelineMode(note, trace, videoId, overrideMode)
   return trace.length ? buildTraceDotItems(trace, mode) : buildDefaultTraceDotItems(mode)
 }
 
@@ -297,7 +317,7 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
   }
 }
 
-export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, isOpen, onClose, onComplete }: AiNoteModalProps) {
+export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pipelineModeOverride, isOpen, onClose, onComplete }: AiNoteModalProps) {
   const { settings, fetchSettings } = useSettingsStore()
   const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
@@ -318,7 +338,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const activeNoteIdRef = useRef<string | null>(null)
   const analysisAbortRef = useRef<AbortController | null>(null)
   const streamStateRef = useRef<AiNoteStreamState>(createAiNoteStreamState())
-  const currentRequestRef = useRef<{ video_id: string; style: string; formats: string[]; model_provider: string; model_name: string; extras: string } | null>(null)
+  const currentRequestRef = useRef<{ video_id: string; style: string; formats: string[]; model_provider: string; model_name: string; extras: string; pipeline_mode: AiNotePipelineMode } | null>(null)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -508,8 +528,8 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
   const currentTrace = trace.length ? trace : ((note?.meta?.trace as AiTraceStep[]) || [])
   const effectiveControlState = controlState || (note?.control_state || (note?.meta?.control?.state as any) || 'running')
   const traceDots = useMemo(() => {
-    return buildTraceDotItemsForNote(note, currentTrace)
-  }, [currentTrace, note])
+    return buildTraceDotItemsForNote(note, currentTrace, videoId, pipelineModeOverride)
+  }, [currentTrace, note, pipelineModeOverride, videoId])
   const liveTraceLogText = useMemo(() => {
     if (selectedTraceItem) {
       const selectedStageState = streamState.stages[selectedTraceItem.stage]
@@ -649,6 +669,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
     const abortController = new AbortController()
     analysisAbortRef.current = abortController
 
+    const currentMode = getPipelineMode(note, trace, videoId, pipelineModeOverride) || 'video'
     try {
       const request = {
         video_id: videoId,
@@ -657,6 +678,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         model_provider: activeProvider,
         model_name: selectedModel,
         level: detailLevel,
+        pipeline_mode: currentMode,
       }
 
       currentRequestRef.current = {
@@ -666,6 +688,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, is
         model_provider: activeProvider,
         model_name: selectedModel,
         extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
+        pipeline_mode: currentMode,
       }
 
       const finalizeCompletedNote = async (noteId: string) => {

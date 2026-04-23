@@ -25,14 +25,32 @@ from src.services.settings_service import SettingsService
 logger = logging.getLogger(__name__)
 _ACTIVE_ASR_PROCESSES: Dict[str, int] = {}
 _ACTIVE_ASR_PROCESS_LOCK = threading.RLock()
-_SEMANTIC_STAGES = (
-    "AUDIO.FETCH",
-    "SUBTITLE.GENERATE",
-    "NFO.READ",
-    "PROMPT.BUILD",
-    "LLM.ANALYZE",
-    "CONTENT.GENERATE",
-)
+_PIPELINE_STAGES = {
+    "video": (
+        "AUDIO.FETCH",
+        "SUBTITLE.GENERATE",
+        "NFO.READ",
+        "PROMPT.BUILD",
+        "LLM.ANALYZE",
+        "CONTENT.GENERATE",
+    ),
+    "series": (
+        "AUDIO.FETCH",
+        "SUBTITLE.GENERATE",
+        "NFO.READ",
+        "PROMPT.BUILD",
+        "LLM.ANALYZE",
+        "CONTENT.GENERATE",
+    ),
+    "image_text": (
+        "DOC.READ",
+        "NFO.READ",
+        "PROMPT.BUILD",
+        "LLM.ANALYZE",
+        "CONTENT.GENERATE",
+    ),
+}
+_SEMANTIC_STAGES = _PIPELINE_STAGES["video"]
 _SUPPORTED_NOTE_FORMATS = {item["value"] for item in NOTE_FORMATS}
 
 _SCREENSHOT_MARKER_PATTERN = re.compile(
@@ -293,11 +311,18 @@ class AiNoteService:
     def _resolve_note_pipeline_mode(
         self, note: AiNote, download: Optional[Download] = None
     ) -> str:
+        inferred_mode = self._infer_pipeline_mode(
+            note.video_id or "", download=download
+        )
+
         pipeline_mode = self._normalize_pipeline_mode(
             getattr(note, "pipeline_mode", None)
         )
         if pipeline_mode != "video" or getattr(note, "pipeline_mode", None):
-            return pipeline_mode
+            if pipeline_mode == "video" and inferred_mode != "video":
+                note.pipeline_mode = inferred_mode
+                note.meta = {**(note.meta or {}), "pipeline_mode": inferred_mode}
+            return note.pipeline_mode or pipeline_mode
 
         meta_mode = None
         if note.meta and isinstance(note.meta, dict):
@@ -307,14 +332,44 @@ class AiNoteService:
             note.pipeline_mode = pipeline_mode
             return pipeline_mode
 
-        inferred_mode = self._infer_pipeline_mode(
-            note.video_id or "", download=download
-        )
         note.pipeline_mode = inferred_mode
+        note.meta = {**(note.meta or {}), "pipeline_mode": inferred_mode}
         return inferred_mode
+
+    def backfill_pipeline_modes(self) -> int:
+        """回填历史笔记的 pipeline_mode，确保笔记类型会落到 image_text。"""
+        notes = self.db.query(AiNote).all()
+        updated = 0
+
+        for note in notes:
+            if not note.video_id:
+                continue
+
+            download = self.db.query(Download).filter(Download.id == note.video_id).first()
+            if not download and note.video_id.startswith("folder-"):
+                folder_name = note.video_id.removeprefix("folder-")
+                if folder_name:
+                    download = (
+                        self.db.query(Download)
+                        .filter(Download.file_path.contains(folder_name))
+                        .first()
+                    )
+
+            before = note.pipeline_mode
+            resolved = self._resolve_note_pipeline_mode(note, download=download)
+            if resolved != before:
+                updated += 1
+
+        if updated:
+            self.db.commit()
+            logger.info("Backfilled %s ai_note pipeline mode records", updated)
+        return updated
 
     def _trace_stage(self, pipeline_mode: str, stage: str) -> str:
         return f"{pipeline_mode}.{stage}"
+
+    def _get_pipeline_stages(self, pipeline_mode: str) -> tuple:
+        return _PIPELINE_STAGES.get(pipeline_mode, _SEMANTIC_STAGES)
 
     def _stage_key(self, stage: str) -> str:
         normalized = (stage or "").strip().upper()
@@ -322,14 +377,19 @@ class AiNoteService:
             raise ValueError("resume_from_stage 不能为空")
         if "." in normalized:
             suffix = normalized.split(".", 1)[-1]
-            if suffix in _SEMANTIC_STAGES:
-                return suffix
+            for stages in _PIPELINE_STAGES.values():
+                if suffix in stages:
+                    return suffix
         if normalized in _SEMANTIC_STAGES:
             return normalized
         raise ValueError(f"未知阶段: {stage}")
 
     def _stage_index(self, stage: str) -> int:
-        return _SEMANTIC_STAGES.index(self._stage_key(stage))
+        key = self._stage_key(stage)
+        for stages in _PIPELINE_STAGES.values():
+            if key in stages:
+                return stages.index(key)
+        return _SEMANTIC_STAGES.index(key)
 
     def _analysis_artifacts(self, note: AiNote) -> Dict[str, Any]:
         meta = note.meta if isinstance(note.meta, dict) else {}
@@ -1743,7 +1803,8 @@ class AiNoteService:
     def get_note(self, note_id: str) -> Optional[AiNote]:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
         if note:
-            self._resolve_note_pipeline_mode(note)
+            download = self.db.query(Download).filter(Download.id == note.video_id).first()
+            self._resolve_note_pipeline_mode(note, download=download)
         self.db.close()
         return note
 
