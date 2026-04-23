@@ -28,14 +28,12 @@ describe('buildTraceDotItemsForNote', () => {
     const dots = buildTraceDotItemsForNote(makeNote(), [])
 
     expect(dots.map(dot => dot.stage)).toEqual([
-      'AUDIO.FETCH',
-      'SUBTITLE.GENERATE',
-      'NFO.READ',
-      'PROMPT.BUILD',
-      'LLM.ANALYZE',
-      'CONTENT.GENERATE',
-      'DONE',
-      'ERROR',
+      'video.AUDIO.FETCH',
+      'video.SUBTITLE.GENERATE',
+      'video.NFO.READ',
+      'video.PROMPT.BUILD',
+      'video.LLM.ANALYZE',
+      'video.CONTENT.GENERATE',
     ])
   })
 
@@ -49,8 +47,8 @@ describe('buildTraceDotItemsForNote', () => {
     ])
 
     expect(dots[0]).toMatchObject({
-      stage: 'AUDIO.FETCH',
-      title: '番剧信息读取',
+      stage: 'series.AUDIO.FETCH',
+      title: '番剧信息',
       shortLabel: '获取',
       status: 'running',
     })
@@ -64,18 +62,15 @@ describe('buildTraceDotItemsForNote', () => {
     const dots = buildTraceDotItemsForNote(note, [])
 
     expect(dots.map(dot => dot.title)).toEqual([
-      '图片识别',
-      '文字提取',
-      '结构整理',
+      '文档读取',
+      '元数据',
       'Prompt 构建',
       'AI 分析',
       '生成内容',
-      '完成',
-      '错误',
     ])
   })
 
-  it('treats prefixed error stages as errors, not running', () => {
+  it('ignores untemplated error stages in the default summary', () => {
     const note = makeNote({
       pipeline_mode: 'video',
     })
@@ -89,11 +84,7 @@ describe('buildTraceDotItemsForNote', () => {
       },
     ])
 
-    expect(dots[dots.length - 1]).toMatchObject({
-      stage: 'ERROR',
-      status: 'error',
-      statusLabel: '错误',
-    })
+    expect(dots.every(dot => dot.status === 'pending')).toBe(true)
   })
 
   it('normalizes semantic stages and legacy prefixed stages', () => {
@@ -117,12 +108,12 @@ describe('buildTraceDotItemsForNote', () => {
     ])
 
     expect(dots[1]).toMatchObject({
-      stage: 'SUBTITLE.GENERATE',
+      stage: 'video.SUBTITLE.GENERATE',
       title: '字幕生成',
-      status: 'running',
+      status: 'done',
     })
     expect(dots[2]).toMatchObject({
-      stage: 'NFO.READ',
+      stage: 'video.NFO.READ',
       title: 'NFO 读取',
       status: 'running',
     })
@@ -210,7 +201,7 @@ describe('deriveAiNoteModalStateFromLookup', () => {
     }
 
     expect(deriveAiNoteModalStateFromLookup(completed)).toEqual({
-      viewState: 'config',
+      viewState: 'result',
       note: completed.note,
       errorMessage: null,
       shouldPoll: false,

@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
@@ -21,6 +21,21 @@ interface LibraryCardProps {
   onToggle: () => void
   getLocalImageUrl: (path: string) => string
   formatFileSize: (bytes: number) => string
+}
+
+const formatSeriesEpisodeSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+const buildSubtitleFilename = (videoPath: string): string => {
+  const lastSlash = videoPath.lastIndexOf('/')
+  const fileName = lastSlash >= 0 ? videoPath.slice(lastSlash + 1) : videoPath
+  const stem = fileName.replace(/\.[^.]+$/, '')
+  return `${stem}.srt`
 }
 
 // LibraryCard组件 - 显示文件夹卡片
@@ -42,6 +57,20 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const cvId = task.meta?.nfo_data?.cv_id || task.meta?.nfo_data?.id
   // 支持视频和笔记类型统一使用ID进行AI分析
   const videoIdForNote = isOpus ? (cvId || folderPath) : (bvid || folderPath)
+  const seriesEpisodes = useMemo(() => {
+    if (isOpus || !task.meta?.files || task.meta.files.length === 0) {
+      return undefined
+    }
+
+    return task.meta.files.map((file: MediaLibraryFile, index: number) => ({
+      id: file.path,
+      title: file.title || `第 ${index + 1} 集`,
+      available: Boolean(file.path),
+      subtitle: `${formatSeriesEpisodeSize(file.size)} · ${file.modified_date}`,
+      subtitleFilename: buildSubtitleFilename(file.path),
+      order: index,
+    }))
+  }, [isOpus, task.meta?.files])
 
   // 对可识别的B站视频或笔记提供AI笔记功能
   const canUseAiNote = Boolean(videoIdForNote)
@@ -343,6 +372,7 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           existingNote={existingNote}
           pipelineModeOverride={isOpus ? 'image_text' : undefined}
           aiRoutePath={isOpus ? `/opus/${encodeURIComponent(String(videoIdForNote))}/ai` : `/video/${encodeURIComponent(String(videoIdForNote))}/ai`}
+          seriesEpisodes={seriesEpisodes}
           isOpen={showAiNoteModal}
           onClose={() => setShowAiNoteModal(false)}
           onComplete={handleAiNoteComplete}

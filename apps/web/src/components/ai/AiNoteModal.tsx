@@ -22,6 +22,15 @@ import { useSettingsStore } from '../../stores/settings'
 import { localAsrModelService } from '../../services/localAsrModels'
 import { useAiRuntimeState } from '../../hooks/useAiRuntimeState'
 import { aiRuntimeStateService } from '../../services/aiRuntimeState'
+import {
+  buildSeriesEpisodeStates,
+  calculateSeriesQueueSummary,
+  getSeriesEpisodeStatusLabel,
+  sortSeriesEpisodes,
+  type SeriesEpisodeInput,
+  type SeriesEpisodeState,
+  type SeriesQueueSummary,
+} from './seriesAnalysis'
 import Modal from '../Modal'
 
 interface AiNoteModalProps {
@@ -30,6 +39,7 @@ interface AiNoteModalProps {
   existingNote?: NoteResponse | null
   pipelineModeOverride?: AiNotePipelineMode
   aiRoutePath?: string
+  seriesEpisodes?: SeriesEpisodeInput[]
   isOpen: boolean
   onClose: () => void
   onComplete?: (note: NoteResponse) => void
@@ -318,11 +328,23 @@ export function deriveAiNoteModalStateFromLookup(lookup: {
   }
 }
 
-export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pipelineModeOverride, aiRoutePath, isOpen, onClose, onComplete }: AiNoteModalProps) {
+export function AiNoteModal({
+  videoId,
+  videoTitle: _videoTitle,
+  existingNote,
+  pipelineModeOverride,
+  aiRoutePath,
+  seriesEpisodes,
+  isOpen,
+  onClose,
+  onComplete,
+}: AiNoteModalProps) {
   const navigate = useNavigate()
   const { settings, fetchSettings } = useSettingsStore()
   const runtimeState = useAiRuntimeState()
   const { showToast } = useToast()
+  const isSeriesMode = Boolean(seriesEpisodes?.length)
+  const effectivePipelineModeOverride = isSeriesMode ? 'video' : pipelineModeOverride
   const [viewState, setViewState] = useState<ViewState>('config')
   const [selectedModel, setSelectedModel] = useState('')
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
@@ -336,10 +358,15 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
   const [styleOptions, setStyleOptions] = useState<StyleOption[]>([])
   const [selectedTraceItem, setSelectedTraceItem] = useState<TraceDotItem | null>(null)
   const [controlState, setControlState] = useState<'running' | 'paused' | 'cancelled' | 'completed'>('running')
+  const [seriesEpisodeStates, setSeriesEpisodeStates] = useState<SeriesEpisodeState[]>([])
+  const [seriesEpisodeRuntimeStates, setSeriesEpisodeRuntimeStates] = useState<Record<string, AiNoteStreamState>>({})
+  const [seriesRunSummary, setSeriesRunSummary] = useState<SeriesQueueSummary>(() => calculateSeriesQueueSummary([]))
+  const [activeSeriesEpisodeId, setActiveSeriesEpisodeId] = useState<string | null>(null)
   const activeNoteIdRef = useRef<string | null>(null)
   const analysisAbortRef = useRef<AbortController | null>(null)
   const streamStateRef = useRef<AiNoteStreamState>(createAiNoteStreamState())
   const currentRequestRef = useRef<{ video_id: string; style: string; model_provider: string; model_name: string; extras: string; pipeline_mode: AiNotePipelineMode } | null>(null)
+  const activeQueueTokenRef = useRef(0)
   const suppressLookupRef = useRef(false)
 
   useEffect(() => {
@@ -349,6 +376,10 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
   useEffect(() => {
     streamStateRef.current = streamState
   }, [streamState])
+
+  useEffect(() => {
+    setSeriesRunSummary(calculateSeriesQueueSummary(seriesEpisodeStates))
+  }, [seriesEpisodeStates])
 
   useEffect(() => {
     if (!settings || isOpen) {
@@ -398,27 +429,52 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
   }, [isOpen])
 
   useEffect(() => {
-    if (isOpen && existingNote) {
-      setNote(existingNote)
-      setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
-      const nextStreamState = createAiNoteStreamState()
-      streamStateRef.current = nextStreamState
-      setStreamState(nextStreamState)
-      activeNoteIdRef.current = existingNote.id
-      setControlState(existingNote.control_state || (existingNote.meta?.control?.state as any) || 'running')
-      if (existingNote.style) {
-        setStyle(normalizePromptStyleValue(existingNote.style))
-      }
-      if (existingNote.status === 'failed') {
-        showToast(existingNote.error || '分析失败', 'error')
-      }
-      setViewState('config')
+    if (!isOpen || !isSeriesMode) return
+
+    const initialStates = buildSeriesEpisodeStates(seriesEpisodes || [])
+    const initialRuntimeStates = Object.fromEntries(
+      initialStates.map(item => [item.id, createAiNoteStreamState()]),
+    )
+    setSeriesEpisodeStates(initialStates)
+    setSeriesEpisodeRuntimeStates(initialRuntimeStates)
+    setActiveSeriesEpisodeId(initialStates.find(item => item.selected && item.available)?.id || initialStates.find(item => item.available)?.id || null)
+    setSeriesRunSummary(calculateSeriesQueueSummary(initialStates))
+    setNote(null)
+    setTrace([])
+    setError(null)
+    setSelectedTraceItem(null)
+    setControlState('running')
+    const nextStreamState = createAiNoteStreamState()
+    streamStateRef.current = nextStreamState
+    setStreamState(nextStreamState)
+    activeNoteIdRef.current = null
+    currentRequestRef.current = null
+  }, [isOpen, isSeriesMode, seriesEpisodes])
+
+  useEffect(() => {
+    if (!isOpen || isSeriesMode) return
+    if (!existingNote) return
+
+    setNote(existingNote)
+    setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
+    const nextStreamState = createAiNoteStreamState()
+    streamStateRef.current = nextStreamState
+    setStreamState(nextStreamState)
+    activeNoteIdRef.current = existingNote.id
+    setControlState(existingNote.control_state || (existingNote.meta?.control?.state as any) || 'running')
+    if (existingNote.style) {
+      setStyle(normalizePromptStyleValue(existingNote.style))
     }
-  }, [isOpen, existingNote])
+    if (existingNote.status === 'failed') {
+      showToast(existingNote.error || '分析失败', 'error')
+    }
+    setViewState('config')
+  }, [existingNote, isOpen, isSeriesMode, showToast])
 
   // Lookup latest note on open. Never treat HTTP 404 (or any success=false response) as "no note".
   useEffect(() => {
     if (!isOpen) return
+    if (isSeriesMode) return
     if (!videoId) return
 
     let cancelled = false
@@ -525,26 +581,72 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
     )
   }, [settings, styleOptions])
 
+  const sortedSeriesEpisodeStates = useMemo(() => {
+    return sortSeriesEpisodes(seriesEpisodeStates)
+  }, [seriesEpisodeStates])
+
+  const selectedSeriesEpisodes = useMemo(() => {
+    return sortedSeriesEpisodeStates.filter(item => item.selected && item.available)
+  }, [sortedSeriesEpisodeStates])
+
+  const activeSeriesEpisode = useMemo(() => {
+    if (!activeSeriesEpisodeId) return null
+    return sortedSeriesEpisodeStates.find(item => item.id === activeSeriesEpisodeId) || null
+  }, [activeSeriesEpisodeId, sortedSeriesEpisodeStates])
+
+  const activeSeriesRuntimeState = useMemo(() => {
+    if (!activeSeriesEpisodeId) return null
+    return seriesEpisodeRuntimeStates[activeSeriesEpisodeId] || null
+  }, [activeSeriesEpisodeId, seriesEpisodeRuntimeStates])
+
   const currentTrace = trace.length ? trace : ((note?.meta?.trace as AiTraceStep[]) || [])
   const effectiveControlState = controlState || (note?.control_state || (note?.meta?.control?.state as any) || 'running')
+  const activeSeriesTrace = useMemo(() => {
+    if (!isSeriesMode) return currentTrace
+    if (activeSeriesRuntimeState?.trace?.length) return activeSeriesRuntimeState.trace
+    if (activeSeriesEpisode?.trace?.length) return activeSeriesEpisode.trace
+    return currentTrace
+  }, [activeSeriesEpisode, activeSeriesRuntimeState?.trace, currentTrace, isSeriesMode])
   const traceDots = useMemo(() => {
-    return buildTraceDotItemsForNote(note, currentTrace, videoId, pipelineModeOverride)
-  }, [currentTrace, note, pipelineModeOverride, videoId])
+    return buildTraceDotItemsForNote(note, activeSeriesTrace, videoId, effectivePipelineModeOverride)
+  }, [activeSeriesTrace, effectivePipelineModeOverride, note, videoId])
   const liveTraceLogText = useMemo(() => {
     if (selectedTraceItem) {
-      const selectedStageState = streamState.stages[selectedTraceItem.stage]
+      const selectedStageState = activeSeriesRuntimeState?.stages?.[selectedTraceItem.stage] || streamState.stages[selectedTraceItem.stage]
       const stageLogText = getStageLogText(selectedStageState)
       if (stageLogText) {
         return stageLogText
+      }
+      const selectedSeriesStageState = activeSeriesTrace.find(step => step.stage === selectedTraceItem.stage)
+      if (selectedSeriesStageState?.detail) {
+        try {
+          return JSON.stringify(selectedSeriesStageState.detail, null, 2)
+        } catch {
+          return selectedSeriesStageState.summary || selectedTraceItem.detailText || '暂无日志'
+        }
       }
       if (selectedTraceItem.detailText) {
         return selectedTraceItem.detailText
       }
     }
+    if (isSeriesMode && activeSeriesTrace.length) {
+      return activeSeriesTrace
+        .map(step => {
+          const detail = step.detail ? (() => {
+            try {
+              return JSON.stringify(step.detail, null, 2)
+            } catch {
+              return ''
+            }
+          })() : ''
+          return `${step.stage}\n${step.title}\n${step.summary}${detail ? `\n${detail}` : ''}`
+        })
+        .join('\n\n')
+    }
     const activeStageState = streamState.activeStage ? streamState.stages[streamState.activeStage] : undefined
     const logText = getStageLogText(activeStageState)
     return logText || '暂无日志'
-  }, [selectedTraceItem, streamState.activeStage, streamState.stages])
+  }, [activeSeriesRuntimeState, activeSeriesTrace, isSeriesMode, selectedTraceItem, streamState.activeStage, streamState.stages])
 
   useEffect(() => {
     if (!isOpen) {
@@ -560,7 +662,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
 
   if (!isOpen) return null
 
-  const resetState = () => {
+  const resetLiveState = () => {
     setViewState('config')
     setNote(null)
     setError(null)
@@ -571,6 +673,285 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
     setSelectedTraceItem(null)
     setControlState('running')
     activeNoteIdRef.current = null
+  }
+
+  const resetSeriesState = () => {
+    const nextStates = buildSeriesEpisodeStates(seriesEpisodes || [])
+    const nextRuntimeStates = Object.fromEntries(
+      nextStates.map(item => [item.id, createAiNoteStreamState()]),
+    )
+    setSeriesEpisodeStates(nextStates)
+    setSeriesEpisodeRuntimeStates(nextRuntimeStates)
+    setSeriesRunSummary(calculateSeriesQueueSummary(nextStates))
+    setActiveSeriesEpisodeId(nextStates.find(item => item.selected && item.available)?.id || nextStates.find(item => item.available)?.id || null)
+    activeQueueTokenRef.current += 1
+  }
+
+  const updateSeriesEpisodeState = (
+    episodeId: string,
+    patch: Partial<SeriesEpisodeState>,
+  ) => {
+    setSeriesEpisodeStates(prev =>
+      prev.map(item => (
+        item.id === episodeId
+          ? {
+              ...item,
+              ...patch,
+            }
+          : item
+      )),
+    )
+  }
+
+  const setAvailableSeriesSelection = (selected: boolean) => {
+    setSeriesEpisodeStates(prev =>
+      prev.map(item => (
+        item.available
+          ? {
+              ...item,
+              selected,
+            }
+          : item
+      )),
+    )
+  }
+
+  const runSingleAnalysis = async (params: {
+    videoIdToAnalyze: string
+    queueEpisodeId?: string
+    subtitleFilename?: string
+    queueToken?: number
+    showSuccessToast?: boolean
+  }): Promise<NoteResponse> => {
+    const { videoIdToAnalyze, queueEpisodeId, subtitleFilename, queueToken, showSuccessToast = true } = params
+
+    resetLiveState()
+
+    if (!localAsrReady) {
+      throw new Error('请先在 AI 笔记设置中下载并启用本地 ASR 模型')
+    }
+
+    if (!selectedModel) {
+      throw new Error('请先在设置面板测试并保存可用模型')
+    }
+
+    const abortController = new AbortController()
+    analysisAbortRef.current = abortController
+
+    const currentMode = isSeriesMode ? 'video' : (getPipelineMode(note, trace, videoIdToAnalyze, effectivePipelineModeOverride) || 'video')
+    const request = {
+      video_id: videoIdToAnalyze,
+      style,
+      model_provider: activeProvider,
+      model_name: selectedModel,
+      level: detailLevel,
+      pipeline_mode: currentMode,
+      subtitle_filename: subtitleFilename,
+    }
+
+    currentRequestRef.current = {
+      video_id: videoIdToAnalyze,
+      style,
+      model_provider: activeProvider,
+      model_name: selectedModel,
+      extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
+      pipeline_mode: currentMode,
+    }
+
+    let completed = false
+    let completedNote: NoteResponse | null = null
+    let completionResolve!: (note: NoteResponse) => void
+    let completionReject!: (error: unknown) => void
+    const completionPromise = new Promise<NoteResponse>((resolve, reject) => {
+      completionResolve = resolve
+      completionReject = reject
+    })
+
+    const finishQueueEpisode = (patch: Partial<SeriesEpisodeState>) => {
+      if (!queueEpisodeId) return
+      if (queueToken !== undefined && queueToken !== activeQueueTokenRef.current) return
+      updateSeriesEpisodeState(queueEpisodeId, patch)
+    }
+
+    const finalizeCompletedNote = async (noteId: string) => {
+      const finalNote = await aiNoteService.getNote(noteId)
+      completedNote = finalNote
+      setNote(finalNote)
+      onComplete?.(finalNote)
+      if (!isSeriesMode) {
+        setViewState('result')
+      }
+      return finalNote
+    }
+
+    try {
+      await aiNoteService.analyzeStream(
+        '/api/note/pipeline-analyze',
+        request,
+        (event) => {
+          const next = applyAiNoteStreamEvent(streamStateRef.current, event)
+          streamStateRef.current = next
+          setStreamState(next)
+          setTrace(next.trace)
+
+          if (queueEpisodeId) {
+            setSeriesEpisodeRuntimeStates(prev => ({
+              ...prev,
+              [queueEpisodeId]: next,
+            }))
+          }
+
+          if (queueEpisodeId) {
+            finishQueueEpisode({
+              status: event.stage === 'DONE' && event.status === 'completed' ? 'completed' : 'running',
+              progress: typeof event.data?.progress === 'number' ? event.data.progress : undefined,
+              currentStage: typeof event.data?.current_stage === 'string'
+                ? event.data.current_stage
+                : (event.stage || undefined),
+              error: undefined,
+              trace: next.trace,
+            })
+          }
+
+          if (event.stage === 'INIT' && event.data?.note_id) {
+            activeNoteIdRef.current = event.data.note_id
+            return
+          }
+
+          if (event.stage === 'DONE' && event.status === 'completed') {
+            const noteId = activeNoteIdRef.current || event.data?.note_id || note?.id
+            if (!noteId) {
+              completionReject(new Error('未获取到 note_id'))
+              return
+            }
+
+            void finalizeCompletedNote(noteId)
+              .then((finalNote) => {
+                const finalTrace = (finalNote.meta?.trace as AiTraceStep[]) || next.trace
+                if (queueEpisodeId) {
+                  setSeriesEpisodeRuntimeStates(prev => ({
+                    ...prev,
+                    [queueEpisodeId]: {
+                      ...next,
+                      trace: finalTrace,
+                    },
+                  }))
+                }
+                if (queueEpisodeId) {
+                  finishQueueEpisode({
+                    status: 'completed',
+                    progress: 100,
+                    currentStage: '已完成',
+                    error: undefined,
+                    trace: finalTrace,
+                    noteId: finalNote.id,
+                  })
+                }
+                completed = true
+                completionResolve(finalNote)
+                if (showSuccessToast && !isSeriesMode) {
+                  showToast('AI 笔记生成完成', 'success')
+                }
+              })
+              .catch((err) => {
+                const message = err instanceof Error ? err.message : '获取笔记失败'
+                if (queueEpisodeId) {
+                  finishQueueEpisode({
+                    status: 'failed',
+                    error: message,
+                    currentStage: '失败',
+                    trace: next.trace,
+                  })
+                }
+                completionReject(err)
+              })
+            return
+          }
+
+          if (event.stage === 'DONE' && event.status === 'error') {
+            const message = event.data?.error || '分析失败'
+            if (queueEpisodeId) {
+              finishQueueEpisode({
+                status: 'failed',
+                error: message,
+                currentStage: '失败',
+                trace: next.trace,
+              })
+            }
+            setError(message)
+            completionReject(new Error(message))
+          }
+        },
+        abortController.signal,
+      )
+
+      if (!completed) {
+        const noteResult = await completionPromise
+        return noteResult
+      }
+
+      return completedNote ?? await completionPromise
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw err
+      }
+
+      const failedNoteId = activeNoteIdRef.current || note?.id
+      let failedTrace: AiTraceStep[] = []
+      if (failedNoteId) {
+        try {
+          const failedNote = await aiNoteService.getNote(failedNoteId)
+          setNote(failedNote)
+          failedTrace = (failedNote.meta?.trace as AiTraceStep[]) || []
+          setTrace(failedTrace)
+          if (failedNote.error) {
+            setError(failedNote.error)
+          }
+        } catch {
+          try {
+            const status = await aiNoteService.getStatus(failedNoteId)
+            failedTrace = (status.trace as AiTraceStep[]) || []
+            setTrace(failedTrace)
+            if (status.error) {
+              setError(status.error)
+            }
+          } catch {
+            // ignore secondary fetch failures; the original error still propagates
+          }
+        }
+      }
+
+      if (queueEpisodeId) {
+        setSeriesEpisodeStates(prev =>
+          prev.map(item => (
+            item.id === queueEpisodeId
+              ? {
+                  ...item,
+                  trace: failedTrace.length ? failedTrace : item.trace,
+                }
+              : item
+          )),
+        )
+        finishQueueEpisode({
+          status: 'failed',
+          error: err instanceof Error ? err.message : '分析失败',
+          currentStage: '失败',
+          trace: failedTrace.length ? failedTrace : streamStateRef.current.trace,
+        })
+        setSeriesEpisodeRuntimeStates(prev => ({
+          ...prev,
+          [queueEpisodeId]: failedTrace.length
+            ? {
+                ...streamStateRef.current,
+                trace: failedTrace,
+              }
+            : streamStateRef.current,
+        }))
+      }
+      throw err
+    } finally {
+      analysisAbortRef.current = null
+    }
   }
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
@@ -641,124 +1022,157 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
     }
   }
 
-  const startAnalyze = async () => {
-    setError(null)
-    setIsAnalyzing(true)
-    setViewState('config')
-    setTrace([])
-    {
-      const nextStreamState = createAiNoteStreamState()
-      streamStateRef.current = nextStreamState
-      setStreamState(nextStreamState)
-    }
-    setControlState('running')
-
+  const startSingleAnalyze = async () => {
     if (!localAsrReady) {
       setError('请先在 AI 笔记设置中下载并启用本地 ASR 模型')
       showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
-      setIsAnalyzing(false)
       return
     }
 
     if (!selectedModel) {
       setError('请先在设置面板测试并保存可用模型')
-      setIsAnalyzing(false)
       return
     }
 
-    const abortController = new AbortController()
-    analysisAbortRef.current = abortController
-
-    const currentMode = getPipelineMode(note, trace, videoId, pipelineModeOverride) || 'video'
+    setIsAnalyzing(true)
     try {
-      const request = {
-        video_id: videoId,
-        style,
-        model_provider: activeProvider,
-        model_name: selectedModel,
-        level: detailLevel,
-        pipeline_mode: currentMode,
-      }
-
-      currentRequestRef.current = {
-        video_id: videoId,
-        style,
-        model_provider: activeProvider,
-        model_name: selectedModel,
-        extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
-        pipeline_mode: currentMode,
-      }
-
-      const finalizeCompletedNote = async (noteId: string) => {
-        const completed = await aiNoteService.getNote(noteId)
-        setNote(completed)
-        onComplete?.(completed)
-        setViewState('result')
-        return completed
-      }
-
-      await aiNoteService.analyzeStream(
-        '/api/note/pipeline-analyze',
-        request,
-        (event) => {
-          const next = applyAiNoteStreamEvent(streamStateRef.current, event)
-          streamStateRef.current = next
-          setStreamState(next)
-          setTrace(next.trace)
-
-          if (event.stage === 'INIT' && event.data?.note_id) {
-            activeNoteIdRef.current = event.data.note_id
-            return
-          }
-
-          if (event.stage === 'DONE' && event.status === 'completed') {
-            const noteId = activeNoteIdRef.current || event.data?.note_id || note?.id
-            if (noteId) {
-              void finalizeCompletedNote(noteId)
-                .then(() => {
-                  setIsAnalyzing(false)
-                  analysisAbortRef.current = null
-                  showToast('AI 笔记生成完成', 'success')
-                })
-                .catch((err) => {
-                  setIsAnalyzing(false)
-                  analysisAbortRef.current = null
-                  showToast(err instanceof Error ? err.message : '获取笔记失败', 'error')
-                })
-              return
-            }
-
-            setIsAnalyzing(false)
-            analysisAbortRef.current = null
-            showToast('AI 笔记生成完成', 'success')
-            return
-          }
-
-          if (event.stage === 'DONE' && event.status === 'error') {
-            const message = event.data?.error || '分析失败'
-            setError(message)
-            setIsAnalyzing(false)
-            analysisAbortRef.current = null
-            showToast(message, 'error')
-          }
-        },
-        abortController.signal,
-      )
+      await runSingleAnalysis({
+        videoIdToAnalyze: videoId,
+        showSuccessToast: true,
+      })
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        setIsAnalyzing(false)
-        analysisAbortRef.current = null
         showToast('已取消 AI 笔记重新生成', 'info')
         return
       }
       setError(err instanceof Error ? err.message : '分析失败')
+      showToast(err instanceof Error ? err.message : '分析失败', 'error')
     } finally {
       setIsAnalyzing(false)
     }
   }
 
+  const startSeriesAnalyze = async (episodeIds?: string[]) => {
+    const availableSelections = seriesEpisodeStates.filter(item => item.selected && item.available)
+    const selectedEpisodes = sortSeriesEpisodes(
+      episodeIds && episodeIds.length > 0
+        ? seriesEpisodeStates.filter(item => episodeIds.includes(item.id) && item.available)
+        : availableSelections,
+    )
+
+    if (selectedEpisodes.length === 0) {
+      setError('请先选择要分析的集数')
+      showToast('请先选择要分析的集数', 'warning')
+      return
+    }
+
+    if (!localAsrReady) {
+      setError('请先在 AI 笔记设置中下载并启用本地 ASR 模型')
+      showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
+      return
+    }
+
+    if (!selectedModel) {
+      setError('请先在设置面板测试并保存可用模型')
+      return
+    }
+
+    setIsAnalyzing(true)
+    setError(null)
+    setViewState('config')
+    activeQueueTokenRef.current += 1
+    const queueToken = activeQueueTokenRef.current
+    const selectedEpisodeIdSet = new Set(selectedEpisodes.map(item => item.id))
+
+    setSeriesEpisodeStates(prev =>
+      prev.map(item => (
+        selectedEpisodeIdSet.has(item.id)
+          ? {
+              ...item,
+              status: 'queued',
+              progress: 0,
+              currentStage: undefined,
+              error: undefined,
+            }
+          : item
+      )),
+    )
+
+    let completedCount = 0
+    let failedCount = 0
+
+    try {
+      for (const episode of selectedEpisodes) {
+        if (queueToken !== activeQueueTokenRef.current) {
+          break
+        }
+
+        setActiveSeriesEpisodeId(episode.id)
+        updateSeriesEpisodeState(episode.id, {
+          status: 'running',
+          progress: 0,
+          currentStage: '开始分析',
+          error: undefined,
+        })
+
+        try {
+          const completedNote = await runSingleAnalysis({
+            videoIdToAnalyze: episode.id,
+            queueEpisodeId: episode.id,
+            subtitleFilename: episode.subtitleFilename,
+            queueToken,
+            showSuccessToast: false,
+          })
+
+          if (queueToken !== activeQueueTokenRef.current) {
+            break
+          }
+
+          completedCount += 1
+          updateSeriesEpisodeState(episode.id, {
+            status: 'completed',
+            progress: 100,
+            currentStage: '已完成',
+            error: undefined,
+          })
+          onComplete?.(completedNote)
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            break
+          }
+          failedCount += 1
+          updateSeriesEpisodeState(episode.id, {
+            status: 'failed',
+            error: err instanceof Error ? err.message : '分析失败',
+            currentStage: '失败',
+          })
+        }
+      }
+
+      if (queueToken === activeQueueTokenRef.current) {
+        if (failedCount > 0) {
+          showToast(`系列分析完成，${completedCount} 集成功，${failedCount} 集失败`, 'warning')
+        } else {
+          showToast(`系列分析完成，共 ${completedCount} 集`, 'success')
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '系列分析失败')
+      showToast(err instanceof Error ? err.message : '系列分析失败', 'error')
+    } finally {
+      if (queueToken === activeQueueTokenRef.current) {
+        setActiveSeriesEpisodeId(null)
+        setIsAnalyzing(false)
+      }
+    }
+  }
+
   const handleAnalyze = async () => {
-    await startAnalyze()
+    if (isSeriesMode) {
+      await startSeriesAnalyze()
+      return
+    }
+    await startSingleAnalyze()
   }
 
   const handlePauseOrResume = async () => {
@@ -781,16 +1195,64 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
   const handleResetAnalyze = async () => {
     const noteId = activeNoteIdRef.current
     try {
+      activeQueueTokenRef.current += 1
+      analysisAbortRef.current?.abort()
       if (noteId) {
         await aiNoteService.cancelNote(noteId)
       }
-      resetState()
+      if (isSeriesMode) {
+        resetLiveState()
+        resetSeriesState()
+        setSeriesEpisodeStates(buildSeriesEpisodeStates(seriesEpisodes || []))
+        setIsAnalyzing(false)
+        setViewState('config')
+        return
+      }
+      resetLiveState()
       if (currentRequestRef.current) {
-        await startAnalyze()
+        await startSingleAnalyze()
       }
     } catch (err) {
       showToast(err instanceof Error ? err.message : '重置失败', 'error')
     }
+  }
+
+  const handleSeriesToggleEpisode = (episodeId: string) => {
+    if (isAnalyzing) return
+    setSeriesEpisodeStates(prev =>
+      prev.map(item => (
+        item.id === episodeId && item.available
+          ? {
+              ...item,
+              selected: !item.selected,
+            }
+          : item
+      )),
+    )
+  }
+
+  const handleSeriesSelectAll = () => {
+    if (isAnalyzing) return
+    setAvailableSeriesSelection(true)
+  }
+
+  const handleSeriesClearSelection = () => {
+    if (isAnalyzing) return
+    setAvailableSeriesSelection(false)
+  }
+
+  const focusSeriesEpisode = (episodeId: string) => {
+    const episode = sortedSeriesEpisodeStates.find(item => item.id === episodeId)
+    if (!episode) return
+
+    setActiveSeriesEpisodeId(episodeId)
+    setSelectedTraceItem(null)
+  }
+
+  const handleSeriesRetryEpisode = async (episodeId: string) => {
+    if (isAnalyzing) return
+    focusSeriesEpisode(episodeId)
+    await startSeriesAnalyze([episodeId])
   }
 
   const copyTraceItem = async (item: TraceDotItem) => {
@@ -851,9 +1313,223 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
     )
   }
 
+  const renderSeriesEpisodeRow = (item: SeriesEpisodeState) => {
+    const isActive = item.id === activeSeriesEpisodeId
+    const statusLabel = getSeriesEpisodeStatusLabel(item)
+    const progress = Math.max(0, Math.min(100, item.progress || 0))
+
+    return (
+      <div
+        key={item.id}
+        className="ai-note-series-episode"
+        data-status={item.status}
+        data-selected={item.selected ? 'true' : 'false'}
+        data-active={isActive ? 'true' : 'false'}
+      >
+        <label className="ai-note-series-episode-checkbox">
+          <input
+            type="checkbox"
+            checked={Boolean(item.selected && item.available)}
+            disabled={!item.available || isAnalyzing}
+            onChange={() => handleSeriesToggleEpisode(item.id)}
+          />
+          <span />
+        </label>
+
+        <button
+          type="button"
+          className="ai-note-series-episode-main"
+          disabled={!item.available || isAnalyzing}
+          onClick={() => focusSeriesEpisode(item.id)}
+        >
+          <div className="ai-note-series-episode-head">
+            <div className="ai-note-series-episode-title">{item.title}</div>
+            <span className="ai-note-series-episode-badge">{statusLabel}</span>
+          </div>
+          <div className="ai-note-series-episode-meta">
+            <span>{item.subtitle || item.id}</span>
+            {item.currentStage && <span>· {item.currentStage}</span>}
+          </div>
+          <div className="ai-note-series-episode-progress">
+            <span style={{ width: `${progress}%` }} />
+          </div>
+          {item.error && <div className="ai-note-series-episode-error">{item.error}</div>}
+        </button>
+
+        <div className="ai-note-series-episode-actions">
+          <button
+            type="button"
+            className="ai-note-series-episode-retry"
+            onClick={() => {
+              void handleSeriesRetryEpisode(item.id)
+            }}
+            disabled={isAnalyzing || !item.available}
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const renderSingleContent = () => (
+    <>
+      {viewState === 'config' && (
+        <>
+          <div className="ai-note-modal-content">
+            <div className="ai-note-select-group">
+              <label>模型</label>
+              {providerModels.length > 0 ? (
+                <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="ai-note-select">
+                  {providerModels.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              ) : (
+                <div className="ai-note-empty-hint">请先在设置面板测试并保存该服务商的模型</div>
+              )}
+            </div>
+
+            <div className="ai-note-select-group">
+              <label>详细程度</label>
+              <select value={detailLevel} onChange={e => setDetailLevel(e.target.value as 'simple' | 'detailed')} className="ai-note-select">
+                <option value="simple">简单</option>
+                <option value="detailed">详细</option>
+              </select>
+            </div>
+
+            <div className="ai-note-select-group">
+              <label>笔记风格</label>
+              <select value={style} onChange={e => setStyle(e.target.value)} className="ai-note-select">
+                {availableStyles.map(s => <option key={s.value} value={s.value}>{s.label} - {s.description}</option>)}
+              </select>
+            </div>
+
+          </div>
+
+          {error && <div className="ai-note-modal-error">{error}</div>}
+
+          <div className="ai-note-modal-footer">
+            <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
+              <RotateCcw size={16} />
+              重置
+            </button>
+            <button onClick={handlePauseOrResume} disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')} className="ai-note-modal-btn-secondary">
+              {effectiveControlState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
+              {effectiveControlState === 'paused' ? '继续' : '暂停'}
+            </button>
+            <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady} className="ai-note-modal-btn-primary">
+              {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')}
+            </button>
+          </div>
+        </>
+      )}
+
+      {viewState === 'result' && note && (
+        <>
+          <div className="ai-note-modal-content">
+            <div className="ai-note-result-path-card">
+              <div className="ai-note-result-path-label">本地 Markdown 路径</div>
+              <div className="ai-note-result-path-value">{note?.generated_markdown_path || note?.meta?.generated_markdown_path || '暂无路径'}</div>
+              {(note?.generated_markdown_path || note?.meta?.generated_markdown_path) && (
+                <button
+                  type="button"
+                  className="ai-note-result-path-copy"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(note?.generated_markdown_path || note?.meta?.generated_markdown_path || '')
+                    showToast('已复制本地路径', 'success')
+                  }}
+                >
+                  复制路径
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="ai-note-modal-footer">
+            <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
+              <RotateCcw size={16} />
+              重新分析
+            </button>
+            <button onClick={onClose} className="ai-note-modal-btn-primary">
+              关闭
+            </button>
+          </div>
+        </>
+      )}
+    </>
+  )
+
+  const renderSeriesContent = () => (
+    <>
+      <div className="ai-note-modal-content ai-note-series-content">
+        <div className="ai-note-series-summary">
+          <div className="ai-note-series-summary-head">
+            <div>
+              <div className="ai-note-series-summary-title">系列任务</div>
+              <div className="ai-note-series-summary-subtitle">
+                选中后会按顺序逐集执行现有单视频流水线
+              </div>
+            </div>
+            <div className="ai-note-series-summary-chip">
+              {seriesRunSummary.selected} / {seriesRunSummary.available} 已选
+            </div>
+          </div>
+          <div className="ai-note-series-summary-stats">
+            <span>总集数 {seriesRunSummary.total}</span>
+            <span>完成 {seriesRunSummary.completed}</span>
+            <span>失败 {seriesRunSummary.failed}</span>
+          </div>
+          <div className="ai-note-series-summary-progress">
+            <span style={{ width: `${seriesRunSummary.progress}%` }} />
+          </div>
+          {activeSeriesEpisode && (
+            <div className="ai-note-series-current">
+              当前分析：{activeSeriesEpisode.title}
+              {activeSeriesEpisode.currentStage ? ` · ${activeSeriesEpisode.currentStage}` : ''}
+            </div>
+          )}
+        </div>
+
+        <div className="ai-note-series-actions">
+          <button type="button" className="ai-note-series-action" onClick={handleSeriesSelectAll} disabled={isAnalyzing}>
+            全选可用
+          </button>
+          <button type="button" className="ai-note-series-action" onClick={handleSeriesClearSelection} disabled={isAnalyzing}>
+            清空选择
+          </button>
+        </div>
+
+        <div className="ai-note-series-list">
+          {sortedSeriesEpisodeStates.map(renderSeriesEpisodeRow)}
+        </div>
+      </div>
+
+      {error && <div className="ai-note-modal-error">{error}</div>}
+
+      <div className="ai-note-modal-footer">
+        <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
+          <RotateCcw size={16} />
+          重置选集
+        </button>
+        <button onClick={handlePauseOrResume} disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')} className="ai-note-modal-btn-secondary">
+          {effectiveControlState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
+          {effectiveControlState === 'paused' ? '继续' : '暂停'}
+        </button>
+        <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady || selectedSeriesEpisodes.length === 0} className="ai-note-modal-btn-primary">
+          {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          {isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')}
+        </button>
+      </div>
+    </>
+  )
+
   return (
     <div className="ai-note-modal-overlay" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-      <div className="ai-note-modal-panel" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+      <div
+        className="ai-note-modal-panel"
+        data-series-mode={isSeriesMode ? 'true' : 'false'}
+        onMouseDown={e => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="ai-note-modal-header">
           <button
             type="button"
@@ -876,87 +1552,7 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
           </button>
         </div>
 
-        {viewState === 'config' && (
-          <>
-            <div className="ai-note-modal-content">
-              <div className="ai-note-select-group">
-                <label>模型</label>
-                {providerModels.length > 0 ? (
-                  <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="ai-note-select">
-                    {providerModels.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                ) : (
-                  <div className="ai-note-empty-hint">请先在设置面板测试并保存该服务商的模型</div>
-                )}
-              </div>
-
-              <div className="ai-note-select-group">
-                <label>详细程度</label>
-                <select value={detailLevel} onChange={e => setDetailLevel(e.target.value as 'simple' | 'detailed')} className="ai-note-select">
-                  <option value="simple">简单</option>
-                  <option value="detailed">详细</option>
-                </select>
-              </div>
-
-              <div className="ai-note-select-group">
-                <label>笔记风格</label>
-                <select value={style} onChange={e => setStyle(e.target.value)} className="ai-note-select">
-                  {availableStyles.map(s => <option key={s.value} value={s.value}>{s.label} - {s.description}</option>)}
-                </select>
-              </div>
-
-            </div>
-
-            {error && <div className="ai-note-modal-error">{error}</div>}
-
-            <div className="ai-note-modal-footer">
-              <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
-                <RotateCcw size={16} />
-                重置
-              </button>
-              <button onClick={handlePauseOrResume} disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')} className="ai-note-modal-btn-secondary">
-                {effectiveControlState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
-                {effectiveControlState === 'paused' ? '继续' : '暂停'}
-              </button>
-              <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady} className="ai-note-modal-btn-primary">
-                {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                {isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')}
-              </button>
-            </div>
-          </>
-        )}
-
-        {viewState === 'result' && note && (
-          <>
-            <div className="ai-note-modal-content">
-              <div className="ai-note-result-path-card">
-                <div className="ai-note-result-path-label">本地 Markdown 路径</div>
-                <div className="ai-note-result-path-value">{note?.generated_markdown_path || note?.meta?.generated_markdown_path || '暂无路径'}</div>
-                {(note?.generated_markdown_path || note?.meta?.generated_markdown_path) && (
-                  <button
-                    type="button"
-                    className="ai-note-result-path-copy"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(note?.generated_markdown_path || note?.meta?.generated_markdown_path || '')
-                      showToast('已复制本地路径', 'success')
-                    }}
-                  >
-                    复制路径
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="ai-note-modal-footer">
-              <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
-                <RotateCcw size={16} />
-                重新分析
-              </button>
-              <button onClick={onClose} className="ai-note-modal-btn-primary">
-                关闭
-              </button>
-            </div>
-          </>
-        )}
+        {isSeriesMode ? renderSeriesContent() : renderSingleContent()}
 
         {renderTraceBar()}
       </div>
@@ -1007,25 +1603,63 @@ export function AiNoteModal({ videoId, videoTitle: _videoTitle, existingNote, pi
 
       <style>{`
         .ai-note-modal-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.4); pointer-events: auto; }
-        .ai-note-modal-panel { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); background: var(--color-bg-primary); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); }
-        .ai-note-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--color-border); }
-        .ai-note-modal-title { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; }
+        .ai-note-modal-panel { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); background: var(--color-bg-primary); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); }
+        .ai-note-modal-panel[data-series-mode="true"] { max-width: 700px; }
+        .ai-note-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+        .ai-note-modal-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
         .ai-note-modal-title-link { padding: 0; border: none; background: transparent; color: inherit; cursor: pointer; }
         .ai-note-modal-title-link:disabled { cursor: default; opacity: 1; }
-        .ai-note-modal-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--color-text-secondary); border-radius: 8px; cursor: pointer; }
+        .ai-note-modal-close { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--color-text-secondary); border-radius: 8px; cursor: pointer; }
         .ai-note-modal-video-info { padding: 12px 20px; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border); font-size: 14px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ai-note-modal-content { flex: 1; overflow-y: auto; padding: 20px; }
-        .ai-note-select-group { margin-bottom: 16px; }
-        .ai-note-select-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; }
-        .ai-note-select { width: 100%; padding: 12px 16px; border-radius: 10px; font-size: 14px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); }
-        .ai-note-empty-hint { padding: 12px 14px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 13px; }
+        .ai-note-modal-content { flex: 1; overflow-y: auto; padding: 16px; }
+        .ai-note-select-group { margin-bottom: 14px; }
+        .ai-note-select-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .ai-note-select { width: 100%; padding: 10px 14px; border-radius: 10px; font-size: 13px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); }
+        .ai-note-empty-hint { padding: 10px 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 12px; }
         .ai-note-summary-chip { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
-        .ai-note-modal-error { padding: 12px 20px; background: var(--color-error-50); font-size: 14px; color: var(--color-error-600); }
-        .ai-note-empty-hint { margin-top: 8px; padding: 12px 14px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 13px; }
-        .ai-note-modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); }
-        .ai-note-modal-btn-secondary,.ai-note-modal-btn-primary { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; }
+        .ai-note-modal-error { padding: 10px 16px; background: var(--color-error-50); font-size: 13px; color: var(--color-error-600); }
+        .ai-note-empty-hint { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 12px; }
+        .ai-note-modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--color-border); background: var(--color-bg-secondary); }
+        .ai-note-modal-btn-secondary,.ai-note-modal-btn-primary { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; }
         .ai-note-modal-btn-secondary { background: var(--color-bg-tertiary); color: var(--color-text-primary); border: none; }
         .ai-note-modal-btn-primary { background: var(--color-primary-600); color: white; border: none; }
+        .ai-note-series-content { display: grid; gap: 14px; }
+        .ai-note-series-summary { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02)); border: 1px solid rgba(59,130,246,0.16); }
+        .ai-note-series-summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .ai-note-series-summary-title { font-size: 15px; font-weight: 700; color: var(--color-text-primary); }
+        .ai-note-series-summary-subtitle { margin-top: 3px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+        .ai-note-series-summary-chip { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; background: var(--color-bg-primary); border: 1px solid var(--color-border); font-size: 12px; color: var(--color-text-primary); font-weight: 600; }
+        .ai-note-series-summary-stats { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--color-text-secondary); }
+        .ai-note-series-summary-progress { height: 7px; border-radius: 999px; background: rgba(148,163,184,0.18); overflow: hidden; }
+        .ai-note-series-summary-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-primary-600), var(--color-success)); }
+        .ai-note-series-current { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+        .ai-note-series-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .ai-note-series-action { padding: 7px 10px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-primary); cursor: pointer; font-size: 12px; }
+        .ai-note-series-action:disabled { opacity: 0.6; cursor: not-allowed; }
+        .ai-note-series-list { display: grid; gap: 8px; }
+        .ai-note-series-episode { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: stretch; padding: 10px; border-radius: 12px; background: var(--color-bg-primary); border: 1px solid var(--color-border); }
+        .ai-note-series-episode[data-status="running"] { border-color: rgba(59,130,246,0.35); box-shadow: 0 0 0 1px rgba(59,130,246,0.08) inset; }
+        .ai-note-series-episode[data-status="completed"] { border-color: rgba(22,163,74,0.28); }
+        .ai-note-series-episode[data-status="failed"] { border-color: rgba(220,38,38,0.28); }
+        .ai-note-series-episode[data-active="true"] { background: linear-gradient(180deg, rgba(59,130,246,0.05), rgba(59,130,246,0.02)); }
+        .ai-note-series-episode-checkbox { display: flex; align-items: flex-start; justify-content: center; padding-top: 1px; }
+        .ai-note-series-episode-checkbox input { width: 15px; height: 15px; accent-color: var(--color-primary-600); cursor: pointer; }
+        .ai-note-series-episode-checkbox span { display: none; }
+        .ai-note-series-episode-main { display: grid; gap: 6px; padding: 0; border: none; background: transparent; text-align: left; cursor: pointer; color: inherit; }
+        .ai-note-series-episode-main:disabled { cursor: not-allowed; opacity: 0.7; }
+        .ai-note-series-episode-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ai-note-series-episode-title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); line-height: 1.4; }
+        .ai-note-series-episode-badge { flex: 0 0 auto; padding: 3px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--color-bg-secondary); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+        .ai-note-series-episode[data-status="running"] .ai-note-series-episode-badge { color: var(--color-primary-600); border-color: rgba(59,130,246,0.26); background: rgba(59,130,246,0.08); }
+        .ai-note-series-episode[data-status="completed"] .ai-note-series-episode-badge { color: var(--color-success); border-color: rgba(22,163,74,0.26); background: rgba(22,163,74,0.08); }
+        .ai-note-series-episode[data-status="failed"] .ai-note-series-episode-badge { color: var(--color-error-600); border-color: rgba(220,38,38,0.26); background: rgba(220,38,38,0.08); }
+        .ai-note-series-episode-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--color-text-tertiary); line-height: 1.5; }
+        .ai-note-series-episode-progress { height: 5px; border-radius: 999px; background: rgba(148,163,184,0.16); overflow: hidden; }
+        .ai-note-series-episode-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-primary-600), rgba(59,130,246,0.7)); }
+        .ai-note-series-episode-error { font-size: 11px; color: var(--color-error-600); line-height: 1.5; }
+        .ai-note-series-episode-actions { display: flex; align-items: flex-start; }
+        .ai-note-series-episode-retry { padding: 7px 10px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-primary); cursor: pointer; font-size: 11px; }
+        .ai-note-series-episode-retry:disabled { opacity: 0.6; cursor: not-allowed; }
         .ai-note-modal-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; gap: 16px; }
         .ai-note-modal-loading-spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary-600); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
