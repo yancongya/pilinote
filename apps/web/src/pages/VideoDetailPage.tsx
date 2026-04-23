@@ -7,7 +7,7 @@ import { useVideoDownload } from '../hooks/useVideoDownload'
 import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, ExternalLink, Film, Play, User } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Film, MessageCircle, Play, ThumbsUp, User } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
 import './VideoDetailPage.css'
 import {
@@ -162,6 +162,12 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const getProxyImageUrl = (url: string | null | undefined): string => {
     if (!url) return ''
     return getAvatarProxyUrl(url)
+  }
+
+  const getCommentAvatarText = (author: string): string => {
+    const trimmed = author.trim()
+    if (!trimmed) return '?'
+    return trimmed.slice(0, 2)
   }
 
   const getOriginalBilibiliUrl = (): string => {
@@ -901,10 +907,7 @@ const handleReDownloadConfirm = async () => {
       <main className="video-detail-content">
       {/* 主内容区 - 统一单列竖向流 */}
       <div className="video-detail-sections" style={{ gap: pageGap }}>
-      {/* 左侧 - 视频封面 */}
-      <div style={{
-        minWidth: 0
-      }}>
+      <div style={{ minWidth: 0 }}>
         <div style={{
           position: 'relative',
           width: '100%',
@@ -1082,65 +1085,53 @@ const handleReDownloadConfirm = async () => {
 
         {/* 评论展示区域 */}
         {video.comments && video.comments.length > 0 && (
-          <div style={{
-            marginTop: '16px',
-            padding: cardPadding,
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius
-          }}>
-            <h3 style={{
-              fontSize: responsiveStyle.fontSize.small,
-              fontWeight: '600',
-              color: 'var(--color-text-primary)',
-              marginBottom: '12px'
-            }}>
-              热门评论 ({video.comments.length})
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {video.comments.slice(0, 3).map((comment, index) => (
-                <div key={index} style={{
-                  padding: '10px',
-                  background: 'var(--color-bg-secondary)',
-                  borderRadius: '8px',
-                  borderLeft: comment.type === 'top' ? '3px solid var(--color-primary-600)' : '3px solid var(--color-primary-400)'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '6px'
-                  }}>
-                    <span style={{
-                      fontSize: responsiveStyle.fontSize.small,
-                      fontWeight: '600',
-                      color: 'var(--color-primary-600)'
-                    }}>
-                      {comment.author}
-                    </span>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      fontSize: '12px',
-                      color: 'var(--color-text-secondary)'
-                    }}>
-                      <span>👍 {comment.like}</span>
-                      {comment.reply > 0 && <span>💬 {comment.reply}</span>}
-                    </div>
-                  </div>
-                  <p style={{
-                    fontSize: responsiveStyle.fontSize.body,
-                    color: 'var(--color-text-primary)',
-                    lineHeight: '1.5',
-                    margin: 0,
-                    wordBreak: 'break-word'
-                  }}>
-                    {comment.content}
-                  </p>
-                </div>
-              ))}
+          <section className="video-detail-comments">
+            <div className="video-detail-card-header">
+              <h3 className="video-detail-card-title">热门评论</h3>
+              <span className="video-detail-card-subtitle">({video.comments.length})</span>
             </div>
-          </div>
+            <div className="video-detail-comment-list">
+              {video.comments.slice(0, 3).map((comment, index) => {
+                const isTop = comment.type === 'top'
+                return (
+                  <article
+                    key={index}
+                    className={`video-detail-comment-item${isTop ? ' is-top' : ''}`}
+                  >
+                    <div className="video-detail-comment-avatar" aria-hidden="true">
+                      {getCommentAvatarText(comment.author)}
+                    </div>
+                    <div className="video-detail-comment-body">
+                      <div className="video-detail-comment-topline">
+                        <div className="video-detail-comment-author-row">
+                          <span className="video-detail-comment-author">{comment.author}</span>
+                          {isTop && (
+                            <span className="video-detail-comment-badge">置顶</span>
+                          )}
+                        </div>
+                        <span className="video-detail-comment-time">{formatTime(comment.time)}</span>
+                      </div>
+                      <p className="video-detail-comment-content">
+                        {comment.content}
+                      </p>
+                      <div className="video-detail-comment-actions">
+                        <span className="video-detail-comment-action">
+                          <ThumbsUp size={13} />
+                          {comment.like}
+                        </span>
+                        {comment.reply > 0 && (
+                          <span className="video-detail-comment-action">
+                            <MessageCircle size={13} />
+                            {comment.reply}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </section>
         )}
       </div>
 
