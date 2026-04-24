@@ -52,6 +52,9 @@ class QueueManager:
         from src.services.concurrency_control import concurrency_control
         self.concurrency_control = concurrency_control
 
+        # 队列调度器任务
+        self._scheduler_task: Optional[asyncio.Task] = None
+
     async def initialize(self):
         """Initialize manager"""
         if self._running:
@@ -71,6 +74,10 @@ class QueueManager:
 
         # Load tasks from database
         await self._load_tasks_from_db()
+
+        # 启动队列调度器
+        self._scheduler_task = asyncio.create_task(self._run_scheduler())
+        logger.info("✓ Queue scheduler started")
 
         self._running = True
         logger.info("Queue manager initialized")
@@ -538,12 +545,292 @@ class QueueManager:
         for queue_type in QueueType:
             await self._save_queue_to_db(queue_type)
 
+        # 停止队列调度器
+        if self._scheduler_task:
+            self._scheduler_task.cancel()
+            try:
+                await self._scheduler_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("✓ Queue scheduler stopped")
+
         # 停止全局并发控制服务
         await self.concurrency_control.stop()
         logger.info("✓ Concurrency control service stopped")
 
         self._running = False
         logger.info("Queue manager shutdown")
+
+    async def _run_scheduler(self):
+        """运行队列调度器"""
+        logger.info("Queue scheduler started")
+
+        while self._running:
+            try:
+                # 处理BACKLOG队列 -> PENDING队列
+                await self._schedule_backlog_tasks()
+
+                # 处理PENDING队列 -> DOING队列
+                await self._schedule_pending_tasks()
+
+                # 检查已完成的调度器
+                await self._check_completed_schedulers()
+
+                # 每秒调度一次
+                await asyncio.sleep(1)
+
+            except Exception as e:
+                logger.error(f"Queue scheduler error: {e}")
+                await asyncio.sleep(5)  # 出错后等待5秒再试
+
+        logger.info("Queue scheduler stopped")
+
+    async def _schedule_backlog_tasks(self):
+        """将BACKLOG任务调度到PENDING队列"""
+        try:
+            # 获取BACKLOG队列大小
+            backlog_size = self.queues[QueueType.BACKLOG].qsize()
+
+            if backlog_size == 0:
+                return
+
+            # 限制每次处理的BACKLOG任务数量，避免阻塞
+            max_process = min(backlog_size, 10)
+
+            for _ in range(max_process):
+                try:
+                    # 从BACKLOG队列获取任务
+                    task_id = await asyncio.wait_for(
+                        self.queues[QueueType.BACKLOG].get(),
+                        timeout=0.1
+                    )
+
+                    # 检查任务是否存在
+                    if task_id not in self.tasks:
+                        logger.warning(f"Task {task_id} not found in memory, skipping")
+                        continue
+
+                    task = self.tasks[task_id]
+
+                    # 检查任务状态
+                    if task.state != TaskState.BACKLOG:
+                        logger.warning(f"Task {task_id} state is {task.state}, not BACKLOG, skipping")
+                        continue
+
+                    # 更新任务状态为PENDING
+                    task.state = TaskState.PENDING
+                    task.updated_at = int(datetime.now().timestamp())
+
+                    # 添加到PENDING队列
+                    await self.queues[QueueType.PENDING].put(task_id)
+
+                    # 持久化到数据库
+                    db = SessionLocal()
+                    try:
+                        db.merge(task)
+                        db.commit()
+                        logger.info(f"Task {task_id[:8]} scheduled: BACKLOG → PENDING")
+                    finally:
+                        db.close()
+
+                    # 广播状态更新
+                    from src.routers.websocket import broadcast_task_updated
+                    broadcast_task_updated(task_id, {
+                        "state": TaskState.PENDING.value,
+                        "status": "pending"
+                    })
+
+                except asyncio.TimeoutError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error scheduling backlog task: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Error in _schedule_backlog_tasks: {e}")
+
+    async def _schedule_pending_tasks(self):
+        """将PENDING任务调度到DOING队列"""
+        try:
+            # 检查当前活跃任务数量
+            doing_size = self.queues[QueueType.DOING].qsize()
+
+            # 最大并发任务数 (可以配置)
+            max_concurrent = 3
+
+            if doing_size >= max_concurrent:
+                return  # 已达到并发限制
+
+            # 计算可以调度的任务数量
+            available_slots = max_concurrent - doing_size
+
+            for _ in range(available_slots):
+                try:
+                    # 从PENDING队列获取任务
+                    task_id = await asyncio.wait_for(
+                        self.queues[QueueType.PENDING].get(),
+                        timeout=0.1
+                    )
+
+                    # 检查任务是否存在
+                    if task_id not in self.tasks:
+                        logger.warning(f"Task {task_id} not found in memory, skipping")
+                        continue
+
+                    task = self.tasks[task_id]
+
+                    # 检查任务状态
+                    if task.state != TaskState.PENDING:
+                        logger.warning(f"Task {task_id} state is {task.state}, not PENDING, skipping")
+                        continue
+
+                    # 更新任务状态为ACTIVE (DOING)
+                    task.state = TaskState.ACTIVE
+                    task.updated_at = int(datetime.now().timestamp())
+
+                    # 添加到DOING队列
+                    await self.queues[QueueType.DOING].put(task_id)
+
+                    # 持久化到数据库
+                    db = SessionLocal()
+                    try:
+                        db.merge(task)
+                        db.commit()
+                        logger.info(f"Task {task_id[:8]} scheduled: PENDING → DOING")
+                    finally:
+                        db.close()
+
+                    # 启动任务执行
+                    asyncio.create_task(self._execute_task(task_id))
+
+                    # 广播状态更新
+                    from src.routers.websocket import broadcast_task_updated
+                    broadcast_task_updated(task_id, {
+                        "state": TaskState.ACTIVE.value,
+                        "status": "downloading"
+                    })
+
+                except asyncio.TimeoutError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error scheduling pending task: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Error in _schedule_pending_tasks: {e}")
+
+    async def _execute_task(self, task_id: str):
+        """执行任务"""
+        try:
+            task = self.tasks.get(task_id)
+            if not task:
+                logger.error(f"Task {task_id} not found for execution")
+                return
+
+            logger.info(f"Executing task {task_id}")
+
+            # 创建TaskService并执行
+            from src.services.queue.task import TaskService
+            task_service = TaskService(task)
+            await task_service.prepare()
+
+            # 执行任务
+            success = await task_service.execute()
+
+            if success:
+                # 任务成功完成
+                await self._complete_task(task_id, "completed")
+            else:
+                # 任务执行失败
+                await self._complete_task(task_id, "failed")
+
+        except Exception as e:
+            logger.error(f"Task execution failed {task_id}: {e}")
+            await self._complete_task(task_id, "failed", str(e))
+
+    async def _complete_task(self, task_id: str, status: str, error_message: str = None):
+        """完成任务处理"""
+        try:
+            task = self.tasks.get(task_id)
+            if not task:
+                return
+
+            # 从DOING队列移除
+            try:
+                # 尝试从DOING队列移除（非阻塞）
+                doing_queue = list(self.queues[QueueType.DOING]._queue)
+                if task_id in doing_queue:
+                    doing_queue.remove(task_id)
+                    self.queues[QueueType.DOING]._queue.clear()
+                    for item in doing_queue:
+                        self.queues[QueueType.DOING]._queue.append(item)
+            except:
+                pass
+
+            # 更新任务状态
+            if status == "completed":
+                task.state = TaskState.COMPLETED
+            elif status == "failed":
+                task.state = TaskState.FAILED
+                if error_message:
+                    task.error_message = error_message
+
+            task.updated_at = int(datetime.now().timestamp())
+            if status == "completed":
+                task.completed_at = task.updated_at
+
+            # 添加到COMPLETE队列
+            await self.queues[QueueType.COMPLETE].put(task_id)
+
+            # 持久化到数据库
+            db = SessionLocal()
+            try:
+                db.merge(task)
+                db.commit()
+                logger.info(f"Task {task_id[:8]} {status}")
+            finally:
+                db.close()
+
+            # 广播状态更新
+            from src.routers.websocket import broadcast_task_updated
+            broadcast_task_updated(task_id, {
+                "state": TaskState(task.state).value,
+                "status": status,
+                "error_message": error_message
+            })
+
+        except Exception as e:
+            logger.error(f"Error completing task {task_id}: {e}")
+
+    async def _check_completed_schedulers(self):
+        """检查已完成的调度器"""
+        try:
+            for scheduler_id, scheduler in list(self.schedulers.items()):
+                if scheduler.state == 1:  # ACTIVE
+                    # 检查调度器是否所有任务都已完成
+                    all_completed = True
+                    for task_id in scheduler.list:
+                        task = self.tasks.get(task_id)
+                        if task and task.state not in [TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELLED]:
+                            all_completed = False
+                            break
+
+                    if all_completed:
+                        # 更新调度器状态
+                        scheduler.state = 2  # COMPLETED
+                        scheduler.updated_at = int(datetime.now().timestamp())
+
+                        # 持久化到数据库
+                        db = SessionLocal()
+                        try:
+                            db.merge(scheduler)
+                            db.commit()
+                            logger.info(f"Scheduler {scheduler_id[:8]} completed")
+                        finally:
+                            db.close()
+
+        except Exception as e:
+            logger.error(f"Error checking completed schedulers: {e}")
 
 
 # Global singleton
