@@ -77,6 +77,8 @@ class ErrorHandler:
         "视频不可用": BusinessError,
         "地区限制": RegionRestrictedError,
         "版权限制": RegionRestrictedError,
+        "SSL": NetworkError,  # SSL相关错误
+        "证书": NetworkError, # 证书相关错误
     }
 
     @classmethod
@@ -292,6 +294,13 @@ class ErrorHandler:
             return NetworkError(
                 message=message,
                 details={'original_error': message}
+            )
+
+        # SSL/TLS错误
+        if any(keyword in message_lower for keyword in ['ssl', '证书', 'tls', 'https', 'certificate', 'handshake', 'protocol']):
+            return NetworkError(
+                message=f"SSL连接错误: {message}",
+                details={'original_error': message, 'error_type': 'ssl_error'}
             )
 
         # 文件系统错误

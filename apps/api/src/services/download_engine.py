@@ -194,6 +194,31 @@ class DownloadEngine:
             'merge_output_format': output_format,
             'postprocessors': postprocessors,
             'progress_hooks': [],
+            # SSL/TLS相关配置
+            'nocheckcertificate': False,  # 默认检查证书
+            'prefer_insecure': False,     # 不优先使用不安全连接
+            # 网络相关配置
+            'socket_timeout': 30,         # 增加超时时间
+            'retries': 3,                 # 增加重试次数
+            'retry_sleep': 5,            # 重试间隔
+            'fragment_retries': 3,       # 分片重试次数
+            # HTTP请求头优化
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"macOS"',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Upgrade-Insecure-Requests': '1',
+            },
         }
         
         # 使用自定义的ffmpeg路径
@@ -327,11 +352,57 @@ class DownloadEngine:
                         # 抛出组合错误信息
                         raise Exception(f"Download failed with both aria2c and built-in downloader. Aria2c error: {error_str}, Built-in error: {fallback_error}")
                 else:
-                    # 非aria2c错误，直接抛出
-                    logger.error(f"❌ Download failed (non-aria2c): {error_detail.message}")
-                    logger.error(f"Error type: {error_detail.error_type}, Code: {error_detail.error_code}")
-                    logger.error(f"Recoverable: {error_detail.recoverable}, Suggestion: {error_detail.suggestion}")
-                    raise download_error
+                    # 检查是否是SSL错误，如果是则尝试降级重试
+                    error_str = str(download_error)
+                    if ('ssl' in error_str.lower() or
+                        'certificate' in error_str.lower() or
+                        'tls' in error_str.lower() or
+                        'unexpected_eof' in error_str.lower()):
+
+                        logger.warning(f"⚠️ SSL错误检测到: {error_detail.message}")
+                        logger.warning(f"Error type: {error_detail.error_type}, Code: {error_detail.error_code}")
+                        logger.info(f"🔄 尝试SSL降级重试...")
+
+                        # 创建SSL降级的配置
+                        ssl_fallback_opts = ydl_opts.copy()
+                        ssl_fallback_opts.update({
+                            'nocheckcertificate': True,  # 跳过证书验证
+                            'prefer_insecure': True,     # 允许不安全连接
+                        })
+                        # 移除可能导致问题的HTTP头
+                        ssl_fallback_opts.pop('http_headers', None)
+
+                        try:
+                            logger.info(f"Retrying with SSL downgrade: {bvid}")
+                            with yt_dlp.YoutubeDL(ssl_fallback_opts) as ydl:
+                                await asyncio.to_thread(ydl.download, [f'https://www.bilibili.com/video/{bvid}'])
+
+                            logger.info(f"✅ SSL降级重试成功: {bvid}")
+                        except Exception as ssl_fallback_error:
+                            logger.error(f"❌ SSL降级也失败: {ssl_fallback_error}")
+
+                            # 最后尝试HTTP降级
+                            try:
+                                logger.info(f"🔄 最后尝试HTTP降级: {bvid}")
+                                http_opts = ssl_fallback_opts.copy()
+                                http_opts['forceurl'] = False
+
+                                with yt_dlp.YoutubeDL(http_opts) as ydl:
+                                    await asyncio.to_thread(ydl.download, [f'http://www.bilibili.com/video/{bvid}'])
+
+                                logger.info(f"✅ HTTP降级成功: {bvid}")
+                            except Exception as http_error:
+                                logger.error(f"❌ 所有SSL降级策略都失败: {http_error}")
+                                logger.error(f"SSL错误: {error_str}")
+                                logger.error(f"SSL降级错误: {ssl_fallback_error}")
+                                logger.error(f"HTTP降级错误: {http_error}")
+                                raise Exception(f"Download failed after SSL downgrade attempts. Original: {error_str}, SSL fallback: {ssl_fallback_error}, HTTP fallback: {http_error}")
+                    else:
+                        # 非SSL错误，直接抛出
+                        logger.error(f"❌ Download failed (non-aria2c, non-SSL): {error_detail.message}")
+                        logger.error(f"Error type: {error_detail.error_type}, Code: {error_detail.error_code}")
+                        logger.error(f"Recoverable: {error_detail.recoverable}, Suggestion: {error_detail.suggestion}")
+                        raise download_error
             
         except asyncio.CancelledError:
             logger.info(f"Download cancelled: {bvid}")
