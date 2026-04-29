@@ -97,3 +97,57 @@ class Task(Base):
 
     def __repr__(self):
         return f"<Task(id={self.id}, media_type={self.media_type}, media_id={self.media_id}, state={self.state})>"
+
+
+class SubTaskType(str, enum.Enum):
+    """子任务类型枚举"""
+    VIDEO = "video"          # 视频下载
+    SUBTITLE = "subtitle"    # 字幕下载
+    DANMAKU = "danmaku"      # 弹幕下载
+    COVER = "cover"          # 封面下载
+    AVATAR = "avatar"        # 头像下载
+    NFO = "nfo"              # NFO元数据文件
+
+
+class SubTask(Base):
+    """子任务模型 - 处理视频、字幕、弹幕、封面等具体下载任务"""
+    __tablename__ = 'subtasks'
+
+    id = Column(String(50), primary_key=True, default=lambda: str(uuid.uuid4()))
+    task_id = Column(String(50), nullable=False, index=True)  # 关联的主任务ID
+    type = Column(String(20), nullable=False, index=True)     # SubTaskType
+    state = Column(Integer, nullable=False, default=TaskState.BACKLOG, index=True)  # TaskState
+    progress = Column(Integer, default=0)  # 进度 0-100
+
+    # 处理参数
+    params = Column(JSON, nullable=False, default=lambda: {})  # 子任务特定参数
+
+    # 输出信息
+    output_path = Column(String(500))  # 输出文件路径
+    file_size = Column(Integer)        # 文件大小（字节）
+
+    # 错误详情
+    error_detail = Column(JSON, nullable=True)  # 错误详情
+
+    # 时间戳
+    created_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
+    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'task_id': self.task_id,
+            'type': self.type,
+            'state': self.state,
+            'progress': self.progress,
+            'params': self.params,
+            'output_path': self.output_path,
+            'file_size': self.file_size,
+            'error_detail': self.error_detail,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at
+        }
+
+    def __repr__(self):
+        return f"<SubTask(id={self.id}, task_id={self.task_id}, type={self.type}, state={self.state})>"
