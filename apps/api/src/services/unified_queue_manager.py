@@ -254,6 +254,7 @@ class UnifiedQueueManager:
             SubTaskType.SUBTITLE,  # 字幕下载
             SubTaskType.DANMAKU,   # 弹幕下载
             SubTaskType.COVER,     # 封面下载
+            SubTaskType.AVATAR,    # UP主头像下载
             SubTaskType.NFO        # NFO元数据
         ]
         
@@ -378,110 +379,25 @@ class UnifiedQueueManager:
     
     async def _execute_subtasks(self, task: Task, subtasks: List[SubTask]) -> bool:
         """执行任务的所有子任务"""
-        from .handlers.registry import handler_registry
-        from .handlers.base import ProgressCallback
+        from .queue.task_orchestrator import task_orchestrator
         
-        logger.info(f"📝 执行任务 {task.title} 的 {len(subtasks)} 个子任务")
+        logger.info(f"📝 使用智能编排器执行任务: {task.title}")
         
-        # 按优先级排序子任务（视频优先）
-        sorted_subtasks = sorted(subtasks, key=lambda st: (
-            0 if st.type == "video" else 1,  # 视频任务优先
-            st.type  # 其他按类型排序
-        ))
+        # 创建进度回调
+        async def progress_callback_func(progress_data):
+            await self.event_manager.publish(EventType.TASK_PROGRESS, {
+                "task_id": task.id,
+                **progress_data
+            })
         
-        success_count = 0
+        # 使用任务编排器执行
+        success = await task_orchestrator.execute_task(task, subtasks, progress_callback_func)
         
-        for i, subtask in enumerate(sorted_subtasks):
-            try:
-                logger.info(f"🔧 执行子任务 {i+1}/{len(subtasks)}: {subtask.type}")
-                
-                # 获取处理器
-                from src.models.task import SubTaskType
-                subtask_type = SubTaskType(subtask.type)
-                handler = handler_registry.get_handler(subtask_type)
-                
-                if not handler:
-                    logger.warning(f"⚠️  未找到处理器: {subtask.type}，跳过")
-                    continue
-                
-                # 更新子任务状态为执行中
-                await self._update_subtask_state(subtask.id, TaskState.ACTIVE)
-                
-                # 发布子任务开始事件
-                await self.event_manager.publish(EventType.SUBTASK_STARTED, {
-                    "task_id": task.id,
-                    "subtask_id": subtask.id,
-                    "subtask_type": subtask.type
-                })
-                
-                # 创建进度回调
-                async def progress_callback_func(progress_data):
-                    await self.event_manager.publish(EventType.SUBTASK_PROGRESS, {
-                        "task_id": task.id,
-                        "subtask_id": subtask.id,
-                        **progress_data
-                    })
-                
-                progress_callback = ProgressCallback(
-                    task.id, 
-                    subtask.id, 
-                    progress_callback_func
-                )
-                
-                # 执行子任务
-                success = await handler.execute(task, subtask, progress_callback)
-                
-                if success:
-                    # 子任务成功
-                    await self._update_subtask_state(subtask.id, TaskState.COMPLETED)
-                    success_count += 1
-                    
-                    await self.event_manager.publish(EventType.SUBTASK_COMPLETED, {
-                        "task_id": task.id,
-                        "subtask_id": subtask.id,
-                        "subtask_type": subtask.type
-                    })
-                    
-                    logger.info(f"✅ 子任务完成: {subtask.type}")
-                else:
-                    # 子任务失败
-                    await self._update_subtask_state(subtask.id, TaskState.FAILED)
-                    
-                    await self.event_manager.publish(EventType.SUBTASK_FAILED, {
-                        "task_id": task.id,
-                        "subtask_id": subtask.id,
-                        "subtask_type": subtask.type
-                    })
-                    
-                    logger.error(f"❌ 子任务失败: {subtask.type}")
-                    
-                    # 如果是视频子任务失败，整个任务失败
-                    if subtask.type == "video":
-                        logger.error(f"❌ 视频下载失败，任务终止: {task.title}")
-                        return False
-                
-            except Exception as e:
-                logger.error(f"❌ 子任务执行异常 {subtask.type}: {e}")
-                await self._update_subtask_state(subtask.id, TaskState.FAILED)
-                
-                # 视频任务异常也导致整个任务失败
-                if subtask.type == "video":
-                    return False
+        # 获取执行摘要
+        summary = task_orchestrator.get_execution_summary(subtasks)
+        logger.info(f"📊 任务执行摘要: {summary}")
         
-        # 只要视频下载成功，就认为任务成功（其他子任务失败不影响）
-        video_subtasks = [st for st in subtasks if st.type == "video"]
-        if video_subtasks:
-            # 检查视频子任务是否成功
-            db = SessionLocal()
-            try:
-                video_subtask = db.query(SubTask).filter(
-                    SubTask.id == video_subtasks[0].id
-                ).first()
-                return video_subtask.state == TaskState.COMPLETED if video_subtask else False
-            finally:
-                db.close()
-        
-        return success_count > 0
+        return success
     
     async def _update_subtask_state(self, subtask_id: str, new_state: TaskState):
         """更新子任务状态"""

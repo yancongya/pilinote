@@ -3,15 +3,63 @@ from pathlib import Path
 import logging
 from datetime import datetime
 
-from .base import BaseHandler
+from .base import BaseHandler, ProgressCallback
+from src.models.task import Task, SubTask
 
 logger = logging.getLogger(__name__)
 
 class SingleNfoHandler(BaseHandler):
     """单集NFO处理器"""
 
+    async def execute(self, task: Task, subtask: SubTask, progress_callback: ProgressCallback) -> bool:
+        """执行NFO文件生成"""
+        try:
+            logger.info(f"📄 开始生成NFO文件: {task.title}")
+            
+            await progress_callback.update(0, 100, "准备生成NFO文件...")
+            
+            # 获取文件路径（使用文件组织器）
+            from ..file_organizer import file_organizer
+            
+            task_data = {
+                'media_type': task.media_type,
+                'title': task.title,
+                'uploader': task.meta.get('owner', {}).get('name', 'Unknown'),
+                'meta': task.meta
+            }
+            
+            # 获取NFO文件路径
+            nfo_path = file_organizer.get_file_path(task_data, 'nfo', 'nfo')
+            
+            await progress_callback.update(20, 100, "生成NFO内容...")
+            
+            # 生成NFO内容
+            nfo_content = self._generate_nfo(task.meta)
+            
+            await progress_callback.update(80, 100, "保存NFO文件...")
+            
+            # 确保输出目录存在
+            nfo_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 保存文件
+            nfo_path.write_text(nfo_content, encoding='utf-8')
+            
+            # 更新子任务输出路径
+            subtask.output_path = str(nfo_path)
+            if nfo_path.exists():
+                subtask.file_size = nfo_path.stat().st_size
+            
+            await progress_callback.update(100, 100, "NFO文件生成完成")
+            logger.info(f"✅ NFO文件生成成功: {nfo_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ NFO文件生成异常: {e}")
+            await progress_callback.update(0, 100, f"NFO生成失败: {str(e)}")
+            return False
+
     async def handle(self, params: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
-        """处理单集NFO生成"""
+        """处理单集NFO生成（向后兼容方法）"""
         filename = params.get('filename', 'movie.nfo')
 
         logger.info(f"开始生成NFO文件: {filename}")
@@ -230,7 +278,55 @@ class SingleNfoHandler(BaseHandler):
 class AlbumNfoHandler(BaseHandler):
     """合集NFO处理器"""
 
+    async def execute(self, task: Task, subtask: SubTask, progress_callback: ProgressCallback) -> bool:
+        """执行合集NFO文件生成"""
+        try:
+            logger.info(f"📄 开始生成合集NFO文件: {task.title}")
+            
+            await progress_callback.update(0, 100, "准备生成合集NFO文件...")
+            
+            # 获取文件路径（使用文件组织器）
+            from ..file_organizer import file_organizer
+            
+            task_data = {
+                'media_type': task.media_type,
+                'title': task.title,
+                'uploader': task.meta.get('owner', {}).get('name', 'Unknown'),
+                'meta': task.meta
+            }
+            
+            # 获取NFO文件路径
+            nfo_path = file_organizer.get_file_path(task_data, 'nfo', 'nfo')
+            
+            await progress_callback.update(20, 100, "生成合集NFO内容...")
+            
+            # 生成NFO内容
+            nfo_content = self._generate_album_nfo(task.meta)
+            
+            await progress_callback.update(80, 100, "保存合集NFO文件...")
+            
+            # 确保输出目录存在
+            nfo_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # 保存文件
+            nfo_path.write_text(nfo_content, encoding='utf-8')
+            
+            # 更新子任务输出路径
+            subtask.output_path = str(nfo_path)
+            if nfo_path.exists():
+                subtask.file_size = nfo_path.stat().st_size
+            
+            await progress_callback.update(100, 100, "合集NFO文件生成完成")
+            logger.info(f"✅ 合集NFO文件生成成功: {nfo_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ 合集NFO文件生成异常: {e}")
+            await progress_callback.update(0, 100, f"合集NFO生成失败: {str(e)}")
+            return False
+
     async def handle(self, params: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
+        """处理合集NFO生成（向后兼容方法）"""
         """处理合集NFO生成"""
         filename = params.get('filename', 'tvshow.nfo')
 

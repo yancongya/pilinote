@@ -8,8 +8,11 @@ from typing import Dict, Type, Optional
 import logging
 
 from .base import BaseHandler
-from .video import VideoHandler, AudioHandler
+from .video import VideoHandler
 from .subtitle import SubtitleHandler
+from .danmaku import DanmakuHandler
+from .thumb import CoverHandler, AvatarHandler
+from .nfo import SingleNfoHandler, AlbumNfoHandler
 from src.models.task import SubTaskType
 
 logger = logging.getLogger(__name__)
@@ -26,11 +29,10 @@ class HandlerRegistry:
         """注册默认处理器"""
         self.register(SubTaskType.VIDEO, VideoHandler())
         self.register(SubTaskType.SUBTITLE, SubtitleHandler())
-        
-        # TODO: 其他处理器将在后续实现
-        # self.register(SubTaskType.DANMAKU, DanmakuHandler())
-        # self.register(SubTaskType.COVER, CoverHandler())
-        # self.register(SubTaskType.NFO, NfoHandler())
+        self.register(SubTaskType.DANMAKU, DanmakuHandler())
+        self.register(SubTaskType.COVER, CoverHandler())
+        self.register(SubTaskType.AVATAR, AvatarHandler())
+        self.register(SubTaskType.NFO, SingleNfoHandler())
         
         logger.info(f"✅ 注册了 {len(self._handlers)} 个子任务处理器")
     
