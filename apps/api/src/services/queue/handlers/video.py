@@ -1,84 +1,160 @@
 from typing import Dict, Any
 from pathlib import Path
 import logging
+import asyncio
 
-from .base import BaseHandler
+from .base import BaseHandler, ProgressCallback
+from src.models.task import Task, SubTask
+from src.services.download_engine import DownloadEngine
 
 logger = logging.getLogger(__name__)
 
+
 class VideoHandler(BaseHandler):
-    """视频处理器"""
+    """视频下载处理器"""
 
-    async def handle(self, params: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
-        """处理视频下载"""
-        bvid = params.get('bvid', '')
-        filename = params.get('filename', f"{bvid}.mp4")
+    def __init__(self):
+        super().__init__()
+        self.download_engine = DownloadEngine()
 
-        logger.info(f"开始处理视频下载: {filename}")
+    async def execute(self, task: Task, subtask: SubTask, progress_callback: ProgressCallback) -> bool:
+        """执行视频下载"""
+        try:
+            logger.info(f"🎬 开始下载视频: {task.title}")
+            
+            # 更新进度：准备阶段
+            await progress_callback.update(0, 100, "准备下载...")
+            
+            # 获取视频信息
+            media_id = task.media_id
+            quality = subtask.params.get('quality', 80)
+            
+            # 生成输出文件名
+            safe_title = self._safe_filename(task.title or media_id)
+            filename = f"{safe_title}.mp4"
+            
+            # 设置输出路径
+            from pathlib import Path
+            output_dir = Path("downloads") / "videos"
+            output_path = self._get_output_path(output_dir, filename)
+            
+            # 更新子任务输出路径
+            subtask.output_path = str(output_path)
+            
+            # 更新进度：开始下载
+            await progress_callback.update(10, 100, "开始下载视频...")
+            
+            # 创建进度回调函数
+            async def download_progress_callback(downloaded: int, total: int, speed: float):
+                # 将下载进度映射到 10-90%
+                if total > 0:
+                    download_progress = (downloaded / total) * 80  # 80% 用于下载
+                    overall_progress = 10 + download_progress
+                    await progress_callback.update(
+                        int(overall_progress), 
+                        100, 
+                        f"下载中... {speed/1024/1024:.1f}MB/s"
+                    )
+            
+            # 执行下载
+            success = await self.download_engine.download_video(
+                media_id=media_id,
+                output_path=str(output_path),
+                quality=quality,
+                progress_callback=download_progress_callback
+            )
+            
+            if success:
+                # 更新进度：完成
+                await progress_callback.update(100, 100, "视频下载完成")
+                
+                # 更新子任务文件大小
+                if output_path.exists():
+                    subtask.file_size = output_path.stat().st_size
+                
+                logger.info(f"✅ 视频下载成功: {filename}")
+                return True
+            else:
+                logger.error(f"❌ 视频下载失败: {filename}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ 视频下载异常: {e}")
+            await progress_callback.update(0, 100, f"下载失败: {str(e)}")
+            return False
 
-        # 创建临时文件
-        temp_path = self._get_temp_path(temp_dir, filename)
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 创建占位文件（实际下载需要DownloadEngine）
-        temp_path.write_text(f"视频占位文件: {bvid}")
-
-        # 移动到输出目录
-        output_path = self._get_output_path(output_dir, filename)
-        self._move_to_output(temp_path, output_path)
-
-        logger.info(f"✓ 视频处理完成: {filename}")
+    async def prepare(self, task: Task, subtask: SubTask) -> Dict[str, Any]:
+        """准备视频下载数据"""
+        return {
+            "media_id": task.media_id,
+            "title": task.title,
+            "quality": subtask.params.get('quality', 80),
+            "codec": subtask.params.get('codec', 'avc'),
+            "audio_bitrate": subtask.params.get('audio_bitrate', 192)
+        }
 
 
 class AudioHandler(BaseHandler):
-    """音频处理器"""
+    """音频下载处理器"""
 
-    async def handle(self, params: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
-        """处理音频下载"""
-        bvid = params.get('bvid', '')
-        filename = params.get('filename', f"{bvid}.m4a")
+    def __init__(self):
+        super().__init__()
+        self.download_engine = DownloadEngine()
 
-        logger.info(f"开始处理音频下载: {filename}")
-
-        # 创建临时文件
-        temp_path = self._get_temp_path(temp_dir, filename)
-        temp_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 创建占位文件
-        temp_path.write_text(f"音频占位文件: {bvid}")
-
-        # 移动到输出目录
-        output_path = self._get_output_path(output_dir, filename)
-        self._move_to_output(temp_path, output_path)
-
-        logger.info(f"✓ 音频处理完成: {filename}")
-
-
-class AudioVideoMergeHandler(BaseHandler):
-    """音视频合并处理器"""
-
-    async def handle(self, params: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
-        """处理音视频合并"""
-        bvid = params.get('bvid', '')
-        video_filename = params.get('video_filename', f"{bvid}_video.mp4")
-        audio_filename = params.get('audio_filename', f"{bvid}_audio.m4a")
-        output_filename = params.get('output_filename', f"{bvid}.mp4")
-
-        logger.info(f"开始处理音视频合并: {video_filename} + {audio_filename} -> {output_filename}")
-
-        # 创建临时文件
-        video_path = self._get_temp_path(temp_dir, video_filename)
-        audio_path = self._get_temp_path(temp_dir, audio_filename)
-        output_path = self._get_output_path(output_dir, output_filename)
-
-        video_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 创建占位文件
-        video_path.write_text(f"视频占位文件: {bvid}")
-        audio_path.write_text(f"音频占位文件: {bvid}")
-
-        # 创建输出文件
-        output_path.write_text(f"音视频合并占位文件: {bvid}")
-
-        logger.info(f"✓ 音视频合并完成: {output_filename}")
+    async def execute(self, task: Task, subtask: SubTask, progress_callback: ProgressCallback) -> bool:
+        """执行音频下载"""
+        try:
+            logger.info(f"🎵 开始下载音频: {task.title}")
+            
+            await progress_callback.update(0, 100, "准备下载音频...")
+            
+            # 获取音频信息
+            media_id = task.media_id
+            bitrate = subtask.params.get('audio_bitrate', 192)
+            
+            # 生成输出文件名
+            safe_title = self._safe_filename(task.title or media_id)
+            filename = f"{safe_title}.m4a"
+            
+            # 设置输出路径
+            output_dir = Path("downloads") / "audio"
+            output_path = self._get_output_path(output_dir, filename)
+            subtask.output_path = str(output_path)
+            
+            await progress_callback.update(10, 100, "开始下载音频...")
+            
+            # 创建进度回调
+            async def download_progress_callback(downloaded: int, total: int, speed: float):
+                if total > 0:
+                    download_progress = (downloaded / total) * 80
+                    overall_progress = 10 + download_progress
+                    await progress_callback.update(
+                        int(overall_progress), 
+                        100, 
+                        f"下载音频... {speed/1024/1024:.1f}MB/s"
+                    )
+            
+            # 执行音频下载
+            success = await self.download_engine.download_audio(
+                media_id=media_id,
+                output_path=str(output_path),
+                bitrate=bitrate,
+                progress_callback=download_progress_callback
+            )
+            
+            if success:
+                await progress_callback.update(100, 100, "音频下载完成")
+                
+                if output_path.exists():
+                    subtask.file_size = output_path.stat().st_size
+                
+                logger.info(f"✅ 音频下载成功: {filename}")
+                return True
+            else:
+                logger.error(f"❌ 音频下载失败: {filename}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ 音频下载异常: {e}")
+            await progress_callback.update(0, 100, f"下载失败: {str(e)}")
+            return False

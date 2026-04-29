@@ -17,6 +17,7 @@ from src.routers.watchlater import router as watchlater_router
 from src.routers.download import router as download_router
 from src.routers.settings import router as settings_router
 from src.routers.queue import router as queue_router
+from src.routers.unified_queue import router as unified_queue_router  # 新增
 from src.routers.cache import router as cache_router
 from src.routers.media import router as media_router
 from src.routers.websocket import manager as ws_manager
@@ -32,6 +33,7 @@ from src.routers.ai_asr_models import router as ai_asr_models_router
 from src.routers.ai_prompt_templates import router as ai_prompt_templates_router
 from src.services.scheduler_service import scheduler_service
 from src.services.queue.manager import queue_manager
+from src.services.unified_queue_manager import unified_queue_manager  # 新增
 from src.services.cache.video_cache import video_cache
 from src.services.account_refresh_service import get_account_refresh_service
 from src.services.tool_initializer import initialize_tools_on_startup, ToolInitializer
@@ -167,6 +169,11 @@ async def lifespan(app: FastAPI):
     logger.info("Starting queue manager...")
     await queue_manager.initialize()
     logger.info("Queue manager started")
+    
+    # 启动统一队列管理器
+    logger.info("Starting unified queue manager...")
+    await unified_queue_manager.start()
+    logger.info("Unified queue manager started")
 
     # 清理过期缓存
     logger.info("Cleaning up expired cache...")
@@ -196,6 +203,11 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down queue manager...")
     await queue_manager.shutdown()
     logger.info("Queue manager shutdown")
+    
+    # 关闭统一队列管理器
+    logger.info("Shutting down unified queue manager...")
+    await unified_queue_manager.stop()
+    logger.info("Unified queue manager shutdown")
 
 
 app = FastAPI(
@@ -226,6 +238,7 @@ app.add_middleware(
 app.include_router(media_router)
 app.include_router(cache_router)
 app.include_router(queue_router)
+app.include_router(unified_queue_router)  # 新增统一队列路由
 app.include_router(auth_router)
 app.include_router(metrics_router)
 app.include_router(favorites_router)
