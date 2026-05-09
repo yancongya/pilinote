@@ -1,0 +1,17 @@
+# Testing dependencies for PiliNote API
+# Core testing framework - exact versions as specified in task requirements
+pytest>=7.0
+pytest-asyncio>=0.21
+pytest-cov>=4.0
+pytest-mock>=3.10
+pytest-postgresql>=4.1
+
+# Additional testing utilities
+pytest-xdist>=3.0  # Parallel test execution
+pytest-timeout>=2.1  # Test timeout handling
+pytest-env>=0.8  # Environment variable management
+pytest-html>=3.1  # HTML test reports
+
+# Database testing
+aiosqlite>=0.17.0  # Async SQLite support for lightweight tests
+psycopg2-binary>=2.9.0  # PostgreSQL adapter for pytest-postgresql

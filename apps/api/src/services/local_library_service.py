@@ -409,9 +409,21 @@ class LocalLibraryService:
             if not os.path.exists(folder_path):
                 return metadata
             
-            # 查找nfo文件
-            nfo_path = os.path.join(folder_path, f"{folder_name}.nfo")
-            if os.path.exists(nfo_path):
+            # 查找nfo文件。系列目录使用 tvshow.nfo；旧单视频目录可能使用
+            # {folder_name}.nfo 或其它同目录 nfo 文件。
+            nfo_candidates = [
+                os.path.join(folder_path, f"{folder_name}.nfo"),
+                os.path.join(folder_path, "tvshow.nfo"),
+                os.path.join(folder_path, "movie.nfo"),
+            ]
+            for filename in os.listdir(folder_path):
+                if filename.lower().endswith(".nfo"):
+                    nfo_path = os.path.join(folder_path, filename)
+                    if nfo_path not in nfo_candidates:
+                        nfo_candidates.append(nfo_path)
+
+            nfo_path = next((path for path in nfo_candidates if os.path.exists(path)), None)
+            if nfo_path:
                 nfo_data = self._parse_nfo_file(nfo_path)
                 if nfo_data:
                     metadata['nfo_data'] = nfo_data

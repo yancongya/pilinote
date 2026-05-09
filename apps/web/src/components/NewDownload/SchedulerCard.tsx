@@ -18,6 +18,18 @@ const getProxyImageUrl = (url: string | null | undefined): string => {
   return getAvatarProxyUrl(url)
 }
 
+export const getSchedulerCoverSource = (tasks: Task[]): string => {
+  const taskWithCover = tasks.find(t => t.cover && t.cover.trim())
+  if (taskWithCover?.cover) return taskWithCover.cover
+
+  const taskWithMetaCover = tasks.find(t => {
+    const metaCover = t.meta?.pic || t.meta?.cover
+    return typeof metaCover === 'string' && metaCover.trim()
+  })
+
+  return taskWithMetaCover ? (taskWithMetaCover.meta.pic || taskWithMetaCover.meta.cover) : ''
+}
+
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
   if (!bytes || bytes === 0) return '0 B'
@@ -157,8 +169,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
 
   // 获取调度器封面（使用第一个有封面的任务）
   const schedulerCover = useMemo(() => {
-    const taskWithCover = schedulerTasks.find(t => t.cover && t.cover.trim())
-    return taskWithCover ? getProxyImageUrl(taskWithCover.cover) : ''
+    return getProxyImageUrl(getSchedulerCoverSource(schedulerTasks))
   }, [schedulerTasks])
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -223,9 +234,9 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
       {/* 调度器头部 */}
       <div className="scheduler-header">
         {/* 封面区域 */}
-        {schedulerCover && (
-          <div className="scheduler-cover">
-            <div className="scheduler-cover-thumbnail">
+        <div className="scheduler-cover">
+          <div className="scheduler-cover-thumbnail">
+            {schedulerCover ? (
               <img
                 src={schedulerCover}
                 alt={scheduler.title}
@@ -238,12 +249,12 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                   }
                 }}
               />
-              <div className="cover-placeholder hidden">
-                <Film size={32} color="var(--color-primary-500)" />
-              </div>
+            ) : null}
+            <div className={`cover-placeholder ${schedulerCover ? 'hidden' : ''}`}>
+              <Film size={32} color="var(--color-primary-500)" />
             </div>
           </div>
-        )}
+        </div>
 
         <div className="scheduler-info">
           <button

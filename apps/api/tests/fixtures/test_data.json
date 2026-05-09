@@ -1,0 +1,393 @@
+{
+  "videos": [
+    {
+      "bvid": "BV1xx411c7mD",
+      "aid": 123456789,
+      "title": "测试视频1 - 技术分享",
+      "cover": "https://i2.hdslb.com/bfs/archive/test1.jpg",
+      "desc": "这是第一个测试视频，用于演示基本的下载功能。包含高清画质和完整字幕。",
+      "duration": 3600,
+      "owner": {
+        "mid": 12345,
+        "name": "测试UP主1",
+        "face": "https://i2.hdslb.com/bfs/face/test1.jpg"
+      },
+      "pages": [
+        {
+          "cid": 987654321,
+          "page": 1,
+          "part": "P1 基础介绍",
+          "duration": 1800
+        },
+        {
+          "cid": 987654322,
+          "page": 2,
+          "part": "P2 进阶内容",
+          "duration": 1800
+        }
+      ],
+      "qualities": [116, 80, 64, 32, 16],
+      "formats": ["mp4", "flv"],
+      "has_subtitle": true,
+      "subtitle_languages": ["zh-CN", "en-US"],
+      "has_danmaku": true,
+      "file_sizes": {
+        "116": 314572800,
+        "80": 209715200,
+        "64": 157286400,
+        "32": 104857600,
+        "16": 52428800
+      }
+    },
+    {
+      "bvid": "BV2yy411c8nE",
+      "aid": 234567890,
+      "title": "测试视频2 - 教程演示",
+      "cover": "https://i2.hdslb.com/bfs/archive/test2.jpg",
+      "desc": "这是第二个测试视频，包含详细的操作演示和说明。适合测试长时间下载场景。",
+      "duration": 7200,
+      "owner": {
+        "mid": 23456,
+        "name": "测试UP主2",
+        "face": "https://i2.hdslb.com/bfs/face/test2.jpg"
+      },
+      "pages": [
+        {
+          "cid": 876543210,
+          "page": 1,
+          "part": "完整教程",
+          "duration": 7200
+        }
+      ],
+      "qualities": [80, 64, 32],
+      "formats": ["mp4"],
+      "has_subtitle": true,
+      "subtitle_languages": ["zh-CN"],
+      "has_danmaku": true,
+      "file_sizes": {
+        "80": 419430400,
+        "64": 314572800,
+        "32": 209715200
+      }
+    },
+    {
+      "bvid": "BV3zz411c9oF",
+      "aid": 345678901,
+      "title": "测试视频3 - 短视频",
+      "cover": "https://i2.hdslb.com/bfs/archive/test3.jpg",
+      "desc": "这是一个短测试视频，用于测试快速下载和处理流程。",
+      "duration": 300,
+      "owner": {
+        "mid": 34567,
+        "name": "测试UP主3",
+        "face": "https://i2.hdslb.com/bfs/face/test3.jpg"
+      },
+      "pages": [
+        {
+          "cid": 765432109,
+          "page": 1,
+          "part": "短视频内容",
+          "duration": 300
+        }
+      ],
+      "qualities": [80, 64],
+      "formats": ["mp4"],
+      "has_subtitle": false,
+      "subtitle_languages": [],
+      "has_danmaku": true,
+      "file_sizes": {
+        "80": 26214400,
+        "64": 20971520
+      }
+    },
+    {
+      "bvid": "BV4aa411c1bG",
+      "aid": 456789012,
+      "title": "测试视频4 - 4K高清",
+      "cover": "https://i2.hdslb.com/bfs/archive/test4.jpg",
+      "desc": "这是一个4K高清测试视频，用于测试大文件下载和高质量处理。",
+      "duration": 1800,
+      "owner": {
+        "mid": 45678,
+        "name": "测试UP主4",
+        "face": "https://i2.hdslb.com/bfs/face/test4.jpg"
+      },
+      "pages": [
+        {
+          "cid": 654321098,
+          "page": 1,
+          "part": "4K演示",
+          "duration": 1800
+        }
+      ],
+      "qualities": [120, 116, 80, 64],
+      "formats": ["mp4"],
+      "has_subtitle": true,
+      "subtitle_languages": ["zh-CN", "en-US", "ja-JP"],
+      "has_danmaku": true,
+      "file_sizes": {
+        "120": 1073741824,
+        "116": 838860800,
+        "80": 419430400,
+        "64": 314572800
+      }
+    },
+    {
+      "bvid": "BV5bb411c2cH",
+      "aid": 567890123,
+      "title": "测试视频5 - 无字幕视频",
+      "cover": "https://i2.hdslb.com/bfs/archive/test5.jpg",
+      "desc": "这是一个没有字幕的测试视频，用于测试无字幕场景的处理。",
+      "duration": 900,
+      "owner": {
+        "mid": 56789,
+        "name": "测试UP主5",
+        "face": "https://i2.hdslb.com/bfs/face/test5.jpg"
+      },
+      "pages": [
+        {
+          "cid": 543210987,
+          "page": 1,
+          "part": "无字幕内容",
+          "duration": 900
+        }
+      ],
+      "qualities": [80, 64, 32],
+      "formats": ["mp4"],
+      "has_subtitle": false,
+      "subtitle_languages": [],
+      "has_danmaku": false,
+      "file_sizes": {
+        "80": 78643200,
+        "64": 62914560,
+        "32": 41943040
+      }
+    }
+  ],
+  "bangumi": [
+    {
+      "ep_id": "ep123456",
+      "season_id": "ss12345",
+      "title": "测试番剧 第1话",
+      "long_title": "第一话：开始的故事",
+      "cover": "https://i0.hdslb.com/bfs/bangumi/test_bangumi1.jpg",
+      "desc": "这是测试番剧的第一集，包含完整的故事情节。",
+      "duration": 1440,
+      "cid": 876543210,
+      "aid": 234567890,
+      "season_title": "测试番剧",
+      "total_episodes": 12,
+      "qualities": [80, 64, 32],
+      "formats": ["mp4"],
+      "has_subtitle": true,
+      "subtitle_languages": ["zh-CN"],
+      "has_danmaku": true,
+      "file_sizes": {
+        "80": 125829120,
+        "64": 94371840,
+        "32": 62914560
+      }
+    },
+    {
+      "ep_id": "ep234567",
+      "season_id": "ss23456",
+      "title": "测试番剧2 第1话",
+      "long_title": "第一话：新的开始",
+      "cover": "https://i0.hdslb.com/bfs/bangumi/test_bangumi2.jpg",
+      "desc": "这是第二个测试番剧的第一集。",
+      "duration": 1380,
+      "cid": 765432109,
+      "aid": 345678901,
+      "season_title": "测试番剧2",
+      "total_episodes": 24,
+      "qualities": [80, 64],
+      "formats": ["mp4"],
+      "has_subtitle": true,
+      "subtitle_languages": ["zh-CN", "ja-JP"],
+      "has_danmaku": true,
+      "file_sizes": {
+        "80": 120586240,
+        "64": 90439680
+      }
+    }
+  ],
+  "music": [
+    {
+      "auid": "au123456",
+      "title": "测试音乐1",
+      "author": "测试歌手1",
+      "cover": "https://i0.hdslb.com/bfs/music/test_music1.jpg",
+      "intro": "这是第一首测试音乐，用于测试音频下载功能。",
+      "duration": 240,
+      "aid": 345678901,
+      "bvid": "BV1music123",
+      "cid": 456789012,
+      "qualities": [320, 192, 128],
+      "format": "mp3",
+      "has_lyric": true,
+      "file_sizes": {
+        "320": 9830400,
+        "192": 5898240,
+        "128": 3932160
+      }
+    },
+    {
+      "auid": "au234567",
+      "title": "测试音乐2",
+      "author": "测试歌手2",
+      "cover": "https://i0.hdslb.com/bfs/music/test_music2.jpg",
+      "intro": "这是第二首测试音乐，时长较长。",
+      "duration": 360,
+      "aid": 456789012,
+      "bvid": "BV2music456",
+      "cid": 567890123,
+      "qualities": [320, 192],
+      "format": "mp3",
+      "has_lyric": false,
+      "file_sizes": {
+        "320": 14745600,
+        "192": 8847360
+      }
+    }
+  ],
+  "users": [
+    {
+      "mid": 12345,
+      "name": "测试UP主1",
+      "face": "https://i2.hdslb.com/bfs/face/test1.jpg",
+      "sign": "这是测试UP主1的个人签名",
+      "level": 6,
+      "vip_status": 1,
+      "follower": 10000,
+      "following": 500,
+      "video_count": 100,
+      "is_followed": false
+    },
+    {
+      "mid": 23456,
+      "name": "测试UP主2",
+      "face": "https://i2.hdslb.com/bfs/face/test2.jpg",
+      "sign": "这是测试UP主2的个人签名",
+      "level": 5,
+      "vip_status": 2,
+      "follower": 50000,
+      "following": 200,
+      "video_count": 250,
+      "is_followed": true
+    },
+    {
+      "mid": 34567,
+      "name": "测试UP主3",
+      "face": "https://i2.hdslb.com/bfs/face/test3.jpg",
+      "sign": "这是测试UP主3的个人签名",
+      "level": 4,
+      "vip_status": 0,
+      "follower": 5000,
+      "following": 800,
+      "video_count": 50,
+      "is_followed": false
+    }
+  ],
+  "download_urls": {
+    "video_urls": [
+      "https://test-video-cdn1.com/video/{quality}p.mp4",
+      "https://test-video-cdn2.com/video/{quality}p.mp4",
+      "https://test-video-cdn3.com/video/{quality}p.mp4"
+    ],
+    "audio_urls": [
+      "https://test-audio-cdn1.com/audio/{quality}k.mp3",
+      "https://test-audio-cdn2.com/audio/{quality}k.mp3"
+    ],
+    "subtitle_urls": [
+      "https://test-subtitle-cdn.com/subtitle/{lang}.json"
+    ],
+    "danmaku_urls": [
+      "https://api.bilibili.com/x/v1/dm/list.so?oid={cid}"
+    ]
+  },
+  "error_scenarios": [
+    {
+      "name": "video_not_found",
+      "bvid": "BV404404404",
+      "error_code": -404,
+      "error_message": "视频不存在或已被删除"
+    },
+    {
+      "name": "access_denied",
+      "bvid": "BV403403403",
+      "error_code": -403,
+      "error_message": "访问权限不足，可能需要登录或大会员"
+    },
+    {
+      "name": "rate_limited",
+      "bvid": "BV509509509",
+      "error_code": -509,
+      "error_message": "请求过于频繁，请稍后再试"
+    },
+    {
+      "name": "network_timeout",
+      "bvid": "BV500500500",
+      "error_code": -500,
+      "error_message": "网络连接超时"
+    },
+    {
+      "name": "invalid_quality",
+      "bvid": "BV1xx411c7mD",
+      "quality": 999,
+      "error_code": -400,
+      "error_message": "不支持的画质选项"
+    }
+  ],
+  "test_configurations": {
+    "default_quality": 80,
+    "default_format": "mp4",
+    "max_concurrent_downloads": 3,
+    "download_timeout": 300,
+    "retry_attempts": 3,
+    "chunk_size": 1048576,
+    "supported_qualities": [120, 116, 80, 64, 32, 16],
+    "supported_formats": ["mp4", "flv"],
+    "supported_subtitle_languages": ["zh-CN", "en-US", "ja-JP"],
+    "test_download_speeds": {
+      "slow": 102400,
+      "normal": 1048576,
+      "fast": 5242880
+    }
+  },
+  "mock_file_paths": {
+    "download_base": "/tmp/test_downloads",
+    "video_template": "{title}_{bvid}_{quality}p.{ext}",
+    "subtitle_template": "{title}_{bvid}_{lang}.srt",
+    "danmaku_template": "{title}_{bvid}.xml",
+    "cover_template": "{title}_{bvid}_cover.jpg",
+    "avatar_template": "{uploader}_{mid}_avatar.jpg",
+    "nfo_template": "{title}_{bvid}.nfo"
+  },
+  "performance_test_data": {
+    "concurrent_tasks": [
+      {
+        "bvid": "BV1concurrent1",
+        "title": "并发测试视频1",
+        "file_size": 52428800
+      },
+      {
+        "bvid": "BV2concurrent2", 
+        "title": "并发测试视频2",
+        "file_size": 104857600
+      },
+      {
+        "bvid": "BV3concurrent3",
+        "title": "并发测试视频3",
+        "file_size": 78643200
+      }
+    ],
+    "large_file_test": {
+      "bvid": "BV1largefile1",
+      "title": "大文件测试视频",
+      "file_size": 2147483648,
+      "quality": 120
+    },
+    "stress_test_count": 100,
+    "memory_test_duration": 3600
+  }
+}

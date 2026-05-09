@@ -82,6 +82,15 @@ const TASK_STATE_MAP: Record<number, TaskState> = {
   6: 'cancelled',
 }
 
+const SCHEDULER_STATE_MAP: Record<number, SchedulerState> = {
+  0: 'idle',
+  1: 'running',
+  2: 'completed',
+  3: 'paused',
+  4: 'failed',
+  5: 'cancelled',
+}
+
 function toNumber(value: unknown, fallback: number): number {
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -114,6 +123,25 @@ export function normalizeTaskState(state: unknown): TaskState {
   }
 
   return TASK_STATE_MAP[Number(state)] || 'backlog'
+}
+
+export function normalizeSchedulerState(state: unknown): SchedulerState {
+  if (typeof state === 'string') {
+    if (state.startsWith('SchedulerState.')) {
+      const enumValue = state.split('.')[1]?.toLowerCase()
+      return (enumValue as SchedulerState) || 'idle'
+    }
+
+    if (/^\d+$/.test(state)) {
+      const stateNum = parseInt(state, 10)
+      return SCHEDULER_STATE_MAP[stateNum] || 'idle'
+    }
+
+    const allowedStates: SchedulerState[] = ['idle', 'running', 'paused', 'completed', 'failed', 'cancelled']
+    return allowedStates.includes(state as SchedulerState) ? (state as SchedulerState) : 'idle'
+  }
+
+  return SCHEDULER_STATE_MAP[Number(state)] || 'idle'
 }
 
 export function normalizeTaskStatus(status: unknown): TaskStatus {
@@ -170,11 +198,55 @@ export function normalizeTask(task: unknown): Task {
   }
 }
 
+function normalizeSchedulerTaskIds(list: unknown): string[] {
+  if (!Array.isArray(list)) return []
+
+  const seen = new Set<string>()
+  const taskIds: string[] = []
+  list.forEach((value) => {
+    const taskId = typeof value === 'string' ? value : String(value ?? '')
+    if (!taskId || seen.has(taskId)) return
+    seen.add(taskId)
+    taskIds.push(taskId)
+  })
+  return taskIds
+}
+
+export function normalizeScheduler(scheduler: unknown): Scheduler {
+  const data = isRecord(scheduler) ? scheduler : {}
+  const list = normalizeSchedulerTaskIds(data.list)
+
+  return {
+    id: String(data.id ?? ''),
+    title: typeof data.title === 'string' ? data.title : '',
+    ts: toNumber(data.ts, Date.now()),
+    list,
+    count: list.length,
+    queueType: typeof data.queueType === 'string'
+      ? data.queueType
+      : typeof data.queue_type === 'string'
+        ? data.queue_type
+        : '',
+    state: normalizeSchedulerState(data.state),
+    folder: typeof data.folder === 'string' ? data.folder : '',
+    created_at: toNumber(data.created_at, Date.now()),
+    updated_at: toNumber(data.updated_at, Date.now()),
+  }
+}
+
 function normalizeTaskMap(tasks: Record<string, unknown> | undefined): Record<string, Task> {
   if (!tasks) return {}
 
   return Object.fromEntries(
     Object.entries(tasks).map(([id, task]) => [id, normalizeTask(task)])
+  )
+}
+
+function normalizeSchedulerMap(schedulers: Record<string, unknown> | undefined): Record<string, Scheduler> {
+  if (!schedulers) return {}
+
+  return Object.fromEntries(
+    Object.entries(schedulers).map(([id, scheduler]) => [id, normalizeScheduler(scheduler)])
   )
 }
 
@@ -366,20 +438,10 @@ forceClearCache: () => {
             set((state) => {
               const schedulers = { ...state.schedulers }
               if (data.scheduler) {
-                // 调度器状态映射
-                const schedulerStateMap: Record<number, SchedulerState> = {
-                  0: 'idle',      // PENDING -> idle
-                  1: 'running',   // ACTIVE -> running
-                  2: 'completed', // COMPLETED -> completed
-                  3: 'paused',    // PAUSED -> paused
-                  4: 'failed',    // FAILED -> failed
-                  5: 'cancelled'  // CANCELLED -> cancelled
-                }
-                const schedulerWithState = {
+                schedulers[data.scheduler.id] = normalizeScheduler({
+                  ...schedulers[data.scheduler.id],
                   ...data.scheduler,
-                  state: schedulerStateMap[data.scheduler.state as number] || 'idle'
-                }
-                schedulers[data.scheduler.id] = { ...schedulers[data.scheduler.id], ...schedulerWithState }
+                })
               }
               return { schedulers }
             })
@@ -435,26 +497,12 @@ forceClearCache: () => {
           if (response.ok) {
             const result = await response.json()
             const schedulers: Record<string, Scheduler> = {}
-            
-            // 调度器状态映射
-            const schedulerStateMap: Record<number, SchedulerState> = {
-              0: 'idle',      // PENDING -> idle
-              1: 'running',   // ACTIVE -> running
-              2: 'completed', // COMPLETED -> completed
-              3: 'paused',    // PAUSED -> paused
-              4: 'failed',    // FAILED -> failed
-              5: 'cancelled'  // CANCELLED -> cancelled
-            }
-            
+
             // 从新的API响应格式中获取数据
             const schedulerList = result.data || []
             schedulerList.forEach((scheduler: any) => {
-              // 转换状态数字为字符串
-              const schedulerWithState = {
-                ...scheduler,
-                state: schedulerStateMap[scheduler.state as number] || 'idle'
-              }
-              schedulers[scheduler.id] = schedulerWithState
+              const normalized = normalizeScheduler(scheduler)
+              schedulers[normalized.id] = normalized
             })
             set({ schedulers })
           }
@@ -700,7 +748,7 @@ forceClearCache: () => {
           ...currentState,
           ...persisted,
           tasks: normalizeTaskMap(persisted?.tasks as Record<string, unknown> | undefined),
-          schedulers: persisted?.schedulers ?? currentState.schedulers,
+          schedulers: normalizeSchedulerMap(persisted?.schedulers as Record<string, unknown> | undefined),
         }
       },
       partialize: (state) => ({

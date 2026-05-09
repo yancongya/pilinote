@@ -297,7 +297,9 @@ class TaskOrchestrator:
             handler = handler_registry.get_handler(subtask_type)
             
             if not handler:
-                logger.warning(f"⚠️  未找到处理器: {subtask.type}，跳过")
+                logger.warning(f"⚠️  未找到处理器: {subtask.type}，标记为已完成（跳过）")
+                # 没有处理器时，标记为已完成而不是保持BACKLOG状态
+                await self._update_subtask_state(subtask, TaskState.COMPLETED)
                 return True  # 跳过不算失败
             
             # 更新子任务状态

@@ -108,6 +108,8 @@ class QueueManager:
         try:
             schedulers = db.query(Scheduler).all()
             for scheduler in schedulers:
+                scheduler.list = self._unique_task_ids(scheduler.list)
+                scheduler.count = len(scheduler.list)
                 self.schedulers[scheduler.id] = scheduler
 
             logger.info(f"Loaded {len(schedulers)} schedulers from database")
@@ -158,12 +160,13 @@ class QueueManager:
         print(f"[DEBUG] submit_backlog called with meta: {task_create.meta}")
         logger.info(f"Task meta: {task_create.meta}")
 
-        # 检查是否已经存在相同 media_id 的任务
+        # 检查是否已经存在同一媒体分集的任务。多 P 视频共享同一个 BVID，
+        # 需要继续比较 cid/page，不能只按 media_id 去重。
         db = SessionLocal()
         try:
-            existing_task = db.query(Task).filter_by(media_id=task_create.media_id).first()
+            existing_task = self._find_existing_task(db, task_create)
             if existing_task:
-                logger.info(f"Task with media_id {task_create.media_id} already exists, skipping creation")
+                logger.info(f"Task for {task_create.media_id} already exists, skipping creation")
                 # 返回已存在的任务
                 return TaskResponse(
                     id=existing_task.id,
@@ -247,6 +250,39 @@ class QueueManager:
             updated_at=task.updated_at
         )
 
+    def _find_existing_task(self, db, task_create: TaskCreate) -> Optional[Task]:
+        """Find an existing task matching the media item identity."""
+        candidates = db.query(Task).filter_by(
+            media_type=task_create.media_type.value,
+            media_id=task_create.media_id
+        ).all()
+
+        requested_identity = self._task_page_identity(task_create.meta or {})
+        for task in candidates:
+            existing_identity = self._task_page_identity(task.meta or {})
+            if requested_identity is None and existing_identity is None:
+                return task
+            if requested_identity is not None and requested_identity == existing_identity:
+                return task
+
+        return None
+
+    @staticmethod
+    def _task_page_identity(meta: dict) -> Optional[tuple[str, str]]:
+        cid = meta.get("cid")
+        if cid not in (None, ""):
+            return ("cid", str(cid))
+
+        page = meta.get("page")
+        if page not in (None, ""):
+            return ("page", str(page))
+
+        return None
+
+    @staticmethod
+    def _unique_task_ids(task_ids: List[str]) -> List[str]:
+        return list(dict.fromkeys(task_id for task_id in task_ids if task_id))
+
     async def plan_scheduler(self, scheduler_create: SchedulerCreate) -> SchedulerResponse:
         """Create scheduler from backlog"""
         logger.info(f"Creating scheduler: {scheduler_create.title}")
@@ -265,6 +301,8 @@ class QueueManager:
         if not task_ids:
             logger.warning("Backlog queue is empty, cannot create scheduler")
             raise ValueError("Backlog queue is empty")
+
+        task_ids = self._unique_task_ids(task_ids)
 
         # 2. Create scheduler
         scheduler = Scheduler(

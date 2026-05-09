@@ -3,12 +3,73 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 import os
+import httpx
 
 from src.services.media_processor import media_processor
 from src.services.local_library_service import LocalLibraryService
 from src.utils.bilibili_utils import LinkParser, MediaType
 
 router = APIRouter(prefix="/api/video", tags=["video"])
+
+
+def _normalize_ugc_season(raw_season: dict) -> Optional[dict]:
+    if not raw_season or not isinstance(raw_season, dict):
+        return None
+
+    sections = []
+    for section in raw_season.get("sections") or []:
+        episodes = []
+        for index, episode in enumerate(section.get("episodes") or []):
+            bvid = episode.get("bvid")
+            if not bvid:
+                continue
+            episodes.append({
+                "bvid": bvid,
+                "cid": episode.get("cid"),
+                "title": episode.get("title") or episode.get("arc", {}).get("title") or f"P{index + 1}",
+                "cover": episode.get("cover") or episode.get("arc", {}).get("pic") or raw_season.get("cover") or "",
+                "page": index + 1,
+                "index": index + 1,
+                "duration": episode.get("duration") or episode.get("arc", {}).get("duration") or 0,
+            })
+        sections.append({
+            "title": section.get("title") or "",
+            "episodes": episodes,
+        })
+
+    return {
+        "id": raw_season.get("id"),
+        "title": raw_season.get("title") or "",
+        "cover": raw_season.get("cover") or "",
+        "sections": sections,
+        "episode_count": sum(len(section["episodes"]) for section in sections),
+    }
+
+
+async def get_ugc_season(video_id: str, sessdata: Optional[str] = None) -> Optional[dict]:
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": f"https://www.bilibili.com/video/{video_id}",
+    }
+    if sessdata:
+        headers["Cookie"] = f"SESSDATA={sessdata}"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://api.bilibili.com/x/web-interface/view",
+                params={"bvid": video_id},
+                headers=headers,
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception:
+        return None
+
+    if payload.get("code") != 0:
+        return None
+
+    return _normalize_ugc_season((payload.get("data") or {}).get("ugc_season") or {})
 
 
 def get_local_comments(bvid: str) -> list:
@@ -121,6 +182,8 @@ async def get_video_detail(
             comments = local_comments if local_comments else media_info.nfo.comments or []
             
             # 转换为兼容格式
+            ugc_season = await get_ugc_season(video_id, sessdata)
+
             return {
                 "success": True,
                 "data": {
@@ -155,6 +218,7 @@ async def get_video_detail(
                         }
                         for item in media_info.list
                     ],
+                    "ugc_season": ugc_season,
                     "comments": comments
                 }
             }

@@ -164,21 +164,24 @@ class TaskService:
 
         # 保存元数据 - 合并原有的 meta 信息（包含 cid、page、part_title 等）
         if self.task.meta and isinstance(self.task.meta, dict):
-            # 保存原有的分P信息
-            cid = self.task.meta.get('cid')
-            page = self.task.meta.get('page')
-            part_title = self.task.meta.get('part_title')
+            preserved_meta = {
+                key: self.task.meta[key]
+                for key in (
+                    'cid',
+                    'page',
+                    'part_title',
+                    'series_bvid',
+                    'series_title',
+                    'collection_bvid',
+                    'collection_title',
+                    'output_subdir',
+                )
+                if key in self.task.meta
+            }
             
             # 用 video_info 更新 meta，但保留分P信息
             self.task.meta = {**video_info, 'bvid': self.task.media_id}
-            
-            # 恢复分P信息
-            if cid:
-                self.task.meta['cid'] = cid
-            if page:
-                self.task.meta['page'] = page
-            if part_title:
-                self.task.meta['part_title'] = part_title
+            self.task.meta.update(preserved_meta)
         else:
             self.task.meta = {**video_info, 'bvid': self.task.media_id}
 
@@ -397,8 +400,10 @@ class TaskService:
             )
 
             if is_scheduler_task:
-                # 通过 scheduler 执行的任务，直接使用传入的 output_dir（已经包含了分P子目录）
+                # 通过 scheduler 执行的任务，直接使用合集根目录。
+                # 分 P 通过各自的文件名区分，不再创建每集子目录。
                 final_output_dir = output_dir
+                final_output_dir.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Scheduler任务，直接使用输出目录: {final_output_dir}")
             else:
                 # 单个任务，创建基于标题的子文件夹
@@ -695,8 +700,12 @@ class TaskService:
 
                 # 移动文件到最终目录
                 video_size = 0
-                for file_path in downloaded_files:
-                    final_path = final_output_dir / file_path.name
+                for index, file_path in enumerate(downloaded_files):
+                    if index == 0 and media_subtask.get('filename'):
+                        final_name = media_subtask['filename']
+                    else:
+                        final_name = file_path.name
+                    final_path = final_output_dir / final_name
                     logger.info(f"移动文件: {file_path} -> {final_path}")
                     shutil.move(str(file_path), str(final_path))
 

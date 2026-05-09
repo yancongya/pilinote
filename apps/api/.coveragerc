@@ -1,0 +1,101 @@
+[run]
+# Source code directory
+source = src
+
+# Include patterns
+include = src/*
+
+# Exclude patterns - as specified in task requirements
+omit = 
+    # Test files
+    tests/*
+    */tests/*
+    *test*.py
+    test_*.py
+    
+    # Migration files
+    */migrations/*
+    */alembic/*
+    migrate_*.py
+    
+    # Cache and temporary files
+    */__pycache__/*
+    */.*
+    .pytest_cache/*
+    __pycache__/*
+    
+    # Virtual environment
+    venv/*
+    */venv/*
+    
+    # Configuration and setup files
+    setup.py
+    conftest.py
+    
+    # Main entry point (usually just imports)
+    main.py
+    
+    # Development and debugging scripts
+    test_*.py
+    debug_*.py
+    fix_*.py
+    init_*.py
+    
+    # Tools and scripts
+    tools/*
+    scripts/*
+
+[report]
+# Reporting options
+precision = 2
+show_missing = True
+skip_covered = False
+skip_empty = True
+sort = Cover
+
+# Exclude lines from coverage
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+    
+    # Don't complain about missing debug-only code
+    def __repr__
+    if self\.debug
+    
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Don't complain if non-runnable code isn't run
+    if 0:
+    if __name__ == .__main__.:
+    
+    # Don't complain about abstract methods
+    @(abc\.)?abstractmethod
+    
+    # Don't complain about type checking imports
+    if TYPE_CHECKING:
+    
+    # Don't complain about platform specific code
+    pragma: no cover
+    
+    # Don't complain about defensive code
+    except ImportError:
+    except ModuleNotFoundError:
+    
+    # Don't complain about logging statements
+    logger\.debug
+    logger\.info
+
+[html]
+# HTML report directory
+directory = htmlcov
+title = PiliNote API Test Coverage Report
+
+[xml]
+# XML report file
+output = coverage.xml
+
+[json]
+# JSON report file (for CI/CD integration)
+output = coverage.json

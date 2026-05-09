@@ -49,6 +49,60 @@ export interface VideoDetail {
     name?: string
     mid?: number
   }
+  ugc_season?: {
+    title?: string
+    cover?: string
+    sections?: Array<{
+      title?: string
+      episodes?: Array<{
+        bvid?: string
+        cid?: number
+        title?: string
+        cover?: string
+        page?: number
+        index?: number
+        duration?: number
+      }>
+    }>
+  }
+}
+
+export interface DownloadPart {
+  bvid: string
+  cid?: number
+  page: number
+  title: string
+  cover: string
+  duration?: number
+}
+
+export function getCurrentVideoParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
+  return (detail.pages || []).map(page => ({
+    bvid: video.bvid,
+    cid: page.cid,
+    page: page.page,
+    title: page.part || `${video.title} - P${page.page}`,
+    cover: video.pic || video.cover || '',
+    duration: page.duration,
+  }))
+}
+
+export function getCollectionParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
+  const episodes = detail.ugc_season?.sections?.flatMap(section => section.episodes || []) || []
+  return episodes
+    .filter(episode => episode.bvid)
+    .map((episode, index) => ({
+      bvid: episode.bvid!,
+      cid: episode.cid,
+      page: episode.page || episode.index || index + 1,
+      title: episode.title || `${video.title} - P${index + 1}`,
+      cover: episode.cover || video.pic || video.cover || detail.ugc_season?.cover || '',
+      duration: episode.duration,
+    }))
+}
+
+export function getDownloadParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
+  return getCurrentVideoParts(video, detail)
 }
 
 /**
@@ -138,9 +192,9 @@ export function useVideoDownload() {
           try {
             const videoDetailResponse = await apiService.getVideoDetail(video.bvid, sessdata || undefined)
 
-            if (videoDetailResponse.success && videoDetailResponse.data?.pages) {
-              const pages = videoDetailResponse.data.pages
+            if (videoDetailResponse.success && videoDetailResponse.data) {
               const videoDetailData = videoDetailResponse.data as VideoDetail
+              const pages = getDownloadParts(video, videoDetailData)
 
               if (pages.length > 1) {
                 // 多P视频：按照BiliTools方案，创建调度器统一管理
@@ -152,15 +206,18 @@ export function useVideoDownload() {
                 for (const page of pages) {
                   try {
                     const taskData = {
-                      title: page.part || `${video.title} - P${page.page}`,
+                      title: page.title,
                       media_type: 'video',
-                      media_id: video.bvid,
-                      cover: video.pic || video.cover || '',
+                      media_id: page.bvid,
+                      cover: page.cover,
                       desc: `CID: ${page.cid}`,
                       meta: {
                         cid: page.cid,
                         page: page.page,
-                        part_title: page.part
+                        part_title: page.title,
+                        series_bvid: video.bvid,
+                        series_title: video.title,
+                        collection_title: videoDetailData.ugc_season?.title
                       }
                     }
 
@@ -170,7 +227,7 @@ export function useVideoDownload() {
                       addedCount++
                     }
                   } catch (error) {
-                    console.error(`添加分集任务失败: ${page.part}`, error)
+                    console.error(`添加分集任务失败: ${page.title}`, error)
                   }
                 }
 
@@ -207,8 +264,9 @@ export function useVideoDownload() {
                 const _schedulerId = schedulerResponse.data.id
                 void _schedulerId
 
-                // 立即刷新任务列表，确保状态更新
+                // 立即刷新任务和调度器列表，确保合集分组同步显示
                 await newQueueStore.fetchTasks()
+                await newQueueStore.fetchSchedulers()
                 return {success: true, message: `已添加 ${addedCount} 个视频到下载列表`}
               } else {
                 // 单P视频，使用视频详情API返回的数据（更准确）

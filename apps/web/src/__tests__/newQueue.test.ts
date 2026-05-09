@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeTask, normalizeTaskState, normalizeTaskStatus } from '../stores/newQueue'
+import { normalizeScheduler, normalizeTask, normalizeTaskState, normalizeTaskStatus } from '../stores/newQueue'
 
 describe('newQueue normalization', () => {
   it('fills missing task status and nested defaults', () => {
@@ -57,5 +57,24 @@ describe('newQueue normalization', () => {
     expect(normalizeTaskState('TaskState.ACTIVE')).toBe('active')
     expect(normalizeTaskState('3')).toBe('completed')
     expect(normalizeTaskState('unknown')).toBe('backlog')
+  })
+
+  it('deduplicates scheduler task ids while preserving order', () => {
+    const scheduler = normalizeScheduler({
+      id: 'scheduler-1',
+      title: '系列任务',
+      list: ['task-1', 'task-2', 'task-1', '', 'task-3', 'task-2'],
+      count: 6,
+      queue_type: 'pending',
+      state: 0,
+      folder: '/downloads/series',
+      created_at: 100,
+      updated_at: 200,
+    })
+
+    expect(scheduler.list).toEqual(['task-1', 'task-2', 'task-3'])
+    expect(scheduler.count).toBe(3)
+    expect(scheduler.queueType).toBe('pending')
+    expect(scheduler.state).toBe('idle')
   })
 })

@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 from datetime import datetime
 import logging
+from xml.sax.saxutils import escape
 
 from src.models.task import Task, TaskState
 from src.models.scheduler import Scheduler, SchedulerState
@@ -11,6 +12,7 @@ from src.schemas.task import SubTaskType
 from src.services.queue.manager import queue_manager
 from src.services.bilibili import BilibiliService
 from src.database import SessionLocal
+from src.services.opus_archive_service import sanitize_filename_component
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,8 @@ class SchedulerService:
                 finally:
                     db.close()
 
+        self._write_series_nfo()
+
     async def _prepare_task(self, task: Task, bilibili_service: BilibiliService):
         """准备单个任务"""
         logger.info(f"准备任务 {task.id} (media_type={task.media_type}, media_id={task.media_id})...")
@@ -92,22 +96,25 @@ class SchedulerService:
             # 保存元数据 - 保留原有的分P信息
             logger.info(f"[DEBUG] 准备任务 {task.id}，原始meta keys: {list(task.meta.keys()) if task.meta else 'None'}")
             if task.meta and isinstance(task.meta, dict):
-                # 保存原有的分P信息
-                cid = task.meta.get('cid')
-                page = task.meta.get('page')
-                part_title = task.meta.get('part_title')
-                logger.info(f"[DEBUG] 检测到分P信息: cid={cid}, page={page}, part_title={part_title}")
+                preserved_meta = {
+                    key: task.meta[key]
+                    for key in (
+                        'cid',
+                        'page',
+                        'part_title',
+                        'series_bvid',
+                        'series_title',
+                        'collection_bvid',
+                        'collection_title',
+                        'output_subdir',
+                    )
+                    if key in task.meta
+                }
+                logger.info(f"[DEBUG] 检测到保留meta: {preserved_meta}")
 
                 # 用 video_info 更新 meta，但保留分P信息
                 task.meta = {**video_info, 'bvid': task.media_id}
-
-                # 恢复分P信息
-                if cid:
-                    task.meta['cid'] = cid
-                if page:
-                    task.meta['page'] = page
-                if part_title:
-                    task.meta['part_title'] = part_title
+                task.meta.update(preserved_meta)
 
                 logger.info(f"[DEBUG] 合并后meta keys: {list(task.meta.keys())}")
             else:
@@ -140,26 +147,28 @@ class SchedulerService:
     def _create_subtasks(self, task: Task, info: dict) -> List[dict]:
         """根据配置创建子任务"""
         subtasks = []
+        episode_basename = self._episode_basename(task, info)
+        episode_meta = self._episode_meta(task, info, episode_basename)
 
         # 视频下载
         subtasks.append({
             'type': SubTaskType.VIDEO,
             'bvid': task.media_id,
-            'filename': f"{info.get('title', 'video')}.mp4"
+            'filename': f"{episode_basename}.mp4"
         })
 
         # 字幕下载
         subtasks.append({
             'type': SubTaskType.SUBTITLES,
             'bvid': task.media_id,
-            'filename': f"{info.get('title', 'video')}.srt"
+            'filename': f"{episode_basename}.srt"
         })
 
         # 弹幕下载
         subtasks.append({
             'type': SubTaskType.DANMAKU,
             'bvid': task.media_id,
-            'filename': f"{info.get('title', 'video')}.xml"
+            'filename': f"{episode_basename}.xml"
         })
 
         # 封面下载
@@ -170,14 +179,87 @@ class SchedulerService:
                 'filename': 'cover.jpg'
             })
 
+        owner = info.get('owner') or {}
+        if owner.get('mid') and owner.get('face'):
+            subtasks.append({
+                'type': 'AVATAR',
+                'uploader_mid': owner['mid'],
+                'uploader': owner.get('name', ''),
+                'avatar_url': owner['face'],
+                'filename': 'avatar.jpg'
+            })
+
         # NFO文件
         subtasks.append({
             'type': SubTaskType.SINGLE_NFO,
-            'meta': info,
-            'filename': f"{info.get('title', 'video')}.nfo"
+            'meta': episode_meta,
+            'filename': f"{episode_basename}.nfo"
         })
 
         return subtasks
+
+    def _episode_basename(self, task: Task, info: dict) -> str:
+        meta = task.meta if isinstance(task.meta, dict) else {}
+        page = meta.get('page')
+        part_title = meta.get('part_title') or task.title or info.get('title') or 'video'
+        safe_title = sanitize_filename_component(str(part_title)) or 'video'
+
+        if page:
+            try:
+                page_num = int(page)
+                return f"P{page_num:02d} - {safe_title}"
+            except (TypeError, ValueError):
+                return f"P{page} - {safe_title}"
+
+        return sanitize_filename_component(str(info.get('title') or task.title or 'video')) or 'video'
+
+    def _episode_meta(self, task: Task, info: dict, episode_basename: str) -> dict:
+        meta = task.meta if isinstance(task.meta, dict) else {}
+        episode_meta = {**info, 'bvid': task.media_id, 'title': episode_basename}
+        for key in ('cid', 'page', 'part_title'):
+            if key in meta:
+                episode_meta[key] = meta[key]
+        return episode_meta
+
+    def _write_series_nfo(self):
+        if not self.tasks:
+            return
+
+        first_task = next(
+            (task for task in self.tasks.values() if isinstance(task.meta, dict) and task.meta),
+            None
+        )
+        if not first_task:
+            return
+
+        meta = first_task.meta
+        output_dir = Path(self.scheduler.folder)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        nfo_path = output_dir / 'tvshow.nfo'
+        if nfo_path.exists():
+            return
+
+        owner = meta.get('owner') or {}
+        pubdate = meta.get('pubdate', 0)
+        premiered = ''
+        if pubdate:
+            try:
+                premiered = datetime.fromtimestamp(pubdate).strftime('%Y-%m-%d')
+            except Exception:
+                premiered = ''
+
+        content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<tvshow>
+  <title>{escape(str(getattr(self.scheduler, 'title', '') or meta.get('title', '')))}</title>
+  <plot>{escape(str(meta.get('desc', '')))}</plot>
+  <studio>{escape(str(owner.get('name', '')))}</studio>
+  <premiered>{escape(premiered)}</premiered>
+  <thumb>{escape(str(meta.get('pic', '')))}</thumb>
+  <bvid>{escape(str(first_task.media_id))}</bvid>
+</tvshow>
+"""
+        nfo_path.write_text(content, encoding='utf-8')
+        logger.info(f"✓ 合集 NFO 文件生成成功: {nfo_path}")
 
     async def dispatch(self):
         """分发任务执行"""
@@ -273,18 +355,19 @@ class SchedulerService:
             temp_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"使用临时路径: {temp_dir}")
 
-            # 创建输出目录（为每个分P创建子目录）
+            # 创建输出目录。系列内所有分 P 共用同一个合集目录，
+            # 分 P 通过文件名前缀区分。
             base_output_dir = Path(self.scheduler.folder)
             base_output_dir.mkdir(parents=True, exist_ok=True)
+            output_subdir = None
+            if isinstance(task.meta, dict):
+                output_subdir = task.meta.get('output_subdir')
 
-            # 如果任务有分P标题，创建子目录
-            part_title = task.meta.get('part_title') if task.meta else None
-            if part_title:
-                output_dir = base_output_dir / part_title
+            if output_subdir:
+                output_dir = base_output_dir / sanitize_filename_component(str(output_subdir))
+                output_dir.mkdir(parents=True, exist_ok=True)
             else:
                 output_dir = base_output_dir
-
-            output_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"输出目录: {output_dir}")
 
             try:
@@ -347,12 +430,12 @@ class SchedulerService:
 
     async def _execute_subtask(self, task: Task, subtask_data: dict, temp_dir: Path, output_dir: Path):
         """执行子任务"""
-        from src.services.queue.handlers import SubTaskHandler
+        from src.services.queue.handlers import SubTaskHandlerRegistry
 
         subtask_type = subtask_data['type']
 
         # 获取处理器
-        handler = SubTaskHandler.get_handler(subtask_type)
+        handler = SubTaskHandlerRegistry.get_handler(subtask_type)
         if not handler:
             logger.warning(f"未找到 {subtask_type} 的处理器，跳过")
             return
