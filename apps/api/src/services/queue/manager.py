@@ -734,8 +734,25 @@ class QueueManager:
             task_service = TaskService(task)
             await task_service.prepare()
 
+            from pathlib import Path
+            from src.services.settings_service import SettingsService
+
+            db = SessionLocal()
+            try:
+                settings_service = SettingsService(db)
+                settings = settings_service.get_settings()
+                temp_path = settings.storage.temp_path or "temp"
+                download_path = settings.storage.download_path or "downloads"
+            finally:
+                db.close()
+
+            temp_dir = Path(temp_path) / task_id
+            output_dir = Path(download_path)
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
             # 执行任务
-            success = await task_service.execute()
+            success = await task_service.execute(temp_dir, output_dir)
 
             if success:
                 # 任务成功完成

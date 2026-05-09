@@ -21,6 +21,7 @@ class VideoHandler(BaseHandler):
         """执行视频下载"""
         try:
             logger.info(f"🎬 开始下载视频: {task.title}")
+            loop = asyncio.get_running_loop()
             
             # 更新进度：准备阶段
             await progress_callback.update(0, 100, "准备下载...")
@@ -45,22 +46,26 @@ class VideoHandler(BaseHandler):
             await progress_callback.update(10, 100, "开始下载视频...")
             
             # 创建进度回调函数
-            async def download_progress_callback(downloaded: int, total: int, speed: float):
+            def download_progress_callback(download_id: str, progress: float, downloaded: int, total: int, speed: float, eta: float):
                 # 将下载进度映射到 10-90%
                 if total > 0:
                     download_progress = (downloaded / total) * 80  # 80% 用于下载
                     overall_progress = 10 + download_progress
-                    await progress_callback.update(
-                        int(overall_progress), 
-                        100, 
-                        f"下载中... {speed/1024/1024:.1f}MB/s"
+                    asyncio.run_coroutine_threadsafe(
+                        progress_callback.update(
+                            int(overall_progress),
+                            100,
+                            f"下载中... {speed/1024:.1f}MB/s"
+                        ),
+                        loop,
                     )
             
             # 执行下载
             success = await self.download_engine.download_video(
-                media_id=media_id,
-                output_path=str(output_path),
+                bvid=media_id,
                 quality=quality,
+                output_format="mp4",
+                output_path=str(output_path.parent),
                 progress_callback=download_progress_callback
             )
             
@@ -105,6 +110,7 @@ class AudioHandler(BaseHandler):
         """执行音频下载"""
         try:
             logger.info(f"🎵 开始下载音频: {task.title}")
+            loop = asyncio.get_running_loop()
             
             await progress_callback.update(0, 100, "准备下载音频...")
             
@@ -124,14 +130,17 @@ class AudioHandler(BaseHandler):
             await progress_callback.update(10, 100, "开始下载音频...")
             
             # 创建进度回调
-            async def download_progress_callback(downloaded: int, total: int, speed: float):
+            def download_progress_callback(download_id: str, progress: float, downloaded: int, total: int, speed: float, eta: float):
                 if total > 0:
                     download_progress = (downloaded / total) * 80
                     overall_progress = 10 + download_progress
-                    await progress_callback.update(
-                        int(overall_progress), 
-                        100, 
-                        f"下载音频... {speed/1024/1024:.1f}MB/s"
+                    asyncio.run_coroutine_threadsafe(
+                        progress_callback.update(
+                            int(overall_progress),
+                            100,
+                            f"下载音频... {speed/1024:.1f}MB/s"
+                        ),
+                        loop,
                     )
             
             # 执行音频下载
