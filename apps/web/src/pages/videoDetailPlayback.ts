@@ -8,6 +8,13 @@ export interface LocalPlaybackEntry {
 export interface LocalPlaybackMap {
   bvid: string
   entries: LocalPlaybackEntry[]
+  folder_path?: string
+  series_layout?: {
+    mode: 'flat' | 'folder' | 'mixed' | 'unknown'
+    folder_path: string
+    direct_videos: number
+    part_dirs: number
+  } | null
 }
 
 export interface VideoPageEntry {

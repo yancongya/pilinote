@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate, Outlet } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
@@ -13,7 +13,7 @@ import {
 import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, ChevronDown, ChevronRight, Film, MessageCircle, Play, SkipBack, SkipForward, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Film, FolderTree, List, MessageCircle, Play, SkipBack, SkipForward, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
 import './VideoDetailPage.css'
 import {
@@ -151,6 +151,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [partListMode, setPartListMode] = useState<'submission' | 'collection'>('submission')
   const [expandedCollectionItems, setExpandedCollectionItems] = useState<Set<string>>(new Set())
   const [activePlaybackEntry, setActivePlaybackEntry] = useState<LocalPlaybackEntry | null>(null)
+  const [switchingLayout, setSwitchingLayout] = useState(false)
   const [showReDownloadDialog, setShowReDownloadDialog] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [localOpusContent, setLocalOpusContent] = useState<LocalOpusContent | null>(null)
@@ -478,34 +479,28 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     }
   }, [video?.bvid, video?.pages])
 
-  useEffect(() => {
-    let cancelled = false
+  const refreshLocalPlayback = useCallback(async () => {
+    setLocalPlayback(null)
+    setActivePlaybackEntry(null)
+    setMediaMode('poster')
 
-    async function fetchLocalPlayback() {
-      setLocalPlayback(null)
-      setActivePlaybackEntry(null)
-      setMediaMode('poster')
-
-      if (!video || video.isOpus || !video.bvid) {
-        return
-      }
-
-      try {
-        const response = await apiService.getLocalPlaybackMap(video.bvid)
-        if (!cancelled && response.success && response.data) {
-          setLocalPlayback(response.data)
-        }
-      } catch (playbackError) {
-        console.error('[VideoDetail] 获取本地播放映射失败:', playbackError)
-      }
+    if (!video || video.isOpus || !video.bvid) {
+      return
     }
 
-    fetchLocalPlayback()
-
-    return () => {
-      cancelled = true
+    try {
+      const response = await apiService.getLocalPlaybackMap(video.bvid)
+      if (response.success && response.data) {
+        setLocalPlayback(response.data)
+      }
+    } catch (playbackError) {
+      console.error('[VideoDetail] 获取本地播放映射失败:', playbackError)
     }
   }, [video?.bvid, video?.isOpus])
+
+  useEffect(() => {
+    refreshLocalPlayback()
+  }, [refreshLocalPlayback])
 
   // 同步任务数据
   useEffect(() => {
@@ -735,10 +730,95 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     )
     : -1
   const activePlayablePage = activePlayablePageIndex >= 0 ? playableLocalPages[activePlayablePageIndex] : null
+  const seriesLayoutMode = localPlayback?.series_layout?.mode
+  const canSwitchSeriesLayout = Boolean(
+    !video?.isOpus &&
+    localPlayback?.folder_path &&
+    playableEntries.length > 1 &&
+    (seriesLayoutMode === 'flat' || seriesLayoutMode === 'folder' || seriesLayoutMode === 'mixed')
+  )
+  const getLayoutButtonStyle = (mode: 'flat' | 'folder') => ({
+    width: '30px',
+    height: '30px',
+    border: 'none',
+    borderRadius: '7px',
+    background: seriesLayoutMode === mode ? 'var(--color-primary-600)' : 'var(--color-bg-primary)',
+    color: seriesLayoutMode === mode ? 'var(--color-white)' : 'var(--color-text-secondary)',
+    display: 'grid',
+    placeItems: 'center',
+    cursor: seriesLayoutMode === mode ? 'default' : 'pointer',
+    opacity: switchingLayout && seriesLayoutMode !== mode ? 0.6 : 1
+  })
 
   const startLocalPlayback = (entry: LocalPlaybackEntry) => {
     setActivePlaybackEntry(entry)
     setMediaMode('local-video')
+  }
+
+  const handleSwitchSeriesLayout = async (targetMode: 'flat' | 'folder') => {
+    if (!localPlayback?.folder_path || switchingLayout) {
+      return
+    }
+    if (seriesLayoutMode === targetMode) {
+      return
+    }
+
+    setSwitchingLayout(true)
+    try {
+      const planResponse = await apiService.switchSeriesLayout({
+        folder_path: localPlayback.folder_path,
+        target_mode: targetMode,
+        dry_run: true
+      })
+      const plan = planResponse.data
+      if (!planResponse.success || !plan) {
+        throw new Error(planResponse.message || '生成整理计划失败')
+      }
+      if (plan.move_count === 0) {
+        setAlertModal({
+          show: true,
+          title: '无需整理',
+          message: '当前目录已经是目标整理模式',
+          type: 'success'
+        })
+        return
+      }
+      if (plan.conflicts?.length) {
+        throw new Error(`目标路径存在冲突，未执行移动：${plan.conflicts.length} 个文件`)
+      }
+
+      const targetLabel = targetMode === 'flat' ? '根目录平铺' : '分P子目录'
+      const confirmed = window.confirm(`将系列目录切换为「${targetLabel}」模式，并真实移动 ${plan.move_count} 个文件。是否继续？`)
+      if (!confirmed) {
+        return
+      }
+
+      const applyResponse = await apiService.switchSeriesLayout({
+        folder_path: localPlayback.folder_path,
+        target_mode: targetMode,
+        dry_run: false
+      })
+      if (!applyResponse.success) {
+        throw new Error(applyResponse.message || '切换目录模式失败')
+      }
+
+      await refreshLocalPlayback()
+      setAlertModal({
+        show: true,
+        title: '整理完成',
+        message: applyResponse.message || `已切换为${targetLabel}模式`,
+        type: 'success'
+      })
+    } catch (error) {
+      setAlertModal({
+        show: true,
+        title: '整理失败',
+        message: error instanceof Error ? error.message : '切换目录模式失败',
+        type: 'error'
+      })
+    } finally {
+      setSwitchingLayout(false)
+    }
   }
 
   const startPagePlayback = (page: any) => {
@@ -1666,6 +1746,36 @@ const handleReDownloadConfirm = async () => {
               {formatTime(video.pubtime)}
             </div>
           </div>
+          {canSwitchSeriesLayout && (
+            <div style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              gap: '4px',
+              alignItems: 'center',
+              flexShrink: 0
+            }}>
+              <button
+                type="button"
+                onClick={() => handleSwitchSeriesLayout('flat')}
+                disabled={switchingLayout || seriesLayoutMode === 'flat'}
+                aria-label="根目录平铺模式"
+                title="根目录平铺模式"
+                style={getLayoutButtonStyle('flat')}
+              >
+                <List size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchSeriesLayout('folder')}
+                disabled={switchingLayout || seriesLayoutMode === 'folder'}
+                aria-label="分P子目录模式"
+                title="分P子目录模式"
+                style={getLayoutButtonStyle('folder')}
+              >
+                <FolderTree size={15} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

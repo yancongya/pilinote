@@ -3,8 +3,9 @@ import { useNewQueueStore, Task } from '../../stores/newQueue'
 import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
-import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { apiService } from '../../services/api'
+import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText, FolderTree, List } from 'lucide-react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
@@ -21,6 +22,7 @@ interface LibraryCardProps {
   onToggle: () => void
   getLocalImageUrl: (path: string) => string
   formatFileSize: (bytes: number) => string
+  onLayoutChanged: () => Promise<void>
 }
 
 const formatSeriesEpisodeSize = (bytes: number): string => {
@@ -39,7 +41,7 @@ const buildSubtitleFilename = (videoPath: string): string => {
 }
 
 // LibraryCard组件 - 显示文件夹卡片
-function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileSize }: LibraryCardProps) {
+function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileSize, onLayoutChanged }: LibraryCardProps) {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const isOpus = task.media_type === 'opus'
@@ -57,6 +59,20 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   const cvId = task.meta?.nfo_data?.cv_id || task.meta?.nfo_data?.id
   // 支持视频和笔记类型统一使用ID进行AI分析
   const videoIdForNote = isOpus ? (cvId || folderPath) : (bvid || folderPath)
+  const seriesLayoutMode = useMemo(() => {
+    if (isOpus || !folderPath || !task.meta?.files?.length) return 'unknown'
+    const files = task.meta.files as MediaLibraryFile[]
+    const flatCount = files.filter(file => {
+      const normalized = file.path.replace(/\\/g, '/')
+      const parent = normalized.slice(0, normalized.lastIndexOf('/'))
+      return parent === folderPath.replace(/\\/g, '/')
+    }).length
+    if (flatCount === files.length) return 'flat'
+    if (flatCount === 0) return 'folder'
+    return 'mixed'
+  }, [folderPath, isOpus, task.meta?.files])
+  const canSwitchSeriesLayout = !isOpus && hasMultipleVideos && Boolean(folderPath)
+  const [switchingLayout, setSwitchingLayout] = useState(false)
   const seriesEpisodes = useMemo(() => {
     if (isOpus || !task.meta?.files || task.meta.files.length === 0) {
       return undefined
@@ -109,6 +125,52 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
 
   const handleAiNoteComplete = (note: NoteResponse) => {
     setExistingNote(note)
+  }
+
+  const handleSwitchSeriesLayout = async (event: MouseEvent, targetMode: 'flat' | 'folder') => {
+    event.stopPropagation()
+    if (!folderPath || switchingLayout) return
+    if (seriesLayoutMode === targetMode) return
+
+    setSwitchingLayout(true)
+    try {
+      const planResponse = await apiService.switchSeriesLayout({
+        folder_path: folderPath,
+        target_mode: targetMode,
+        dry_run: true
+      })
+      const plan = planResponse.data
+      if (!planResponse.success || !plan) {
+        throw new Error(planResponse.message || '生成整理计划失败')
+      }
+      if (plan.move_count === 0) {
+        showToast('当前目录已经是目标整理模式', 'info')
+        return
+      }
+      if (plan.conflicts?.length) {
+        throw new Error(`目标路径存在冲突，未执行移动：${plan.conflicts.length} 个文件`)
+      }
+
+      const targetLabel = targetMode === 'flat' ? '根目录平铺' : '分P子目录'
+      const confirmed = window.confirm(`将「${task.title}」切换为「${targetLabel}」模式，并真实移动 ${plan.move_count} 个文件。是否继续？`)
+      if (!confirmed) return
+
+      const applyResponse = await apiService.switchSeriesLayout({
+        folder_path: folderPath,
+        target_mode: targetMode,
+        dry_run: false
+      })
+      if (!applyResponse.success) {
+        throw new Error(applyResponse.message || '切换目录模式失败')
+      }
+
+      showToast(applyResponse.message || `已切换为${targetLabel}模式`, 'success')
+      await onLayoutChanged()
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : '切换目录模式失败', 'error')
+    } finally {
+      setSwitchingLayout(false)
+    }
   }
 
   // 点击卡片跳转到详情页
@@ -343,6 +405,30 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               {task.meta.primary_size > 0 && `${task.meta.primary_size_label}: ${formatFileSize(task.meta.primary_size)}`}
               {task.meta.metadata_size > 0 && ` | 元数据: ${formatFileSize(task.meta.metadata_size)}`}
             </div>
+            {canSwitchSeriesLayout && (
+              <div className="library-folder-layout-switch" onClick={(event) => event.stopPropagation()} aria-label="系列目录模式">
+                <button
+                  type="button"
+                  className={`library-layout-mode-btn ${seriesLayoutMode === 'flat' ? 'active' : ''}`}
+                  onClick={(event) => handleSwitchSeriesLayout(event, 'flat')}
+                  disabled={switchingLayout || seriesLayoutMode === 'flat'}
+                  title="根目录平铺模式"
+                  aria-label="根目录平铺模式"
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={`library-layout-mode-btn ${seriesLayoutMode === 'folder' ? 'active' : ''}`}
+                  onClick={(event) => handleSwitchSeriesLayout(event, 'folder')}
+                  disabled={switchingLayout || seriesLayoutMode === 'folder'}
+                  title="分P子目录模式"
+                  aria-label="分P子目录模式"
+                >
+                  <FolderTree size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -880,6 +966,8 @@ export default function VideoLibrary() {
                 getLocalImageUrl={getLocalImageUrl}
 
                 formatFileSize={formatFileSize}
+
+                onLayoutChanged={scanLibrary}
 
               />
 

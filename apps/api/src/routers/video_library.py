@@ -9,7 +9,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Literal
 from sqlalchemy.orm import Session
 
 from src.database import get_db
@@ -36,6 +36,12 @@ class LibraryStatusResponse(BaseModel):
     total_videos: int = Field(default=0, description="总视频数")
     total_size_mb: float = Field(default=0.0, description="总大小（MB）")
     last_scan_time: int = Field(default=0, description="最后扫描时间戳")
+
+
+class SeriesLayoutRequest(BaseModel):
+    folder_path: str = Field(..., description="系列目录绝对路径")
+    target_mode: Literal["flat", "folder"] = Field(..., description="目标目录模式")
+    dry_run: bool = Field(default=True, description="是否只生成移动计划")
 
 
 @router.post("/check-batch", response_model=dict)
@@ -161,6 +167,39 @@ async def get_local_playback_map(
         raise HTTPException(
             status_code=500,
             detail=f"获取本地播放映射失败: {str(e)}"
+        )
+
+
+@router.post("/series-layout", response_model=dict)
+async def switch_series_layout(
+    request: SeriesLayoutRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    检测或切换系列目录模式。
+    dry_run=true 只返回移动计划；dry_run=false 会真实移动文件并同步下载记录。
+    """
+    try:
+        service = VideoLibraryService(db)
+        result = (
+            service.plan_series_layout(request.folder_path, request.target_mode)
+            if request.dry_run
+            else service.apply_series_layout(request.folder_path, request.target_mode)
+        )
+
+        return {
+            "success": result.get("success", True),
+            "data": result,
+            "message": result.get("message", "目录整理计划已生成"),
+        }
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"切换系列目录模式失败: {str(e)}"
         )
 
 

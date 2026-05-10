@@ -4270,6 +4270,45 @@
   color: var(--color-bg-primary);
 }
 
+.library-folder-layout-switch {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.library-layout-mode-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.library-layout-mode-btn:hover {
+  background: var(--color-bg-secondary);
+  transform: translateY(-1px);
+}
+
+.library-layout-mode-btn.active,
+.library-layout-mode-btn:disabled.active {
+  background: var(--color-primary-600);
+  color: var(--color-white);
+  cursor: default;
+  opacity: 1;
+}
+
+.library-layout-mode-btn:disabled:not(.active) {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 /* 时长显示 */
 .library-folder-duration {
   position: absolute;

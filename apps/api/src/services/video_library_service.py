@@ -18,12 +18,17 @@
 - 不依赖任务数据库
 """
 
+import logging
 import os
+import re
+import shutil
 from pathlib import Path
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, Optional, Tuple
 from sqlalchemy.orm import Session
 from src.services.local_library_service import LocalLibraryService
 from src.models.download import Download
+
+logger = logging.getLogger(__name__)
 
 
 class VideoLibraryService:
@@ -38,6 +43,20 @@ class VideoLibraryService:
         """
         self.db = db
         self.local_library = LocalLibraryService(db)
+        self.video_extensions = {".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".m4v"}
+        self.sidecar_extensions = {
+            ".nfo",
+            ".srt",
+            ".ass",
+            ".vtt",
+            ".xml",
+            ".json",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".bak",
+        }
 
     def check_videos_in_library(self, bvids: List[str]) -> Dict[str, List[str]]:
         """
@@ -192,12 +211,226 @@ class VideoLibraryService:
                 )
                 seen_paths.add(video_file.path)
 
+        entries = sorted(entries, key=self._playback_entry_sort_key)
+
         return {
             "bvid": bvid,
             "has_local_video": len(entries) > 0,
             "entries": entries,
             "folder_path": folder_match.get("path") if folder_match else None,
+            "series_layout": self.detect_series_layout(folder_match.get("path")) if folder_match else None,
         }
+
+    def _playback_entry_sort_key(self, entry: Dict[str, Any]) -> Tuple[int, str]:
+        text = f"{entry.get('title') or ''} {entry.get('path') or ''}"
+        match = re.search(r"(?:^|[\\/\\s_-])P?0*(\d{1,3})(?=\\s|[.、．_-]|$)", text, flags=re.IGNORECASE)
+        if match:
+            try:
+                return int(match.group(1)), str(entry.get("path") or "")
+            except ValueError:
+                pass
+        return 9999, str(entry.get("path") or "")
+
+    def detect_series_layout(self, folder_path: Optional[str]) -> Dict[str, Any]:
+        """Detect whether a series folder is flat, per-part folders, mixed, or unknown."""
+        folder = self._resolve_download_child(folder_path)
+        direct_videos = self._direct_series_videos(folder)
+        part_dirs = self._series_part_dirs(folder)
+
+        if direct_videos and part_dirs:
+            mode = "mixed"
+        elif part_dirs:
+            mode = "folder"
+        elif direct_videos:
+            mode = "flat"
+        else:
+            mode = "unknown"
+
+        return {
+            "mode": mode,
+            "folder_path": str(folder),
+            "direct_videos": len(direct_videos),
+            "part_dirs": len(part_dirs),
+        }
+
+    def plan_series_layout(
+        self,
+        folder_path: str,
+        target_mode: str,
+    ) -> Dict[str, Any]:
+        """Build a move plan for switching a series folder layout."""
+        folder = self._resolve_download_child(folder_path)
+        if target_mode not in {"flat", "folder"}:
+            raise ValueError("target_mode must be flat or folder")
+
+        current = self.detect_series_layout(str(folder))
+        moves = self._build_flat_to_folder_moves(folder) if target_mode == "folder" else self._build_folder_to_flat_moves(folder)
+        conflicts = [move for move in moves if Path(move["to"]).exists()]
+
+        return {
+            "folder_path": str(folder),
+            "current_mode": current["mode"],
+            "target_mode": target_mode,
+            "move_count": len(moves),
+            "moves": moves,
+            "conflicts": conflicts,
+            "can_apply": len(moves) > 0 and len(conflicts) == 0,
+        }
+
+    def apply_series_layout(
+        self,
+        folder_path: str,
+        target_mode: str,
+    ) -> Dict[str, Any]:
+        """Move files to the requested series layout and update download records."""
+        plan = self.plan_series_layout(folder_path, target_mode)
+        if plan["conflicts"]:
+            return {
+                **plan,
+                "success": False,
+                "message": "目标路径已存在，未执行移动",
+            }
+
+        moved: List[Dict[str, str]] = []
+        try:
+            for move in plan["moves"]:
+                src = Path(move["from"])
+                dst = Path(move["to"])
+                if not src.exists():
+                    continue
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src), str(dst))
+                moved.append({"from": str(src), "to": str(dst)})
+                self._update_download_file_path(str(src), str(dst))
+
+            self._remove_empty_part_dirs(Path(plan["folder_path"]))
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            logger.exception("系列目录整理失败")
+            raise
+
+        after = self.detect_series_layout(plan["folder_path"])
+        return {
+            **plan,
+            "success": True,
+            "message": f"已切换为 {'根目录平铺' if target_mode == 'flat' else '分P子目录'} 模式",
+            "moved": moved,
+            "applied_mode": after["mode"],
+        }
+
+    def _resolve_download_child(self, folder_path: Optional[str]) -> Path:
+        if not folder_path:
+            raise ValueError("folder_path is required")
+
+        root = Path(self.local_library._get_download_directory()).resolve()
+        folder = Path(folder_path).expanduser().resolve()
+        if folder != root and root not in folder.parents:
+            raise ValueError("folder_path must be inside download directory")
+        if not folder.exists() or not folder.is_dir():
+            raise FileNotFoundError(f"series folder not found: {folder_path}")
+        return folder
+
+    def _part_key(self, value: str) -> Optional[str]:
+        match = re.match(r"^(P\d{1,3})\b", value, flags=re.IGNORECASE)
+        return match.group(1).upper() if match else None
+
+    def _is_video_file(self, path: Path) -> bool:
+        return path.is_file() and path.suffix.lower() in self.video_extensions
+
+    def _direct_series_videos(self, folder: Path) -> List[Path]:
+        return sorted(
+            [path for path in folder.iterdir() if self._is_video_file(path) and self._part_key(path.stem)],
+            key=lambda path: self._part_sort_key(path.stem),
+        )
+
+    def _series_part_dirs(self, folder: Path) -> List[Path]:
+        return sorted(
+            [
+                path for path in folder.iterdir()
+                if path.is_dir()
+                and self._part_key(path.name)
+                and any(self._is_video_file(child) for child in path.iterdir())
+            ],
+            key=lambda path: self._part_sort_key(path.name),
+        )
+
+    def _part_sort_key(self, value: str) -> Tuple[int, str]:
+        key = self._part_key(value)
+        if key:
+            try:
+                return int(key[1:]), value
+            except ValueError:
+                pass
+        return 9999, value
+
+    def _sidecars_for_stem(self, folder: Path, stem: str) -> List[Path]:
+        files: List[Path] = []
+        for path in folder.iterdir():
+            if not path.is_file():
+                continue
+            suffix = path.suffix.lower()
+            if suffix not in self.video_extensions and suffix not in self.sidecar_extensions:
+                continue
+            if path.stem == stem or path.name.startswith(f"{stem}."):
+                files.append(path)
+        return sorted(files, key=lambda path: (path.suffix.lower() not in self.video_extensions, path.name))
+
+    def _build_flat_to_folder_moves(self, folder: Path) -> List[Dict[str, str]]:
+        moves: List[Dict[str, str]] = []
+        seen: Set[Path] = set()
+        for video in self._direct_series_videos(folder):
+            target_dir = folder / video.stem
+            for source in self._sidecars_for_stem(folder, video.stem):
+                if source in seen:
+                    continue
+                moves.append({"from": str(source), "to": str(target_dir / source.name)})
+                seen.add(source)
+        return moves
+
+    def _target_name_for_flat(self, part_dir: Path, source: Path) -> str:
+        suffix = source.suffix
+        lower_name = source.name.lower()
+        if self._is_video_file(source):
+            return f"{part_dir.name}{suffix}"
+        if lower_name in {"cover.jpg", "cover.png", "poster.jpg", "poster.png", "cover.webp", "poster.webp"}:
+            return f"{part_dir.name}{suffix}"
+        if lower_name in {"avatar.jpg", "avatar.png"}:
+            return source.name
+        if self._part_key(source.stem):
+            return source.name
+        return f"{part_dir.name}{suffix}"
+
+    def _build_folder_to_flat_moves(self, folder: Path) -> List[Dict[str, str]]:
+        moves: List[Dict[str, str]] = []
+        for part_dir in self._series_part_dirs(folder):
+            for source in sorted(part_dir.iterdir(), key=lambda path: path.name):
+                if not source.is_file():
+                    continue
+                suffix = source.suffix.lower()
+                if suffix not in self.video_extensions and suffix not in self.sidecar_extensions:
+                    continue
+                target_name = self._target_name_for_flat(part_dir, source)
+                moves.append({"from": str(source), "to": str(folder / target_name)})
+        return moves
+
+    def _remove_empty_part_dirs(self, folder: Path):
+        part_dirs = [
+            path for path in folder.iterdir()
+            if path.is_dir() and self._part_key(path.name)
+        ]
+        for part_dir in part_dirs:
+            try:
+                if part_dir.exists() and not any(part_dir.iterdir()):
+                    part_dir.rmdir()
+            except OSError:
+                continue
+
+    def _update_download_file_path(self, old_path: str, new_path: str):
+        self.db.query(Download).filter(Download.file_path == old_path).update(
+            {Download.file_path: new_path},
+            synchronize_session=False,
+        )
 
     def get_local_opus_content(self, opus_id: str) -> Dict[str, Any]:
         """

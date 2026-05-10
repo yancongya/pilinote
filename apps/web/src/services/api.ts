@@ -237,6 +237,21 @@ class ApiService {
     });
   }
 
+  async switchSeriesLayout(data: {
+    folder_path: string
+    target_mode: 'flat' | 'folder'
+    dry_run?: boolean
+  }): Promise<ApiResponse<any>> {
+    return this.request<any>('/api/video-library/series-layout', {
+      method: 'POST',
+      body: JSON.stringify({
+        folder_path: data.folder_path,
+        target_mode: data.target_mode,
+        dry_run: data.dry_run ?? true
+      })
+    });
+  }
+
   // 稍后再看相关API
   async getWatchLaterList(
     pn: number = 1,
