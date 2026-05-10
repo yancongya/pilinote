@@ -1227,7 +1227,7 @@ class DownloadService:
 
     async def _get_subtitles(self, download: Download) -> list:
         """
-        获取字幕列表（优先复用 Pilipala 同款公开播放器接口）
+        获取字幕列表（WBI 优先，WBI 被风控时回退到 /x/v2/dm/view）
 
         Args:
             download: 下载任务对象
@@ -1254,20 +1254,19 @@ class DownloadService:
                 seen_languages: set[str] = set()
 
                 for attempt in range(3):
-                    player_info = await bilibili_service.get_player_info_public(
+                    subtitle_info = await bilibili_service.get_subtitle_info(
                         download.aid, download.cid, download.sessdata or ""
                     )
 
-                    if not player_info.get("success"):
+                    if not subtitle_info.get("success"):
                         logger.warning(
-                            "Failed to get public player info on attempt %s: %s",
+                            "Failed to get subtitle info on attempt %s: %s",
                             attempt + 1,
-                            player_info.get("message"),
+                            subtitle_info.get("message"),
                         )
                         continue
 
-                    player_data = player_info.get("data", {})
-                    subtitle_data = player_data.get("subtitle", {}) or {}
+                    subtitle_data = (subtitle_info.get("data", {}) or {}).get("subtitle", {}) or {}
                     subtitles = (
                         subtitle_data.get("subtitles")
                         or subtitle_data.get("list")

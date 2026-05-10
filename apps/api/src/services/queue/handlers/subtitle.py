@@ -88,11 +88,11 @@ class SubtitleHandler(BaseHandler):
         bilibili_service = BilibiliService()
         try:
             await bilibili_service.init()
-            player_info = await bilibili_service.get_player_info(aid, cid)
-            if not player_info.get("success"):
-                logger.warning(f"获取播放器字幕信息失败: {player_info.get('message')}")
+            subtitle_info = await bilibili_service.get_subtitle_info(aid, cid)
+            if not subtitle_info.get("success"):
+                logger.warning(f"获取字幕信息失败: {subtitle_info.get('message')}")
                 return []
-            subtitle_data = (player_info.get("data", {}) or {}).get("subtitle", {}) or {}
+            subtitle_data = (subtitle_info.get("data", {}) or {}).get("subtitle", {}) or {}
             return subtitle_data.get("subtitles") or subtitle_data.get("list") or []
         finally:
             bilibili_service.close()

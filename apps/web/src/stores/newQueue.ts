@@ -603,6 +603,11 @@ forceClearCache: () => {
           const response = await fetch(getApiUrl(`/api/queue/tasks/${taskId}`), {
             method: 'DELETE',
           })
+          if (response.status === 404) {
+            await get().fetchTasks()
+            await get().fetchSchedulers()
+            return
+          }
           if (!response.ok) throw new Error('Delete failed')
           await get().fetchTasks()
           await get().fetchSchedulers()
@@ -690,20 +695,26 @@ forceClearCache: () => {
         })
         
         // 找出重复的任务（同一个media_id有多个completed任务）
-        const duplicateTasks: string[] = []
+        const duplicateTasks = new Set<string>()
         Object.values(groupedByMediaId).forEach(tasks => {
           if (tasks.length > 1) {
             // 保留最新的一个，删除其他的
             const sortedTasks = tasks.sort((a, b) => b.updated_at - a.updated_at)
             sortedTasks.slice(1).forEach(task => {
-              duplicateTasks.push(task.id)
+              duplicateTasks.add(task.id)
             })
           }
         })
         
         // 删除重复的任务
-        if (duplicateTasks.length > 0) {
-          await Promise.all(duplicateTasks.map(taskId => get().deleteTask(taskId)))
+        const duplicateTaskIds = Array.from(duplicateTasks)
+        if (duplicateTaskIds.length > 0) {
+          try {
+            await get().batchDeleteTasks(duplicateTaskIds)
+          } catch (error) {
+            console.warn('[NewQueue] Batch duplicate cleanup failed, retrying individually:', error)
+            await Promise.allSettled(duplicateTaskIds.map(taskId => get().deleteTask(taskId)))
+          }
         }
       },
 

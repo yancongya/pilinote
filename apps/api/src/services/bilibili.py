@@ -1313,6 +1313,98 @@ class BilibiliService:
         """直接使用公开播放器接口获取字幕信息。"""
         return await self._get_player_info_plain(aid, cid, sessdata)
 
+    async def get_subtitle_info(self, aid: int, cid: int, sessdata: str = "") -> Dict:
+        """获取可下载字幕列表。
+
+        优先走 WBI 播放器接口；如果 WBI 被风控拦截，则回退到弹幕视图接口
+        /x/v2/dm/view。不能使用公开 /x/player/v2 作为字幕来源，因为它在部分视频上
+        会返回其他视频的 AI 字幕 URL。
+        """
+        player_info = await self.get_player_info(aid, cid, sessdata)
+        if player_info.get("success"):
+            subtitle_data = (player_info.get("data", {}) or {}).get("subtitle", {}) or {}
+            subtitles = subtitle_data.get("subtitles") or subtitle_data.get("list") or []
+            subtitles = self._filter_subtitles_for_cid(subtitles, aid, cid)
+            return {
+                "success": True,
+                "data": {
+                    "subtitle": {
+                        **subtitle_data,
+                        "subtitles": subtitles,
+                    }
+                }
+            }
+
+        code = player_info.get("code")
+        if code in (403, 412, -352, -403, -412):
+            return await self._get_subtitle_info_dm_view(aid, cid, sessdata)
+
+        return player_info
+
+    async def _get_subtitle_info_dm_view(self, aid: int, cid: int, sessdata: str = "") -> Dict:
+        """通过弹幕视图接口获取字幕 URL。
+
+        该接口返回的 AI 字幕 URL 会携带 aid+cid，可用于校验字幕是否属于当前分 P。
+        """
+        if sessdata:
+            await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        try:
+            response = await self._request(
+                "GET",
+                f"{self.api_base}/x/v2/dm/view",
+                params={"aid": aid, "oid": cid, "type": 1},
+            )
+            data = response.json()
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"获取弹幕视图字幕异常: {str(e)}",
+            }
+
+        if data.get("code") != 0:
+            return {
+                "success": False,
+                "message": data.get("message", "获取弹幕视图字幕失败"),
+                "code": data.get("code"),
+            }
+
+        subtitle_data = ((data.get("data") or {}).get("subtitle") or {})
+        subtitles = subtitle_data.get("subtitles") or subtitle_data.get("list") or []
+        subtitles = self._filter_subtitles_for_cid(subtitles, aid, cid)
+        return {
+            "success": True,
+            "data": {
+                "subtitle": {
+                    **subtitle_data,
+                    "subtitles": subtitles,
+                }
+            }
+        }
+
+    @staticmethod
+    def _filter_subtitles_for_cid(subtitles: list, aid: int, cid: int) -> list:
+        """过滤明显不属于当前分 P 的 AI 字幕 URL。"""
+        expected_marker = f"{aid}{cid}"
+        filtered = []
+        for subtitle in subtitles or []:
+            subtitle_url = str(
+                subtitle.get("subtitle_url")
+                or subtitle.get("subtitleUrl")
+                or subtitle.get("url")
+                or ""
+            )
+            if "aisubtitle.hdslb.com" in subtitle_url and expected_marker not in subtitle_url:
+                logger.warning(
+                    "跳过疑似错配 AI 字幕: aid=%s cid=%s url=%s",
+                    aid,
+                    cid,
+                    subtitle_url,
+                )
+                continue
+            filtered.append(subtitle)
+        return filtered
+
     async def get_opus_details(self, opus_id: str, sessdata: str = "") -> Dict:
         """获取图文详情（使用HTML解析方法）
 
