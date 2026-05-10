@@ -39,6 +39,10 @@ interface AddDecision {
   video?: any
 }
 
+interface CheckBeforeAddOptions {
+  forceRefresh?: boolean
+}
+
 interface VideoLibraryConfig {
   cacheTTL: number
   autoRefreshDelay: number
@@ -213,13 +217,15 @@ class VideoLibraryService {
         // Build from folders (preferred method - contains full metadata)
         for (const folder of folders) {
           const nfoData = folder.nfo_data
-          if (nfoData && nfoData.bvid) {
-            this.cache.set(nfoData.bvid, {
-              bvid: nfoData.bvid,
+          const bvid = nfoData?.bvid || folder.bvid
+          if (bvid) {
+            this.cache.set(bvid, {
+              bvid,
               title: folder.title || folder.name,
               path: folder.path,
               size: folder.size || 0,
-              exists: true
+              exists: true,
+              videos: folder.videos
             })
           }
         }
@@ -397,7 +403,11 @@ class VideoLibraryService {
    * @param video - Video information
    * @returns Promise<AddDecision> - Decision on how to proceed
    */
-  async checkBeforeAdd(video: VideoInfo): Promise<AddDecision> {
+  async checkBeforeAdd(video: VideoInfo, options: CheckBeforeAddOptions = {}): Promise<AddDecision> {
+    if (options.forceRefresh) {
+      await this.refreshCache()
+    }
+
     // Check if video is in library (based on file system)
     const isDownloaded = await this.isVideoDownloaded(video.bvid, video.cid)
 
@@ -510,9 +520,15 @@ class VideoLibraryService {
    * @param bvid - Video BVID
    * @param cid - Optional CID for multi-part videos
    */
-  private checkLibraryCache(bvid: string, _cid?: number): boolean {
-    // Direct check: if bvid exists in cache, video is downloaded
-    return this.cache.has(bvid)
+  private checkLibraryCache(bvid: string, cid?: number): boolean {
+    const cachedVideo = this.cache.get(bvid)
+    if (!cachedVideo) return false
+
+    if (cid !== undefined && cachedVideo.videos && cachedVideo.videos.length > 0) {
+      return cachedVideo.videos.some(video => video.cid === cid && video.exists !== false)
+    }
+
+    return cachedVideo.exists !== false
   }
 }
 
@@ -527,5 +543,6 @@ export type {
   RefreshResult,
   AddDecision,
   VideoLibraryConfig,
-  VideoInfo
+  VideoInfo,
+  CheckBeforeAddOptions
 }

@@ -71,11 +71,19 @@ def get_folder_creation_time(folder_path: str) -> float:
 
 class VideoFile:
     """视频文件信息"""
-    def __init__(self, path: str, size: int, modified_time: float, title: str):
+    def __init__(
+        self,
+        path: str,
+        size: int,
+        modified_time: float,
+        title: str,
+        cover_path: Optional[str] = None,
+    ):
         self.path = path  # 完整文件路径
         self.size = size  # 文件大小（字节）
         self.modified_time = modified_time  # 修改时间戳
         self.title = title  # 从文件名提取的标题
+        self.cover_path = cover_path  # 同目录封面
 
 
 class LibraryScanResult:
@@ -131,6 +139,7 @@ class LibraryScanResult:
                     "title": f.title,
                     "size": f.size,
                     "size_mb": round(f.size / (1024 * 1024), 2),
+                    "cover_path": f.cover_path,
                     "modified_time": f.modified_time,
                     "modified_date": datetime.fromtimestamp(f.modified_time).strftime("%Y-%m-%d %H:%M:%S")
                 }
@@ -142,6 +151,7 @@ class LibraryScanResult:
                     "title": f.title,
                     "size": f.size,
                     "size_mb": round(f.size / (1024 * 1024), 2),
+                    "cover_path": f.cover_path,
                     "modified_time": f.modified_time,
                     "modified_date": datetime.fromtimestamp(f.modified_time).strftime("%Y-%m-%d %H:%M:%S")
                 }
@@ -177,6 +187,7 @@ class LibraryScanResult:
                         "title": f.title,
                         "size": f.size,
                         "size_mb": round(f.size / (1024 * 1024), 2),
+                        "cover_path": f.cover_path,
                         "modified_time": f.modified_time,
                         "modified_date": datetime.fromtimestamp(f.modified_time).strftime("%Y-%m-%d %H:%M:%S")
                     }
@@ -483,6 +494,35 @@ class LocalLibraryService:
         name = re.sub(r'[\s\-_]+', ' ', name).strip()
         
         return name
+
+    def _find_video_cover(self, file_path: str, library_root: str) -> Optional[str]:
+        """查找视频文件对应的本地封面。"""
+        video_path = Path(file_path)
+        video_dir = video_path.parent
+        stem = video_path.stem
+
+        candidates = [
+            video_dir / "cover.jpg",
+            video_dir / "cover.png",
+            video_dir / "poster.jpg",
+            video_dir / "poster.png",
+            video_dir / f"{stem}.jpg",
+            video_dir / f"{stem}.png",
+            video_dir / f"{stem}.webp",
+        ]
+
+        parent = video_dir.parent
+        if str(parent) != str(video_dir) and str(parent).startswith(str(Path(library_root))):
+            candidates.extend([
+                parent / "cover.jpg",
+                parent / "cover.png",
+            ])
+
+        for candidate in candidates:
+            if candidate.exists() and candidate.is_file():
+                return str(candidate)
+
+        return None
     
     def _is_video_file(self, filename: str) -> bool:
         """判断是否为视频文件"""
@@ -510,8 +550,9 @@ class LocalLibraryService:
                         
                         # 提取标题
                         title = self._extract_title_from_filename(filename)
-                        
-                        video_file = VideoFile(file_path, size, modified_time, title)
+                        cover_path = self._find_video_cover(file_path, directory)
+
+                        video_file = VideoFile(file_path, size, modified_time, title, cover_path)
                         video_files.append(video_file)
                         
                         logger.debug(f"发现视频文件: {filename} ({size} bytes)")
@@ -600,7 +641,8 @@ class LocalLibraryService:
                                     modified_time = file_stat.st_mtime
                                     title = self._extract_title_from_filename(filename)
                                     
-                                    video_file = VideoFile(file_path, file_size, modified_time, title)
+                                    cover_path = self._find_video_cover(file_path, download_dir)
+                                    video_file = VideoFile(file_path, file_size, modified_time, title, cover_path)
                                     folder_files.append(video_file)
                                     folder_file_count += 1
                                     folder_size += file_size

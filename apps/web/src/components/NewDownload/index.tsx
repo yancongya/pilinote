@@ -1,5 +1,5 @@
 // components/NewDownload/index.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useNewQueueStore } from '../../stores/newQueue'
 import DownloadsList from './DownloadsList'
@@ -15,6 +15,8 @@ export default function NewDownloadContent() {
   const navigate = useNavigate()
   const { activeTab: storeActiveTab, setActiveTab: storeSetActiveTab, connectWebSocket, fetchTasks, fetchSchedulers } = useNewQueueStore()
   const [isLoading, setIsLoading] = useState(true)
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const [tabsHeight, setTabsHeight] = useState(0)
 
   // 从 hash 初始化 activeTab
   const getInitialTab = () => {
@@ -69,10 +71,26 @@ export default function NewDownloadContent() {
     connectWebSocket()
   }, [])
 
+  useEffect(() => {
+    const updateTabsHeight = () => {
+      setTabsHeight(tabsRef.current?.getBoundingClientRect().height || 0)
+    }
+
+    updateTabsHeight()
+    const observer = new ResizeObserver(updateTabsHeight)
+    if (tabsRef.current) observer.observe(tabsRef.current)
+
+    window.addEventListener('resize', updateTabsHeight)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateTabsHeight)
+    }
+  }, [])
+
   return (
     <div className="new-download-page" role="main" aria-label="新下载管理">
       {/* 内部Tab */}
-      <div className="new-download-tabs" role="tablist" aria-label="下载管理选项卡">
+      <div ref={tabsRef} className="new-download-tabs" role="tablist" aria-label="下载管理选项卡">
         <button
           role="tab"
           aria-selected={activeTab === 'downloads'}
@@ -104,6 +122,11 @@ export default function NewDownloadContent() {
           自动扫描
         </button>
       </div>
+      <div
+        className="new-download-tabs-spacer"
+        style={{ height: tabsHeight || undefined }}
+        aria-hidden="true"
+      />
 
       {/* 内容 */}
       <div className="new-download-content">

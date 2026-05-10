@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 import MediaListState from './MediaListState'
 import './MediaListShell.css'
@@ -39,25 +40,74 @@ export default function MediaListShell({
   loadingMoreSkeletonCount
 }: MediaListShellProps) {
   const shellClassName = `content-section media-list-shell ${className}`.trim()
+  const shellRef = useRef<HTMLElement>(null)
+  const topbarRef = useRef<HTMLDivElement>(null)
+  const [portalReady, setPortalReady] = useState(false)
+  const [topbarHeight, setTopbarHeight] = useState(0)
+
+  useLayoutEffect(() => {
+    const updateVisibility = () => {
+      const rect = shellRef.current?.getBoundingClientRect()
+      setPortalReady(Boolean(rect && rect.width > 0 && rect.height > 0))
+    }
+
+    updateVisibility()
+    window.addEventListener('resize', updateVisibility)
+
+    const observer = new ResizeObserver(updateVisibility)
+    if (shellRef.current) observer.observe(shellRef.current)
+
+    return () => {
+      window.removeEventListener('resize', updateVisibility)
+      observer.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    const updateTopbarHeight = () => {
+      setTopbarHeight(topbarRef.current?.getBoundingClientRect().height || 0)
+    }
+
+    updateTopbarHeight()
+
+    const observer = new ResizeObserver(updateTopbarHeight)
+    if (topbarRef.current) observer.observe(topbarRef.current)
+
+    return () => observer.disconnect()
+  }, [portalReady, topBar, controls, title, countLabel])
+
+  const topbarNode = (
+    <div
+      ref={topbarRef}
+      className={`media-list-shell-topbar${portalReady ? ' media-list-shell-topbar--portal' : ''}`}
+    >
+      {topBar ? (
+        topBar
+      ) : (
+        <>
+          <div className="section-header media-list-shell-header">
+            <div className="section-title media-list-shell-title">
+              <h2>{title}</h2>
+              {countLabel !== undefined && <span className="video-count">{countLabel}</span>}
+            </div>
+          </div>
+
+          {controls && <div className="media-list-shell-controls">{controls}</div>}
+        </>
+      )}
+    </div>
+  )
 
   return (
-    <section className={shellClassName}>
-      <div className="media-list-shell-topbar">
-        {topBar ? (
-          topBar
-        ) : (
-          <>
-            <div className="section-header media-list-shell-header">
-              <div className="section-title media-list-shell-title">
-                <h2>{title}</h2>
-                {countLabel !== undefined && <span className="video-count">{countLabel}</span>}
-              </div>
-            </div>
-
-            {controls && <div className="media-list-shell-controls">{controls}</div>}
-          </>
-        )}
-      </div>
+    <section ref={shellRef} className={shellClassName}>
+      {portalReady ? createPortal(topbarNode, document.body) : topbarNode}
+      {portalReady && (
+        <div
+          className="media-list-shell-topbar-spacer"
+          style={{ height: topbarHeight || undefined }}
+          aria-hidden="true"
+        />
+      )}
 
       <div className="media-list-shell-body">
         {loading ? (

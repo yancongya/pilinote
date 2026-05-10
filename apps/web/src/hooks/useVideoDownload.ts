@@ -102,6 +102,10 @@ interface EnqueueVideoDownloadResult {
   schedulerId?: string
 }
 
+interface ToggleDownloadOptions {
+  forceRedownload?: boolean
+}
+
 export function getCurrentVideoParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
   return (detail.pages || []).map(page => ({
     bvid: video.bvid,
@@ -292,7 +296,11 @@ export function useVideoDownload() {
    * @param e - 鼠标事件（用于阻止事件冒泡）
    * @returns 操作结果 {success: boolean, message: string, shouldNavigateToLibrary?: boolean}
    */
-  const toggleDownload = useCallback(async (video: VideoInfo, e: React.MouseEvent): Promise<{success: boolean, message: string, shouldNavigateToLibrary?: boolean}> => {
+  const toggleDownload = useCallback(async (
+    video: VideoInfo,
+    e: React.MouseEvent,
+    options: ToggleDownloadOptions = {}
+  ): Promise<{success: boolean, message: string, shouldNavigateToLibrary?: boolean}> => {
     // 阻止事件冒泡，避免触发父元素的事件
     e.stopPropagation()
 
@@ -353,13 +361,20 @@ export function useVideoDownload() {
             resetButton()
             return {success: false, message: '从下载列表移除失败'}
           }
-        } else if (isDownloaded) {
+        } else if (isDownloaded && !options.forceRedownload) {
           // 已下载完成，不允许操作
           resetButton()
           return {success: false, message: '视频已下载完成，请到视频库查看'}
         } else {
           // 添加到新下载系统
           try {
+            if (options.forceRedownload) {
+              const completedTasks = Object.values(currentTasks).filter(task =>
+                task.media_id === video.bvid && task.state === 'completed'
+              )
+              await Promise.allSettled(completedTasks.map(task => newQueueStore.deleteTask(task.id)))
+            }
+
             const { useSettingsStore } = await import('../stores/settings')
             const settingsStore = useSettingsStore.getState()
             if (!settingsStore.settings) {

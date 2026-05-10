@@ -7,16 +7,31 @@
 
 .media-list-shell-topbar {
   position: sticky;
-  top: -24px;
-  z-index: 60;
-  width: 100%;
+  top: 0;
+  z-index: 80;
   box-sizing: border-box;
   background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
   margin-top: -24px;
-  margin-left: -24px;
-  margin-right: -24px;
-  width: calc(100% + 48px);
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  width: 100vw;
+  box-shadow: 0 1px 0 var(--color-border);
+}
+
+.media-list-shell-topbar--portal {
+  position: fixed;
+  top: 69px;
+  left: 0;
+  right: 0;
+  width: 100vw;
+  margin: 0;
+  z-index: 90;
+}
+
+.media-list-shell-topbar-spacer {
+  width: 100%;
+  flex: 0 0 auto;
 }
 
 .media-list-shell-body {
@@ -39,8 +54,17 @@
 @media (max-width: 768px) {
   .media-list-shell-topbar {
     top: 0;
-    width: 100%;
     margin-top: 0;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    width: 100vw;
+  }
+
+  .media-list-shell-topbar--portal {
+    top: 69px;
+    left: 0;
+    right: 0;
+    width: 100vw;
     margin: 0;
   }
 
@@ -50,5 +74,11 @@
 
   .media-list-shell-controls {
     padding: 0 12px 10px;
+  }
+}
+
+@media (min-width: 769px) {
+  .media-list-shell-topbar--portal {
+    top: 81px;
   }
 }

@@ -5,6 +5,7 @@ export interface MediaLibraryFile {
   title: string
   size: number
   size_mb: number
+  cover_path?: string
   modified_time: number
   modified_date: string
 }

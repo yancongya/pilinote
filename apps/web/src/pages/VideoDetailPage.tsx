@@ -536,6 +536,13 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     
     if (video.pages && video.pages.length > 1) {
       // 多P视频
+      const localPlayablePages = buildPlayablePages(video.pages, localPlayback)
+      const playableCidSet = new Set(
+        localPlayablePages
+          .filter((page: any) => page.playable)
+          .map((page: any) => page.cid)
+      )
+
       video.pages.forEach((page: any) => {
         const pageBvid = page.bvid || video.bvid
         // 检查是否在新下载系统队列中
@@ -555,7 +562,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
         if (hasInNewQueue) {
           cidsInList.add(page.cid)
           downloadedStatus[page.cid] = 'in_list'
-        } else if (hasCompleted) {
+        } else if (hasCompleted || playableCidSet.has(page.cid)) {
           downloadedStatus[page.cid] = 'downloaded'
         } else {
           downloadedStatus[page.cid] = 'none'
@@ -568,7 +575,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       // 单个视频 - 立即检查状态
       checkSingleVideoStatus()
     }
-  }, [video, newQueueStore.tasks])
+  }, [video, newQueueStore.tasks, localPlayback])
   
   // 检查单个视频的下载状态
   const checkSingleVideoStatus = async () => {

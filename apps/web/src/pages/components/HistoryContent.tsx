@@ -140,13 +140,13 @@ export default function HistoryContent() {
   // 包装toggleDownload，确保状态更新
 const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
       try {
-        // 检查视频是否已下载
-        const decision = await videoLibraryService.checkBeforeAdd(video)
+        // 点击时强制刷新媒体库，避免本地文件已删除但缓存/队列仍显示已下载。
+        const decision = await videoLibraryService.checkBeforeAdd(video, { forceRefresh: true })
         
         switch (decision.action) {
           case 'add':
-            // 直接添加
-            await baseToggleDownload(video, e)
+            // 直接添加；如果队列里残留 completed 任务，也按重新下载处理。
+            await baseToggleDownload(video, e, { forceRedownload: true })
             break
             
           case 'show_confirm':
@@ -158,7 +158,7 @@ const toggleDownload = useCallback(async (video: any, e: React.MouseEvent) => {
               type: 'info',
               showConfirm: true,
               onConfirm: async () => {
-                await baseToggleDownload(video, e)
+                await baseToggleDownload(video, e, { forceRedownload: true })
                 setAlertModal(prev => ({ ...prev, show: false }))
               }
             })

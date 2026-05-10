@@ -352,6 +352,13 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
         <div className="library-folder-videos">
           {task.meta.files.map((file: MediaLibraryFile, index: number) => (
             <div key={`${file.path}-${index}`} className="library-folder-video-item">
+              <div className="library-video-cover">
+                {file.cover_path ? (
+                  <img src={getLocalImageUrl(file.cover_path)} alt="" loading="lazy" />
+                ) : (
+                  <Film size={18} />
+                )}
+              </div>
               <div className="library-video-info">
                 <div className="library-video-title">{file.title}</div>
                 <div className="library-video-meta">

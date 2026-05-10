@@ -63,6 +63,25 @@ export interface SubTaskStatus {
   chunk: number
 }
 
+const getCompletedTaskIdentity = (task: Task): string => {
+  const cid = task.meta?.cid
+  if (cid !== undefined && cid !== null && String(cid).trim()) {
+    return `${task.media_id}#cid:${String(cid)}`
+  }
+
+  const page = task.meta?.page
+  if (page !== undefined && page !== null && String(page).trim()) {
+    return `${task.media_id}#page:${String(page)}`
+  }
+
+  const outputSubdir = task.meta?.output_subdir
+  if (typeof outputSubdir === 'string' && outputSubdir.trim()) {
+    return `${task.media_id}#dir:${outputSubdir.trim()}`
+  }
+
+  return task.media_id
+}
+
 const DEFAULT_TASK_STATUS: TaskStatus = {
   progress: 0,
   speed: 0,
@@ -684,14 +703,14 @@ forceClearCache: () => {
         // 找出所有已完成的任务
         const completedTasks = taskList.filter(t => t.state === 'completed')
         
-        // 按media_id分组
+        // 按媒体身份分组。多 P/合集同一个 BVID 会有多个 cid/page，不能只按 media_id 清理。
         const groupedByMediaId: Record<string, typeof completedTasks> = {}
         completedTasks.forEach(task => {
-          const mediaId = task.media_id
-          if (!groupedByMediaId[mediaId]) {
-            groupedByMediaId[mediaId] = []
+          const mediaIdentity = getCompletedTaskIdentity(task)
+          if (!groupedByMediaId[mediaIdentity]) {
+            groupedByMediaId[mediaIdentity] = []
           }
-          groupedByMediaId[mediaId].push(task)
+          groupedByMediaId[mediaIdentity].push(task)
         })
         
         // 找出重复的任务（同一个media_id有多个completed任务）

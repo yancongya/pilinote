@@ -25,6 +25,14 @@ export interface PlayablePageEntry extends VideoPageEntry {
 const isPlayableEntry = (entry: LocalPlaybackEntry): boolean =>
   entry.exists && Boolean(entry.path && entry.path.trim())
 
+const parsePageNumberFromEntry = (entry: LocalPlaybackEntry): number | null => {
+  const text = `${entry.title || ''} ${entry.path || ''}`
+  const match = text.match(/(?:^|[\\/\\s_-])P?0*(\d{1,3})(?=\s|[.、．_-]|$)/i)
+  if (!match) return null
+  const page = Number(match[1])
+  return Number.isFinite(page) && page > 0 ? page : null
+}
+
 export const getPlayableEntries = (
   playbackMap: LocalPlaybackMap | null | undefined
 ): LocalPlaybackEntry[] => {
@@ -64,15 +72,20 @@ export const buildPlayablePages = (
   playbackMap: LocalPlaybackMap | null | undefined
 ): PlayablePageEntry[] => {
   const playableEntriesByCid = new Map<number, LocalPlaybackEntry>()
+  const playableEntriesByPage = new Map<number, LocalPlaybackEntry>()
 
   getPlayableEntries(playbackMap).forEach(entry => {
     if (typeof entry.cid === 'number') {
       playableEntriesByCid.set(entry.cid, entry)
     }
+    const pageNumber = parsePageNumberFromEntry(entry)
+    if (pageNumber && !playableEntriesByPage.has(pageNumber)) {
+      playableEntriesByPage.set(pageNumber, entry)
+    }
   })
 
   return pages.map(page => {
-    const matchedEntry = playableEntriesByCid.get(page.cid)
+    const matchedEntry = playableEntriesByCid.get(page.cid) || playableEntriesByPage.get(page.page)
 
     return {
       ...page,
