@@ -167,6 +167,15 @@ class QueueManager:
             existing_task = self._find_existing_task(db, task_create)
             if existing_task:
                 logger.info(f"Task for {task_create.media_id} already exists, skipping creation")
+                self._merge_task_create_into_existing(existing_task, task_create)
+                db.commit()
+                db.refresh(existing_task)
+                if existing_task.id in self.tasks:
+                    self.tasks[existing_task.id].title = existing_task.title
+                    self.tasks[existing_task.id].cover = existing_task.cover
+                    self.tasks[existing_task.id].desc = existing_task.desc
+                    self.tasks[existing_task.id].meta = existing_task.meta
+                    self.tasks[existing_task.id].updated_at = existing_task.updated_at
                 # 返回已存在的任务
                 return TaskResponse(
                     id=existing_task.id,
@@ -266,6 +275,25 @@ class QueueManager:
                 return task
 
         return None
+
+    @staticmethod
+    def _merge_task_create_into_existing(task: Task, task_create: TaskCreate) -> None:
+        """Merge newer request metadata into an existing task reused by identity."""
+        incoming_meta = task_create.meta or {}
+        if incoming_meta:
+            task.meta = {**(task.meta or {}), **incoming_meta}
+
+        if task_create.cover:
+            task.cover = task_create.cover
+            task.meta = {**(task.meta or {}), "pic": task.meta.get("pic") or task_create.cover}
+
+        if task_create.title:
+            task.title = task_create.title
+
+        if task_create.desc:
+            task.desc = task_create.desc
+
+        task.updated_at = int(datetime.now().timestamp())
 
     @staticmethod
     def _task_page_identity(meta: dict) -> Optional[tuple[str, str]]:

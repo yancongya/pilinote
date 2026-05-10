@@ -9,6 +9,7 @@ import { Loader2, Eye, Check, Download, MessageSquare, MessageCircle, ThumbsUp, 
 import { getAvatarProxyUrl } from '../../config/api'
 import HistoryList from './HistoryList'
 import { buildDetailTaskPayload, normalizeOpusMediaId } from '../videoDetailMedia'
+import { enqueueVideoDownload } from '../../hooks/useVideoDownload'
 
 interface VideoInfo {
   bvid: string
@@ -159,6 +160,52 @@ export default function HomeContent() {
       let addedCount = 0
       let skippedCount = 0
       let librarySkippedCount = 0
+
+      if (!isOpus) {
+        const result = await enqueueVideoDownload({
+          video: {
+            bvid: video.bvid,
+            title: video.title,
+            pic: video.pic,
+            cover: video.pic,
+            cid: video.cid,
+            aid: video.aid,
+            durationSeconds: video.duration,
+            owner: video.owner,
+          },
+          detail: {
+            aid: video.aid,
+            cid: video.cid,
+            duration: video.duration,
+            pages: downloadOptions?.pages || [],
+            owner: video.owner,
+          },
+          selectedPages: isMultiPart ? selectedPages : undefined,
+          currentTasks: newQueueStore.tasks,
+          downloadPath: settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads',
+          metadataOptions: {
+            quality: defaultQuality,
+            output_format: 'mp4',
+            enable_subtitle: settings?.download?.metadata?.enable_subtitle ?? true,
+            enable_nfo: settings?.download?.metadata?.enable_nfo ?? true,
+            enable_cover: settings?.download?.metadata?.enable_cover ?? true,
+            enable_avatar: settings?.download?.metadata?.enable_avatar ?? false,
+          },
+        })
+
+        setParseData(null)
+        setSelectedPages(new Set())
+        await newQueueStore.fetchTasks()
+        await newQueueStore.fetchSchedulers()
+
+        if (result.addedCount === 0) {
+          setError(result.skippedCount > 0 ? '所选视频已在下载列表中' : '没有可添加的视频')
+        } else {
+          const skippedMessage = result.skippedCount > 0 ? `，跳过 ${result.skippedCount} 个已在列表中的视频` : ''
+          setError(`已成功添加 ${result.addedCount} 个视频到下载队列${skippedMessage}`)
+        }
+        return
+      }
 
       // 多P视频：为每个选中的分P创建下载任务
       if (isMultiPart && downloadOptions.pages) {

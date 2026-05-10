@@ -56,7 +56,8 @@ const getStageText = (stage: DownloadStage): string => {
 export default function TaskCard({ task, isBatchMode = false, isSelected = false, onSelect }: Props) {
   const { controlTask, getTaskProgress } = useNewQueueStore()
   const progress = getTaskProgress(task.id)
-  const coverUrl = getProxyImageUrl(task.cover)
+  const coverSource = task.cover || task.meta?.pic || task.meta?.cover || ''
+  const coverUrl = getProxyImageUrl(coverSource)
   const { showToast } = useToast()
 
   const handleCardClick = () => {
@@ -76,7 +77,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
   }
 
   const status = statusConfig[task.state] || { label: task.state, color: 'var(--color-secondary-500)' }
-  const hasCover = task.cover && task.cover.trim()
+  const hasCover = typeof coverSource === 'string' && coverSource.trim()
 
   const handleControl = async (action: string) => {
     try {
@@ -283,7 +284,7 @@ export default function TaskCard({ task, isBatchMode = false, isSelected = false
           {/* 操作按钮行 - 始终渲染，通过opacity控制显示 */}
           <div className={`info-row actions-row ${task.state !== 'active' ? 'visible' : 'hidden'}`}>
             <div className="video-card-actions-inline">
-              {task.state === 'backlog' && (
+              {(task.state === 'backlog' || task.state === 'pending') && (
                 <>
                   <button
                     className="action-icon-btn start-icon-btn"

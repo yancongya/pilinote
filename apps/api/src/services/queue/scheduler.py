@@ -106,6 +106,7 @@ class SchedulerService:
                         'series_title',
                         'collection_bvid',
                         'collection_title',
+                        'collection_episode_title',
                         'output_subdir',
                     )
                     if key in task.meta

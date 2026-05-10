@@ -1102,6 +1102,34 @@
   background: var(--color-info-50);
 }
 
+.scheduler-task-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--color-bg-secondary);
+  border-radius: 6px;
+}
+
+.scheduler-task-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px;
+}
+
+.scheduler-task-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 72px;
+}
+
+.scheduler-task-group-items .scheduler-task-item {
+  background: var(--color-bg-primary);
+  padding: 7px 10px;
+}
+
 .task-cover {
   flex-shrink: 0;
   width: 60px;

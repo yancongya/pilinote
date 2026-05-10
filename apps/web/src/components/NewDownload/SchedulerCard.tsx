@@ -19,15 +19,79 @@ const getProxyImageUrl = (url: string | null | undefined): string => {
 }
 
 export const getSchedulerCoverSource = (tasks: Task[]): string => {
-  const taskWithCover = tasks.find(t => t.cover && t.cover.trim())
-  if (taskWithCover?.cover) return taskWithCover.cover
+  const taskWithCover = tasks.find(t => getTaskCoverSource(t))
+  return taskWithCover ? getTaskCoverSource(taskWithCover) : ''
+}
 
-  const taskWithMetaCover = tasks.find(t => {
-    const metaCover = t.meta?.pic || t.meta?.cover
-    return typeof metaCover === 'string' && metaCover.trim()
+export const getTaskCoverSource = (task: Task): string => {
+  const cover = task.cover || task.meta?.pic || task.meta?.cover
+  return typeof cover === 'string' ? cover.trim() : ''
+}
+
+const getTaskDisplayTitle = (task: Task): string => {
+  const partTitle = task.meta?.part_title
+  return typeof partTitle === 'string' && partTitle.trim() ? partTitle : task.title
+}
+
+export interface SchedulerTaskGroup {
+  key: string
+  title: string
+  cover: string
+  tasks: Task[]
+  isCollectionGroup: boolean
+}
+
+const stripCollectionOrderPrefix = (title: string): string => {
+  return title.replace(/^P\d+\s*-\s*/, '').trim() || title
+}
+
+const getCollectionGroupTitle = (task: Task, outputSubdir: string): string => {
+  if (outputSubdir) return stripCollectionOrderPrefix(outputSubdir)
+
+  const episodeTitle = task.meta?.collection_episode_title || task.meta?.episode_title
+  if (typeof episodeTitle === 'string' && episodeTitle.trim()) return episodeTitle
+
+  const seriesTitle = task.meta?.series_title
+  if (typeof seriesTitle === 'string' && seriesTitle.trim()) return seriesTitle
+
+  return task.media_id
+}
+
+export const groupSchedulerTasks = (tasks: Task[]): SchedulerTaskGroup[] => {
+  const groups: SchedulerTaskGroup[] = []
+  const groupIndex = new Map<string, SchedulerTaskGroup>()
+
+  tasks.forEach(task => {
+    const outputSubdir = task.meta?.output_subdir
+    const collectionTitle = typeof outputSubdir === 'string' ? outputSubdir.trim() : ''
+    const fallbackCollectionTitle = task.meta?.collection_title
+    const canGroupAsCollection = collectionTitle || (typeof fallbackCollectionTitle === 'string' && fallbackCollectionTitle.trim())
+    const key = canGroupAsCollection
+      ? `collection:${collectionTitle || `${fallbackCollectionTitle}:${task.media_id}`}`
+      : `task:${task.id}`
+    const existing = groupIndex.get(key)
+
+    if (existing) {
+      existing.tasks.push(task)
+      if (!existing.cover) {
+        existing.cover = getTaskCoverSource(task)
+      }
+      return
+    }
+
+    const group: SchedulerTaskGroup = {
+      key,
+      title: canGroupAsCollection ? getCollectionGroupTitle(task, collectionTitle) : getTaskDisplayTitle(task),
+      cover: getTaskCoverSource(task),
+      tasks: [task],
+      isCollectionGroup: Boolean(canGroupAsCollection),
+    }
+
+    groupIndex.set(key, group)
+    groups.push(group)
   })
 
-  return taskWithMetaCover ? (taskWithMetaCover.meta.pic || taskWithMetaCover.meta.cover) : ''
+  return groups
 }
 
 // 格式化文件大小
@@ -166,6 +230,7 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
       .map(taskId => tasks[taskId])
       .filter(Boolean) as Task[]
   }, [scheduler.list, tasks])
+  const schedulerTaskGroups = useMemo(() => groupSchedulerTasks(schedulerTasks), [schedulerTasks])
 
   // 获取调度器封面（使用第一个有封面的任务）
   const schedulerCover = useMemo(() => {
@@ -250,9 +315,11 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
                 }}
               />
             ) : null}
-            <div className={`cover-placeholder ${schedulerCover ? 'hidden' : ''}`}>
-              <Film size={32} color="var(--color-primary-500)" />
-            </div>
+            {!schedulerCover && (
+              <div className="cover-placeholder">
+                <Film size={32} color="var(--color-primary-500)" />
+              </div>
+            )}
           </div>
         </div>
 
@@ -364,93 +431,146 @@ export default function SchedulerCard({ scheduler, isBatchMode = false, selected
           {schedulerTasks.length === 0 ? (
             <div className="empty-tasks">暂无任务</div>
           ) : (
-            schedulerTasks.map(task => {
-              const coverUrl = getProxyImageUrl(task.cover)
-              const hasCover = task.cover && task.cover.trim()
+            schedulerTaskGroups.map(group => {
+              const groupCoverUrl = getProxyImageUrl(group.cover)
+              const showGroupShell = group.isCollectionGroup
               return (
-                <div key={task.id} className="scheduler-task-item" data-selected={selectedTasks.has(task.id)}>
-                  {/* 批量选择复选框 */}
-                  {isBatchMode && (
-                    <div
-                      className="batch-checkbox flex items-center justify-center cursor-pointer p-1 flex-shrink-0 w-6 h-6 min-w-6 rounded"
-                      style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onTaskSelect?.(task.id)
-                      }}
-                    >
-                      {selectedTasks.has(task.id) ? (
-                        <div className="w-4 h-4 flex items-center justify-center rounded-sm" style={{
-                          backgroundColor: 'var(--color-primary-500)'
-                        }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                          </svg>
+                <div key={group.key} className={showGroupShell ? 'scheduler-task-group' : ''}>
+                  {showGroupShell && (
+                    <div className="scheduler-task-group-header">
+                      <div className="task-cover">
+                        <div className="task-cover-thumbnail">
+                          {groupCoverUrl ? (
+                            <img
+                              src={groupCoverUrl}
+                              alt={group.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
+                                if (placeholder) {
+                                  (placeholder as HTMLElement).style.display = 'flex'
+                                }
+                              }}
+                            />
+                          ) : null}
+                          {!groupCoverUrl && (
+                            <div className="cover-placeholder">
+                              <Film size={24} color="var(--color-primary-500)" />
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <Square size={16} color="var(--color-text-secondary)" />
-                      )}
-                    </div>
-                  )}
-
-                  {/* 任务封面 */}
-                  {hasCover && (
-                    <div className="task-cover">
-                      <div className="task-cover-thumbnail">
-                        <img
-                          src={coverUrl}
-                          alt={task.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none'
-                            const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
-                            if (placeholder) {
-                              (placeholder as HTMLElement).style.display = 'flex'
-                            }
-                          }}
-                        />
-                        <div className="cover-placeholder hidden">
-                          <Film size={24} color="var(--color-primary-500)" />
+                      </div>
+                      <div className="task-info">
+                        <span className="task-title">{group.title}</span>
+                        <div className="task-meta">
+                          <span className="task-state">{group.tasks.length} 个分P</span>
+                          {typeof group.tasks[0]?.meta?.collection_title === 'string' && (
+                            <>
+                              <span className="task-divider">·</span>
+                              <span className="task-size">{group.tasks[0].meta.collection_title}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                   )}
 
-                  <div className="task-info">
-                    <span className="task-title">{task.title}</span>
-                    <div className="task-meta">
-                      {/* 状态标签（仅在非完成状态时显示） */}
-                      {task.state !== 'completed' && (
-                        <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || 'var(--color-text-tertiary)' }}>
-                          {taskStatusConfig[task.state]?.label || task.state}
-                        </span>
-                      )}
-                      {task.state === 'completed' && (task.meta?.totalSize || task.meta?.videoSize || task.meta?.metadataSize) && (
-                        <>
-                          <span className="task-divider">·</span>
-                          <span className="task-size">
-                            {task.meta.totalSize && formatFileSize(task.meta.totalSize)}
-                            {task.meta.videoSize && task.meta.metadataSize && ' | '}
-                            {task.meta.videoSize && `视频: ${formatFileSize(task.meta.videoSize)}`}
-                            {task.meta.metadataSize && ` | 元数据: ${formatFileSize(task.meta.metadataSize)}`}
-                          </span>
-                        </>
-                      )}
-                    </div>
+                  <div className={showGroupShell ? 'scheduler-task-group-items' : ''}>
+                    {group.tasks.map(task => {
+                      const coverUrl = getProxyImageUrl(getTaskCoverSource(task))
+                      const taskTitle = getTaskDisplayTitle(task)
+                      const partLabel = task.meta?.page ? `P${task.meta.page}` : null
+                      return (
+                        <div key={task.id} className="scheduler-task-item" data-selected={selectedTasks.has(task.id)}>
+                          {/* 批量选择复选框 */}
+                          {isBatchMode && (
+                            <div
+                              className="batch-checkbox flex items-center justify-center cursor-pointer p-1 flex-shrink-0 w-6 h-6 min-w-6 rounded"
+                              style={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onTaskSelect?.(task.id)
+                              }}
+                            >
+                              {selectedTasks.has(task.id) ? (
+                                <div className="w-4 h-4 flex items-center justify-center rounded-sm" style={{
+                                  backgroundColor: 'var(--color-primary-500)'
+                                }}>
+                                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                  </svg>
+                                </div>
+                              ) : (
+                                <Square size={16} color="var(--color-text-secondary)" />
+                              )}
+                            </div>
+                          )}
+
+                          {/* 任务封面 */}
+                          <div className="task-cover">
+                            <div className="task-cover-thumbnail">
+                              {coverUrl ? (
+                                <img
+                                  src={coverUrl}
+                                  alt={taskTitle}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none'
+                                    const placeholder = e.currentTarget.parentElement?.querySelector('.cover-placeholder')
+                                    if (placeholder) {
+                                      (placeholder as HTMLElement).style.display = 'flex'
+                                    }
+                                  }}
+                                />
+                              ) : null}
+                              {!coverUrl && (
+                                <div className="cover-placeholder">
+                                  <Film size={24} color="var(--color-primary-500)" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="task-info">
+                            <span className="task-title">{partLabel ? `${partLabel}: ${taskTitle}` : taskTitle}</span>
+                            <div className="task-meta">
+                              {/* 状态标签（仅在非完成状态时显示） */}
+                              {task.state !== 'completed' && (
+                                <span className="task-state" style={{ color: taskStatusConfig[task.state]?.color || 'var(--color-text-tertiary)' }}>
+                                  {taskStatusConfig[task.state]?.label || task.state}
+                                </span>
+                              )}
+                              {task.state === 'completed' && (task.meta?.totalSize || task.meta?.videoSize || task.meta?.metadataSize) && (
+                                <>
+                                  <span className="task-divider">·</span>
+                                  <span className="task-size">
+                                    {task.meta.totalSize && formatFileSize(task.meta.totalSize)}
+                                    {task.meta.videoSize && task.meta.metadataSize && ' | '}
+                                    {task.meta.videoSize && `视频: ${formatFileSize(task.meta.videoSize)}`}
+                                    {task.meta.metadataSize && ` | 元数据: ${formatFileSize(task.meta.metadataSize)}`}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {task.state === 'active' && task.status?.progress !== undefined && (
+                            <div className="task-progress">
+                              <div
+                                className="task-progress-bar"
+                                style={{ width: `${task.status.progress}%` }}
+                              >
+                                <div />
+                              </div>
+                              <span className="task-progress-text">{task.status.progress}%</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {task.state === 'active' && task.status?.progress !== undefined && (
-                    <div className="task-progress">
-                      <div
-                        className="task-progress-bar"
-                        style={{ width: `${task.status.progress}%` }}
-                      >
-                        <div />
-                      </div>
-                      <span className="task-progress-text">{task.status.progress}%</span>
-                    </div>
-                  )}
                 </div>
               )
             })

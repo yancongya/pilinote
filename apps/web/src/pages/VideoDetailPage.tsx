@@ -999,6 +999,7 @@ const handleDownloadCollection = async (e: React.MouseEvent) => {
               part_title: part.title,
               collection_bvid: video.bvid,
               collection_title: collectionTitle,
+              collection_episode_title: episode.title,
               output_subdir: `P${String(episode.page).padStart(2, '0')} - ${episode.title}`
             }
           })

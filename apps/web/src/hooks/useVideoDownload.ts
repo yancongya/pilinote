@@ -76,6 +76,32 @@ export interface DownloadPart {
   duration?: number
 }
 
+interface DownloadMetadataOptions {
+  quality?: number
+  output_format?: string
+  enable_subtitle?: boolean
+  enable_nfo?: boolean
+  enable_cover?: boolean
+  enable_avatar?: boolean
+}
+
+interface EnqueueVideoDownloadParams {
+  video: VideoInfo
+  detail?: VideoDetail
+  sessdata?: string
+  selectedPages?: Set<number>
+  currentTasks?: Record<string, { media_id: string; state: string; meta?: Record<string, any> }>
+  downloadPath?: string
+  metadataOptions?: DownloadMetadataOptions
+}
+
+interface EnqueueVideoDownloadResult {
+  addedCount: number
+  skippedCount: number
+  taskIds: string[]
+  schedulerId?: string
+}
+
 export function getCurrentVideoParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
   return (detail.pages || []).map(page => ({
     bvid: video.bvid,
@@ -103,6 +129,150 @@ export function getCollectionParts(video: VideoInfo, detail: VideoDetail): Downl
 
 export function getDownloadParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
   return getCurrentVideoParts(video, detail)
+}
+
+const sanitizeFilename = (filename: string): string => {
+  return filename.replace(/[\/\\:*?"<>|]/g, '_').trim()
+}
+
+const getCollectionEpisode = (video: VideoInfo, detail: VideoDetail) => {
+  const episodes = detail.ugc_season?.sections?.flatMap(section => section.episodes || []) || []
+  const index = episodes.findIndex(episode => episode.bvid === video.bvid)
+  return {
+    episode: index >= 0 ? episodes[index] : undefined,
+    index: index >= 0 ? index + 1 : undefined,
+  }
+}
+
+const buildStandardVideoMeta = (
+  video: VideoInfo,
+  detail: VideoDetail,
+  part: DownloadPart,
+  metadataOptions: DownloadMetadataOptions = {}
+) => {
+  const collectionTitle = detail.ugc_season?.title
+  const { episode, index } = getCollectionEpisode(video, detail)
+  const episodeTitle = episode?.title || video.title
+  const outputSubdir = collectionTitle
+    ? `P${String(index || part.page).padStart(2, '0')} - ${episodeTitle}`
+    : undefined
+
+  return {
+    cid: part.cid,
+    page: part.page,
+    part_title: part.title,
+    series_bvid: video.bvid,
+    series_title: video.title,
+    collection_bvid: collectionTitle ? video.bvid : undefined,
+    collection_title: collectionTitle,
+    collection_episode_title: collectionTitle ? episodeTitle : undefined,
+    output_subdir: outputSubdir,
+    pic: part.cover || video.pic || video.cover || detail.ugc_season?.cover,
+    quality: metadataOptions.quality,
+    output_format: metadataOptions.output_format,
+    enable_subtitle: metadataOptions.enable_subtitle,
+    enable_nfo: metadataOptions.enable_nfo,
+    enable_cover: metadataOptions.enable_cover,
+    enable_avatar: metadataOptions.enable_avatar,
+  }
+}
+
+const isQueuedPart = (
+  currentTasks: EnqueueVideoDownloadParams['currentTasks'],
+  bvid: string,
+  cid?: number,
+  page?: number
+): boolean => {
+  if (!currentTasks) return false
+  return Object.values(currentTasks).some(task => {
+    if (task.media_id !== bvid || ['completed', 'cancelled'].includes(task.state)) return false
+    if (cid !== undefined && task.meta?.cid === cid) return true
+    if (page !== undefined && task.meta?.page === page) return true
+    return cid === undefined && page === undefined
+  })
+}
+
+export const enqueueVideoDownload = async ({
+  video,
+  detail,
+  sessdata,
+  selectedPages,
+  currentTasks,
+  downloadPath = '/Users/tanyancong/工作/开发/pilinote/downloads',
+  metadataOptions = {},
+}: EnqueueVideoDownloadParams): Promise<EnqueueVideoDownloadResult> => {
+  const detailData: VideoDetail = detail ?? await apiService.getVideoDetail(video.bvid, sessdata).then(response => {
+    if (!response.success || !response.data) {
+      throw new Error(response.message || '获取视频详情失败')
+    }
+    return response.data as VideoDetail
+  })
+
+  const parts = getDownloadParts(video, detailData)
+  const selectedParts = selectedPages && selectedPages.size > 0
+    ? parts.filter(part => selectedPages.has(part.page))
+    : parts
+
+  const targetParts = selectedParts.length > 0
+    ? selectedParts
+    : [{
+        bvid: video.bvid,
+        cid: detailData.cid || video.cid,
+        page: 1,
+        title: video.title,
+        cover: video.pic || video.cover || '',
+        duration: detailData.duration || video.originalDuration || video.durationSeconds,
+      }]
+
+  const taskIds: string[] = []
+  let skippedCount = 0
+
+  for (const part of targetParts) {
+    if (isQueuedPart(currentTasks, part.bvid, part.cid, part.page)) {
+      skippedCount++
+      continue
+    }
+
+    const meta = buildStandardVideoMeta(video, detailData, part, metadataOptions)
+    const response = await apiService.submitTask({
+      title: part.title,
+      media_type: 'video',
+      media_id: part.bvid,
+      cover: part.cover || video.pic || video.cover || '',
+      desc: part.cid ? `CID: ${part.cid}` : '',
+      meta,
+    })
+
+    if (!response.success || !response.data?.id) {
+      throw new Error(response.message || `添加分P失败: ${part.title}`)
+    }
+    taskIds.push(response.data.id)
+  }
+
+  if (taskIds.length === 0) {
+    return { addedCount: 0, skippedCount, taskIds }
+  }
+
+  let schedulerId: string | undefined
+  if (targetParts.length > 1) {
+    const schedulerResponse = await apiService.createScheduler({
+      title: video.title,
+      task_ids: taskIds,
+      folder: `${downloadPath}/系列-${sanitizeFilename(video.title)}`,
+    })
+
+    if (!schedulerResponse.success || !schedulerResponse.data) {
+      throw new Error(schedulerResponse.message || '创建调度器失败')
+    }
+    schedulerId = schedulerResponse.data.id
+  }
+
+  return {
+    addedCount: taskIds.length,
+    skippedCount,
+    taskIds,
+    schedulerId,
+  }
 }
 
 /**
@@ -190,137 +360,27 @@ export function useVideoDownload() {
         } else {
           // 添加到新下载系统
           try {
-            const videoDetailResponse = await apiService.getVideoDetail(video.bvid, sessdata || undefined)
+            const { useSettingsStore } = await import('../stores/settings')
+            const settingsStore = useSettingsStore.getState()
+            if (!settingsStore.settings) {
+              await settingsStore.fetchSettings()
+            }
+            const downloadPath = settingsStore.settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads'
+            const result = await enqueueVideoDownload({
+              video,
+              sessdata: sessdata || undefined,
+              currentTasks,
+              downloadPath,
+            })
 
-            if (videoDetailResponse.success && videoDetailResponse.data) {
-              const videoDetailData = videoDetailResponse.data as VideoDetail
-              const pages = getDownloadParts(video, videoDetailData)
-
-              if (pages.length > 1) {
-                // 多P视频：按照BiliTools方案，创建调度器统一管理
-                
-                // 步骤1：为每个分P创建任务并提交到backlog
-                const taskIds: string[] = []
-                let addedCount = 0
-
-                for (const page of pages) {
-                  try {
-                    const taskData = {
-                      title: page.title,
-                      media_type: 'video',
-                      media_id: page.bvid,
-                      cover: page.cover,
-                      desc: `CID: ${page.cid}`,
-                      meta: {
-                        cid: page.cid,
-                        page: page.page,
-                        part_title: page.title,
-                        series_bvid: video.bvid,
-                        series_title: video.title,
-                        collection_title: videoDetailData.ugc_season?.title
-                      }
-                    }
-
-                    const response = await apiService.submitTask(taskData)
-                    if (response.success && response.data) {
-                      taskIds.push(response.data.id)
-                      addedCount++
-                    }
-                  } catch (error) {
-                    console.error(`添加分集任务失败: ${page.title}`, error)
-                  }
-                }
-
-                if (addedCount === 0) {
-                  throw new Error('所有分集添加失败')
-                }
-
-                // 步骤2：创建调度器，使用收集到的任务ID
-                const folderName = `系列-${video.title.replace(/[\/\\:*?"<>|]/g, '_')}`
-                
-                // Get user settings to use configured download path
-                const { useSettingsStore } = await import('../stores/settings')
-                const settingsStore = useSettingsStore.getState()
-                
-                // Fetch settings if not already loaded
-                if (!settingsStore.settings) {
-                  await settingsStore.fetchSettings()
-                }
-                
-                // Use download path from settings or fallback to default
-                const downloadPath = settingsStore.settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads'
-                const folderPath = `${downloadPath}/${folderName}`
-
-                const schedulerResponse = await apiService.createScheduler({
-                  title: video.title,
-                  task_ids: taskIds,
-                  folder: folderPath
-                })
-
-                if (!schedulerResponse.success || !schedulerResponse.data) {
-                  throw new Error(schedulerResponse.message || '创建调度器失败')
-                }
-
-                const _schedulerId = schedulerResponse.data.id
-                void _schedulerId
-
-                // 立即刷新任务和调度器列表，确保合集分组同步显示
-                await newQueueStore.fetchTasks()
-                await newQueueStore.fetchSchedulers()
-                return {success: true, message: `已添加 ${addedCount} 个视频到下载列表`}
-              } else {
-                // 单P视频，使用视频详情API返回的数据（更准确）
-                const taskData = {
-                  title: video.title,
-                  media_type: 'video',
-                  media_id: video.bvid,
-                  cover: video.pic || video.cover || '',
-                  desc: `CID: ${videoDetailData.cid || pages[0]?.cid}`,
-                  meta: {
-                    cid: videoDetailData.cid || pages[0]?.cid
-                  }
-                }
-
-                try {
-                  const response = await apiService.submitTask(taskData)
-                  if (response.success) {
-                    // 立即刷新任务列表，确保状态更新
-                    await newQueueStore.fetchTasks()
-                    return {success: true, message: '已添加到下载队列'}
-                  } else {
-                    return {success: false, message: '添加到下载队列失败: ' + (response.message || '未知错误')}
-                  }
-                } catch (error) {
-                  console.error('添加任务失败:', error)
-                  return {success: false, message: '添加到下载队列失败'}
-                }
-              }
-            } else {
-              // 获取视频详情失败，降级为直接添加（使用现有数据）
-              console.error('获取视频详情失败，降级为直接添加')
-
-              const taskData = {
-                title: video.title,
-                media_type: 'video',
-                media_id: video.bvid,
-                cover: video.pic || video.cover || '',
-                desc: video.cid || video.aid ? `CID: ${video.cid || video.aid}` : '',
-                meta: video.cid ? { cid: video.cid } : undefined
-              }
-
-              try {
-                const response = await apiService.submitTask(taskData)
-                if (response.success) {
-                  // 立即刷新任务列表，确保状态更新
-                  await newQueueStore.fetchTasks()
-                  return {success: true, message: '已添加到下载队列'}
-                } else {
-                  return {success: false, message: '添加到下载队列失败: ' + (response.message || '未知错误')}
-                }
-              } catch (error) {
-                console.error('添加任务失败:', error)
-                return {success: false, message: '添加到下载队列失败'}
-              }
+            await newQueueStore.fetchTasks()
+            await newQueueStore.fetchSchedulers()
+            if (result.addedCount === 0) {
+              return {success: false, message: '视频已在下载列表中'}
+            }
+            return {
+              success: true,
+              message: result.addedCount > 1 ? `已添加 ${result.addedCount} 个视频到下载列表` : '已添加到下载队列'
             }
           } catch (error) {
             // 获取视频详情失败，降级为直接添加（使用现有数据）
