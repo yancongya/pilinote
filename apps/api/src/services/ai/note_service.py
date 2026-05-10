@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -1235,10 +1235,10 @@ class AiNoteService:
         candidates = sorted(
             [
                 child
-                for child in path.iterdir()
+                for child in path.rglob("*")
                 if child.is_file() and child.suffix.lower() in preferred_exts
             ],
-            key=lambda item: item.name,
+            key=self._source_file_sort_key,
         )
         if candidates:
             return str(candidates[0])
@@ -1246,16 +1246,25 @@ class AiNoteService:
         fallback_candidates = sorted(
             [
                 child
-                for child in path.iterdir()
+                for child in path.rglob("*")
                 if child.is_file()
                 and child.suffix.lower()
                 not in {".nfo", ".jpg", ".jpeg", ".png", ".bak"}
                 and not child.name.startswith(".")
                 and not child.name.endswith(".ai-note.md")
             ],
-            key=lambda item: item.name,
+            key=self._source_file_sort_key,
         )
         return str(fallback_candidates[0]) if fallback_candidates else None
+
+    def _source_file_sort_key(self, path: Path) -> Tuple[int, str]:
+        match = re.search(r"(?:^|[\\/\\s_-])P?0*(\d{1,3})(?=\\s|[.、．_-]|$)", str(path), flags=re.IGNORECASE)
+        if match:
+            try:
+                return int(match.group(1)), str(path)
+            except ValueError:
+                pass
+        return 9999, str(path)
 
     @staticmethod
     def _is_generated_note_file(path: Optional[str]) -> bool:

@@ -22,10 +22,12 @@ import logging
 import os
 import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Set, Optional, Tuple
 from sqlalchemy.orm import Session
 from src.services.local_library_service import LocalLibraryService
+from src.models.ai_note import AiNote
 from src.models.download import Download
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,14 @@ class VideoLibraryService:
             ".srt",
             ".ass",
             ".vtt",
+            ".mp3",
+            ".wav",
+            ".m4a",
+            ".aac",
+            ".flac",
+            ".ogg",
+            ".opus",
+            ".md",
             ".xml",
             ".json",
             ".jpg",
@@ -302,6 +312,7 @@ class VideoLibraryService:
                 shutil.move(str(src), str(dst))
                 moved.append({"from": str(src), "to": str(dst)})
                 self._update_download_file_path(str(src), str(dst))
+                self._update_ai_note_paths(str(src), str(dst))
 
             self._remove_empty_part_dirs(Path(plan["folder_path"]))
             self.db.commit()
@@ -431,6 +442,47 @@ class VideoLibraryService:
             {Download.file_path: new_path},
             synchronize_session=False,
         )
+
+    def _update_ai_note_paths(self, old_path: str, new_path: str):
+        notes = (
+            self.db.query(AiNote)
+            .filter(AiNote.video_id == old_path)
+            .all()
+        )
+        for note in notes:
+            note.video_id = new_path
+            note.updated_at = datetime.utcnow()
+
+        meta_notes = self.db.query(AiNote).filter(AiNote.meta.isnot(None)).all()
+        for note in meta_notes:
+            updated_meta, changed = self._replace_path_in_meta(note.meta, old_path, new_path)
+            if changed:
+                note.meta = updated_meta
+                note.updated_at = datetime.utcnow()
+
+    def _replace_path_in_meta(self, value: Any, old_path: str, new_path: str) -> Tuple[Any, bool]:
+        if isinstance(value, str):
+            return (new_path, True) if value == old_path else (value, False)
+
+        if isinstance(value, list):
+            changed = False
+            result = []
+            for item in value:
+                replaced, item_changed = self._replace_path_in_meta(item, old_path, new_path)
+                result.append(replaced)
+                changed = changed or item_changed
+            return result, changed
+
+        if isinstance(value, dict):
+            changed = False
+            result: Dict[str, Any] = {}
+            for key, item in value.items():
+                replaced, item_changed = self._replace_path_in_meta(item, old_path, new_path)
+                result[key] = replaced
+                changed = changed or item_changed
+            return result, changed
+
+        return value, False
 
     def get_local_opus_content(self, opus_id: str) -> Dict[str, Any]:
         """

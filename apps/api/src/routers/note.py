@@ -16,6 +16,35 @@ from src.models.download import Download
 router = APIRouter(prefix="/api/note", tags=["note"])
 
 
+def _resolve_download_for_note(video_id: str) -> Optional[Download]:
+    db = SessionLocal()
+    try:
+        download = db.query(Download).filter(Download.id == video_id).first()
+        if not download:
+            download = (
+                db.query(Download)
+                .filter(Download.file_path == video_id)
+                .first()
+            )
+        if not download:
+            download = (
+                db.query(Download)
+                .filter(Download.bvid == video_id, Download.status == "completed")
+                .order_by(Download.cid.asc(), Download.created_at.asc())
+                .first()
+            )
+        if not download:
+            download = (
+                db.query(Download)
+                .filter(Download.bvid == video_id)
+                .order_by(Download.cid.asc(), Download.created_at.asc())
+                .first()
+            )
+        return download
+    finally:
+        db.close()
+
+
 def _run_ai_analysis_background(
     note_id: str,
     video_id: str,
@@ -164,53 +193,23 @@ async def analyze_video(request: AnalyzeRequest, background_tasks: BackgroundTas
                     file_path = resolved_path
                     video_id = request.video_id
                 else:
-                    db = SessionLocal()
                     # 尝试数据库查找
-                    download = (
-                        db.query(Download).filter(Download.id == request.video_id).first()
-                    )
+                    download = _resolve_download_for_note(request.video_id)
                     if not download:
-                        download = (
-                            db.query(Download)
-                            .filter(
-                                Download.bvid == request.video_id,
-                                Download.status == "completed",
-                            )
-                            .first()
-                        )
-                    if not download:
-                        db.close()
                         raise HTTPException(status_code=404, detail=f"视频不存在或未下载: {request.video_id}")
                     if not download.file_path:
-                        db.close()
                         raise HTTPException(status_code=400, detail="视频文件路径不存在")
                     file_path = download.file_path
                     video_id = download.id
-                    db.close()
             else:
-                db = SessionLocal()
                 # 尝试数据库查找
-                download = (
-                    db.query(Download).filter(Download.id == request.video_id).first()
-                )
+                download = _resolve_download_for_note(request.video_id)
                 if not download:
-                    download = (
-                        db.query(Download)
-                        .filter(
-                            Download.bvid == request.video_id,
-                            Download.status == "completed",
-                        )
-                        .first()
-                    )
-                if not download:
-                    db.close()
                     raise HTTPException(status_code=404, detail=f"视频不存在或未下载: {request.video_id}")
                 if not download.file_path:
-                    db.close()
                     raise HTTPException(status_code=400, detail="视频文件路径不存在")
                 file_path = download.file_path
                 video_id = download.id
-                db.close()
 
         service = AiNoteService()
         note = service.create_note_record(
@@ -485,6 +484,12 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
         if resolved_path:
             file_path = resolved_path
         service.db.close()
+
+    if not file_path:
+        download = _resolve_download_for_note(request.video_id)
+        if download and download.file_path:
+            file_path = download.file_path
+            logger.info(f"[SSE] resolved download file_path={file_path}")
 
     if not file_path:
         logger.error(f"[SSE] Video file not found for {request.video_id}")

@@ -18,6 +18,18 @@ class LocalFileResponse(BaseModel):
     folder_path: Optional[str] = None
 
 
+def resolve_video_context(video_id: str) -> tuple[Optional[Path], Optional[str]]:
+    """Resolve a video id or local file path to its working directory and optional file stem."""
+    direct_path = Path(video_id)
+    if direct_path.exists():
+        if direct_path.is_file():
+            return direct_path.parent, direct_path.stem
+        return direct_path, None
+
+    video_dir = find_video_dir(video_id)
+    return video_dir, None
+
+
 def find_video_dir(video_id: str) -> Path:
     """根据video_id找到视频目录"""
     import os
@@ -30,8 +42,9 @@ def find_video_dir(video_id: str) -> Path:
     )
 
     # 直接作为路径
-    if Path(video_id).exists():
-        return Path(video_id)
+    direct_path = Path(video_id)
+    if direct_path.exists():
+        return direct_path.parent if direct_path.is_file() else direct_path
 
     if not downloads.exists():
         logger.info("downloads dir does not exist")
@@ -52,9 +65,16 @@ def find_video_dir(video_id: str) -> Path:
     return None
 
 
-def build_note_file_response(video_dir: Path) -> LocalFileResponse:
+def build_note_file_response(video_dir: Path, preferred_stem: Optional[str] = None) -> LocalFileResponse:
     """构造笔记文件响应，携带目录与文件路径信息。"""
-    md_files = list(video_dir.glob("*.ai-note.md"))
+    md_files = []
+    if preferred_stem:
+        preferred = video_dir / f"{preferred_stem}.ai-note.md"
+        if preferred.exists():
+            md_files.append(preferred)
+    md_files.extend(
+        file for file in sorted(video_dir.glob("*.ai-note.md")) if file not in md_files
+    )
     if not md_files:
         return LocalFileResponse(
             success=True,
@@ -72,12 +92,17 @@ def build_note_file_response(video_dir: Path) -> LocalFileResponse:
     )
 
 
-def build_source_markdown_response(video_dir: Path) -> LocalFileResponse:
+def build_source_markdown_response(video_dir: Path, preferred_stem: Optional[str] = None) -> LocalFileResponse:
     """构造图文原文响应，优先返回同名 Markdown 正文。"""
-    md_files = [
+    md_files = []
+    if preferred_stem:
+        preferred = video_dir / f"{preferred_stem}.md"
+        if preferred.exists() and not preferred.name.endswith(".ai-note.md"):
+            md_files.append(preferred)
+    md_files.extend([
         f for f in video_dir.glob("*.md")
-        if not f.name.endswith(".ai-note.md")
-    ]
+        if not f.name.endswith(".ai-note.md") and f not in md_files
+    ])
     if not md_files:
         return LocalFileResponse(
             success=True,
@@ -103,7 +128,7 @@ async def get_local_file(
 ):
     """读取本地字幕或笔记文件"""
     try:
-        video_dir = find_video_dir(video_id)
+        video_dir, preferred_stem = resolve_video_context(video_id)
 
         if not video_dir:
             return LocalFileResponse(success=False, error=f"找不到视频目录: {video_id}")
@@ -118,17 +143,25 @@ async def get_local_file(
             else:
                 # 按优先级查找字幕文件
                 from src.services.version_manager import VersionManager
-                srt_file = VersionManager.find_subtitle_file(video_dir)
+                srt_file = None
+                if preferred_stem:
+                    for pattern in VersionManager.SUBTITLE_PATTERNS:
+                        candidates = sorted(video_dir.glob(pattern))
+                        srt_file = next((file for file in candidates if file.name.startswith(f"{preferred_stem}.")), None)
+                        if srt_file:
+                            break
+                if not srt_file:
+                    srt_file = VersionManager.find_subtitle_file(video_dir)
                 if not srt_file:
                     return LocalFileResponse(success=True, data="")
                 content = srt_file.read_text(encoding="utf-8")
             return LocalFileResponse(success=True, data=content)
 
         elif file_type == "note":
-            return build_note_file_response(video_dir)
+            return build_note_file_response(video_dir, preferred_stem)
 
         elif file_type == "source":
-            return build_source_markdown_response(video_dir)
+            return build_source_markdown_response(video_dir, preferred_stem)
 
         else:
             return LocalFileResponse(
@@ -153,7 +186,7 @@ async def save_local_file(
     content = request.content if request else ""
     """保存本地字幕或笔记文件（写入后自动保存版本快照）"""
     try:
-        video_dir = find_video_dir(video_id)
+        video_dir, preferred_stem = resolve_video_context(video_id)
 
         if not video_dir:
             return LocalFileResponse(success=False, error=f"找不到视频目录: {video_id}")
@@ -183,7 +216,14 @@ async def save_local_file(
                 return LocalFileResponse(success=True)
 
         elif file_type == "note":
-            md_files = list(video_dir.glob("*.ai-note.md"))
+            md_files = []
+            if preferred_stem:
+                preferred = video_dir / f"{preferred_stem}.ai-note.md"
+                if preferred.exists():
+                    md_files.append(preferred)
+            md_files.extend(
+                file for file in sorted(video_dir.glob("*.ai-note.md")) if file not in md_files
+            )
             if md_files:
                 md_files[0].write_text(content, encoding="utf-8")
                 # 写入后自动保存版本快照

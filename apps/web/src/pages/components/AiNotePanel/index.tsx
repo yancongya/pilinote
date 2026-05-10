@@ -4,6 +4,7 @@ import { apiService } from '../../../services/api';
 import { TranscriptTab } from './TranscriptTab';
 import { NoteTab } from './NoteTab';
 import { MindMapTab } from './MindMapTab';
+import { getPlayableEntries, type LocalPlaybackEntry } from '../../videoDetailPlayback';
 import {
   buildAiNotePanelCacheKey,
   readAiNotePanelCache,
@@ -66,12 +67,14 @@ export default function AiNotePanel() {
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const [noteTitle, setNoteTitle] = useState('mindmap');
   const [resolvedFileId, setResolvedFileId] = useState<string>('');
+  const [localPlaybackEntries, setLocalPlaybackEntries] = useState<LocalPlaybackEntry[]>([]);
   const [mountedTabs, setMountedTabs] = useState<Set<TabType>>(() => new Set(['subtitle']));
   const activeTab = useMemo(() => getAiNoteTabFromHash(location.hash), [location.hash]);
   const mediaId = videoId || opusId || '';
   const backToDetailPath = opusId ? `/opus/${mediaId}` : `/video/${mediaId}`;
   const isImageTextMode = Boolean(opusId);
   const fallbackFolderPath = routeState?.folderPath || '';
+  const activeFileId = resolvedFileId || mediaId;
   const panelCacheKey = useMemo(() => buildAiNotePanelCacheKey({
     videoId: mediaId,
     pipelineMode: isImageTextMode ? 'image_text' : 'video',
@@ -143,6 +146,48 @@ export default function AiNotePanel() {
   }, [mediaId, isImageTextMode, fallbackFolderPath]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadLocalPlaybackEntries = async () => {
+      if (isImageTextMode || !mediaId || mediaId === 'undefined') {
+        setLocalPlaybackEntries([]);
+        return;
+      }
+
+      try {
+        const response = await apiService.getLocalPlaybackMap(mediaId);
+        if (cancelled) return;
+
+        const entries = response.success ? getPlayableEntries(response.data) : [];
+        setLocalPlaybackEntries(entries);
+        if (!entries.length) {
+          setResolvedFileId(mediaId);
+          return;
+        }
+
+        setResolvedFileId((current) => {
+          if (current && entries.some((entry) => entry.path === current)) {
+            return current;
+          }
+          return entries[0].path;
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setLocalPlaybackEntries([]);
+          setResolvedFileId(mediaId);
+        }
+        console.error('加载 AI 页面本地分P失败:', err);
+      }
+    };
+
+    void loadLocalPlaybackEntries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isImageTextMode, mediaId]);
+
+  useEffect(() => {
     setMountedTabs(prev => {
       if (prev.has(activeTab)) return prev;
       const next = new Set(prev);
@@ -155,7 +200,7 @@ export default function AiNotePanel() {
     let cancelled = false;
 
     const loadNoteSnapshot = async () => {
-      const targetId = resolvedFileId || mediaId;
+      const targetId = activeFileId;
       if (!targetId || targetId === 'undefined') return;
       try {
         const response = await apiService.getLocalFile(targetId, 'note');
@@ -198,7 +243,7 @@ export default function AiNotePanel() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, isImageTextMode, mediaId, panelCacheKey, resolvedFileId, selectedSubtitleFilename]);
+  }, [activeFileId, activeTab, isImageTextMode, mediaId, panelCacheKey, selectedSubtitleFilename]);
 
   useEffect(() => {
     if (!hydratedCacheRef.current) return;
@@ -306,6 +351,49 @@ export default function AiNotePanel() {
         </Link>
       </header>
 
+      {!isImageTextMode && localPlaybackEntries.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px 16px',
+            borderBottom: '1px solid var(--color-border)',
+            background: 'rgba(255,255,255,0.03)',
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)', flex: '0 0 auto' }}>
+            分P
+          </span>
+          <select
+            value={activeFileId}
+            onChange={(event) => {
+              setResolvedFileId(event.target.value);
+              setSelectedSubtitleFilename('');
+              setNoteMarkdown('');
+              setNoteTitle('mindmap');
+            }}
+            style={{
+              minWidth: 0,
+              flex: 1,
+              padding: '8px 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-primary)',
+              fontSize: '13px',
+            }}
+          >
+            {localPlaybackEntries.map((entry, index) => (
+              <option key={entry.path} value={entry.path}>
+                {entry.title || `P${index + 1}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Tab导航 */}
       <nav
         style={{
@@ -367,7 +455,7 @@ export default function AiNotePanel() {
           <div style={{ display: activeTab === 'subtitle' ? 'block' : 'none', height: '100%' }}>
             {isImageTextMode ? (
             <NoteTab
-              videoId={resolvedFileId || mediaId}
+              videoId={activeFileId}
               fileType="source"
               analysisPipelineMode="image_text"
               readOnly
@@ -375,7 +463,7 @@ export default function AiNotePanel() {
             />
           ) : (
             <TranscriptTab
-                videoId={resolvedFileId || mediaId}
+                videoId={activeFileId}
                 onSubtitleFileChange={setSelectedSubtitleFilename}
               />
             )}
@@ -384,7 +472,7 @@ export default function AiNotePanel() {
         {mountedTabs.has('note') && (
           <div style={{ display: activeTab === 'note' ? 'block' : 'none', height: '100%' }}>
             <NoteTab
-              videoId={resolvedFileId || mediaId}
+              videoId={activeFileId}
               selectedSubtitleFilename={selectedSubtitleFilename}
               onContentSnapshotChange={setNoteMarkdown}
               fileType="note"

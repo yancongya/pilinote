@@ -892,7 +892,7 @@ class ApiService {
     const params = new URLSearchParams();
     params.append('file_type', fileType);
     if (filename) params.append('filename', filename);
-    return this.request<string>(`/api/local/file/${videoId}?${params.toString()}`, {
+    return this.request<string>(`/api/local/file/${encodeURIComponent(videoId)}?${params.toString()}`, {
       method: 'GET',
     });
   }
@@ -901,7 +901,7 @@ class ApiService {
     const params = new URLSearchParams();
     params.append('file_type', fileType);
     if (filename) params.append('filename', filename);
-    return this.request<any>(`/api/local/file/${videoId}?${params.toString()}`, {
+    return this.request<any>(`/api/local/file/${encodeURIComponent(videoId)}?${params.toString()}`, {
       method: 'POST',
       body: JSON.stringify({ content }),
       headers: { 'Content-Type': 'application/json' },
@@ -967,25 +967,44 @@ class ApiService {
 
   // ============ 版本管理 API ============
   async getSubtitleFiles(videoId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/local/versions/subtitle-files/${videoId}`, { method: 'GET' });
+    if (videoId.includes('/')) {
+      const params = new URLSearchParams({ video_id: videoId });
+      return this.request<any>(`/api/local/versions/by-path/subtitle-files?${params.toString()}`, { method: 'GET' });
+    }
+    return this.request<any>(`/api/local/versions/subtitle-files/${encodeURIComponent(videoId)}`, { method: 'GET' });
   }
 
   async getVersions(videoId: string, type: string, filename?: string): Promise<ApiResponse<any>> {
     const params = new URLSearchParams();
     params.append('type', type);
     if (filename) params.append('filename', filename);
-    return this.request<any>(`/api/local/versions/${videoId}?${params.toString()}`, { method: 'GET' });
+    if (videoId.includes('/')) {
+      params.append('video_id', videoId);
+      return this.request<any>(`/api/local/versions/by-path?${params.toString()}`, { method: 'GET' });
+    }
+    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}?${params.toString()}`, { method: 'GET' });
   }
 
   async getVersionContent(videoId: string, hash: string, type: string, filename?: string): Promise<ApiResponse<any>> {
     const params = new URLSearchParams();
     params.append('type', type);
     if (filename) params.append('filename', filename);
-    return this.request<any>(`/api/local/versions/${videoId}/${hash}?${params.toString()}`, { method: 'GET' });
+    if (videoId.includes('/')) {
+      params.append('video_id', videoId);
+      return this.request<any>(`/api/local/versions/by-path/content/${hash}?${params.toString()}`, { method: 'GET' });
+    }
+    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}/${hash}?${params.toString()}`, { method: 'GET' });
   }
 
   async switchVersion(videoId: string, type: string, hash: string, filename?: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/local/versions/${videoId}/switch`, {
+    if (videoId.includes('/')) {
+      const params = new URLSearchParams({ video_id: videoId });
+      return this.request<any>(`/api/local/versions/by-path/switch?${params.toString()}`, {
+        method: 'POST',
+        body: JSON.stringify({ type, hash, filename }),
+      });
+    }
+    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}/switch`, {
       method: 'POST',
       body: JSON.stringify({ type, hash, filename }),
     });
@@ -995,11 +1014,22 @@ class ApiService {
     const params = new URLSearchParams();
     params.append('type', type);
     if (filename) params.append('filename', filename);
-    return this.request<any>(`/api/local/versions/${videoId}/${hash}?${params.toString()}`, { method: 'DELETE' });
+    if (videoId.includes('/')) {
+      params.append('video_id', videoId);
+      return this.request<any>(`/api/local/versions/by-path/content/${hash}?${params.toString()}`, { method: 'DELETE' });
+    }
+    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}/${hash}?${params.toString()}`, { method: 'DELETE' });
   }
 
   async saveVersion(videoId: string, type: string, content: string, source: string = 'manual', label: string = '', filename?: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/local/versions/${videoId}`, {
+    if (videoId.includes('/')) {
+      const params = new URLSearchParams({ video_id: videoId });
+      return this.request<any>(`/api/local/versions/by-path?${params.toString()}`, {
+        method: 'POST',
+        body: JSON.stringify({ type, content, source, label, filename }),
+      });
+    }
+    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}`, {
       method: 'POST',
       body: JSON.stringify({ type, content, source, label, filename }),
     });
