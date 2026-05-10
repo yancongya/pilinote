@@ -173,6 +173,7 @@ class LinkParser:
                     bvid_match = re.search(r'/(BV[\w]+)', final_path)
                     av_match = re.search(r'/av(\d+)', final_path)
                     opus_match = re.search(r'/opus/(\d+)', final_path)
+                    read_match = re.search(r'/read/cv(\d+)', final_path, re.IGNORECASE)
                     ep_match = re.search(r'/ep(\d+)', final_path)
                     ss_match = re.search(r'/ss(\d+)', final_path)
                     
@@ -190,9 +191,9 @@ class LinkParser:
                             "target": None,
                             "original": url
                         }
-                    elif opus_match:
+                    elif opus_match or read_match:
                         return {
-                            "id": f"cv{opus_match.group(1)}",
+                            "id": f"cv{(opus_match or read_match).group(1)}",
                             "type": MediaType.OPUS,
                             "target": None,
                             "original": url
