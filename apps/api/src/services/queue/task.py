@@ -214,11 +214,12 @@ class TaskService:
         })
 
         # 字幕下载
-        subtasks.append({
-            'type': SubTaskType.SUBTITLES,
-            'bvid': self.task.media_id,
-            'filename': f"{info.get('title', 'video')}.srt"
-        })
+        if (self.task.meta or {}).get('enable_subtitle', True):
+            subtasks.append({
+                'type': SubTaskType.SUBTITLES,
+                'bvid': self.task.media_id,
+                'filename': f"{info.get('title', 'video')}.srt"
+            })
 
         # 封面下载
         if info.get('pic'):
@@ -393,12 +394,9 @@ class TaskService:
         print(f"=== 进度广播任务已创建 ===")
 
         try:
-            # 判断是否通过 scheduler 执行（检查是否有分P信息）
-            is_scheduler_task = (
-                self.task.meta and
-                isinstance(self.task.meta, dict) and
-                ('page' in self.task.meta or 'part_title' in self.task.meta)
-            )
+            # 只有真正挂在 scheduler 下的任务才复用调度器输出目录。
+            # 单个视频任务也会带 page/part_title，用这些字段判断会误写到 downloads 根目录。
+            is_scheduler_task = bool(getattr(self.task, 'scheduler_id', None))
 
             if is_scheduler_task:
                 # 通过 scheduler 执行的任务，直接使用合集根目录。

@@ -1,7 +1,6 @@
-from typing import Dict, Any
+from typing import Any, Dict
 from pathlib import Path
 import logging
-import asyncio
 
 from .base import BaseHandler, ProgressCallback
 from src.models.task import Task, SubTask
@@ -19,201 +18,178 @@ def _to_int(value: Any) -> int | None:
 
 
 class SubtitleHandler(BaseHandler):
-    """字幕下载处理器"""
+    """Bilibili subtitle downloader using BiliTools-style player WBI data."""
+
+    async def handle(self, subtask_data: Dict[str, Any], temp_dir: Path, output_dir: Path, meta: Dict[str, Any]):
+        media_id = subtask_data.get('bvid') or meta.get('bvid') or ''
+        aid = _to_int(meta.get('aid') or subtask_data.get('aid'))
+        cid = _to_int(meta.get('cid') or subtask_data.get('cid'))
+
+        if not aid or not cid:
+            aid, fallback_cid = await self._get_video_info(media_id)
+            cid = cid or fallback_cid
+
+        if not aid or not cid:
+            logger.warning(f"字幕下载缺少 aid/cid，跳过: {media_id}")
+            return False
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        base_filename = Path(subtask_data.get('filename') or meta.get('title') or media_id or 'subtitle').stem
+        safe_title = self._safe_filename(base_filename)
+        subtitles = await self._get_subtitles(aid, cid)
+        if not subtitles:
+            logger.info(f"视频 {media_id} cid={cid} 没有可用字幕")
+            return False
+
+        downloaded_count = 0
+        for index, subtitle in enumerate(self._select_subtitles(subtitles)):
+            if await self._download_subtitle(subtitle, output_dir, safe_title, index):
+                downloaded_count += 1
+
+        logger.info(f"字幕下载完成: {downloaded_count}/{len(subtitles)} aid={aid} cid={cid}")
+        return downloaded_count > 0
 
     async def execute(self, task: Task, subtask: SubTask, progress_callback: ProgressCallback) -> bool:
-        """执行字幕下载"""
         try:
-            logger.info(f"📝 开始下载字幕: {task.title}")
-            
             await progress_callback.update(0, 100, "准备下载字幕...")
-            
-            # 获取必要信息
-            media_id = task.media_id
-            aid = task.meta.get('aid')
-            cid = task.meta.get('cid')
-            
-            # 如果没有 aid/cid，尝试获取
-            if not aid or not cid:
-                await progress_callback.update(10, 100, "获取视频信息...")
-                aid, cid = await self._get_video_info(media_id)
-            
-            if not aid or not cid:
-                logger.warning(f"字幕下载缺少 aid/cid，跳过: {media_id}")
-                await progress_callback.update(100, 100, "跳过字幕下载（缺少信息）")
-                return True  # 不算失败，只是跳过
-            
-            await progress_callback.update(20, 100, "获取字幕列表...")
-            
-            # 获取字幕列表
-            subtitles = await self._get_subtitle_list(aid, cid)
-            
-            if not subtitles:
-                logger.info(f"视频 {media_id} 没有可用字幕")
-                await progress_callback.update(100, 100, "无可用字幕")
-                return True
-            
-            await progress_callback.update(30, 100, f"找到 {len(subtitles)} 个字幕")
-            
-            # 设置输出目录
-            safe_title = self._safe_filename(task.title or media_id)
-            output_dir = Path("downloads") / "subtitles" / safe_title
-            output_dir.mkdir(parents=True, exist_ok=True)
-            
-            # 下载字幕
-            downloaded_count = 0
-            total_subtitles = len(subtitles)
-            
-            for i, subtitle_info in enumerate(subtitles):
-                lang = subtitle_info.get('lan_doc', subtitle_info.get('lan', 'unknown'))
-                
-                progress = 30 + (i / total_subtitles) * 60  # 30-90%
-                await progress_callback.update(
-                    int(progress), 
-                    100, 
-                    f"下载字幕: {lang}"
-                )
-                
-                success = await self._download_single_subtitle(
-                    subtitle_info, 
-                    output_dir, 
-                    safe_title
-                )
-                
-                if success:
-                    downloaded_count += 1
-            
-            # 更新子任务输出路径
+            output_dir = Path("downloads") / "subtitles" / self._safe_filename(task.title or task.media_id)
+            success = await self.handle({}, Path("temp"), output_dir, task.meta or {})
             subtask.output_path = str(output_dir)
-            
-            await progress_callback.update(100, 100, f"字幕下载完成 ({downloaded_count}/{total_subtitles})")
-            
-            logger.info(f"✅ 字幕下载完成: {downloaded_count}/{total_subtitles}")
-            return downloaded_count > 0
-            
+            await progress_callback.update(100, 100, "字幕下载完成" if success else "无可用字幕")
+            return success
         except Exception as e:
-            logger.error(f"❌ 字幕下载异常: {e}")
+            logger.error(f"字幕下载异常: {e}", exc_info=True)
             await progress_callback.update(0, 100, f"字幕下载失败: {str(e)}")
             return False
 
-    async def _get_video_info(self, media_id: str) -> tuple[int, int]:
-        """获取视频的 aid 和 cid"""
+    async def _get_video_info(self, media_id: str) -> tuple[int | None, int | None]:
+        if not media_id:
+            return None, None
         try:
             from src.services.bilibili import BilibiliService
-            
+
             bilibili_service = BilibiliService()
             try:
+                await bilibili_service.init()
                 video_info = await bilibili_service.get_video_info(media_id)
                 if video_info.get("success"):
                     data = video_info.get("data", {})
-                    aid = _to_int(data.get("aid"))
-                    
-                    pages = data.get("pages", [])
-                    cid = _to_int(pages[0].get("cid")) if pages else None
-                    
-                    return aid, cid
+                    pages = data.get("pages", []) or []
+                    return _to_int(data.get("aid")), _to_int(pages[0].get("cid")) if pages else None
             finally:
                 bilibili_service.close()
-                
         except Exception as e:
             logger.error(f"获取视频信息失败: {e}")
-        
         return None, None
 
-    async def _get_subtitle_list(self, aid: int, cid: int) -> list:
-        """获取字幕列表"""
-        try:
-            from src.services.bilibili import BilibiliService
-            
-            bilibili_service = BilibiliService()
-            try:
-                # 获取字幕信息
-                subtitle_info = await bilibili_service.get_subtitle_info(aid, cid)
-                if subtitle_info.get("success"):
-                    data = subtitle_info.get("data", {})
-                    subtitles = data.get("subtitle", {}).get("subtitles", [])
-                    return subtitles
-            finally:
-                bilibili_service.close()
-                
-        except Exception as e:
-            logger.error(f"获取字幕列表失败: {e}")
-        
-        return []
+    async def _get_subtitles(self, aid: int, cid: int) -> list[dict]:
+        from src.services.bilibili import BilibiliService
 
-    async def _download_single_subtitle(self, subtitle_info: dict, output_dir: Path, base_filename: str) -> bool:
-        """下载单个字幕文件"""
+        bilibili_service = BilibiliService()
         try:
-            import aiohttp
-            import json
-            
-            subtitle_url = subtitle_info.get("subtitle_url")
-            if not subtitle_url:
-                return False
-            
-            # 确保URL是完整的
-            if subtitle_url.startswith("//"):
-                subtitle_url = "https:" + subtitle_url
-            elif subtitle_url.startswith("/"):
-                subtitle_url = "https://api.bilibili.com" + subtitle_url
-            
-            lang = subtitle_info.get('lan_doc', subtitle_info.get('lan', 'unknown'))
-            
-            # 下载字幕内容
-            async with aiohttp.ClientSession() as session:
-                async with session.get(subtitle_url) as response:
-                    if response.status == 200:
-                        subtitle_data = await response.json()
-                        
-                        # 转换为 SRT 格式
-                        srt_content = self._convert_to_srt(subtitle_data)
-                        
-                        # 保存文件
-                        filename = f"{base_filename}.{lang}.srt"
-                        output_path = output_dir / filename
-                        
-                        output_path.write_text(srt_content, encoding='utf-8')
-                        
-                        logger.info(f"✅ 字幕下载成功: {filename}")
-                        return True
-            
-        except Exception as e:
-            logger.error(f"下载字幕失败: {e}")
-        
-        return False
+            await bilibili_service.init()
+            player_info = await bilibili_service.get_player_info(aid, cid)
+            if not player_info.get("success"):
+                logger.warning(f"获取播放器字幕信息失败: {player_info.get('message')}")
+                return []
+            subtitle_data = (player_info.get("data", {}) or {}).get("subtitle", {}) or {}
+            return subtitle_data.get("subtitles") or subtitle_data.get("list") or []
+        finally:
+            bilibili_service.close()
+
+    def _select_subtitles(self, subtitles: list[dict]) -> list[dict]:
+        # Prefer one Chinese track and one English track, user-created before AI when both exist.
+        targets = ["zh-CN", "en-US"]
+        selected: dict[str, dict] = {}
+        for subtitle in subtitles:
+            if not self._subtitle_url(subtitle):
+                continue
+            language = self._normalize_language(subtitle)
+            if language not in targets:
+                continue
+            existing = selected.get(language)
+            if existing is None or self._source_priority(subtitle) < self._source_priority(existing):
+                selected[language] = subtitle
+        if selected:
+            return [selected[language] for language in targets if language in selected]
+        return [subtitle for subtitle in subtitles if self._subtitle_url(subtitle)]
+
+    async def _download_subtitle(self, subtitle: dict, output_dir: Path, base_filename: str, index: int = 0) -> bool:
+        import httpx
+
+        subtitle_url = self._subtitle_url(subtitle)
+        if not subtitle_url:
+            return False
+        if subtitle_url.startswith('//'):
+            subtitle_url = 'https:' + subtitle_url
+        elif subtitle_url.startswith('/'):
+            subtitle_url = 'https://api.bilibili.com' + subtitle_url
+
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(subtitle_url, headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://www.bilibili.com/",
+            })
+            response.raise_for_status()
+            subtitle_data = response.json()
+
+        srt_content = self._convert_to_srt(subtitle_data)
+        if not srt_content.strip():
+            logger.warning(f"字幕内容为空，跳过: {subtitle_url}")
+            return False
+
+        language = self._normalize_language(subtitle)
+        source = self._classify_source(subtitle)
+        suffix = f"{language}.{source}"
+        if index > 0:
+            suffix = f"{suffix}.{index}"
+        output_path = output_dir / f"{base_filename}.{suffix}.srt"
+        output_path.write_text(srt_content, encoding='utf-8')
+        logger.info(f"字幕下载成功: {output_path}")
+        return True
+
+    @staticmethod
+    def _subtitle_url(subtitle: dict) -> str:
+        for key in ("subtitle_url", "subtitleUrl", "url", "subtitleURL"):
+            value = subtitle.get(key)
+            if value:
+                return value
+        return ""
+
+    def _normalize_language(self, subtitle: dict) -> str:
+        lan = str(subtitle.get("lan") or "").lower()
+        if lan in {"ai-zh", "ai-hans", "ai-zh-cn", "ai-zh-hans", "zh", "zh-cn", "zh-hans", "zh-sg"}:
+            return "zh-CN"
+        if lan in {"zh-hant", "zh-tw"}:
+            return "zh-TW"
+        if lan in {"ai-en", "ai-en-us", "en", "en-us", "en-gb"}:
+            return "en-US"
+        return subtitle.get("lan") or "unknown"
+
+    def _classify_source(self, subtitle: dict) -> str:
+        lan = str(subtitle.get("lan") or "").lower()
+        lan_doc = str(subtitle.get("lan_doc") or "").lower()
+        url = self._subtitle_url(subtitle).lower()
+        if "aisubtitle.hdslb.com" in url or lan.startswith("ai-") or "自动生成" in lan_doc or subtitle.get("type") == 1:
+            return "ai"
+        return "user"
+
+    def _source_priority(self, subtitle: dict) -> int:
+        return 1 if self._classify_source(subtitle) == "ai" else 0
 
     def _convert_to_srt(self, subtitle_data: dict) -> str:
-        """将B站字幕格式转换为SRT格式"""
-        try:
-            body = subtitle_data.get("body", [])
-            srt_lines = []
-            
-            for i, item in enumerate(body, 1):
-                start_time = item.get("from", 0)
-                end_time = item.get("to", 0)
-                content = item.get("content", "")
-                
-                # 转换时间格式
-                start_srt = self._seconds_to_srt_time(start_time)
-                end_srt = self._seconds_to_srt_time(end_time)
-                
-                # 添加SRT条目
-                srt_lines.append(f"{i}")
-                srt_lines.append(f"{start_srt} --> {end_srt}")
-                srt_lines.append(content)
-                srt_lines.append("")  # 空行
-            
-            return "\n".join(srt_lines)
-            
-        except Exception as e:
-            logger.error(f"字幕格式转换失败: {e}")
-            return ""
+        body = subtitle_data.get("body", []) or []
+        lines = []
+        for index, item in enumerate(body, 1):
+            start = self._seconds_to_srt_time(float(item.get("from", 0)))
+            end = self._seconds_to_srt_time(float(item.get("to", 0)))
+            content = str(item.get("content", ""))
+            lines.extend([str(index), f"{start} --> {end}", content, ""])
+        return "\n".join(lines)
 
     def _seconds_to_srt_time(self, seconds: float) -> str:
-        """将秒数转换为SRT时间格式"""
         hours = int(seconds // 3600)
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
         millisecs = int((seconds % 1) * 1000)
-        
         return f"{hours:02d}:{minutes:02d}:{secs:02d},{millisecs:03d}"

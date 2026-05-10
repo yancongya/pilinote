@@ -25,7 +25,8 @@ class SubTaskHandlerRegistry:
     @classmethod
     def get_handler(cls, task_type: str) -> Optional[BaseHandler]:
         """获取处理器实例"""
-        handler_class = cls._handlers.get(task_type)
+        key = getattr(task_type, "value", task_type)
+        handler_class = cls._handlers.get(str(key))
         if handler_class:
             return handler_class()
         return None
@@ -43,6 +44,7 @@ class SubTaskHandlerRegistry:
 SubTaskHandlerRegistry.register("video")(VideoHandler)
 SubTaskHandlerRegistry.register("audio")(AudioHandler)
 SubTaskHandlerRegistry.register("subtitle")(SubtitleHandler)
+SubTaskHandlerRegistry.register("subtitles")(SubtitleHandler)
 
 # TODO: 注册其他处理器
 # SubTaskHandlerRegistry.register("danmaku")(DanmakuHandler)

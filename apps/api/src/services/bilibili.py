@@ -1200,7 +1200,8 @@ class BilibiliService:
         if sessdata:
             await self.headers_manager.update_cookie("SESSDATA", sessdata)
 
-        # 优先尝试 WBI 版本，失败时回退到公开播放器接口
+        # 字幕 URL 必须来自 WBI 播放器接口。公开 /x/player/v2 在部分视频上会返回
+        # 与 aid/cid 不匹配的 AI 字幕 URL，不能作为字幕下载 fallback。
         try:
             # 1. 获取nav API数据（用于获取WBI密钥）
             nav_url = f"{self.api_base}/x/web-interface/nav"
@@ -1233,25 +1234,20 @@ class BilibiliService:
             response = await self._request("GET", signed_url)
 
             if response.status_code in (403, 412):
-                logger.warning(
-                    "WBI播放器接口被拦截，回退到公开播放器接口: status=%s aid=%s cid=%s",
-                    response.status_code,
-                    aid,
-                    cid,
-                )
-                return await self._get_player_info_plain(aid, cid, sessdata)
+                return {
+                    "success": False,
+                    "message": "WBI播放器接口被风控拦截，已跳过字幕下载以避免保存错误字幕",
+                    "code": response.status_code,
+                }
 
             # 尝试解析JSON
             try:
                 data = response.json()
             except Exception as json_error:
-                logger.warning(
-                    "解析WBI播放器响应失败，回退到公开播放器接口: aid=%s cid=%s error=%s",
-                    aid,
-                    cid,
-                    json_error,
-                )
-                return await self._get_player_info_plain(aid, cid, sessdata)
+                return {
+                    "success": False,
+                    "message": f"解析WBI播放器响应失败: {str(json_error)}",
+                }
 
             if data.get("code") == 0:
                 player_data = data.get("data", {})
@@ -1261,14 +1257,11 @@ class BilibiliService:
                 }
 
             if data.get("code") in (-352, -403, -412) or "banned" in str(data.get("message", "")).lower():
-                logger.warning(
-                    "WBI播放器接口返回风控/拦截，回退到公开播放器接口: code=%s aid=%s cid=%s message=%s",
-                    data.get("code"),
-                    aid,
-                    cid,
-                    data.get("message", "unknown"),
-                )
-                return await self._get_player_info_plain(aid, cid, sessdata)
+                return {
+                    "success": False,
+                    "message": "WBI播放器接口返回风控拦截，已跳过字幕下载以避免保存错误字幕",
+                    "code": data.get("code"),
+                }
 
             return {
                 "success": False,
@@ -1276,15 +1269,6 @@ class BilibiliService:
                 "code": data.get("code")
             }
         except Exception as e:
-            logger.warning(
-                "获取WBI播放器信息异常，回退到公开播放器接口: aid=%s cid=%s error=%s",
-                aid,
-                cid,
-                e,
-            )
-            fallback_result = await self._get_player_info_plain(aid, cid, sessdata)
-            if fallback_result.get("success"):
-                return fallback_result
             return {
                 "success": False,
                 "message": f"获取播放器信息异常: {str(e)}"

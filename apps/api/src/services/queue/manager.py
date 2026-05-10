@@ -267,7 +267,15 @@ class QueueManager:
         ).all()
 
         requested_identity = self._task_page_identity(task_create.meta or {})
+        requested_meta = task_create.meta or {}
+        requested_is_scheduler_item = bool(
+            requested_meta.get("output_subdir")
+            or requested_meta.get("collection_title")
+            or requested_meta.get("series_title")
+        )
         for task in candidates:
+            if task.scheduler_id and not requested_is_scheduler_item:
+                continue
             existing_identity = self._task_page_identity(task.meta or {})
             if requested_identity is None and existing_identity is None:
                 return task

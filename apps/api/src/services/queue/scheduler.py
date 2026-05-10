@@ -72,7 +72,7 @@ class SchedulerService:
                 finally:
                     db.close()
 
-        self._write_series_nfo()
+        await self._write_series_nfo()
 
     async def _prepare_task(self, task: Task, bilibili_service: BilibiliService):
         """准备单个任务"""
@@ -159,11 +159,12 @@ class SchedulerService:
         })
 
         # 字幕下载
-        subtasks.append({
-            'type': SubTaskType.SUBTITLES,
-            'bvid': task.media_id,
-            'filename': f"{episode_basename}.srt"
-        })
+        if (task.meta or {}).get('enable_subtitle', True):
+            subtasks.append({
+                'type': SubTaskType.SUBTITLES,
+                'bvid': task.media_id,
+                'filename': f"{episode_basename}.srt"
+            })
 
         # 弹幕下载
         subtasks.append({
@@ -222,7 +223,7 @@ class SchedulerService:
                 episode_meta[key] = meta[key]
         return episode_meta
 
-    def _write_series_nfo(self):
+    async def _write_series_nfo(self):
         if not self.tasks:
             return
 
@@ -236,6 +237,8 @@ class SchedulerService:
         meta = first_task.meta
         output_dir = Path(self.scheduler.folder)
         output_dir.mkdir(parents=True, exist_ok=True)
+        await self._ensure_series_artwork(output_dir, meta)
+
         nfo_path = output_dir / 'tvshow.nfo'
         if nfo_path.exists():
             return
@@ -261,6 +264,30 @@ class SchedulerService:
 """
         nfo_path.write_text(content, encoding='utf-8')
         logger.info(f"✓ 合集 NFO 文件生成成功: {nfo_path}")
+
+    async def _ensure_series_artwork(self, output_dir: Path, meta: dict):
+        """Ensure media library can use local artwork for scheduler folders."""
+        try:
+            from src.services.download_service import DownloadService
+
+            download_service = DownloadService()
+            cover_url = meta.get('pic')
+            owner = meta.get('owner') or {}
+            avatar_url = owner.get('face')
+
+            cover_path = output_dir / 'cover.jpg'
+            if cover_url and not (cover_path.exists() and cover_path.stat().st_size > 1000):
+                success = await download_service._download_image(cover_url, cover_path)
+                if success:
+                    logger.info(f"✓ 合集封面下载成功: {cover_path}")
+
+            avatar_path = output_dir / 'avatar.jpg'
+            if avatar_url and not (avatar_path.exists() and avatar_path.stat().st_size > 1000):
+                success = await download_service._download_image(avatar_url.replace('http:', 'https:'), avatar_path)
+                if success:
+                    logger.info(f"✓ 合集头像下载成功: {avatar_path}")
+        except Exception as e:
+            logger.warning(f"合集封面/头像下载失败，继续执行: {e}")
 
     async def dispatch(self):
         """分发任务执行"""
