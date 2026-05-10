@@ -12,6 +12,7 @@ from src.schemas.task import SubTaskType
 from src.services.queue.manager import queue_manager
 from src.services.bilibili import BilibiliService
 from src.database import SessionLocal
+from src.services.nfo_metadata import attach_video_comments
 from src.services.opus_archive_service import sanitize_filename_component
 
 logger = logging.getLogger(__name__)
@@ -88,11 +89,6 @@ class SchedulerService:
 
             video_info = result['data']
 
-            # 构建准备数据
-            task.prepare = {
-                'subtasks': self._create_subtasks(task, video_info)
-            }
-
             # 保存元数据 - 保留原有的分P信息
             logger.info(f"[DEBUG] 准备任务 {task.id}，原始meta keys: {list(task.meta.keys()) if task.meta else 'None'}")
             if task.meta and isinstance(task.meta, dict):
@@ -121,6 +117,13 @@ class SchedulerService:
             else:
                 task.meta = {**video_info, 'bvid': task.media_id}
                 logger.info(f"[DEBUG] meta为空或不是dict，直接使用video_info")
+
+            await attach_video_comments(bilibili_service, task.meta)
+
+            # 构建准备数据
+            task.prepare = {
+                'subtasks': self._create_subtasks(task, task.meta)
+            }
 
         elif task.media_type == "bangumi":
             # 番剧处理
@@ -217,7 +220,7 @@ class SchedulerService:
 
     def _episode_meta(self, task: Task, info: dict, episode_basename: str) -> dict:
         meta = task.meta if isinstance(task.meta, dict) else {}
-        episode_meta = {**info, 'bvid': task.media_id, 'title': episode_basename}
+        episode_meta = {**info, **meta, 'bvid': task.media_id, 'title': episode_basename}
         for key in ('cid', 'page', 'part_title'):
             if key in meta:
                 episode_meta[key] = meta[key]

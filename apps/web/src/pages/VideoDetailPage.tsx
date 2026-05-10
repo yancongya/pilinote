@@ -13,7 +13,7 @@ import {
 import { videoLibraryService } from '../services/videoLibraryService'
 import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, ChevronDown, ChevronRight, Film, MessageCircle, Play, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Film, MessageCircle, Play, SkipBack, SkipForward, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
 import './VideoDetailPage.css'
 import {
@@ -236,10 +236,9 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     return getAvatarProxyUrl(url)
   }
 
-  const getCommentAvatarImage = (author: string): string => {
+  const getCommentAvatarImage = (_author: string, index = 0): string => {
     const urls = ['/avatar/avatar1.png', '/avatar/avatar2.png', '/avatar/avatar3.png']
-    const hash = author.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return urls[hash % urls.length]
+    return urls[index % urls.length]
   }
 
   const getOriginalBilibiliUrl = (): string => {
@@ -728,10 +727,46 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const isCollectionMember = !video?.isOpus && collectionEpisodeCount > 1
   const showingCollectionList = isCollectionMember && partListMode === 'collection'
   const activeLocalVideoUrl = activePlaybackEntry ? getLocalVideoUrl(activePlaybackEntry.path) : ''
+  const playableLocalPages = playablePages.filter((page: any) => page.playable && page.localPath)
+  const activePlayablePageIndex = activePlaybackEntry
+    ? playableLocalPages.findIndex((page: any) =>
+      (activePlaybackEntry.cid && page.cid === activePlaybackEntry.cid) ||
+      page.localPath === activePlaybackEntry.path
+    )
+    : -1
+  const activePlayablePage = activePlayablePageIndex >= 0 ? playableLocalPages[activePlayablePageIndex] : null
 
   const startLocalPlayback = (entry: LocalPlaybackEntry) => {
     setActivePlaybackEntry(entry)
     setMediaMode('local-video')
+  }
+
+  const startPagePlayback = (page: any) => {
+    if (!page?.playable || !page.localPath) {
+      return
+    }
+
+    startLocalPlayback({
+      cid: page.cid,
+      path: page.localPath,
+      exists: true,
+      title: page.part || `P${page.page}`
+    })
+  }
+
+  const switchPlayablePage = (direction: -1 | 1) => {
+    if (playableLocalPages.length <= 1) {
+      return
+    }
+
+    const currentIndex = activePlayablePageIndex >= 0 ? activePlayablePageIndex : 0
+    const nextIndex = currentIndex + direction
+
+    if (nextIndex < 0 || nextIndex >= playableLocalPages.length) {
+      return
+    }
+
+    startPagePlayback(playableLocalPages[nextIndex])
   }
 
   const toggleCollectionItemExpanded = (bvid: string) => {
@@ -751,7 +786,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       return
     }
 
-    const initialEntry = selectInitialPlayableEntry(localPlayback, video.cid)
+    const initialEntry = selectInitialPlayableEntry(
+      localPlayback,
+      video.pages && video.pages.length > 1 ? undefined : video.cid
+    )
     if (initialEntry) {
       startLocalPlayback(initialEntry)
       return
@@ -1255,6 +1293,61 @@ const handleReDownloadConfirm = async () => {
     return renderSkeleton()
   }
 
+  const renderCommentsSection = () => {
+    if (!video.comments || video.comments.length === 0) {
+      return null
+    }
+
+    return (
+      <section className="video-detail-comments">
+        <div className="video-detail-card-header">
+          <h3 className="video-detail-card-title">热门评论</h3>
+        </div>
+        <div className="video-detail-comment-list">
+          {video.comments.slice(0, 3).map((comment, index) => {
+            const isTop = comment.type === 'top'
+            return (
+              <article
+                key={index}
+                className={`video-detail-comment-item${isTop ? ' is-top' : ''}`}
+              >
+                <div className="video-detail-comment-avatar" aria-hidden="true">
+                  <img src={getCommentAvatarImage(comment.author, index)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                </div>
+                <div className="video-detail-comment-body">
+                  <div className="video-detail-comment-topline">
+                    <div className="video-detail-comment-author-row">
+                      <span className="video-detail-comment-author">{comment.author}</span>
+                      {isTop && (
+                        <span className="video-detail-comment-badge">置顶</span>
+                      )}
+                    </div>
+                    <span className="video-detail-comment-time">{formatTime(comment.time)}</span>
+                  </div>
+                  <p className="video-detail-comment-content">
+                    {comment.content}
+                  </p>
+                  <div className="video-detail-comment-actions">
+                    <span className="video-detail-comment-action">
+                      <ThumbsUp size={13} />
+                      {comment.like}
+                    </span>
+                    {comment.reply > 0 && (
+                      <span className="video-detail-comment-action">
+                        <MessageCircle size={13} />
+                        {comment.reply}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <div className="video-detail-page">
       <header className="video-detail-header">
@@ -1422,27 +1515,110 @@ const handleReDownloadConfirm = async () => {
           )}
 
           {!video.isOpus && mediaMode === 'local-video' && activePlaybackEntry && (
-            <button
-              onClick={(event) => {
-                event.stopPropagation()
-                setMediaMode('poster')
-              }}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                border: 'none',
-                borderRadius: '999px',
-                padding: '8px 12px',
-                background: 'rgba(15, 15, 15, 0.78)',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 600
-              }}
-            >
-              返回封面
-            </button>
+            <>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setMediaMode('poster')
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  border: 'none',
+                  borderRadius: '999px',
+                  padding: '8px 12px',
+                  background: 'rgba(15, 15, 15, 0.78)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  zIndex: 2
+                }}
+              >
+                返回封面
+              </button>
+
+              {playableLocalPages.length > 1 && activePlayablePage && (
+                <div style={{
+                  position: 'absolute',
+                  left: '12px',
+                  right: '12px',
+                  bottom: '52px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '10px',
+                  pointerEvents: 'none',
+                  zIndex: 2
+                }}>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      switchPlayablePage(-1)
+                    }}
+                    disabled={activePlayablePageIndex <= 0}
+                    aria-label="播放上一P"
+                    title="播放上一P"
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      border: 'none',
+                      borderRadius: '999px',
+                      background: activePlayablePageIndex <= 0 ? 'rgba(15, 15, 15, 0.32)' : 'rgba(15, 15, 15, 0.78)',
+                      color: '#fff',
+                      display: 'grid',
+                      placeItems: 'center',
+                      cursor: activePlayablePageIndex <= 0 ? 'not-allowed' : 'pointer',
+                      pointerEvents: 'auto'
+                    }}
+                  >
+                    <SkipBack size={17} />
+                  </button>
+                  <div style={{
+                    minWidth: 0,
+                    maxWidth: 'calc(100% - 112px)',
+                    padding: '7px 10px',
+                    borderRadius: '999px',
+                    background: 'rgba(15, 15, 15, 0.72)',
+                    color: '#fff',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                    pointerEvents: 'auto'
+                  }}>
+                    P{activePlayablePage.page}: {activePlayablePage.part || activePlaybackEntry.title || '当前视频'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      switchPlayablePage(1)
+                    }}
+                    disabled={activePlayablePageIndex >= playableLocalPages.length - 1}
+                    aria-label="播放下一P"
+                    title="播放下一P"
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      border: 'none',
+                      borderRadius: '999px',
+                      background: activePlayablePageIndex >= playableLocalPages.length - 1 ? 'rgba(15, 15, 15, 0.32)' : 'rgba(15, 15, 15, 0.78)',
+                      color: '#fff',
+                      display: 'grid',
+                      placeItems: 'center',
+                      cursor: activePlayablePageIndex >= playableLocalPages.length - 1 ? 'not-allowed' : 'pointer',
+                      pointerEvents: 'auto'
+                    }}
+                  >
+                    <SkipForward size={17} />
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -1573,6 +1749,8 @@ const handleReDownloadConfirm = async () => {
             </div>
           )}
 
+        {renderCommentsSection()}
+
         {isCollectionMember && (
           <div style={{
             padding: cardPadding,
@@ -1654,16 +1832,7 @@ const handleReDownloadConfirm = async () => {
               return (
                 <div
                   key={page.cid || index}
-                  onClick={() => {
-                    if (isPlayable && page.localPath) {
-                      startLocalPlayback({
-                        cid: page.cid,
-                        path: page.localPath,
-                        exists: true,
-                        title: page.part
-                      })
-                    }
-                  }}
+                  onClick={() => startPagePlayback(page)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1958,55 +2127,6 @@ const handleReDownloadConfirm = async () => {
             return null
           })}
         </div>
-      )}
-
-      {video.comments && video.comments.length > 0 && (
-        <section className="video-detail-comments">
-          <div className="video-detail-card-header">
-            <h3 className="video-detail-card-title">热门评论</h3>
-          </div>
-          <div className="video-detail-comment-list">
-            {video.comments.slice(0, 3).map((comment, index) => {
-              const isTop = comment.type === 'top'
-              return (
-                <article
-                  key={index}
-                  className={`video-detail-comment-item${isTop ? ' is-top' : ''}`}
-                >
-                  <div className="video-detail-comment-avatar" aria-hidden="true">
-                    <img src={getCommentAvatarImage(comment.author)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                  </div>
-                  <div className="video-detail-comment-body">
-                    <div className="video-detail-comment-topline">
-                      <div className="video-detail-comment-author-row">
-                        <span className="video-detail-comment-author">{comment.author}</span>
-                        {isTop && (
-                          <span className="video-detail-comment-badge">置顶</span>
-                        )}
-                      </div>
-                      <span className="video-detail-comment-time">{formatTime(comment.time)}</span>
-                    </div>
-                    <p className="video-detail-comment-content">
-                      {comment.content}
-                    </p>
-                    <div className="video-detail-comment-actions">
-                      <span className="video-detail-comment-action">
-                        <ThumbsUp size={13} />
-                        {comment.like}
-                      </span>
-                      {comment.reply > 0 && (
-                        <span className="video-detail-comment-action">
-                          <MessageCircle size={13} />
-                          {comment.reply}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
-        </section>
       )}
 
       <div style={{

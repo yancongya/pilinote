@@ -91,6 +91,31 @@ class SingleNfoHandler(BaseHandler):
         # BVID字段
         if meta.get('bvid'):
             lines.append(f'  <bvid>{self._escape_xml(meta["bvid"])}</bvid>')
+            lines.append(f'  <url>https://www.bilibili.com/video/{self._escape_xml(meta["bvid"])}</url>')
+
+        if meta.get('aid'):
+            lines.append(f'  <aid>{self._escape_xml(str(meta["aid"]))}</aid>')
+
+        if meta.get('cid'):
+            lines.append(f'  <cid>{self._escape_xml(str(meta["cid"]))}</cid>')
+
+        if meta.get('page'):
+            lines.append(f'  <page>{self._escape_xml(str(meta["page"]))}</page>')
+
+        if meta.get('part_title'):
+            lines.append(f'  <part_title>{self._escape_xml(str(meta["part_title"]))}</part_title>')
+
+        if meta.get('series_bvid'):
+            lines.append(f'  <series_bvid>{self._escape_xml(str(meta["series_bvid"]))}</series_bvid>')
+
+        if meta.get('series_title'):
+            lines.append(f'  <series_title>{self._escape_xml(str(meta["series_title"]))}</series_title>')
+
+        if meta.get('collection_title'):
+            lines.append(f'  <collection_title>{self._escape_xml(str(meta["collection_title"]))}</collection_title>')
+
+        if meta.get('collection_episode_title'):
+            lines.append(f'  <collection_episode_title>{self._escape_xml(str(meta["collection_episode_title"]))}</collection_episode_title>')
 
         # 标题
         if meta.get('title'):
@@ -103,6 +128,10 @@ class SingleNfoHandler(BaseHandler):
         # UP主
         if meta.get('owner', {}).get('name'):
             lines.append(f'  <studio>{self._escape_xml(meta["owner"]["name"])}</studio>')
+            lines.append(f'  <director>{self._escape_xml(meta["owner"]["name"])}</director>')
+
+        if meta.get('owner', {}).get('mid'):
+            lines.append(f'  <uploader_mid>{self._escape_xml(str(meta["owner"]["mid"]))}</uploader_mid>')
 
         # 发布日期
         if meta.get('pubdate'):
@@ -163,8 +192,11 @@ class SingleNfoHandler(BaseHandler):
         if meta.get('comments') and len(meta['comments']) > 0:
             lines.append('  <comments>')
             for comment in meta['comments']:
-                lines.append(f'    <comment type="{comment.get("type", "unknown")}" like="{comment.get("like", 0)}" reply="{comment.get("reply", 0)}" author="{comment.get("author", "")}" time="{comment.get("time", 0)}">')
-                lines.append(f'      <content>{self._escape_xml(comment.get("content", ""))}</content>')
+                comment_type = self._escape_xml(str(comment.get("type", "unknown")))
+                author = self._escape_xml(str(comment.get("author", "")))
+                content = comment.get("content") or comment.get("message") or comment.get("text") or ""
+                lines.append(f'    <comment type="{comment_type}" like="{comment.get("like", 0)}" reply="{comment.get("reply", 0)}" author="{author}" time="{comment.get("time", 0)}">')
+                lines.append(f'      <content>{self._escape_xml(str(content))}</content>')
                 lines.append('    </comment>')
             lines.append('  </comments>')
 

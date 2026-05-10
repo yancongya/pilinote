@@ -27,7 +27,7 @@ describe('videoDetailPlayback', () => {
     )
   })
 
-  it('does not auto-pick another part when current cid is missing in a series', () => {
+  it('falls back to the first playable part when current cid is missing in a series', () => {
     const playbackMap: LocalPlaybackMap = {
       bvid: 'BV1test',
       entries: [
@@ -35,7 +35,9 @@ describe('videoDetailPlayback', () => {
       ]
     }
 
-    expect(selectInitialPlayableEntry(playbackMap, 102)).toBeNull()
+    expect(selectInitialPlayableEntry(playbackMap, 102)).toEqual(
+      playbackMap.entries[0]
+    )
   })
 
   it('falls back to the first playable file for a single-video entry without cid', () => {

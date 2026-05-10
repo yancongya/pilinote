@@ -153,15 +153,23 @@ def generate_opus_nfo(meta: Dict[str, Any]) -> str:
 
     stat = meta.get("stat", {}) or {}
     author = meta.get("author", {}) or {}
+    opus_id = normalize_opus_id(str(meta.get("opus_id") or ""))
+    rating = _calculate_opus_rating(stat)
 
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         "<movie>",
-        f"  <opus_id>{esc(meta.get('opus_id'))}</opus_id>",
+        f"  <media_type>opus</media_type>",
+        f"  <opus_id>{esc(opus_id)}</opus_id>",
+        f"  <cv_id>{esc(opus_id)}</cv_id>",
+        f"  <url>{esc(f'https://www.bilibili.com/read/{opus_id}' if opus_id else '')}</url>",
         f"  <title>{esc(meta.get('title'))}</title>",
         f"  <plot>{esc(meta.get('desc'))}</plot>",
         f"  <studio>{esc(author.get('name'))}</studio>",
     ]
+
+    if author.get("mid"):
+        lines.append(f"  <uploader_mid>{esc(author.get('mid'))}</uploader_mid>")
 
     if meta.get("pubdate"):
         try:
@@ -172,6 +180,9 @@ def generate_opus_nfo(meta: Dict[str, Any]) -> str:
 
     if meta.get("pic"):
         lines.append(f"  <thumb>{esc(meta.get('pic'))}</thumb>")
+
+    if rating > 0:
+        lines.append(f"  <rating>{rating:.1f}</rating>")
 
     lines.extend(
         [
@@ -186,3 +197,22 @@ def generate_opus_nfo(meta: Dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _calculate_opus_rating(stat: Dict[str, Any]) -> float:
+    try:
+        like = stat.get("like", 0) or 0
+        favorite = stat.get("favorite", 0) or 0
+        share = stat.get("share", 0) or 0
+        coin = stat.get("coin", 0) or 0
+        reply = stat.get("reply", 0) or 0
+        interaction_score = like * 0.4 + coin * 0.4 + favorite * 0.3 + share * 0.6 + reply * 0.4
+        if interaction_score <= 0:
+            return 0.0
+
+        # 图文接口通常没有稳定播放量，用互动量做轻量归一化，保持 0-5 分范围。
+        import math
+
+        return round(min(math.log1p(interaction_score) / math.log(1000) * 5, 5), 1)
+    except Exception:
+        return 0.0

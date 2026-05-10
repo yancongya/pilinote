@@ -15,6 +15,7 @@ from src.services.opus_archive_service import (
     render_opus_markdown,
     sanitize_filename_component,
 )
+from src.services.nfo_metadata import attach_video_comments, generate_video_nfo
 from src.database import SessionLocal
 from src.utils.error_handler import ErrorHandler, handle_error
 
@@ -186,9 +187,11 @@ class TaskService:
         else:
             self.task.meta = {**video_info, 'bvid': self.task.media_id}
 
+        await attach_video_comments(bilibili_service, self.task.meta)
+
         # 构建准备数据
         self.task.prepare = {
-            'subtasks': self._create_subtasks(video_info)
+            'subtasks': self._create_subtasks(self.task.meta)
         }
 
         # 更新时间（不改变状态）
@@ -242,7 +245,7 @@ class TaskService:
         # NFO文件
         subtasks.append({
             'type': SubTaskType.SINGLE_NFO,
-            'meta': info,
+            'meta': self.task.meta if isinstance(self.task.meta, dict) else info,
             'filename': f"{info.get('title', 'video')}.nfo"
         })
 
@@ -831,114 +834,17 @@ class TaskService:
             
             output_file = output_dir / filename
             
-            # 检查文件是否已存在
             if output_file.exists():
-                logger.info(f"NFO 文件已存在: {filename}")
-                return
+                logger.info(f"NFO 文件已存在，将使用最新元数据覆盖: {filename}")
+            else:
+                logger.info(f"生成 NFO 文件: {filename}")
             
-            logger.info(f"生成 NFO 文件: {filename}")
-            
-            # 构建 NFO 内容
             if meta_data.get('type') == 'opus':
                 output_file.write_text(generate_opus_nfo(meta_data), encoding='utf-8')
                 logger.info(f"NFO 文件生成成功: {filename}")
                 return
 
-            title = meta_data.get('title', 'Unknown')
-            desc = meta_data.get('desc', '')
-            owner = meta_data.get('owner', {})
-            uploader = owner.get('name', 'Unknown')
-            pic = meta_data.get('pic', '')
-            stat = meta_data.get('stat', {})
-            bvid = self.task.media_id  # 获取BVID
-            
-            # 转换发布时间
-            pubdate = meta_data.get('pubdate', 0)
-            from datetime import datetime
-            if pubdate:
-                try:
-                    pub_date_str = datetime.fromtimestamp(pubdate).strftime('%Y-%m-%d')
-                except:
-                    pub_date_str = 'Unknown'
-            else:
-                pub_date_str = 'Unknown'
-            
-            # 计算评分（五分制）
-            rating = 0.0
-            view_count = stat.get('view', 0)
-            if view_count > 0:
-                like = stat.get('like', 0) or 0
-                coin = stat.get('coin', 0) or 0
-                favorite = stat.get('favorite', 0) or 0
-                share = stat.get('share', 0) or 0
-                danmaku = stat.get('danmaku', 0) or 0
-                reply = stat.get('reply', 0) or 0
-
-                interaction_score = (
-                    like * 0.4 +
-                    coin * 0.4 +
-                    favorite * 0.3 +
-                    share * 0.6 +
-                    danmaku * 0.4 +
-                    reply * 0.4
-                )
-
-                interaction_rate = interaction_score / view_count
-                import math
-                smoothed_rate = math.log(1 + interaction_rate * 1000) / math.log(1001)
-                base_rating = smoothed_rate * 5
-                m = 5000
-                C = 2.0
-                v = view_count
-                rating = (v / (v + m)) * base_rating + (m / (v + m)) * C
-                rating = min(max(rating, 0), 5)
-                rating = round(rating, 1)
-
-            # 获取时长 (转换为MM:SS格式)
-            duration = meta_data.get('duration', 0)
-            runtime_xml = ""
-            if duration:
-                minutes = int(duration // 60)
-                seconds = int(duration % 60)
-                runtime_xml = f'  <runtime>{minutes}:{seconds:02d}</runtime>'
-
-            # 构建评分XML
-            rating_xml = ""
-            if rating > 0:
-                rating_xml = f'  <rating>{rating:.1f}</rating>'
-            
-            # 构建tags XML (从meta_data中获取真正的标签)
-            tags_xml = ""
-            if meta_data.get('tags') and len(meta_data['tags']) > 0:
-                tags = meta_data['tags']
-                # 只取前3个标签
-                tags_list = tags[:3] if len(tags) > 3 else tags
-                if tags_list:
-                    tags_xml = "\n".join([f'    <tag>{tag}</tag>' for tag in tags_list])
-                    tags_xml = f'  <tags>\n{tags_xml}\n  </tags>'
-
-            content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<movie>
-  <bvid>{bvid}</bvid>
-  <title>{title}</title>
-  <plot>{desc}</plot>
-  <studio>{uploader}</studio>
-  <premiered>{pub_date_str}</premiered>
-  <thumb>{pic}</thumb>
-{runtime_xml}
-{rating_xml}
-  <statistics>
-    <play>{stat.get('view', 0)}</play>
-    <like>{stat.get('like', 0)}</like>
-    <coin>{stat.get('coin', 0)}</coin>
-    <favorite>{stat.get('favorite', 0)}</favorite>
-    <share>{stat.get('share', 0)}</share>
-    <danmaku>{stat.get('danmaku', 0)}</danmaku>
-    <reply>{stat.get('reply', 0)}</reply>
-  </statistics>
-{tags_xml}
-</movie>
-"""
+            content = generate_video_nfo(meta_data)
             
             output_file.write_text(content, encoding='utf-8')
             logger.info(f"NFO 文件生成成功: {filename}")

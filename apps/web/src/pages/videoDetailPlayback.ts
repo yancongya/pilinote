@@ -40,7 +40,24 @@ export const getPlayableEntries = (
     return []
   }
 
-  return playbackMap.entries.filter(isPlayableEntry)
+  return playbackMap.entries
+    .filter(isPlayableEntry)
+    .sort((left, right) => {
+      const leftPage = parsePageNumberFromEntry(left)
+      const rightPage = parsePageNumberFromEntry(right)
+
+      if (leftPage && rightPage && leftPage !== rightPage) {
+        return leftPage - rightPage
+      }
+      if (leftPage && !rightPage) {
+        return -1
+      }
+      if (!leftPage && rightPage) {
+        return 1
+      }
+
+      return left.path.localeCompare(right.path, 'zh-CN')
+    })
 }
 
 export const selectInitialPlayableEntry = (
@@ -64,7 +81,7 @@ export const selectInitialPlayableEntry = (
     return playableEntries[0]
   }
 
-  return null
+  return playableEntries[0]
 }
 
 export const buildPlayablePages = (

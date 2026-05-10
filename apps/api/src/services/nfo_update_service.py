@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 
 from src.services.bilibili import BilibiliService
-from src.services.queue.handlers.nfo import SingleNfoHandler
+from src.services.nfo_metadata import attach_video_comments, generate_video_nfo
 from src.services.opus_archive_service import build_opus_meta, generate_opus_nfo, normalize_opus_id
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,6 @@ class NFOUpdateService:
 
     def __init__(self):
         self.bilibili_service = BilibiliService()
-        self.nfo_handler = SingleNfoHandler()
 
     async def update_single_nfo(self, nfo_path: str) -> Dict[str, Any]:
         """
@@ -125,27 +124,11 @@ class NFOUpdateService:
             # 3. 构建用于生成NFO的meta数据
             meta = self._build_meta_from_video_info(video_info, bvid)
             
-            # 3.5. 获取评论数据（如果有aid）
-            if meta.get('aid'):
-                try:
-                    comments_result = await self.bilibili_service.get_video_comments(
-                        meta['aid'], 
-                        ""  # 不需要sessdata获取公开评论
-                    )
-                    
-                    if comments_result.get("success"):
-                        comments_data = comments_result.get("data", {})
-                        comments = comments_data.get("comments", [])
-                        if comments:
-                            meta['comments'] = comments
-                            logger.info(f"获取到{len(comments)}条评论")
-                except Exception as e:
-                    logger.warning(f"获取评论数据失败: {e}")
-                    # 评论获取失败不影响NFO更新
-                    pass
+            # 3.5. 补充评论数据。失败不影响NFO更新。
+            await attach_video_comments(self.bilibili_service, meta)
 
             # 4. 重新生成NFO内容
-            nfo_content = self.nfo_handler._generate_nfo(meta)
+            nfo_content = generate_video_nfo(meta)
 
             # 5. 备份原始NFO文件
             backup_path = self._backup_nfo_file(nfo_path)
