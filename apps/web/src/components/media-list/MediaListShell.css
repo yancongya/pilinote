@@ -131,9 +131,9 @@
     padding: 0 24px 12px;
   }
   
-  /* 移除 body 的顶部 padding */
+  /* 给 body 添加顶部间距，避免内容被 topbar 遮挡 */
   .media-list-shell-body {
-    padding-top: 0 !important;
+    padding-top: 24px !important;
   }
   
   /* 确保 content-section 没有顶部 padding */

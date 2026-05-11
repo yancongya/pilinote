@@ -122,7 +122,7 @@ export default function MediaListShell({
         />
       )}
 
-      <div className="media-list-shell-body" style={isDesktop ? { paddingTop: 0 } : {}}>
+      <div className="media-list-shell-body" style={isDesktop ? { paddingTop: 24 } : {}}>
         {loading ? (
           <MediaListState
             kind="loading"

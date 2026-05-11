@@ -4,6 +4,7 @@ import { ArrowLeft, FolderHeart, ListVideo } from 'lucide-react'
 
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
+import { useCacheStore } from '../../stores/cache'
 import { useNewQueueStore } from '../../stores/newQueue'
 import { useVideoList } from '../../hooks/useVideoList'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
@@ -53,6 +54,7 @@ export default function SubscriptionsContent() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const newQueueStore = useNewQueueStore()
+  const { getSubscriptionSourcesCache, setSubscriptionSourcesCache } = useCacheStore()
   const [selectedSource, setSelectedSource] = useState<SubscriptionSource | null>(null)
   const [sources, setSources] = useState<SubscriptionSource[]>([])
   const [sourceType, setSourceType] = useState<SubscriptionSourceType>('ugc_season')
@@ -73,6 +75,7 @@ export default function SubscriptionsContent() {
     onConfirm?: () => void
   }>({ show: false, title: '', message: '', type: 'success' })
   const tasksSyncedRef = useRef(false)
+  const sourcesLoadedRef = useRef(false)
 
   useEffect(() => {
     const syncData = async () => {
@@ -102,7 +105,33 @@ export default function SubscriptionsContent() {
   }
 
   const fetchSources = useCallback(async () => {
-    if (!user?.mid) return
+    if (!user?.mid || sourcesLoadedRef.current) return
+    
+    sourcesLoadedRef.current = true
+    
+    const cacheKey = `subscriptions:${sourceType}:${sourceKeyword.trim() || '__all__'}`
+    
+    // 先检查缓存
+    const cachedSources = getSubscriptionSourcesCache(cacheKey)
+    if (cachedSources) {
+      setSources(cachedSources)
+      // 后台静默刷新
+      try {
+        const response = await apiService.getSubscriptionSources(sourceType, 1, 50, sourceKeyword.trim())
+        if (response.success && response.data) {
+          const list = Array.isArray(response.data)
+            ? response.data
+            : response.data.sources || response.data.list || []
+          const normalizedList = list.map(normalizeSource)
+          setSources(normalizedList)
+          setSubscriptionSourcesCache(cacheKey, normalizedList)
+        }
+      } catch (error) {
+        console.error('[Subscriptions] 后台刷新订阅源失败:', error)
+      }
+      return
+    }
+    
     setLoadingSources(true)
     setSourceError('')
 
@@ -112,7 +141,9 @@ export default function SubscriptionsContent() {
         const list = Array.isArray(response.data)
           ? response.data
           : response.data.sources || response.data.list || []
-        setSources(list.map(normalizeSource))
+        const normalizedList = list.map(normalizeSource)
+        setSources(normalizedList)
+        setSubscriptionSourcesCache(cacheKey, normalizedList)
       } else {
         setSources([])
         setSourceError(response.message || '订阅接口尚未接入')
@@ -124,9 +155,11 @@ export default function SubscriptionsContent() {
     } finally {
       setLoadingSources(false)
     }
-  }, [sourceKeyword, sourceType, user?.mid])
+  }, [sourceKeyword, sourceType, user?.mid, getSubscriptionSourcesCache, setSubscriptionSourcesCache])
 
   useEffect(() => {
+    // 当 sourceType 或 sourceKeyword 变化时，重置加载状态并重新获取
+    sourcesLoadedRef.current = false
     void fetchSources()
   }, [fetchSources])
 

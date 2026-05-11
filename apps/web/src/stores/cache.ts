@@ -19,11 +19,13 @@ interface CacheState {
     }
   }
   
-  // 稍后再看缓存
-  watchLaterCache: {
-    data: any[]
-    timestamp: number
-  } | null
+  // 订阅源缓存（按类型和关键词缓存）
+  subscriptionSourcesCache: {
+    [cacheKey: string]: {
+      data: any[]
+      timestamp: number
+    }
+  }
   
   // 缓存过期时间（5分钟）
   cacheExpiry: number
@@ -50,11 +52,11 @@ interface CacheState {
     cacheKey: string
   ) => { data: any[]; total: number; page: number; pageSize: number } | null
   
-  // 设置稍后再看缓存
-  setWatchLaterCache: (data: any[]) => void
+  // 设置订阅源缓存
+  setSubscriptionSourcesCache: (cacheKey: string, data: any[]) => void
   
-  // 获取稍后再看缓存
-  getWatchLaterCache: () => any[] | null
+  // 获取订阅源缓存
+  getSubscriptionSourcesCache: (cacheKey: string) => any[] | null
   
   // 清除所有缓存
   clearAllCache: () => void
@@ -67,7 +69,7 @@ export const useCacheStore = create<CacheState>()(
     (set, get) => ({
       foldersCache: null,
       folderVideosCache: {},
-      watchLaterCache: null,
+      subscriptionSourcesCache: {},
       cacheExpiry: CACHE_EXPIRY,
       
       setFoldersCache: (data: any[]) => {
@@ -133,33 +135,42 @@ export const useCacheStore = create<CacheState>()(
         }
       },
       
-      setWatchLaterCache: (data: any[]) => {
-        set({
-          watchLaterCache: {
-            data,
-            timestamp: Date.now()
+      setSubscriptionSourcesCache: (cacheKey: string, data: any[]) => {
+        set((state) => ({
+          subscriptionSourcesCache: {
+            ...state.subscriptionSourcesCache,
+            [cacheKey]: {
+              data,
+              timestamp: Date.now()
+            }
           }
-        })
+        }))
       },
       
-      getWatchLaterCache: () => {
-        const { watchLaterCache, cacheExpiry } = get()
-        if (!watchLaterCache) return null
+      getSubscriptionSourcesCache: (cacheKey: string) => {
+        const { subscriptionSourcesCache, cacheExpiry } = get()
+        const cache = subscriptionSourcesCache[cacheKey]
         
-        const isExpired = Date.now() - watchLaterCache.timestamp > cacheExpiry
+        if (!cache) return null
+        
+        const isExpired = Date.now() - cache.timestamp > cacheExpiry
         if (isExpired) {
-          set({ watchLaterCache: null })
+          set((state) => {
+            const newCache = { ...state.subscriptionSourcesCache }
+            delete newCache[cacheKey]
+            return { subscriptionSourcesCache: newCache }
+          })
           return null
         }
         
-        return watchLaterCache.data
+        return cache.data
       },
       
       clearAllCache: () => {
         set({
           foldersCache: null,
           folderVideosCache: {},
-          watchLaterCache: null
+          subscriptionSourcesCache: {}
         })
       }
     }),
@@ -168,7 +179,7 @@ export const useCacheStore = create<CacheState>()(
       partialize: (state) => ({
         foldersCache: state.foldersCache,
         folderVideosCache: state.folderVideosCache,
-        watchLaterCache: state.watchLaterCache,
+        subscriptionSourcesCache: state.subscriptionSourcesCache,
         cacheExpiry: state.cacheExpiry
       })
     }
