@@ -10,6 +10,7 @@ import { getAvatarProxyUrl } from '../../config/api'
 import HistoryList from './HistoryList'
 import { buildDetailTaskPayload, normalizeOpusMediaId } from '../videoDetailMedia'
 import { enqueueVideoDownload } from '../../hooks/useVideoDownload'
+import { useToast } from '../../components/Toast'
 
 interface VideoInfo {
   bvid: string
@@ -60,7 +61,6 @@ export default function HomeContent() {
   const [urlInput, setUrlInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
-  const [error, setError] = useState('')
   const [parseData, setParseData] = useState<ParseResponse | null>(null)
   const navigate = useNavigate()
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
@@ -68,12 +68,12 @@ export default function HomeContent() {
   const settingsStore = useSettingsStore()
   const { settings } = settingsStore
   const addToHistory = useHistoryStore((state) => state.addToHistory)
+  const { showToast } = useToast()
 
   const handleParseUrl = async () => {
     if (!urlInput.trim()) return
 
     setLoading(true)
-    setError('')
     setParseData(null)
     setSelectedPages(new Set())
 
@@ -109,11 +109,11 @@ export default function HomeContent() {
           }
         }
       } else {
-        setError(response.message || '解析失败，请检查链接是否正确')
+        showToast(response.message || '解析失败，请检查链接是否正确', 'error')
       }
     } catch (err) {
       console.error('解析请求失败:', err)
-      setError('网络请求失败，请稍后重试')
+      showToast('网络请求失败，请稍后重试', 'error')
     } finally {
       setLoading(false)
     }
@@ -149,7 +149,6 @@ export default function HomeContent() {
     if (!parseData?.data?.video) return
 
     setDownloading(true)
-    setError('')
 
     try {
       const video = parseData.data.video
@@ -199,10 +198,10 @@ export default function HomeContent() {
         await newQueueStore.fetchSchedulers()
 
         if (result.addedCount === 0) {
-          setError(result.skippedCount > 0 ? '所选视频已在下载列表中' : '没有可添加的视频')
+          showToast(result.skippedCount > 0 ? '所选视频已在下载列表中' : '没有可添加的视频', 'warning')
         } else {
           const skippedMessage = result.skippedCount > 0 ? `，跳过 ${result.skippedCount} 个已在列表中的视频` : ''
-          setError(`已成功添加 ${result.addedCount} 个视频到下载队列${skippedMessage}`)
+          showToast(`已成功添加 ${result.addedCount} 个视频到下载队列${skippedMessage}`, 'success')
         }
         return
       }
@@ -257,7 +256,7 @@ export default function HomeContent() {
           const response = await apiService.submitTask(taskData)
 
           if (!response.success) {
-            setError(`添加下载失败: ${response.message}`)
+            showToast(`添加下载失败: ${response.message}`, 'error')
             return
           }
 
@@ -276,7 +275,7 @@ export default function HomeContent() {
           !['completed', 'cancelled'].includes(t.state)
         )
         if (existingTask) {
-          setError(isOpus ? '该图文已在下载列表中' : '该视频已在下载列表中')
+          showToast(isOpus ? '该图文已在下载列表中' : '该视频已在下载列表中', 'warning')
           setDownloading(false)
           return
         }
@@ -286,7 +285,7 @@ export default function HomeContent() {
           try {
             const isDownloaded = await videoLibraryService.isVideoDownloaded(video.bvid, cid)
             if (isDownloaded) {
-              setError('该视频已在视频库中')
+              showToast('该视频已在视频库中', 'warning')
               setDownloading(false)
               return
             }
@@ -322,7 +321,7 @@ export default function HomeContent() {
         const response = await apiService.submitTask(taskData)
 
         if (!response.success) {
-          setError(`添加下载失败: ${response.message}`)
+          showToast(`添加下载失败: ${response.message}`, 'error')
           setDownloading(false)
           return
         }
@@ -344,13 +343,13 @@ export default function HomeContent() {
         if (librarySkippedCount > 0) {
           message += `（其中 ${librarySkippedCount} 个已在视频库中）`
         }
-        setError(message)
+        showToast(message, 'success')
       } else {
-        setError(`已成功添加 ${addedCount} 个视频到下载队列`)
+        showToast(`已成功添加 ${addedCount} 个视频到下载队列`, 'success')
       }
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || '添加下载失败，请稍后重试'
-      setError(errorMessage)
+      showToast(errorMessage, 'error')
     } finally {
       setDownloading(false)
     }
@@ -422,11 +421,6 @@ const formatDuration = (seconds: any) => {
             <span className="btn-text">{loading ? '解析中...' : '解析'}</span>
           </button>
         </div>
-        {error && (
-          <div className="error-message" role="alert">
-            {error}
-          </div>
-        )}
       </div>
 
       {/* 历史记录区域 */}
