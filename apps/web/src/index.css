@@ -10633,3 +10633,36 @@ html {
 .dark .control-button:focus {
   border-color: var(--color-primary-600);
 }
+
+/* 强制修复 MediaListShell topbar 顶部间距问题 */
+@media (min-width: 769px) {
+  /* 移除所有可能影响 topbar 位置的容器间距 */
+  #history-panel,
+  #favorites-panel,
+  #watchlater-panel,
+  #subscriptions-panel {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+  
+  /* 确保 content-wrapper 内的第一个 content-section 没有顶部间距 */
+  .content-wrapper > div > .content-section:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  
+  /* 确保 MediaListShell 紧贴容器顶部 - 向上移动更多距离 */
+  .content-section .media-list-shell:first-child {
+    margin-top: -32px !important;
+  }
+  
+  /* 确保 topbar 本身不再有额外的 margin-top */
+  .content-section .media-list-shell:first-child .media-list-shell-topbar {
+    margin-top: 0 !important;
+  }
+  
+  /* 移除 body 的顶部 padding */
+  .content-section .media-list-shell .media-list-shell-body {
+    padding-top: 0 !important;
+  }
+}

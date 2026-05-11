@@ -19,6 +19,7 @@
   box-shadow: 0 1px 0 var(--color-border);
 }
 
+/* 移动端使用 portal 时的样式 */
 .media-list-shell-topbar--portal {
   position: fixed;
   top: 69px;
@@ -51,6 +52,7 @@
   padding: 0 16px 12px;
 }
 
+/* 移动端样式 */
 @media (max-width: 768px) {
   .media-list-shell-topbar {
     top: 0;
@@ -61,11 +63,13 @@
   }
 
   .media-list-shell-topbar--portal {
+    position: fixed;
     top: 69px;
     left: 0;
     right: 0;
     width: 100vw;
     margin: 0;
+    z-index: 90;
   }
 
   .media-list-shell-header {
@@ -77,8 +81,64 @@
   }
 }
 
+/* 桌面端样式 - topbar 在 home-content 区域内全宽显示 */
 @media (min-width: 769px) {
-  .media-list-shell-topbar--portal {
-    top: 81px;
+  .media-list-shell {
+    /* 向上移动更多距离，确保完全贴紧 */
+    margin-top: -32px !important;
+    padding-top: 0 !important;
+    position: relative;
+  }
+
+  .media-list-shell-topbar {
+    position: sticky;
+    top: 0;
+    /* topbar 相对于 media-list-shell 不需要额外的 margin-top */
+    margin-top: 0 !important;
+    /* 突破 content-wrapper 的左右 padding */
+    margin-left: -24px;
+    margin-right: -24px;
+    width: calc(100% + 48px);
+    z-index: 80;
+    background: var(--color-bg-primary);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: 0 1px 0 var(--color-border);
+  }
+
+  /* 在 topbar 上方添加遮挡层，使用伪元素 */
+  .media-list-shell-topbar::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: var(--color-bg-primary);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .media-list-shell-header {
+    /* 内容区域保持与 content-wrapper 对齐 */
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 24px 8px;
+  }
+
+  .media-list-shell-controls {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 12px;
+  }
+  
+  /* 移除 body 的顶部 padding */
+  .media-list-shell-body {
+    padding-top: 0 !important;
+  }
+  
+  /* 确保 content-section 没有顶部 padding */
+  .content-section {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
   }
 }

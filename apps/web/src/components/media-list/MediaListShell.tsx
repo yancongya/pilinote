@@ -44,11 +44,24 @@ export default function MediaListShell({
   const topbarRef = useRef<HTMLDivElement>(null)
   const [portalReady, setPortalReady] = useState(false)
   const [topbarHeight, setTopbarHeight] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  // 桌面端强制样式修复
+  const shellStyle: React.CSSProperties = isDesktop ? {
+    marginTop: '-32px',
+    paddingTop: 0
+  } : {}
 
   useLayoutEffect(() => {
     const updateVisibility = () => {
       const rect = shellRef.current?.getBoundingClientRect()
-      setPortalReady(Boolean(rect && rect.width > 0 && rect.height > 0))
+      const isVisible = Boolean(rect && rect.width > 0 && rect.height > 0)
+      const isMobileView = window.innerWidth <= 768
+      setIsMobile(isMobileView)
+      setIsDesktop(!isMobileView)
+      // 只在移动端启用 portal
+      setPortalReady(isVisible && isMobileView)
     }
 
     updateVisibility()
@@ -99,7 +112,7 @@ export default function MediaListShell({
   )
 
   return (
-    <section ref={shellRef} className={shellClassName}>
+    <section ref={shellRef} className={shellClassName} style={shellStyle}>
       {portalReady ? createPortal(topbarNode, document.body) : topbarNode}
       {portalReady && (
         <div
@@ -109,7 +122,7 @@ export default function MediaListShell({
         />
       )}
 
-      <div className="media-list-shell-body">
+      <div className="media-list-shell-body" style={isDesktop ? { paddingTop: 0 } : {}}>
         {loading ? (
           <MediaListState
             kind="loading"
