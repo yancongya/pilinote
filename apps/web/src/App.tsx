@@ -65,6 +65,8 @@ function App() {
         <Route path="/favorites/:folderId" element={<MainLayout />} />
         <Route path="/watch-later" element={<MainLayout />} />
         <Route path="/history" element={<MainLayout />} />
+        <Route path="/subscriptions" element={<MainLayout />} />
+        <Route path="/subscriptions/:sourceType/:sourceId" element={<MainLayout />} />
         <Route path="/downloads" element={<MainLayout />} />
         <Route path="/opus/:opusId" element={<VideoDetailPage type="opus" />} />
         <Route path="/opus/:opusId/ai" element={<AiNotePanel />} />

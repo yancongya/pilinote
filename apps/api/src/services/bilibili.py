@@ -688,7 +688,8 @@ class BilibiliService:
         params = {
             "up_mid": up_mid,
             "pn": page,
-            "ps": page_size
+            "ps": page_size,
+            "platform": "web",
         }
         
         try:
@@ -712,6 +713,45 @@ class BilibiliService:
             return {
                 "success": False,
                 "message": f"获取订阅收藏夹列表异常: {str(e)}"
+            }
+
+    async def get_subscription_season_detail(
+        self,
+        sessdata: str,
+        season_id: int,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> Dict:
+        """获取订阅合集/系列详情。"""
+        await self.headers_manager.update_cookie("SESSDATA", sessdata)
+
+        url = f"{self.api_base}/x/space/fav/season/list"
+        params = {
+            "season_id": season_id,
+            "pn": page,
+            "ps": page_size,
+        }
+
+        try:
+            response = await self._request("GET", url, params=params)
+            data = response.json()
+            print(f"订阅合集详情响应: {data}")
+
+            if data.get("code") == 0:
+                return {
+                    "success": True,
+                    "data": data.get("data", {}),
+                }
+            return {
+                "success": False,
+                "message": data.get("message", "获取订阅合集详情失败"),
+                "code": data.get("code"),
+            }
+        except Exception as e:
+            print(f"获取订阅合集详情异常: {str(e)}")
+            return {
+                "success": False,
+                "message": f"获取订阅合集详情异常: {str(e)}",
             }
 
     async def get_user_info(self, sessdata: str) -> Dict:

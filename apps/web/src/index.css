@@ -2919,6 +2919,72 @@ body {
   background: rgba(153, 153, 153, 0.1);
 }
 
+.subscription-source-controls {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+
+.subscription-source-tabs {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.subscription-source-tab {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.subscription-source-tab.active {
+  border-color: var(--color-primary-600);
+  color: var(--color-primary-600);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.subscription-source-search {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.subscription-source-search::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.subscription-source-thumbnail {
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-success-500) 100%);
+}
+
+@media (max-width: 640px) {
+  .subscription-source-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .subscription-source-tabs {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .subscription-source-tab {
+    flex: 0 0 auto;
+  }
+}
+
 /* 收藏夹详情页样式 */
 .fav-detail {
   display: flex;

@@ -14,6 +14,7 @@ from src.routers.favorites import router as favorites_router
 from src.routers.history import router as history_router
 from src.routers.video import router as video_router
 from src.routers.watchlater import router as watchlater_router
+from src.routers.subscriptions import router as subscriptions_router
 from src.routers.download import router as download_router
 from src.routers.settings import router as settings_router
 from src.routers.queue import router as queue_router
@@ -245,6 +246,7 @@ app.include_router(favorites_router)
 app.include_router(history_router)
 app.include_router(video_router)
 app.include_router(watchlater_router)
+app.include_router(subscriptions_router)
 app.include_router(download_router)
 app.include_router(settings_router)
 app.include_router(auto_download_router)

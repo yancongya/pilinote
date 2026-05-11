@@ -220,6 +220,44 @@ class ApiService {
     );
   }
 
+  // 订阅源相关API：收藏夹订阅和合集/系列订阅统一走这一组接口
+  async getSubscriptionSources(
+    type: 'all' | 'favorite_folder' | 'ugc_season' = 'all',
+    page: number = 1,
+    pageSize: number = 20,
+    keyword: string = ''
+  ): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams()
+    params.append('type', type)
+    params.append('page', String(page))
+    params.append('page_size', String(pageSize))
+    if (keyword) params.append('keyword', keyword)
+    return this.request<any>(`/api/subscriptions/sources?${params.toString()}`, {
+      method: 'GET'
+    })
+  }
+
+  async getSubscriptionSourceVideos(
+    type: 'favorite_folder' | 'ugc_season',
+    sourceId: string,
+    page: number = 1,
+    pageSize: number = 20,
+    keyword: string = '',
+    order: string = 'default',
+    sortDirection: string = 'desc'
+  ): Promise<ApiResponse<any>> {
+    const params = new URLSearchParams()
+    params.append('page', String(page))
+    params.append('page_size', String(pageSize))
+    if (keyword) params.append('keyword', keyword)
+    params.append('order', order)
+    params.append('sort_direction', sortDirection)
+    return this.request<any>(
+      `/api/subscriptions/sources/${encodeURIComponent(type)}/${encodeURIComponent(sourceId)}/videos?${params.toString()}`,
+      { method: 'GET' }
+    )
+  }
+
   // 视频详情相关API
   async getVideoDetail(
     videoId: string,

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
-import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X, ArrowLeftToLine, ArrowRightToLine, GripVertical, History } from 'lucide-react'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X, ArrowLeftToLine, ArrowRightToLine, GripVertical, History, Rss } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
 import { useTheme } from '../theme/context/ThemeContext'
@@ -10,6 +10,7 @@ import HomeContent from '../pages/components/HomeContent'
 import FavoritesContent from '../pages/components/FavoritesContent'
 import WatchLaterContent from '../pages/components/WatchLaterContent'
 import HistoryContent from '../pages/components/HistoryContent'
+import SubscriptionsContent from '../pages/components/SubscriptionsContent'
 import NewDownloadContent from '../components/NewDownload'
 import * as S from './styles/MainLayout.styles'
 
@@ -18,6 +19,7 @@ const navItems = [
   { id: 'favorites', label: '收藏', path: '/favorites', icon: Heart },
   { id: 'watch-later', label: '稍后再看', path: '/watch-later', icon: Clock },
   { id: 'history', label: '观看历史', path: '/history', icon: History },
+  { id: 'subscriptions', label: '订阅', path: '/subscriptions', icon: Rss },
   { id: 'downloads', label: '下载', path: '/downloads', icon: Download },
 ]
 
@@ -134,6 +136,7 @@ function MainLayout() {
     if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
     if (path === '/watch-later') return 'watch-later'
     if (path === '/history') return 'history'
+    if (path === '/subscriptions' || path.startsWith('/subscriptions/')) return 'subscriptions'
     if (path === '/downloads') return 'downloads'
     return 'home'
   }
@@ -323,6 +326,13 @@ function MainLayout() {
                 <LoginPrompt message="登录后可以查看和管理您的观看历史" />
               )}
             </div>
+            <div className={activeTab === 'subscriptions' ? 'block' : 'hidden'}>
+              {isAuthenticated ? (
+                <SubscriptionsContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看您的订阅收藏夹和订阅合集" />
+              )}
+            </div>
             <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
               <NewDownloadContent />
             </div>
@@ -405,6 +415,14 @@ export function WatchLaterPage() {
   return (
     <AuthGuardWrapper>
       <WatchLaterContent />
+    </AuthGuardWrapper>
+  )
+}
+
+export function SubscriptionsPage() {
+  return (
+    <AuthGuardWrapper>
+      <SubscriptionsContent />
     </AuthGuardWrapper>
   )
 }
