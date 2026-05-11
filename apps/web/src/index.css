@@ -348,21 +348,35 @@ body {
 }
 
 .error-message {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  right: 16px;
+  width: auto;
   background: var(--color-error-100);
   color: var(--color-error-600);
   padding: 14px 20px;
   font-size: 14px;
   font-weight: 500;
-  border-radius: 0 0 12px 12px;
+  border-radius: 12px;
   box-shadow: var(--shadow-error);
   animation: slideUp 200ms cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 8px;
+  z-index: 110;
+}
+
+@media (min-width: 769px) {
+  .error-message {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: 100%;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
+  }
 }
 
 /* 暗色模式下的错误消息 */
