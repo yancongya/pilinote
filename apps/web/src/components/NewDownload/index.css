@@ -4399,8 +4399,8 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  flex-wrap: wrap;
+  overflow: visible;
 }
 
 .library-folder-studio-row {
