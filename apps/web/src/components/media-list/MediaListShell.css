@@ -133,7 +133,7 @@
   
   /* 给 body 添加顶部间距，避免内容被 topbar 遮挡 */
   .media-list-shell-body {
-    padding-top: 24px !important;
+    padding-top: 120px !important;
   }
   
   /* 确保 content-section 没有顶部 padding */
