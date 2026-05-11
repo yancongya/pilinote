@@ -91,6 +91,10 @@
 }
 
 @media (min-width: 769px) {
+  .new-download-page {
+    padding-top: 0 !important;
+  }
+  
   .new-download-tabs {
     position: sticky;
     top: 0;
@@ -100,8 +104,12 @@
     /* 突破 content-wrapper 的 padding */
     margin-left: -24px !important;
     margin-right: -24px !important;
+    margin-top: -24px !important;
     width: calc(100% + 48px) !important;
     z-index: 85;
+    flex-shrink: 0;
+    min-height: 56px;
+    box-sizing: border-box;
   }
   
   /* 在 tabs 上方添加遮挡层 */
