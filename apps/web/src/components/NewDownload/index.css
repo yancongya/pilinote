@@ -4399,7 +4399,8 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .library-folder-studio-row {
@@ -4465,6 +4466,9 @@
   gap: 12px;
   font-size: 12px;
   color: var(--color-text-secondary);
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .library-folder-stats svg {
@@ -4474,6 +4478,41 @@
 .library-folder-stats span {
   font-size: 12px;
   color: var(--color-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 响应式缩放 - 屏幕变小时整体缩小 */
+@media (max-width: 1200px) {
+  .library-folder-stats {
+    gap: 10px;
+    font-size: 11px;
+  }
+  
+  .library-folder-stats span {
+    font-size: 11px;
+  }
+  
+  .library-folder-stats svg {
+    width: 11px;
+    height: 11px;
+  }
+}
+
+@media (max-width: 768px) {
+  .library-folder-stats {
+    gap: 8px;
+    font-size: 10px;
+  }
+  
+  .library-folder-stats span {
+    font-size: 10px;
+  }
+  
+  .library-folder-stats svg {
+    width: 10px;
+    height: 10px;
+  }
 }
 
 /* 标签样式 */

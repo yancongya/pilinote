@@ -17,12 +17,15 @@ export const formatDuration = (seconds: number): string => {
 /**
  * 格式化数字（播放量、评论数等）
  * @param num 数字
- * @returns 格式化的数字字符串，例如 "1.2万", "5432"
+ * @returns 格式化的数字字符串，例如 "1.2w", "5.4k", "543"
  */
 export const formatNumber = (num: number): string => {
   if (num === undefined || num === null) return '0'
   if (num >= 10000) {
-    return `${(num / 10000).toFixed(1)}万`
+    return `${(num / 10000).toFixed(1)}w`
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}k`
   }
   return num.toString()
 }
