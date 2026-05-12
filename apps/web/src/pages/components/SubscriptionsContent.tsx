@@ -170,27 +170,33 @@ export default function SubscriptionsContent() {
       // 从URL参数创建selectedSource
       const type = urlSourceType as 'ugc_season' | 'favorite_folder'
       if (type === 'ugc_season' || type === 'favorite_folder') {
-        // 先尝试从已加载的sources中找
-        const existingSource = sources.find(s => s.type === type && s.source_id === urlSourceId)
-        if (existingSource) {
-          setSelectedSource(existingSource)
-        } else {
-          // 如果sources中没有，创建一个临时的source对象
-          // 详细信息会在fetchSourceVideos时从API获取
-          setSelectedSource({
-            id: `${type}:${urlSourceId}`,
-            type,
-            source_id: urlSourceId,
-            title: '加载中...',
-            media_count: 0
-          })
-        }
+        // 创建订阅源对象（不管是否在sources中）
+        // 详细信息会在fetchSourceVideos时从API获取
+        setSelectedSource({
+          id: `${type}:${urlSourceId}`,
+          type,
+          source_id: urlSourceId,
+          title: '加载中...',
+          media_count: 0
+        })
       }
     } else {
       // 如果URL没有参数，清除selectedSource
       setSelectedSource(null)
     }
-  }, [urlSourceType, urlSourceId, sources])
+  }, [urlSourceType, urlSourceId])
+  
+  // 当sources加载完成后，尝试更新selectedSource的详细信息
+  useEffect(() => {
+    if (selectedSource && selectedSource.title === '加载中...' && sources.length > 0) {
+      const existingSource = sources.find(s => 
+        s.type === selectedSource.type && s.source_id === selectedSource.source_id
+      )
+      if (existingSource) {
+        setSelectedSource(existingSource)
+      }
+    }
+  }, [sources, selectedSource])
 
   const selectedSourceKey = selectedSource
     ? `${selectedSource.type}:${selectedSource.source_id}`
