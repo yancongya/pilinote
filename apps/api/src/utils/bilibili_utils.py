@@ -19,8 +19,6 @@ class MediaType(str, Enum):
     USER_VIDEO = "user_video"
     USER_OPUS = "user_opus"
     USER_AUDIO = "user_audio"
-    UGC_SEASON = "ugc_season"  # 合集/系列
-    SUBSCRIPTION_FAVORITE = "subscription_favorite"  # 订阅的收藏夹
 
 
 class BilibiliIDConverter:
@@ -254,23 +252,15 @@ class LinkParser:
                     
                     # ftype=collect 表示订阅的收藏夹
                     # ctype=21 表示合集/系列
-                    if ftype == 'collect':
-                        if ctype == 21:
-                            # 订阅的合集/系列
-                            return {
-                                "id": str(fid) if fid else mid,
-                                "type": MediaType.UGC_SEASON,
-                                "target": None,
-                                "original": url
-                            }
-                        else:
-                            # 订阅的普通收藏夹
-                            return {
-                                "id": str(fid) if fid else mid,
-                                "type": MediaType.SUBSCRIPTION_FAVORITE,
-                                "target": None,
-                                "original": url
-                            }
+                    # 对于订阅的收藏夹，直接使用fid作为id，target设为ctype用于区分类型
+                    if ftype == 'collect' and fid:
+                        return {
+                            "id": mid,
+                            "type": MediaType.FAVORITE,
+                            "target": fid,
+                            "ctype": ctype,  # 21表示合集，其他表示普通收藏夹
+                            "original": url
+                        }
                     
                     # 自己的收藏夹
                     return {
