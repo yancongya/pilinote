@@ -93,9 +93,17 @@ export default function HomeContent() {
         
         if (parsedId && video) {
           try {
+            // 根据类型保存不同的历史记录
+            let historyType = 'video'
+            if (parsedId.type === 'opus') {
+              historyType = 'opus'
+            } else if (parsedId.type === 'ugc_season' || parsedId.type === 'favorite_folder') {
+              historyType = parsedId.type
+            }
+            
             addToHistory({
               id: parsedId.id,
-              type: parsedId.type === 'opus' ? 'opus' : 'video',
+              type: historyType,
               title: video.title,
               cover: video.pic,
               duration: video.duration || 0,
@@ -430,11 +438,21 @@ const formatDuration = (seconds: any) => {
         <div
           className="video-info-card"
           onClick={() => {
-            if (isOpus) {
+            const parsedId = (parseData?.data as any)?.parsed_id
+            const parsedType = parsedId?.type
+            
+            if (parsedType === 'opus') {
               // 图文跳转到应用内图文详情页
-              const opusId = (parseData?.data as any)?.parsed_id?.id?.replace('cv', '') || videoInfo.aid
+              const opusId = parsedId?.id?.replace('cv', '') || videoInfo.aid
               navigate(`/opus/${opusId}`)
+            } else if (parsedType === 'ugc_season') {
+              // 合集跳转到订阅页面
+              navigate(`/subscriptions/ugc_season/${parsedId.id}`)
+            } else if (parsedType === 'favorite_folder') {
+              // 订阅收藏夹跳转到订阅页面
+              navigate(`/subscriptions/favorite_folder/${parsedId.id}`)
             } else if (videoInfo.bvid) {
+              // 普通视频跳转到视频详情页
               navigate(`/video/${videoInfo.bvid}`)
             }
           }}

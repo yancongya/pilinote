@@ -36,6 +36,10 @@ export default function HistoryCard({ item, onDelete }: HistoryCardProps) {
       navigate(`/video/${item.id}`);
     } else if (item.type === 'opus') {
       navigate(`/opus/${item.id}`);
+    } else if (item.type === 'ugc_season') {
+      navigate(`/subscriptions/ugc_season/${item.id}`);
+    } else if (item.type === 'favorite_folder') {
+      navigate(`/subscriptions/favorite_folder/${item.id}`);
     }
   };
 
@@ -50,13 +54,23 @@ export default function HistoryCard({ item, onDelete }: HistoryCardProps) {
       onClick={handleClick}
       role="button"
       tabIndex={0}
-      aria-label={`查看${item.type === 'video' ? '视频' : '图文'}：${item.title}`}
+      aria-label={`查看${
+        item.type === 'video' ? '视频' : 
+        item.type === 'opus' ? '图文' : 
+        item.type === 'ugc_season' ? '合集' : 
+        item.type === 'favorite_folder' ? '收藏夹' : 
+        '内容'
+      }：${item.title}`}
     >
       <div className="history-card-content">
         <div className="history-card-header">
           {/* 类型标签 */}
           <span className={`history-card-type ${item.type}`}>
-            {item.type === 'video' ? '视频' : '图文'}
+            {item.type === 'video' ? '视频' : 
+             item.type === 'opus' ? '图文' : 
+             item.type === 'ugc_season' ? '合集' : 
+             item.type === 'favorite_folder' ? '收藏夹' : 
+             '未知'}
           </span>
           {/* 删除图标 */}
           <div
