@@ -451,16 +451,18 @@ const formatDuration = (seconds: any) => {
             height: '180px',
             backgroundColor: 'var(--color-bg-tertiary)'
           }}>
-            <img
-              src={getProxyImageUrl(videoInfo.pic)}
-              alt={videoInfo.title}
-              className="video-cover-image"
-              style={{
-                width: '100%',
-                height: '180px',
-                objectFit: 'cover'
-              }}
-            />
+            {videoInfo.pic && (
+              <img
+                src={getProxyImageUrl(videoInfo.pic)}
+                alt={videoInfo.title}
+                className="video-cover-image"
+                style={{
+                  width: '100%',
+                  height: '180px',
+                  objectFit: 'cover'
+                }}
+              />
+            )}
             {isOpus ? (
               <div style={{
                 position: 'absolute',
@@ -508,17 +510,19 @@ const formatDuration = (seconds: any) => {
               alignItems: 'center',
               gap: '8px'
             }}>
-              <img
-                src={getProxyImageUrl(videoInfo.owner.face)}
-                alt={videoInfo.owner.name}
-                className="uploader-avatar"
-                style={{ 
-                  width: '28px', 
-                  height: '28px', 
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--color-bg-tertiary)'
-                }}
-              />
+              {videoInfo.owner.face && (
+                <img
+                  src={getProxyImageUrl(videoInfo.owner.face)}
+                  alt={videoInfo.owner.name}
+                  className="uploader-avatar"
+                  style={{ 
+                    width: '28px', 
+                    height: '28px', 
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--color-bg-tertiary)'
+                  }}
+                />
+              )}
               <span style={{
                 fontSize: '14px',
                 fontWeight: '500',
