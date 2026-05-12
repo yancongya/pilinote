@@ -171,7 +171,7 @@ export default function SubscriptionsContent() {
       const type = urlSourceType as 'ugc_season' | 'favorite_folder'
       if (type === 'ugc_season' || type === 'favorite_folder') {
         // 创建订阅源对象（不管是否在sources中）
-        // 详细信息会在fetchSourceVideos时从API获取
+        // 详细信息会在下面的useEffect中从API获取
         setSelectedSource({
           id: `${type}:${urlSourceId}`,
           type,
@@ -185,6 +185,43 @@ export default function SubscriptionsContent() {
       setSelectedSource(null)
     }
   }, [urlSourceType, urlSourceId])
+  
+  // 当selectedSource标题为"加载中..."时，从API获取详细信息
+  useEffect(() => {
+    if (!selectedSource || selectedSource.title !== '加载中...') {
+      return
+    }
+    
+    const fetchSourceInfo = async () => {
+      try {
+        const response = await apiService.getSubscriptionSourceVideos(
+          selectedSource.type,
+          selectedSource.source_id,
+          1,
+          1, // 只获取第一页的1条数据，主要是为了获取info
+          '',
+          'default',
+          'desc'
+        )
+        
+        if (response.success && response.data?.info) {
+          const info = response.data.info
+          setSelectedSource(prev => prev ? {
+            ...prev,
+            title: info.title || '未命名订阅',
+            cover: info.cover || info.pic || '',
+            media_count: info.media_count || 0,
+            upper: info.upper || info.owner,
+            updated_at: info.mtime || info.updated_at
+          } : null)
+        }
+      } catch (error) {
+        console.error('[Subscriptions] 获取订阅源信息失败:', error)
+      }
+    }
+    
+    fetchSourceInfo()
+  }, [selectedSource?.type, selectedSource?.source_id, selectedSource?.title])
   
   // 当sources加载完成后，尝试更新selectedSource的详细信息
   useEffect(() => {
@@ -207,7 +244,7 @@ export default function SubscriptionsContent() {
       return { success: true, data: { medias: [], total: 0 } }
     }
 
-    const response = await apiService.getSubscriptionSourceVideos(
+    return apiService.getSubscriptionSourceVideos(
       selectedSource.type,
       selectedSource.source_id,
       page,
@@ -216,23 +253,6 @@ export default function SubscriptionsContent() {
       order,
       sortDirection
     )
-    
-    // 如果是第一页且selectedSource的标题是"加载中..."，更新订阅源信息
-    if (page === 1 && selectedSource.title === '加载中...' && response.success && response.data?.info) {
-      const info = response.data.info
-      setSelectedSource({
-        id: `${selectedSource.type}:${selectedSource.source_id}`,
-        type: selectedSource.type,
-        source_id: selectedSource.source_id,
-        title: info.title || '未命名订阅',
-        cover: info.cover || info.pic || '',
-        media_count: info.media_count || 0,
-        upper: info.upper || info.owner,
-        updated_at: info.mtime || info.updated_at
-      })
-    }
-    
-    return response
   }, [keyword, order, selectedSource, sortDirection])
 
   const listCacheKey = selectedSource
