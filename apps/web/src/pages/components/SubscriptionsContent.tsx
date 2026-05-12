@@ -201,7 +201,7 @@ export default function SubscriptionsContent() {
       return { success: true, data: { medias: [], total: 0 } }
     }
 
-    return apiService.getSubscriptionSourceVideos(
+    const response = await apiService.getSubscriptionSourceVideos(
       selectedSource.type,
       selectedSource.source_id,
       page,
@@ -210,6 +210,23 @@ export default function SubscriptionsContent() {
       order,
       sortDirection
     )
+    
+    // 如果是第一页且selectedSource的标题是"加载中..."，更新订阅源信息
+    if (page === 1 && selectedSource.title === '加载中...' && response.success && response.data?.info) {
+      const info = response.data.info
+      setSelectedSource({
+        id: `${selectedSource.type}:${selectedSource.source_id}`,
+        type: selectedSource.type,
+        source_id: selectedSource.source_id,
+        title: info.title || '未命名订阅',
+        cover: info.cover || info.pic || '',
+        media_count: info.media_count || 0,
+        upper: info.upper || info.owner,
+        updated_at: info.mtime || info.updated_at
+      })
+    }
+    
+    return response
   }, [keyword, order, selectedSource, sortDirection])
 
   const listCacheKey = selectedSource
