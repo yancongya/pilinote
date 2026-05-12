@@ -1,0 +1,71 @@
+/* 订阅源卡片样式 */
+.subscription-source-item {
+  position: relative;
+}
+
+.subscription-source-add-btn {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--color-text-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.subscription-source-add-btn:hover:not(:disabled) {
+  background: var(--color-bg-primary);
+  color: var(--color-primary-600);
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.subscription-source-add-btn:active:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.subscription-source-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.subscription-source-add-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.subscription-source-add-btn .animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .subscription-source-add-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .subscription-source-add-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+}

@@ -188,6 +188,110 @@ async def get_subscription_source_videos(
         service.close()
 
 
+@router.get("/sources/{source_type}/{source_id}/status", response_model=dict)
+async def get_subscription_source_status(
+    source_type: str,
+    source_id: str,
+    user_sessdata: tuple = Depends(get_current_user_with_sessdata),
+):
+    """获取订阅源的下载状态。
+
+    返回状态类型：
+    - not_added: 本地没有任何该合集任务
+    - partial: 部分视频在队列或已下载 (X/Y)
+    - has_update: 合集新增了 N 个视频
+    - complete: 当前合集所有视频都已在本地或队列中
+    """
+    user, sessdata = user_sessdata
+
+    if source_type not in {"favorite_folder", "ugc_season"}:
+        raise HTTPException(status_code=400, detail="不支持的订阅源类型")
+
+    try:
+        numeric_source_id = int(source_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="无效的订阅源 ID") from exc
+
+    service = BilibiliService()
+    try:
+        # 获取订阅源详情
+        if source_type == "ugc_season":
+            detail_result = await service.get_subscription_season_detail(
+                sessdata,
+                numeric_source_id,
+                page=1,
+                page_size=100,
+            )
+        else:
+            detail_result = await service.get_folder_detail(
+                sessdata,
+                numeric_source_id,
+                page=1,
+                page_size=100,
+                order="mtime",
+            )
+
+        if not detail_result.get("success"):
+            raise HTTPException(status_code=502, detail=detail_result.get("message", "获取订阅源详情失败"))
+
+        data = detail_result.get("data") or {}
+        info = data.get("info") or {}
+        medias = data.get("medias") or []
+        if not isinstance(medias, list):
+            medias = []
+
+        # 获取所有 BVID
+        all_bvids = {media.get("bvid") for media in medias if media.get("bvid")}
+        total_count = len(all_bvids)
+
+        # 查找已存在的任务
+        existing_tasks = [
+            task for task in queue_manager.tasks.values()
+            if task.media_type == "video"
+            and task.media_id
+            and str((task.meta or {}).get("subscription_type") or "") == source_type
+            and str((task.meta or {}).get("subscription_id") or "") == str(source_id)
+            and str(task.state) not in {"6", "TaskState.CANCELLED", "cancelled"}
+        ]
+
+        existing_bvids = {task.media_id for task in existing_tasks}
+        existing_count = len(existing_bvids & all_bvids)
+
+        # 计算新增视频
+        new_bvids = all_bvids - existing_bvids
+        new_count = len(new_bvids)
+
+        # 判断状态
+        if existing_count == 0:
+            status_type = "not_added"
+            status_text = "添加系列"
+        elif existing_count == total_count:
+            status_type = "complete"
+            status_text = "已完整"
+        elif new_count > 0:
+            status_type = "has_update"
+            status_text = f"有更新 +{new_count}"
+        else:
+            status_type = "partial"
+            status_text = f"已添加 {existing_count}/{total_count}"
+
+        return {
+            "success": True,
+            "data": {
+                "source_type": source_type,
+                "source_id": str(source_id),
+                "status_type": status_type,
+                "status_text": status_text,
+                "total_count": total_count,
+                "existing_count": existing_count,
+                "new_count": new_count,
+                "title": info.get("title") or f"订阅源 {source_id}",
+            },
+        }
+    finally:
+        service.close()
+
+
 @router.post("/sources/{source_type}/{source_id}/queue", response_model=dict)
 async def add_subscription_source_to_queue(
     source_type: str,
@@ -197,6 +301,7 @@ async def add_subscription_source_to_queue(
     """将订阅源作为系列加入下载队列。
 
     每次点击都会重新拉取订阅源详情，只把当前队列里尚不存在的 BVID 加入队列。
+    支持增量更新：只添加新增的视频，已存在的视频会被跳过。
     """
     user, sessdata = user_sessdata
 
@@ -238,8 +343,11 @@ async def add_subscription_source_to_queue(
             medias = []
 
         source_title = info.get("title") or f"订阅源 {source_id}"
-        existing_bvids = {
-            task.media_id
+        current_bvids = [media.get("bvid") for media in medias if media.get("bvid")]
+        
+        # 查找已存在的任务（包括队列中和已完成的）
+        existing_tasks = {
+            task.media_id: task
             for task in queue_manager.tasks.values()
             if task.media_type == "video"
             and task.media_id
@@ -248,9 +356,21 @@ async def add_subscription_source_to_queue(
             and str(task.state) not in {"6", "TaskState.CANCELLED", "cancelled"}
         }
 
+        existing_bvids = set(existing_tasks.keys())
         task_ids: list[str] = []
         skipped_existing = 0
         invalid_count = 0
+
+        # 保存系列快照信息到 meta
+        snapshot_meta = {
+            "subscription_type": source_type,
+            "subscription_id": str(source_id),
+            "subscription_title": source_title,
+            "subscription_total": info.get("media_count") or len(medias),
+            "subscription_snapshot_at": int(__import__("time").time()),
+            "subscription_bvids": current_bvids,  # 保存当前所有 BVID
+            "source_updated_at": info.get("mtime") or info.get("pubtime") or 0,
+        }
 
         for index, media in enumerate(medias, start=1):
             bvid = media.get("bvid")
@@ -259,23 +379,27 @@ async def add_subscription_source_to_queue(
                 continue
             if bvid in existing_bvids:
                 skipped_existing += 1
+                # 更新已存在任务的快照信息
+                existing_task = existing_tasks[bvid]
+                existing_meta = existing_task.meta or {}
+                existing_meta.update({
+                    "subscription_snapshot_at": snapshot_meta["subscription_snapshot_at"],
+                    "subscription_total": snapshot_meta["subscription_total"],
+                    "source_updated_at": snapshot_meta["source_updated_at"],
+                })
                 continue
 
             title = media.get("title") or f"{source_title} P{index}"
             cover = media.get("cover") or media.get("pic") or info.get("cover") or ""
             upper = media.get("upper") or info.get("upper") or {}
+            
             meta = {
+                **snapshot_meta,
                 "page": index,
                 "part_title": title,
                 "series_title": source_title,
                 "collection_title": source_title,
                 "collection_episode_title": title,
-                "subscription_type": source_type,
-                "subscription_id": str(source_id),
-                "subscription_title": source_title,
-                "subscription_total": info.get("media_count") or len(medias),
-                "subscription_snapshot_at": int(__import__("time").time()),
-                "source_updated_at": info.get("mtime") or info.get("pubtime") or 0,
                 "source_upper": upper,
                 "pic": cover,
                 "output_subdir": f"P{str(index).zfill(2)} - {title}",
@@ -290,10 +414,7 @@ async def add_subscription_source_to_queue(
                 meta=meta,
             ))
 
-            if task_response.id not in task_ids and task_response.id not in {
-                task.id for task in queue_manager.tasks.values()
-                if task.media_id in existing_bvids
-            }:
+            if task_response.id not in task_ids:
                 task_ids.append(task_response.id)
             existing_bvids.add(bvid)
 
@@ -327,6 +448,7 @@ async def add_subscription_source_to_queue(
                 "invalid_count": invalid_count,
                 "task_ids": task_ids,
                 "scheduler_id": scheduler_id,
+                "snapshot": snapshot_meta,
             },
         }
     finally:

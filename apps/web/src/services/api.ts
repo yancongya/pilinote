@@ -258,6 +258,26 @@ class ApiService {
     )
   }
 
+  async getSubscriptionSourceStatus(
+    type: 'favorite_folder' | 'ugc_season',
+    sourceId: string
+  ): Promise<ApiResponse<any>> {
+    return this.request<any>(
+      `/api/subscriptions/sources/${encodeURIComponent(type)}/${encodeURIComponent(sourceId)}/status`,
+      { method: 'GET' }
+    )
+  }
+
+  async addSubscriptionSourceToQueue(
+    type: 'favorite_folder' | 'ugc_season',
+    sourceId: string
+  ): Promise<ApiResponse<any>> {
+    return this.request<any>(
+      `/api/subscriptions/sources/${encodeURIComponent(type)}/${encodeURIComponent(sourceId)}/queue`,
+      { method: 'POST' }
+    )
+  }
+
   // 视频详情相关API
   async getVideoDetail(
     videoId: string,

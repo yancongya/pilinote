@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, FolderHeart, ListVideo } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 import { apiService } from '../../services/api'
 import { useAuthStore } from '../../stores/auth'
@@ -9,13 +9,13 @@ import { useNewQueueStore } from '../../stores/newQueue'
 import { useVideoList } from '../../hooks/useVideoList'
 import { useVideoDownload } from '../../hooks/useVideoDownload'
 import { videoLibraryService } from '../../services/videoLibraryService'
-import { getAvatarProxyUrl } from '../../config/api'
 import { formatDuration, formatNumber, formatTime } from '../../utils/videoFormatters'
 import MediaListShell from '../../components/media-list/MediaListShell'
 import MediaListTopBar from '../../components/media-list/MediaListTopBar'
 import VideoListContainer from '../../components/VideoListContainer'
 import VideoListControls from '../../components/VideoListControls'
 import AlertModal from '../../components/AlertModal'
+import SubscriptionSourceCard from './SubscriptionSourceCard'
 
 type SubscriptionSourceType = 'all' | 'favorite_folder' | 'ugc_season'
 
@@ -364,6 +364,13 @@ export default function SubscriptionsContent() {
     }
   }, [baseToggleDownload])
 
+  const handleSourceStatusChange = useCallback(() => {
+    // 当订阅源状态改变时，刷新任务列表
+    newQueueStore.forceClearCache()
+    newQueueStore.fetchTasks()
+    newQueueStore.fetchSchedulers()
+  }, [newQueueStore])
+
   const filteredSources = useMemo(() => sources, [sources])
 
   if (!user?.mid) {
@@ -423,36 +430,15 @@ export default function SubscriptionsContent() {
         >
           <div className="fav-folder-list subscription-source-list" role="list" aria-label="订阅源列表">
             {filteredSources.map(source => (
-              <article
+              <SubscriptionSourceCard
                 key={source.id}
-                className="fav-folder-item subscription-source-item"
+                source={source}
                 onClick={() => {
                   setSelectedSource(source)
                   navigate(`/subscriptions/${source.type}/${source.source_id}`, { replace: true })
                 }}
-                role="listitem"
-                tabIndex={0}
-              >
-                <div className="fav-folder-cover">
-                  <div className="fav-folder-thumbnail subscription-source-thumbnail">
-                    {source.cover ? (
-                      <img src={getAvatarProxyUrl(source.cover)} alt={source.title} className="w-full h-full object-cover" />
-                    ) : source.type === 'favorite_folder' ? (
-                      <FolderHeart />
-                    ) : (
-                      <ListVideo />
-                    )}
-                  </div>
-                </div>
-                <div className="fav-folder-info">
-                  <h3>{source.title}</h3>
-                  <div className="fav-folder-meta">
-                    <span className="fav-folder-status public">{sourceTypeLabel(source.type)}</span>
-                    <span className="fav-folder-count">{source.media_count || 0}个视频</span>
-                    {source.upper?.name && <span className="fav-folder-count">{source.upper.name}</span>}
-                  </div>
-                </div>
-              </article>
+                onStatusChange={handleSourceStatusChange}
+              />
             ))}
           </div>
         </MediaListShell>
