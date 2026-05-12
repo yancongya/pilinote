@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, FolderHeart, ListVideo } from 'lucide-react'
 
 import { apiService } from '../../services/api'
@@ -53,6 +53,7 @@ const normalizeSource = (source: any): SubscriptionSource => {
 export default function SubscriptionsContent() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const { sourceType: urlSourceType, sourceId: urlSourceId } = useParams<{ sourceType?: string; sourceId?: string }>()
   const newQueueStore = useNewQueueStore()
   const { getSubscriptionSourcesCache, setSubscriptionSourcesCache } = useCacheStore()
   const [selectedSource, setSelectedSource] = useState<SubscriptionSource | null>(null)
@@ -162,6 +163,34 @@ export default function SubscriptionsContent() {
     sourcesLoadedRef.current = false
     void fetchSources()
   }, [fetchSources])
+
+  // 处理URL参数，自动选择订阅源
+  useEffect(() => {
+    if (urlSourceType && urlSourceId) {
+      // 从URL参数创建selectedSource
+      const type = urlSourceType as 'ugc_season' | 'favorite_folder'
+      if (type === 'ugc_season' || type === 'favorite_folder') {
+        // 先尝试从已加载的sources中找
+        const existingSource = sources.find(s => s.type === type && s.source_id === urlSourceId)
+        if (existingSource) {
+          setSelectedSource(existingSource)
+        } else {
+          // 如果sources中没有，创建一个临时的source对象
+          // 详细信息会在fetchSourceVideos时从API获取
+          setSelectedSource({
+            id: `${type}:${urlSourceId}`,
+            type,
+            source_id: urlSourceId,
+            title: '加载中...',
+            media_count: 0
+          })
+        }
+      }
+    } else {
+      // 如果URL没有参数，清除selectedSource
+      setSelectedSource(null)
+    }
+  }, [urlSourceType, urlSourceId, sources])
 
   const selectedSourceKey = selectedSource
     ? `${selectedSource.type}:${selectedSource.source_id}`
