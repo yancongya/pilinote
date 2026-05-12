@@ -19,6 +19,8 @@ class MediaType(str, Enum):
     USER_VIDEO = "user_video"
     USER_OPUS = "user_opus"
     USER_AUDIO = "user_audio"
+    UGC_SEASON = "ugc_season"  # 合集/系列
+    SUBSCRIPTION_FAVORITE = "subscription_favorite"  # 订阅的收藏夹
 
 
 class BilibiliIDConverter:
@@ -243,6 +245,34 @@ class LinkParser:
                 if type_ == 'favlist':
                     fid_match = re.search(r'fid=(\d+)', params)
                     fid = int(fid_match.group(1)) if fid_match else None
+                    
+                    # 检查是否为订阅的收藏夹（别人的收藏夹）
+                    ftype_match = re.search(r'ftype=(\w+)', params)
+                    ctype_match = re.search(r'ctype=(\d+)', params)
+                    ftype = ftype_match.group(1) if ftype_match else None
+                    ctype = int(ctype_match.group(1)) if ctype_match else None
+                    
+                    # ftype=collect 表示订阅的收藏夹
+                    # ctype=21 表示合集/系列
+                    if ftype == 'collect':
+                        if ctype == 21:
+                            # 订阅的合集/系列
+                            return {
+                                "id": str(fid) if fid else mid,
+                                "type": MediaType.UGC_SEASON,
+                                "target": None,
+                                "original": url
+                            }
+                        else:
+                            # 订阅的普通收藏夹
+                            return {
+                                "id": str(fid) if fid else mid,
+                                "type": MediaType.SUBSCRIPTION_FAVORITE,
+                                "target": None,
+                                "original": url
+                            }
+                    
+                    # 自己的收藏夹
                     return {
                         "id": mid,
                         "type": MediaType.FAVORITE,

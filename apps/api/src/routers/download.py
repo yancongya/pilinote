@@ -340,6 +340,171 @@ async def parse_link(request: ParseLinkRequest):
                         }
                     )
 
+        # 特殊处理：订阅的合集/系列
+        elif media_type == MediaType.UGC_SEASON:
+            from src.services.bilibili import BilibiliService
+            bilibili_service = BilibiliService()
+
+            try:
+                season_id = int(parsed["id"])
+                season_detail_result = await bilibili_service.get_subscription_season_detail(
+                    request.sessdata or "",
+                    season_id,
+                    page=1,
+                    page_size=100
+                )
+
+                if not season_detail_result["success"]:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=season_detail_result.get("message", "获取合集信息失败")
+                    )
+
+                data = season_detail_result["data"]
+                info = data.get("info", {})
+                medias = data.get("medias", [])
+
+                if not medias:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="合集暂无内容"
+                    )
+
+                first_media = medias[0]
+                upper = info.get("upper", {})
+
+                return ParseLinkResponse(
+                    success=True,
+                    data={
+                        "parsed_id": ParsedVideoId(
+                            id=str(season_id),
+                            type=parsed["type"].value,
+                            original=parsed["original"]
+                        ),
+                        "video": VideoInfo(
+                            bvid=first_media.get("bvid", ""),
+                            aid=first_media.get("aid", 0),
+                            title=info.get("title", ""),
+                            desc=info.get("intro", ""),
+                            pic=info.get("cover", ""),
+                            duration=sum(m.get("duration", 0) for m in medias),
+                            pubdate=info.get("mtime", 0),
+                            cid=first_media.get("cid", 0),
+                            owner={
+                                "mid": upper.get("mid", 0),
+                                "name": upper.get("name", ""),
+                                "face": upper.get("face", "")
+                            },
+                            stat={
+                                "view": info.get("stat", {}).get("view", 0),
+                                "danmaku": 0
+                            }
+                        ),
+                        "download_options": {
+                            "multi_part": True,
+                            "pages": [
+                                VideoPages(
+                                    page=idx + 1,
+                                    cid=media.get("cid", 0),
+                                    part=media.get("title", f"P{idx + 1}"),
+                                    duration=media.get("duration", 0)
+                                )
+                                for idx, media in enumerate(medias)
+                            ]
+                        },
+                        "season_info": {
+                            "season_id": season_id,
+                            "total": info.get("media_count", len(medias)),
+                            "medias": medias
+                        }
+                    }
+                )
+            finally:
+                bilibili_service.close()
+
+        # 特殊处理：订阅的收藏夹
+        elif media_type == MediaType.SUBSCRIPTION_FAVORITE:
+            from src.services.bilibili import BilibiliService
+            bilibili_service = BilibiliService()
+
+            try:
+                folder_id = int(parsed["id"])
+                folder_detail_result = await bilibili_service.get_folder_detail(
+                    request.sessdata or "",
+                    folder_id,
+                    page=1,
+                    page_size=100,
+                    order="mtime"
+                )
+
+                if not folder_detail_result["success"]:
+                    return ParseLinkResponse(
+                        success=False,
+                        message=folder_detail_result.get("message", "获取收藏夹信息失败")
+                    )
+
+                data = folder_detail_result["data"]
+                info = data.get("info", {})
+                medias = data.get("medias", [])
+
+                if not medias:
+                    return ParseLinkResponse(
+                        success=False,
+                        message="收藏夹暂无内容"
+                    )
+
+                first_media = medias[0]
+                upper = info.get("upper", {})
+
+                return ParseLinkResponse(
+                    success=True,
+                    data={
+                        "parsed_id": ParsedVideoId(
+                            id=str(folder_id),
+                            type=parsed["type"].value,
+                            original=parsed["original"]
+                        ),
+                        "video": VideoInfo(
+                            bvid=first_media.get("bvid", ""),
+                            aid=first_media.get("aid", 0),
+                            title=info.get("title", ""),
+                            desc=info.get("intro", "") or info.get("description", ""),
+                            pic=info.get("cover", ""),
+                            duration=sum(m.get("duration", 0) for m in medias),
+                            pubdate=info.get("mtime", 0),
+                            cid=first_media.get("cid", 0),
+                            owner={
+                                "mid": upper.get("mid", 0),
+                                "name": upper.get("name", ""),
+                                "face": upper.get("face", "")
+                            },
+                            stat={
+                                "view": info.get("cnt_info", {}).get("play", 0),
+                                "danmaku": 0
+                            }
+                        ),
+                        "download_options": {
+                            "multi_part": True,
+                            "pages": [
+                                VideoPages(
+                                    page=idx + 1,
+                                    cid=media.get("cid", 0),
+                                    part=media.get("title", f"P{idx + 1}"),
+                                    duration=media.get("duration", 0)
+                                )
+                                for idx, media in enumerate(medias)
+                            ]
+                        },
+                        "favorite_info": {
+                            "folder_id": folder_id,
+                            "total": info.get("media_count", len(medias)),
+                            "medias": medias
+                        }
+                    }
+                )
+            finally:
+                bilibili_service.close()
+
         # 特殊处理：收藏夹
         elif media_type == MediaType.FAVORITE:
             async with httpx.AsyncClient(timeout=30.0) as client:
