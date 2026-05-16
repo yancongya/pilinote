@@ -166,10 +166,11 @@ class VersionManager:
                 if f.stem not in seen_stems:
                     seen_stems.add(f.stem)
                     # 推断来源标签
-                    if ".zh-CN" in f.name:
-                        source_label = "B站CC字幕"
-                    elif ".ai-zh" in f.name:
+                    filename_lower = f.name.lower()
+                    if ".ai." in filename_lower or ".ai-" in filename_lower:
                         source_label = "AI语音识别"
+                    elif ".zh-cn" in filename_lower:
+                        source_label = "B站CC字幕"
                     else:
                         source_label = "字幕"
                     result.append({
