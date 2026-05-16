@@ -18,6 +18,7 @@ from src.services.opus_archive_service import (
 from src.services.nfo_metadata import attach_video_comments, generate_video_nfo
 from src.database import SessionLocal
 from src.utils.error_handler import ErrorHandler, handle_error
+from .utils import resolve_video_part_context
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +163,7 @@ class TaskService:
             raise Exception(result.get('message', '获取视频信息失败'))
 
         video_info = result['data']
+        resolved_parts = await resolve_video_part_context(self.task.media_id, self.task.meta)
 
         # 保存元数据 - 合并原有的 meta 信息（包含 cid、page、part_title 等）
         if self.task.meta and isinstance(self.task.meta, dict):
@@ -176,6 +178,7 @@ class TaskService:
                     'collection_bvid',
                     'collection_title',
                     'collection_episode_title',
+                    'collection_index',
                     'output_subdir',
                 )
                 if key in self.task.meta
@@ -186,6 +189,31 @@ class TaskService:
             self.task.meta.update(preserved_meta)
         else:
             self.task.meta = {**video_info, 'bvid': self.task.media_id}
+
+        if resolved_parts.get('aid'):
+            self.task.meta['aid'] = resolved_parts['aid']
+        if resolved_parts.get('pages'):
+            self.task.meta['pages'] = [
+                {
+                    'page': page['page'],
+                    'cid': page['cid'],
+                    'part': page['part'],
+                    'duration': page['duration'],
+                }
+                for page in resolved_parts['pages']
+            ]
+
+        matched_part = resolved_parts.get('matched') or {}
+        if matched_part.get('cid') and not self.task.meta.get('cid'):
+            self.task.meta['cid'] = matched_part['cid']
+        if (
+            matched_part.get('page')
+            and not self.task.meta.get('page')
+            and not self.task.meta.get('collection_title')
+        ):
+            self.task.meta['page'] = matched_part['page']
+        if matched_part.get('part') and not self.task.meta.get('part_title'):
+            self.task.meta['part_title'] = matched_part['part']
 
         await attach_video_comments(bilibili_service, self.task.meta)
 

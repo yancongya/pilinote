@@ -14,6 +14,7 @@ from src.services.bilibili import BilibiliService
 from src.database import SessionLocal
 from src.services.nfo_metadata import attach_video_comments
 from src.services.opus_archive_service import sanitize_filename_component
+from .utils import resolve_video_part_context
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,7 @@ class SchedulerService:
                 raise Exception(result.get('message', '获取视频信息失败'))
 
             video_info = result['data']
+            resolved_parts = await resolve_video_part_context(task.media_id, task.meta)
 
             # 保存元数据 - 保留原有的分P信息
             logger.info(f"[DEBUG] 准备任务 {task.id}，原始meta keys: {list(task.meta.keys()) if task.meta else 'None'}")
@@ -103,6 +105,7 @@ class SchedulerService:
                         'collection_bvid',
                         'collection_title',
                         'collection_episode_title',
+                        'collection_index',
                         'output_subdir',
                     )
                     if key in task.meta
@@ -117,6 +120,31 @@ class SchedulerService:
             else:
                 task.meta = {**video_info, 'bvid': task.media_id}
                 logger.info(f"[DEBUG] meta为空或不是dict，直接使用video_info")
+
+            if resolved_parts.get('aid'):
+                task.meta['aid'] = resolved_parts['aid']
+            if resolved_parts.get('pages'):
+                task.meta['pages'] = [
+                    {
+                        'page': page['page'],
+                        'cid': page['cid'],
+                        'part': page['part'],
+                        'duration': page['duration'],
+                    }
+                    for page in resolved_parts['pages']
+                ]
+
+            matched_part = resolved_parts.get('matched') or {}
+            if matched_part.get('cid') and not task.meta.get('cid'):
+                task.meta['cid'] = matched_part['cid']
+            if (
+                matched_part.get('page')
+                and not task.meta.get('page')
+                and not task.meta.get('collection_title')
+            ):
+                task.meta['page'] = matched_part['page']
+            if matched_part.get('part') and not task.meta.get('part_title'):
+                task.meta['part_title'] = matched_part['part']
 
             await attach_video_comments(bilibili_service, task.meta)
 

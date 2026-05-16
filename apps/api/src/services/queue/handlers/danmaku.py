@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 
 from .base import BaseHandler, ProgressCallback
 from src.models.task import Task, SubTask
+from src.services.queue.utils import resolve_video_part_context
 
 logger = logging.getLogger(__name__)
 
@@ -92,22 +93,9 @@ class DanmakuHandler(BaseHandler):
     async def _get_video_info(self, media_id: str) -> tuple[int, int]:
         """获取视频的 aid 和 cid"""
         try:
-            from src.services.bilibili import BilibiliService
-            
-            bilibili_service = BilibiliService()
-            try:
-                video_info = await bilibili_service.get_video_info(media_id)
-                if video_info.get("success"):
-                    data = video_info.get("data", {})
-                    aid = int(data.get("aid", 0)) if data.get("aid") else None
-                    
-                    pages = data.get("pages", [])
-                    cid = int(pages[0].get("cid", 0)) if pages and pages[0].get("cid") else None
-                    
-                    return aid, cid
-            finally:
-                bilibili_service.close()
-                
+            resolved = await resolve_video_part_context(media_id)
+            matched = resolved.get("matched") or {}
+            return resolved.get("aid"), matched.get("cid")
         except Exception as e:
             logger.error(f"获取视频信息失败: {e}")
         

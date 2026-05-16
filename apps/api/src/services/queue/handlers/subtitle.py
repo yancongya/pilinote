@@ -4,6 +4,7 @@ import logging
 
 from .base import BaseHandler, ProgressCallback
 from src.models.task import Task, SubTask
+from src.services.queue.utils import resolve_video_part_context
 
 logger = logging.getLogger(__name__)
 
@@ -24,29 +25,61 @@ class SubtitleHandler(BaseHandler):
         media_id = subtask_data.get('bvid') or meta.get('bvid') or ''
         aid = _to_int(meta.get('aid') or subtask_data.get('aid'))
         cid = _to_int(meta.get('cid') or subtask_data.get('cid'))
-
-        if not aid or not cid:
-            aid, fallback_cid = await self._get_video_info(media_id)
-            cid = cid or fallback_cid
-
-        if not aid or not cid:
-            logger.warning(f"字幕下载缺少 aid/cid，跳过: {media_id}")
-            return False
-
         output_dir.mkdir(parents=True, exist_ok=True)
         base_filename = Path(subtask_data.get('filename') or meta.get('title') or media_id or 'subtitle').stem
         safe_title = self._safe_filename(base_filename)
-        subtitles = await self._get_subtitles(aid, cid)
-        if not subtitles:
-            logger.info(f"视频 {media_id} cid={cid} 没有可用字幕")
+        resolved = await resolve_video_part_context(media_id, meta)
+        aid = aid or _to_int(resolved.get("aid"))
+
+        part_contexts: list[dict] = []
+        if cid:
+            part_contexts.append({
+                "cid": cid,
+                "page": _to_int(meta.get("page")),
+                "part": meta.get("part_title") or safe_title,
+                "base_filename": safe_title,
+            })
+        else:
+            pages = resolved.get("pages") or []
+            for page in pages:
+                page_cid = _to_int(page.get("cid"))
+                if not page_cid:
+                    continue
+                page_num = _to_int(page.get("page")) or len(part_contexts) + 1
+                part_title = page.get("part") or f"P{page_num}"
+                part_contexts.append({
+                    "cid": page_cid,
+                    "page": page_num,
+                    "part": part_title,
+                    "base_filename": self._safe_filename(f"P{page_num:02d} - {part_title}"),
+                })
+
+        if not aid or not part_contexts:
+            logger.warning(f"字幕下载缺少 aid/cid，跳过: {media_id}")
             return False
 
         downloaded_count = 0
-        for index, subtitle in enumerate(self._select_subtitles(subtitles)):
-            if await self._download_subtitle(subtitle, output_dir, safe_title, index):
-                downloaded_count += 1
+        attempted_tracks = 0
+        for part_context in part_contexts:
+            subtitles = await self._get_subtitles(aid, part_context["cid"])
+            if not subtitles:
+                logger.info(f"视频 {media_id} cid={part_context['cid']} 没有可用字幕")
+                continue
 
-        logger.info(f"字幕下载完成: {downloaded_count}/{len(subtitles)} aid={aid} cid={cid}")
+            selected = self._select_subtitles(subtitles)
+            attempted_tracks += len(selected)
+            for index, subtitle in enumerate(selected):
+                if await self._download_subtitle(
+                    subtitle,
+                    output_dir,
+                    part_context["base_filename"],
+                    index,
+                ):
+                    downloaded_count += 1
+
+        logger.info(
+            f"字幕下载完成: {downloaded_count}/{attempted_tracks} aid={aid} parts={len(part_contexts)}"
+        )
         return downloaded_count > 0
 
     async def execute(self, task: Task, subtask: SubTask, progress_callback: ProgressCallback) -> bool:
@@ -61,26 +94,6 @@ class SubtitleHandler(BaseHandler):
             logger.error(f"字幕下载异常: {e}", exc_info=True)
             await progress_callback.update(0, 100, f"字幕下载失败: {str(e)}")
             return False
-
-    async def _get_video_info(self, media_id: str) -> tuple[int | None, int | None]:
-        if not media_id:
-            return None, None
-        try:
-            from src.services.bilibili import BilibiliService
-
-            bilibili_service = BilibiliService()
-            try:
-                await bilibili_service.init()
-                video_info = await bilibili_service.get_video_info(media_id)
-                if video_info.get("success"):
-                    data = video_info.get("data", {})
-                    pages = data.get("pages", []) or []
-                    return _to_int(data.get("aid")), _to_int(pages[0].get("cid")) if pages else None
-            finally:
-                bilibili_service.close()
-        except Exception as e:
-            logger.error(f"获取视频信息失败: {e}")
-        return None, None
 
     async def _get_subtitles(self, aid: int, cid: int) -> list[dict]:
         from src.services.bilibili import BilibiliService

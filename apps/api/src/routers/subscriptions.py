@@ -397,11 +397,11 @@ async def add_subscription_source_to_queue(
             
             meta = {
                 **snapshot_meta,
-                "page": index,
                 "part_title": title,
                 "series_title": source_title,
                 "collection_title": source_title,
                 "collection_episode_title": title,
+                "collection_index": index,
                 "source_upper": upper,
                 "pic": cover,
                 "output_subdir": f"P{str(index).zfill(2)} - {title}",
