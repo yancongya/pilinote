@@ -1147,7 +1147,7 @@ class DownloadService:
             video_dir.mkdir(exist_ok=True)
 
             # 使用下载引擎下载视频到临时目录
-            await self.download_engine.download_video(
+            download_result = await self.download_engine.download_video(
                 bvid=download.bvid,
                 quality=download.quality,
                 output_format=download.output_format,
@@ -1167,6 +1167,13 @@ class DownloadService:
                 audio_bitrate=download.audio_bitrate,
                 codec=download.codec,
             )
+
+            if isinstance(download_result, dict):
+                logger.info(
+                    "Legacy DownloadService engine runtime for %s: %s",
+                    download.bvid,
+                    download_result,
+                )
 
             # 获取下载的文件路径
             video_files = [

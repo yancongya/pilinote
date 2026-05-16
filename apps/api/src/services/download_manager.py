@@ -506,7 +506,7 @@ class DownloadManager:
             logger.info(
                 f"Calling download_engine.download_video for {download.bvid}, output_path: {output_path}"
             )
-            await engine.download_video(
+            download_result = await engine.download_video(
                 bvid=download.bvid,
                 quality=download.quality,
                 output_format=download.output_format,
@@ -519,6 +519,12 @@ class DownloadManager:
                 cid=download.cid,
                 download_id=download_id,
             )
+            if isinstance(download_result, dict):
+                logger.info(
+                    "Legacy DownloadManager engine runtime for %s: %s",
+                    download.bvid,
+                    download_result,
+                )
             logger.info(f"Download video completed for {download.bvid}")
 
             # 更新文件路径

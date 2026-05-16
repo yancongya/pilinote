@@ -83,6 +83,11 @@ class UnifiedQueueManager:
     - 子任务处理和编排
     - 实时事件推送
     - 错误处理和重试
+
+    兼容层说明：
+    - 当前下载主路径是 queue_manager -> TaskService -> DownloadEngine
+    - 本管理器属于历史并行体系，当前阶段不应继续扩展下载能力所有权
+    - 新的下载管线改造应优先落在主路径
     """
     
     _instance: Optional['UnifiedQueueManager'] = None
