@@ -697,7 +697,7 @@ class TaskService:
                         logger.info(f"📌 检测到分P信息: cid={cid}, page={page_num}, part_title={self.task.meta.get('part_title')}")
 
                 # 下载到临时目录（如果是分P，只下载特定分P）
-                await engine.download_video(
+                download_result = await engine.download_video(
                     bvid=self.task.media_id,
                     quality=80,  # 默认1080P
                     output_format='mp4',
@@ -707,6 +707,10 @@ class TaskService:
                     cid=cid,  # 传递cid（用于识别）
                     page_num=page_num  # 传递page序号（用于playlist_items）
                 )
+
+                if isinstance(download_result, dict):
+                    self.task.meta['downloadRuntime'] = download_result
+                    logger.info("✓ 下载运行时元数据: %s", download_result)
 
                 logger.info("✓ 媒体文件下载到临时目录完成")
 

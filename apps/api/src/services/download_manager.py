@@ -38,6 +38,10 @@ class DownloadManager:
     - 任务状态管理
     - 暂停/继续/取消操作
     - 进度追踪
+
+    兼容层说明：
+    - 主下载路径已经收束到 queue_manager -> TaskService -> DownloadEngine
+    - 本管理器属于历史下载体系，当前阶段仅做兼容，不再扩展为功能权威入口
     """
 
     def __init__(self, max_concurrent: int = 3):

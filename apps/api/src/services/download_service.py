@@ -18,7 +18,13 @@ logger = logging.getLogger(__name__)
 
 
 class DownloadService:
-    """下载服务类 - 管理下载任务"""
+    """下载服务类 - 管理下载任务
+
+    兼容层说明：
+    - 主下载路径已经收束到 queue_manager -> TaskService -> DownloadEngine
+    - 本服务仍保留给旧调用方使用，但不再作为下载能力的功能权威入口
+    - 新的下载行为应优先落在 DownloadEngine / TaskService
+    """
 
     def __init__(self):
         # 存储活跃的下载任务
