@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 import logging
@@ -244,13 +245,10 @@ async def get_subscription_source_status(
         all_bvids = {media.get("bvid") for media in medias if media.get("bvid")}
         total_count = len(all_bvids)
 
-        # 查找已存在的任务
         existing_tasks = [
             task for task in queue_manager.tasks.values()
             if task.media_type == "video"
             and task.media_id
-            and str((task.meta or {}).get("subscription_type") or "") == source_type
-            and str((task.meta or {}).get("subscription_id") or "") == str(source_id)
             and str(task.state) not in {"6", "TaskState.CANCELLED", "cancelled"}
         ]
 
@@ -345,8 +343,7 @@ async def add_subscription_source_to_queue(
         source_title = info.get("title") or f"订阅源 {source_id}"
         current_bvids = [media.get("bvid") for media in medias if media.get("bvid")]
         
-        # 查找已存在的任务（包括队列中和已完成的）
-        existing_tasks = {
+        existing_subscription_tasks = {
             task.media_id: task
             for task in queue_manager.tasks.values()
             if task.media_type == "video"
@@ -355,20 +352,25 @@ async def add_subscription_source_to_queue(
             and str((task.meta or {}).get("subscription_id") or "") == str(source_id)
             and str(task.state) not in {"6", "TaskState.CANCELLED", "cancelled"}
         }
+        existing_any_bvids = {
+            task.media_id
+            for task in queue_manager.tasks.values()
+            if task.media_type == "video"
+            and task.media_id
+            and str(task.state) not in {"6", "TaskState.CANCELLED", "cancelled"}
+        }
 
-        existing_bvids = set(existing_tasks.keys())
         task_ids: list[str] = []
         skipped_existing = 0
         invalid_count = 0
 
-        # 保存系列快照信息到 meta
         snapshot_meta = {
             "subscription_type": source_type,
             "subscription_id": str(source_id),
             "subscription_title": source_title,
             "subscription_total": info.get("media_count") or len(medias),
-            "subscription_snapshot_at": int(__import__("time").time()),
-            "subscription_bvids": current_bvids,  # 保存当前所有 BVID
+            "subscription_snapshot_at": int(time.time()),
+            "subscription_bvids": current_bvids,
             "source_updated_at": info.get("mtime") or info.get("pubtime") or 0,
         }
 
@@ -377,16 +379,16 @@ async def add_subscription_source_to_queue(
             if not bvid:
                 invalid_count += 1
                 continue
-            if bvid in existing_bvids:
+            if bvid in existing_any_bvids:
                 skipped_existing += 1
-                # 更新已存在任务的快照信息
-                existing_task = existing_tasks[bvid]
-                existing_meta = existing_task.meta or {}
-                existing_meta.update({
-                    "subscription_snapshot_at": snapshot_meta["subscription_snapshot_at"],
-                    "subscription_total": snapshot_meta["subscription_total"],
-                    "source_updated_at": snapshot_meta["source_updated_at"],
-                })
+                existing_task = existing_subscription_tasks.get(bvid)
+                if existing_task:
+                    existing_task.meta = {
+                        **(existing_task.meta or {}),
+                        "subscription_snapshot_at": snapshot_meta["subscription_snapshot_at"],
+                        "subscription_total": snapshot_meta["subscription_total"],
+                        "source_updated_at": snapshot_meta["source_updated_at"],
+                    }
                 continue
 
             title = media.get("title") or f"{source_title} P{index}"
@@ -416,7 +418,7 @@ async def add_subscription_source_to_queue(
 
             if task_response.id not in task_ids:
                 task_ids.append(task_response.id)
-            existing_bvids.add(bvid)
+            existing_any_bvids.add(bvid)
 
         scheduler_id = None
         if task_ids:
