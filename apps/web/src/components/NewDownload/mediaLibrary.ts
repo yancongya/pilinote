@@ -6,6 +6,8 @@ export interface MediaLibraryFile {
   size: number
   size_mb: number
   cover_path?: string
+  metadata_breakdown?: Record<string, number>
+  metadata_files_by_type?: Record<string, Array<{ name: string; path: string; size: number }>>
   modified_time: number
   modified_date: string
 }
@@ -17,7 +19,10 @@ export interface MediaLibraryFolderMetadata {
   file_count: number
   size: number
   content_size?: number
+  content_files?: MediaLibraryFile[]
   metadata_size: number
+  metadata_breakdown?: Record<string, number>
+  metadata_files_by_type?: Record<string, Array<{ name: string; path: string; size: number }>>
   total_size: number
   size_mb: number
   size_gb: number
@@ -125,7 +130,10 @@ export function convertScanDataToMediaTasks(scanData: MediaLibraryScanData): Tas
         folder_path: folder.path,
         file_count: folder.file_count,
         total_size: totalSize,
+        content_files: folder.content_files || [],
         metadata_size: metadataSize,
+        metadata_breakdown: folder.metadata_breakdown || {},
+        metadata_files_by_type: folder.metadata_files_by_type || {},
         primary_size: primarySize,
         primary_size_label: mediaType === 'opus' ? '文档/图片' : '视频',
         media_type: mediaType,

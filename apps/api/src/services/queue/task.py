@@ -236,12 +236,13 @@ class TaskService:
     def _create_subtasks(self, info: dict) -> List[dict]:
         """创建子任务列表"""
         subtasks = []
+        safe_title = sanitize_filename_component(str(info.get('title', 'video')), fallback='video')
 
         # 视频下载
         subtasks.append({
             'type': SubTaskType.VIDEO,
             'bvid': self.task.media_id,
-            'filename': f"{info.get('title', 'video')}.mp4"
+            'filename': f"{safe_title}.mp4"
         })
 
         # 字幕下载
@@ -249,7 +250,7 @@ class TaskService:
             subtasks.append({
                 'type': SubTaskType.SUBTITLES,
                 'bvid': self.task.media_id,
-                'filename': f"{info.get('title', 'video')}.srt"
+                'filename': f"{safe_title}.srt"
             })
 
         # 封面下载
@@ -274,7 +275,7 @@ class TaskService:
         subtasks.append({
             'type': SubTaskType.SINGLE_NFO,
             'meta': self.task.meta if isinstance(self.task.meta, dict) else info,
-            'filename': f"{info.get('title', 'video')}.nfo"
+            'filename': f"{safe_title}.nfo"
         })
 
         return subtasks

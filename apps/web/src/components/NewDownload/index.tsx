@@ -1,5 +1,5 @@
 // components/NewDownload/index.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useNewQueueStore } from '../../stores/newQueue'
 import DownloadsList from './DownloadsList'
@@ -13,10 +13,17 @@ const TABS = ['downloads', 'library', 'scan'] as const
 export default function NewDownloadContent() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { activeTab: storeActiveTab, setActiveTab: storeSetActiveTab, connectWebSocket, fetchTasks, fetchSchedulers } = useNewQueueStore()
-  const [isLoading, setIsLoading] = useState(true)
-  const tabsRef = useRef<HTMLDivElement>(null)
-  const [tabsHeight, setTabsHeight] = useState(0)
+  const {
+    activeTab: storeActiveTab,
+    setActiveTab: storeSetActiveTab,
+    connectWebSocket,
+    fetchTasks,
+    fetchSchedulers,
+    tasks,
+    schedulers,
+  } = useNewQueueStore()
+  const hasCachedQueueData = Object.keys(tasks).length > 0 || Object.keys(schedulers).length > 0
+  const [isLoading, setIsLoading] = useState(!hasCachedQueueData)
 
   // 从 hash 初始化 activeTab
   const getInitialTab = () => {
@@ -53,7 +60,9 @@ export default function NewDownloadContent() {
 
   useEffect(() => {
     const initData = async () => {
-      setIsLoading(true)
+      if (!hasCachedQueueData) {
+        setIsLoading(true)
+      }
       try {
         // 并行加载数据
         await Promise.all([
@@ -69,29 +78,13 @@ export default function NewDownloadContent() {
 
     // 连接 WebSocket
     connectWebSocket()
-  }, [])
-
-  useEffect(() => {
-    const updateTabsHeight = () => {
-      setTabsHeight(tabsRef.current?.getBoundingClientRect().height || 0)
-    }
-
-    updateTabsHeight()
-    const observer = new ResizeObserver(updateTabsHeight)
-    if (tabsRef.current) observer.observe(tabsRef.current)
-
-    window.addEventListener('resize', updateTabsHeight)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', updateTabsHeight)
-    }
-  }, [])
-
+  }, [connectWebSocket, fetchSchedulers, fetchTasks, hasCachedQueueData])
   return (
     <div className="new-download-page" role="main" aria-label="新下载管理">
       {/* 内部Tab */}
-      <div ref={tabsRef} className="new-download-tabs" role="tablist" aria-label="下载管理选项卡">
+      <div className="new-download-tabs" role="tablist" aria-label="下载管理选项卡">
         <button
+          id="downloads-tab"
           role="tab"
           aria-selected={activeTab === 'downloads'}
           aria-controls="downloads-panel"
@@ -102,6 +95,7 @@ export default function NewDownloadContent() {
           下载列表
         </button>
         <button
+          id="library-tab"
           role="tab"
           aria-selected={activeTab === 'library'}
           aria-controls="library-panel"
@@ -112,6 +106,7 @@ export default function NewDownloadContent() {
           媒体库
         </button>
         <button
+          id="scan-tab"
           role="tab"
           aria-selected={activeTab === 'scan'}
           aria-controls="scan-panel"
@@ -122,11 +117,6 @@ export default function NewDownloadContent() {
           自动扫描
         </button>
       </div>
-      <div
-        className="new-download-tabs-spacer"
-        style={{ height: tabsHeight || undefined }}
-        aria-hidden="true"
-      />
 
       {/* 内容 */}
       <div className="new-download-content">
@@ -137,21 +127,30 @@ export default function NewDownloadContent() {
           </div>
         ) : (
           <>
-            {activeTab === 'downloads' && (
-              <div id="downloads-panel" role="tabpanel" aria-labelledby="downloads-tab">
-                <DownloadsList />
-              </div>
-            )}
-            {activeTab === 'library' && (
-              <div id="library-panel" role="tabpanel" aria-labelledby="library-tab">
-                <VideoLibrary />
-              </div>
-            )}
-            {activeTab === 'scan' && (
-              <div id="scan-panel" role="tabpanel" aria-labelledby="scan-tab">
-                <ScanResultContent />
-              </div>
-            )}
+            <div
+              id="downloads-panel"
+              role="tabpanel"
+              aria-labelledby="downloads-tab"
+              hidden={activeTab !== 'downloads'}
+            >
+              <DownloadsList />
+            </div>
+            <div
+              id="library-panel"
+              role="tabpanel"
+              aria-labelledby="library-tab"
+              hidden={activeTab !== 'library'}
+            >
+              <VideoLibrary />
+            </div>
+            <div
+              id="scan-panel"
+              role="tabpanel"
+              aria-labelledby="scan-tab"
+              hidden={activeTab !== 'scan'}
+            >
+              <ScanResultContent />
+            </div>
           </>
         )}
       </div>

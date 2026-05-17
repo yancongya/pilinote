@@ -393,16 +393,47 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
   } = options
 
   const persistentCacheKey = cacheKey?.trim() || ''
+  const instanceCacheKeyRef = useRef(
+    `video-list-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
+  )
+  const resolvedCacheKey = (cacheKey || instanceCacheKeyRef.current).trim()
+  const initialCachedResponse = (() => {
+    if (!autoLoad) return null
+    const memoryCached = getCachedPageResponse(resolvedCacheKey, initialPage, cacheTtlMs)
+    if (memoryCached?.success && memoryCached.data) {
+      return memoryCached
+    }
+    const sessionCached = getSessionStoredPageResponse(
+      persistentCacheKey,
+      initialPage,
+      customPageSize,
+      cacheTtlMs
+    )
+    if (sessionCached?.success && sessionCached.data) {
+      setCachedPageResponse(resolvedCacheKey, initialPage, sessionCached)
+      return sessionCached
+    }
+    return null
+  })()
+  const initialItems = initialCachedResponse ? getResponseItems(initialCachedResponse.data).map(item => formatItem ? formatItem(item) : item) : []
+  const initialTotal = initialCachedResponse?.total || initialCachedResponse?.data?.total || 0
+  const initialReturnedItems = initialCachedResponse ? getResponseItems(initialCachedResponse.data) : []
+  const initialHasMore = initialCachedResponse?.data
+    ? (
+        (typeof initialCachedResponse.data.total === 'number' && initialItems.length < initialCachedResponse.data.total)
+        || initialReturnedItems.length >= customPageSize
+      )
+    : true
 
   // 状态管理
-  const [videos, setVideos] = useState<VideoData[]>([])
-  const [loading, setLoading] = useState(autoLoad)
+  const [videos, setVideos] = useState<VideoData[]>(initialItems)
+  const [loading, setLoading] = useState(autoLoad && initialItems.length === 0)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [loadMoreError, setLoadMoreError] = useState('')
   const [currentPage, setCurrentPage] = useState(initialPage)
-  const [hasMore, setHasMore] = useState(true)
-  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(initialHasMore)
+  const [total, setTotal] = useState(typeof initialTotal === 'number' ? initialTotal : 0)
 
   // 引用
   const loadMoreRef = useRef<HTMLDivElement>(null)
@@ -410,10 +441,6 @@ export function useVideoList(options: UseVideoListOptions): UseVideoListReturn {
   const latestRequestIdRef = useRef(0)
   const videosRef = useRef<VideoData[]>([])
   const blockedLoadMorePageRef = useRef<{ page: number; until: number } | null>(null)
-  const instanceCacheKeyRef = useRef(
-    `video-list-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`
-  )
-  const resolvedCacheKey = (cacheKey || instanceCacheKeyRef.current).trim()
 
   // 默认的 hasMore 检查函数
   const defaultCheckHasMore = useCallback(

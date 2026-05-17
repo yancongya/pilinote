@@ -11,7 +11,6 @@ import {
   type VideoDetail as DownloadVideoDetail
 } from '../hooks/useVideoDownload'
 import { videoLibraryService } from '../services/videoLibraryService'
-import ReDownloadDialog from '../components/ReDownloadDialog'
 import AlertModal from '../components/AlertModal'
 import { ArrowLeft, ChevronDown, ChevronRight, Film, FolderTree, List, MessageCircle, Play, SkipBack, SkipForward, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
@@ -86,6 +85,14 @@ const buildDetailCacheKey = (type: 'video' | 'opus', mediaId: string) =>
 const sanitizeFilename = (value: string) =>
   value.replace(/[\/\\:*?"<>|]/g, '_').trim() || '未命名'
 
+const parsePageNumberFromLocalEntry = (entry: LocalPlaybackEntry): number | null => {
+  const text = `${entry.title || ''} ${entry.path || ''}`
+  const match = text.match(/(?:^|[\/\\\s_-])P?0*(\d{1,3})(?=\s|[.、．_-]|$)/i)
+  if (!match) return null
+  const page = Number(match[1])
+  return Number.isFinite(page) && page > 0 ? page : null
+}
+
 const readDetailCache = (cacheKey: string): VideoDetailCacheEntry | null => {
   const memoryEntry = detailPageMemoryCache.get(cacheKey)
   if (memoryEntry && Date.now() - memoryEntry.timestamp <= DETAIL_CACHE_TTL_MS) {
@@ -152,7 +159,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [expandedCollectionItems, setExpandedCollectionItems] = useState<Set<string>>(new Set())
   const [activePlaybackEntry, setActivePlaybackEntry] = useState<LocalPlaybackEntry | null>(null)
   const [switchingLayout, setSwitchingLayout] = useState(false)
-  const [showReDownloadDialog, setShowReDownloadDialog] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [localOpusContent, setLocalOpusContent] = useState<LocalOpusContent | null>(null)
   const [alertModal, setAlertModal] = useState<{
@@ -160,11 +166,14 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     title: string
     message: string
     type: 'success' | 'error'
+    showConfirm?: boolean
+    onConfirm?: () => void
   }>({
     show: false,
     title: '',
     message: '',
-    type: 'success'
+    type: 'success',
+    showConfirm: false
   })
   const { user } = useAuthStore()
   const sessdata = user?.sessdata
@@ -598,8 +607,11 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       )
       
       let status: 'none' | 'in_list' | 'downloaded' = 'none'
-      
+      const hasLocalVideo = playableEntries.length > 0
+
       if (result.action === 'skip' || result.action === 'show_confirm') {
+        status = 'downloaded'
+      } else if (hasLocalVideo) {
         status = 'downloaded'
       } else if (hasInNewQueue) {
         status = 'in_list'
@@ -617,6 +629,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       }
     } catch (error) {
       console.error('检查单个视频下载状态失败:', error)
+      if (playableEntries.length > 0) {
+        setDownloadedVideoStatus({ [video.cid]: 'downloaded' })
+        setDownloadedCids(new Set())
+      }
     }
   }
 
@@ -678,6 +694,11 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }
 
   const playableEntries = getPlayableEntries(localPlayback)
+  const localPlayablePageNumbers = new Set(
+    playableEntries
+      .map(parsePageNumberFromLocalEntry)
+      .filter((page): page is number => page !== null)
+  )
   const localOpusBlocks: OpusBlock[] = localOpusContent
     ? parseLocalOpusMarkdown(localOpusContent.markdown_content, localOpusContent.folder_path)
     : []
@@ -910,17 +931,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     })
   }
 
-  // 检查分P是否在下载列表中
-  const isCidInDownloadList = (bvid: string, cid: number): boolean => {
-    const tasks = newQueueStore.tasks
-    const newSystemTasks = Object.values(tasks)
-    return newSystemTasks.some(task =>
-      task.media_id === bvid &&
-      task.meta?.cid === cid &&
-      !['completed', 'cancelled'].includes(task.state)
-    )
-  }
-
   const isCollectionItemCompleted = (part: DownloadPart): boolean => {
     const tasks = Object.values(newQueueStore.tasks)
     return tasks.some(task =>
@@ -936,13 +946,15 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     
     // 单个视频：检查主 cid
     if (!video.pages || video.pages.length === 0) {
-      return isCidInDownloadList(video.bvid, video.cid) ? 1 : 0
+      const status = downloadedVideoStatus[video.cid] || (hasLocalPlayback ? 'downloaded' : 'none')
+      return status === 'none' ? 0 : 1
     }
     
     // 多P视频：检查每个分P
     let count = 0
     video.pages.forEach((page: any) => {
-      if (isCidInDownloadList(page.bvid || video.bvid, page.cid)) {
+      const status = downloadedVideoStatus[page.cid] || 'none'
+      if (status === 'in_list' || status === 'downloaded') {
         count++
       }
     })
@@ -950,7 +962,11 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }
 
   const getCollectionRemainingDownloadCount = () => {
-    return collectionKnownDownloadItems.filter(part => !isCollectionItemCompleted(part)).length
+    return collectionKnownDownloadItems.filter(part => {
+      const downloadedByTask = isCollectionItemCompleted(part)
+      const downloadedByLocalPage = localPlayablePageNumbers.has(part.page)
+      return !downloadedByTask && !downloadedByLocalPage
+    }).length
   }
 
   // 获取按钮文本
@@ -969,7 +985,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     }
     
     const addedCount = getAddedCount()
-    const status = downloadedVideoStatus[video?.cid || 0]
+    const status = downloadedVideoStatus[video?.cid || 0] || (hasLocalPlayback ? 'downloaded' : 'none')
     
     if (video?.pages && video.pages.length > 1) {
       // 多P视频
@@ -1015,6 +1031,14 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
     await performDownload(video, e)
     return
   }
+
+  if (video.pages && video.pages.length > 1) {
+    const remainingPages = video.pages.filter((page: any) => (downloadedVideoStatus[page.cid] || 'none') === 'none')
+    if (remainingPages.length > 0) {
+      await performDownload(video, e)
+      return
+    }
+  }
   
   try {
     const decision = await videoLibraryService.checkBeforeAdd(video)
@@ -1026,9 +1050,17 @@ const handleAddToDownload = async (e: React.MouseEvent) => {
         break
         
       case 'show_confirm':
-        // 显示确认对话框
         setSelectedVideo(video)
-        setShowReDownloadDialog(true)
+        setAlertModal({
+          show: true,
+          title: '重新下载视频',
+          message: `视频 ${video.title || '未知视频'} 已在视频库中，是否重新下载？`,
+          type: 'success',
+          showConfirm: true,
+          onConfirm: async () => {
+            await handleReDownloadConfirm(video)
+          }
+        })
         break
         
       case 'skip':
@@ -1191,11 +1223,26 @@ const handleDownloadCollection = async (e: React.MouseEvent) => {
   }
 }
 
-const performDownload = async (video: any, e: React.MouseEvent) => {
+const performDownload = async (video: any, e: React.MouseEvent, options?: { forceRedownload?: boolean }) => {
   setDownloading(true)
   try {
     if (type !== 'opus') {
-      const result = await toggleDownload(video as any, e)
+      let selectedPages: Set<number> | undefined
+
+      if (video?.pages?.length > 1) {
+        const remainingPages = video.pages
+          .filter((page: any) => (downloadedVideoStatus[page.cid] || 'none') === 'none')
+          .map((page: any) => page.page)
+
+        if (remainingPages.length > 0 && remainingPages.length < video.pages.length) {
+          selectedPages = new Set(remainingPages)
+        }
+      }
+
+      const result = await toggleDownload(video as any, e, {
+        selectedPages,
+        forceRedownload: options?.forceRedownload
+      })
 
       if (result.success) {
         if (result.shouldNavigateToLibrary) {
@@ -1266,17 +1313,54 @@ const performDownload = async (video: any, e: React.MouseEvent) => {
   }
 }
 
-const handleReDownloadConfirm = async () => {
-  if (!selectedVideo) return
+const handleSinglePageDownload = async (page: any, e: React.MouseEvent) => {
+  e.stopPropagation()
+  if (!video || type === 'opus') return
+
+  const status = downloadedVideoStatus[page.cid] || 'none'
+  if (status !== 'none') {
+    return
+  }
+
+  setDownloading(true)
+  try {
+    const result = await toggleDownload(video as any, e, {
+      selectedPages: new Set([page.page])
+    })
+
+    setAlertModal({
+      show: true,
+      title: result.success ? '操作成功' : '操作失败',
+      message: result.message,
+      type: result.success ? 'success' : 'error',
+      showConfirm: false
+    })
+  } catch (error) {
+    console.error('添加单个分P失败:', error)
+    setAlertModal({
+      show: true,
+      title: '操作失败',
+      message: '添加下载失败',
+      type: 'error',
+      showConfirm: false
+    })
+  } finally {
+    setDownloading(false)
+  }
+}
+
+const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
+  if (!targetVideo) return
   
   try {
-    await performDownload(selectedVideo, {} as React.MouseEvent)
-    setShowReDownloadDialog(false)
+    await performDownload(targetVideo, {} as React.MouseEvent, { forceRedownload: true })
+    setSelectedVideo(null)
     setAlertModal({
       show: true,
       title: '操作成功',
       message: '已重新添加到下载列表',
-      type: 'success'
+      type: 'success',
+      showConfirm: false
     })
   } catch (error) {
     console.error('重新下载失败:', error)
@@ -1284,7 +1368,8 @@ const handleReDownloadConfirm = async () => {
       show: true,
       title: '操作失败',
       message: '重新下载失败',
-      type: 'error'
+      type: 'error',
+      showConfirm: false
     })
   }
 }
@@ -1938,11 +2023,18 @@ const handleReDownloadConfirm = async () => {
               const isDownloaded = status === 'downloaded'
               const isPlayable = page.playable
               const isActivePlayback = mediaMode === 'local-video' && activePlaybackEntry?.cid === page.cid
+              const canDownloadThisPage = status === 'none'
 
               return (
                 <div
                   key={page.cid || index}
-                  onClick={() => startPagePlayback(page)}
+                  onClick={(event) => {
+                    if (isPlayable) {
+                      startPagePlayback(page)
+                    } else if (canDownloadThisPage) {
+                      void handleSinglePageDownload(page, event)
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1951,7 +2043,7 @@ const handleReDownloadConfirm = async () => {
                     borderRadius: isCompactLayout ? '6px' : '8px',
                     marginBottom: index < video.pages.length - 1 ? (isCompactLayout ? '8px' : '10px') : '0',
                     opacity: isInList && !isDownloaded ? 0.6 : 1,
-                    cursor: isPlayable ? 'pointer' : 'default',
+                    cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
                     border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
                     boxShadow: isActivePlayback ? '0 0 0 3px rgba(59, 130, 246, 0.12)' : 'none'
                   }}
@@ -1999,6 +2091,18 @@ const handleReDownloadConfirm = async () => {
                       fontWeight: '500'
                     }}>
                       队列中
+                    </span>
+                  )}
+                  {canDownloadThisPage && (
+                    <span style={{
+                      fontSize: '11px',
+                      color: 'var(--color-warning-700)',
+                      background: 'var(--color-warning-50)',
+                      padding: badgePadding,
+                      borderRadius: '4px',
+                      fontWeight: '600'
+                    }}>
+                      下载此视频
                     </span>
                   )}
                 </div>
@@ -2284,21 +2388,10 @@ const handleReDownloadConfirm = async () => {
         title={alertModal.title}
         message={alertModal.message}
         type={alertModal.type}
-        onClose={() => setAlertModal({ ...alertModal, show: false })}
+        onClose={() => setAlertModal({ ...alertModal, show: false, showConfirm: false, onConfirm: undefined })}
+        showConfirm={alertModal.showConfirm}
+        onConfirm={alertModal.onConfirm}
       />
-
-      {/* ReDownloadDialog */}
-      {showReDownloadDialog && selectedVideo && (
-        <ReDownloadDialog
-          isOpen={showReDownloadDialog}
-          video={selectedVideo}
-          onConfirm={handleReDownloadConfirm}
-          onCancel={() => {
-            setShowReDownloadDialog(false)
-            setSelectedVideo(null)
-          }}
-        />
-      )}
       </main>
 
       {/* AI笔记面板子路由 */}

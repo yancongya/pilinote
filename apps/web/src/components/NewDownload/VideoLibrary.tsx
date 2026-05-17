@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { apiService } from '../../services/api'
 import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText, FolderTree, List } from 'lucide-react'
-import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
 import { convertScanDataToMediaTasks, getMediaLibraryRoute, type MediaLibraryFile } from './mediaLibrary'
@@ -38,6 +38,135 @@ const buildSubtitleFilename = (videoPath: string): string => {
   const fileName = lastSlash >= 0 ? videoPath.slice(lastSlash + 1) : videoPath
   const stem = fileName.replace(/\.[^.]+$/, '')
   return `${stem}.srt`
+}
+
+const getDisplayFileName = (file: SizeSegmentFile): string => {
+  const source = file.name || file.path || ''
+  const normalized = source.replace(/\\/g, '/')
+  const lastSegment = normalized.split('/').pop()
+  return lastSegment || source
+}
+
+type SizeSegmentFile = {
+  name: string
+  path?: string
+  size: number
+}
+
+type SizeSegment = {
+  key: string
+  label: string
+  value: number
+  ratio: number
+  files: SizeSegmentFile[]
+}
+
+type SizeTooltipState = {
+  segment: SizeSegment
+  left: number
+  ownerKey: string
+  width: number
+} | null
+
+function TooltipFileName({ name }: { name: string }) {
+  const outerRef = useRef<HTMLSpanElement | null>(null)
+  const innerRef = useRef<HTMLSpanElement | null>(null)
+  const [overflowOffset, setOverflowOffset] = useState(0)
+
+  useEffect(() => {
+    const measure = () => {
+      const outer = outerRef.current
+      const inner = innerRef.current
+      if (!outer || !inner) return
+      const offset = Math.max(inner.scrollWidth - outer.clientWidth, 0)
+      setOverflowOffset(offset)
+    }
+
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [name])
+
+  return (
+    <span
+      ref={outerRef}
+      className={`library-folder-size-tooltip-file-name${overflowOffset > 0 ? ' is-overflowing' : ''}`}
+      title={name}
+      style={{ ['--tooltip-name-overflow' as string]: `${overflowOffset}px` }}
+    >
+      <span ref={innerRef} className="library-folder-size-tooltip-file-name-inner">
+        {name}
+      </span>
+    </span>
+  )
+}
+
+const buildSizeSegments = (task: Task): SizeSegment[] => {
+  const total = Math.max(task.meta?.total_size || 0, 0)
+  const primary = Math.max(task.meta?.primary_size || 0, 0)
+  const metadataBreakdown = (task.meta?.metadata_breakdown || {}) as Record<string, number>
+  const metadataFilesByType = (task.meta?.metadata_files_by_type || {}) as Record<string, SizeSegmentFile[]>
+  const audio = Math.max(metadataBreakdown.audio || 0, 0)
+  const image = Math.max(metadataBreakdown.image || 0, 0)
+  const subtitle = Math.max(metadataBreakdown.subtitle || 0, 0)
+  const note = Math.max(metadataBreakdown.note || 0, 0)
+  const nfo = Math.max(metadataBreakdown.nfo || 0, 0)
+  const metadataOther = Math.max(metadataBreakdown.other || 0, 0)
+
+  if (total <= 0) return []
+
+  const primarySourceFiles = (task.media_type === 'opus'
+    ? (task.meta?.content_files || [])
+    : (task.meta?.files || [])) as MediaLibraryFile[]
+
+  const primaryFiles = primarySourceFiles.map((file) => ({
+    name: file.title || file.path.split('/').pop() || file.path,
+    path: file.path,
+    size: file.size
+  }))
+
+  const segments = [
+    { key: 'primary', label: task.meta?.primary_size_label || '主文件', value: primary, ratio: primary / total, files: primaryFiles },
+    { key: 'audio', label: '音频', value: audio, ratio: audio / total, files: metadataFilesByType.audio || [] },
+    { key: 'image', label: '图片', value: image, ratio: image / total, files: metadataFilesByType.image || [] },
+    { key: 'subtitle', label: '字幕', value: subtitle, ratio: subtitle / total, files: metadataFilesByType.subtitle || [] },
+    { key: 'note', label: '笔记', value: note, ratio: note / total, files: metadataFilesByType.note || [] },
+    { key: 'nfo', label: 'NFO', value: nfo, ratio: nfo / total, files: metadataFilesByType.nfo || [] },
+    { key: 'other', label: '其他', value: metadataOther, ratio: metadataOther / total, files: metadataFilesByType.other || [] }
+  ].filter(segment => segment.value > 0)
+
+  const covered = segments.reduce((sum, segment) => sum + segment.value, 0)
+  const remainder = Math.max(total - covered, 0)
+  if (remainder > 0) {
+    segments.push({ key: 'other', label: '其他', value: remainder, ratio: remainder / total, files: [] })
+  }
+
+  return segments
+}
+
+const buildFileSizeSegments = (file: MediaLibraryFile): SizeSegment[] => {
+  const primary = Math.max(file.size || 0, 0)
+  const metadataBreakdown = (file.metadata_breakdown || {}) as Record<string, number>
+  const metadataFilesByType = (file.metadata_files_by_type || {}) as Record<string, SizeSegmentFile[]>
+  const total = primary + Object.values(metadataBreakdown).reduce((sum, value) => sum + Math.max(value || 0, 0), 0)
+
+  if (total <= 0) return []
+
+  const primaryFiles = [{
+    name: file.title || file.path.split('/').pop() || file.path,
+    path: file.path,
+    size: file.size
+  }]
+
+  return [
+    { key: 'primary', label: '视频', value: primary, ratio: primary / total, files: primaryFiles },
+    { key: 'audio', label: '音频', value: Math.max(metadataBreakdown.audio || 0, 0), ratio: Math.max(metadataBreakdown.audio || 0, 0) / total, files: metadataFilesByType.audio || [] },
+    { key: 'image', label: '图片', value: Math.max(metadataBreakdown.image || 0, 0), ratio: Math.max(metadataBreakdown.image || 0, 0) / total, files: metadataFilesByType.image || [] },
+    { key: 'subtitle', label: '字幕', value: Math.max(metadataBreakdown.subtitle || 0, 0), ratio: Math.max(metadataBreakdown.subtitle || 0, 0) / total, files: metadataFilesByType.subtitle || [] },
+    { key: 'note', label: '笔记', value: Math.max(metadataBreakdown.note || 0, 0), ratio: Math.max(metadataBreakdown.note || 0, 0) / total, files: metadataFilesByType.note || [] },
+    { key: 'nfo', label: 'NFO', value: Math.max(metadataBreakdown.nfo || 0, 0), ratio: Math.max(metadataBreakdown.nfo || 0, 0) / total, files: metadataFilesByType.nfo || [] },
+    { key: 'other', label: '其他', value: Math.max(metadataBreakdown.other || 0, 0), ratio: Math.max(metadataBreakdown.other || 0, 0) / total, files: metadataFilesByType.other || [] },
+  ].filter(segment => segment.value > 0)
 }
 
 // LibraryCard组件 - 显示文件夹卡片
@@ -87,6 +216,57 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
       order: index,
     }))
   }, [isOpus, task.meta?.files])
+  const sizeSegments = useMemo(() => buildSizeSegments(task), [task])
+  const [sizeTooltip, setSizeTooltip] = useState<SizeTooltipState>(null)
+
+  const renderSizeTooltip = (segment: SizeSegment) => {
+    const tooltipFiles = segment.key === 'other'
+      ? [{ name: task.title, size: segment.value }]
+      : segment.files
+    const previewFiles = tooltipFiles.slice(0, 6)
+    return (
+      <div className="library-folder-size-tooltip" role="tooltip">
+        <div className="library-folder-size-tooltip-title">
+          <span>{segment.label}</span>
+          <strong>{formatFileSize(segment.value)}</strong>
+        </div>
+        {previewFiles.length > 0 ? (
+          <div className="library-folder-size-tooltip-files">
+            {previewFiles.map((file, index) => (
+              <div key={`${segment.key}-${file.path || file.name}-${index}`} className="library-folder-size-tooltip-file">
+                <TooltipFileName name={getDisplayFileName(file)} />
+                <span className="library-folder-size-tooltip-file-size">{formatFileSize(file.size)}</span>
+              </div>
+            ))}
+            {tooltipFiles.length > previewFiles.length && (
+              <div className="library-folder-size-tooltip-more">
+                还有 {tooltipFiles.length - previewFiles.length} 个文件
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="library-folder-size-tooltip-empty">没有可展示的文件清单</div>
+        )}
+      </div>
+    )
+  }
+
+  const handleSizeSegmentEnter = (event: MouseEvent<HTMLSpanElement>, segment: SizeSegment, ownerKey: string) => {
+    const segmentRect = event.currentTarget.getBoundingClientRect()
+    const barRect = event.currentTarget.parentElement?.getBoundingClientRect()
+    if (!barRect) return
+
+    const tooltipWidth = Math.min(260, Math.max(180, barRect.width * 0.42))
+    const desiredLeft = segmentRect.left - barRect.left + segmentRect.width / 2
+    const clampedLeft = Math.min(Math.max(desiredLeft, tooltipWidth / 2 + 8), barRect.width - tooltipWidth / 2 - 8)
+
+    setSizeTooltip({
+      segment,
+      left: clampedLeft,
+      ownerKey,
+      width: tooltipWidth
+    })
+  }
 
   // 对可识别的B站视频或笔记提供AI笔记功能
   const canUseAiNote = Boolean(videoIdForNote)
@@ -375,8 +555,8 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
           {/* 作者行：作者 + 上传时间 */}
           <div className="library-folder-author-row">
             {/* UP主信息 */}
-            {task.meta?.studio && (
-              <div className="library-folder-studio">
+              {task.meta?.studio && (
+              <div className="library-folder-studio" title={task.meta.studio}>
                 {task.meta.avatar_path && (
                   <img
                     src={getLocalImageUrl(task.meta.avatar_path)}
@@ -395,41 +575,68 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                 <span>{task.meta.premiered}</span>
               </div>
             )}
+
+            <div className="library-folder-author-actions" onClick={(event) => event.stopPropagation()}>
+              <div className="library-folder-size">
+                <span>{formatFileSize(task.meta.total_size)}</span>
+              </div>
+              {canSwitchSeriesLayout && (
+                <div className="library-folder-layout-switch" aria-label="系列目录模式">
+                  <button
+                    type="button"
+                    className={`library-layout-mode-btn ${seriesLayoutMode === 'flat' ? 'active' : ''}`}
+                    onClick={(event) => handleSwitchSeriesLayout(event, 'flat')}
+                    disabled={switchingLayout || seriesLayoutMode === 'flat'}
+                    title="根目录平铺模式"
+                    aria-label="根目录平铺模式"
+                  >
+                    <List size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`library-layout-mode-btn ${seriesLayoutMode === 'folder' ? 'active' : ''}`}
+                    onClick={(event) => handleSwitchSeriesLayout(event, 'folder')}
+                    disabled={switchingLayout || seriesLayoutMode === 'folder'}
+                    title="分P子目录模式"
+                    aria-label="分P子目录模式"
+                  >
+                    <FolderTree size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 大小行：文件大小 */}
-          <div className="library-folder-size-row">
-            <div className="library-folder-size">
-              {formatFileSize(task.meta.total_size)}
-              {task.meta.metadata_size > 0 && task.meta.primary_size > 0 && ' | '}
-              {task.meta.primary_size > 0 && `${task.meta.primary_size_label}: ${formatFileSize(task.meta.primary_size)}`}
-              {task.meta.metadata_size > 0 && ` | 元数据: ${formatFileSize(task.meta.metadata_size)}`}
-            </div>
-            {canSwitchSeriesLayout && (
-              <div className="library-folder-layout-switch" onClick={(event) => event.stopPropagation()} aria-label="系列目录模式">
-                <button
-                  type="button"
-                  className={`library-layout-mode-btn ${seriesLayoutMode === 'flat' ? 'active' : ''}`}
-                  onClick={(event) => handleSwitchSeriesLayout(event, 'flat')}
-                  disabled={switchingLayout || seriesLayoutMode === 'flat'}
-                  title="根目录平铺模式"
-                  aria-label="根目录平铺模式"
-                >
-                  <List size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={`library-layout-mode-btn ${seriesLayoutMode === 'folder' ? 'active' : ''}`}
-                  onClick={(event) => handleSwitchSeriesLayout(event, 'folder')}
-                  disabled={switchingLayout || seriesLayoutMode === 'folder'}
-                  title="分P子目录模式"
-                  aria-label="分P子目录模式"
-                >
-                  <FolderTree size={14} />
-                </button>
-              </div>
-            )}
-          </div>
+        </div>
+      </div>
+
+      <div className="library-folder-size-row">
+        <div className="library-folder-size-stack">
+              {sizeSegments.length > 0 && (
+                <div className="library-folder-size-bar" aria-hidden="true">
+                  {sizeSegments.map(segment => (
+                    <span
+                      key={`${segment.key}-${segment.value}`}
+                      className={`library-folder-size-bar-segment library-folder-size-bar-segment--${segment.key}`}
+                      style={{ width: `${Math.max(segment.ratio * 100, 4)}%` }}
+                      aria-label={`${segment.label}: ${formatFileSize(segment.value)}`}
+                      onMouseEnter={(event) => handleSizeSegmentEnter(event, segment, `folder-${task.id}`)}
+                      onMouseLeave={() => setSizeTooltip(null)}
+                    >
+                    </span>
+                  ))}
+                  {sizeTooltip?.ownerKey === `folder-${task.id}` && (
+                    <div
+                      className="library-folder-size-tooltip-anchor"
+                      style={{ left: `${sizeTooltip.left}px`, ['--library-tooltip-width' as string]: `${sizeTooltip.width}px` }}
+                      onMouseEnter={() => setSizeTooltip(sizeTooltip)}
+                      onMouseLeave={() => setSizeTooltip(null)}
+                    >
+                      {renderSizeTooltip(sizeTooltip.segment)}
+                    </div>
+                  )}
+                </div>
+              )}
         </div>
       </div>
 
@@ -452,6 +659,32 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
                   <span className="stats-divider">·</span>
                   <span>{file.modified_date}</span>
                 </div>
+                {buildFileSizeSegments(file).length > 0 && (
+                  <div className="library-video-size-row">
+                    <div className="library-folder-size-bar" aria-hidden="true">
+                      {buildFileSizeSegments(file).map(segment => (
+                        <span
+                          key={`${file.path}-${segment.key}-${segment.value}`}
+                          className={`library-folder-size-bar-segment library-folder-size-bar-segment--${segment.key}`}
+                          style={{ width: `${Math.max(segment.ratio * 100, 4)}%` }}
+                          aria-label={`${segment.label}: ${formatFileSize(segment.value)}`}
+                          onMouseEnter={(event) => handleSizeSegmentEnter(event, segment, `file-${file.path}`)}
+                          onMouseLeave={() => setSizeTooltip(null)}
+                        />
+                      ))}
+                      {sizeTooltip?.ownerKey === `file-${file.path}` && (
+                        <div
+                          className="library-folder-size-tooltip-anchor"
+                          style={{ left: `${sizeTooltip.left}px`, ['--library-tooltip-width' as string]: `${sizeTooltip.width}px` }}
+                          onMouseEnter={() => setSizeTooltip(sizeTooltip)}
+                          onMouseLeave={() => setSizeTooltip(null)}
+                        >
+                          {renderSizeTooltip(sizeTooltip.segment)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}

@@ -104,6 +104,32 @@ interface EnqueueVideoDownloadResult {
 
 interface ToggleDownloadOptions {
   forceRedownload?: boolean
+  selectedPages?: Set<number>
+}
+
+const buildTargetMatcher = (
+  video: VideoInfo,
+  selectedPages?: Set<number>
+) => {
+  if (!selectedPages || selectedPages.size === 0) {
+    return (task: { media_id: string; meta?: Record<string, any> }) => task.media_id === video.bvid
+  }
+
+  const targetCids = new Set(
+    ((video as VideoDetail).pages || [])
+      .filter(page => selectedPages.has(page.page))
+      .map(page => page.cid)
+      .filter((cid): cid is number => typeof cid === 'number')
+  )
+
+  return (task: { media_id: string; meta?: Record<string, any> }) => {
+    if (task.media_id !== video.bvid) return false
+    const taskPage = task.meta?.page
+    const taskCid = task.meta?.cid
+    if (typeof taskPage === 'number' && selectedPages.has(taskPage)) return true
+    if (typeof taskCid === 'number' && targetCids.has(taskCid)) return true
+    return false
+  }
 }
 
 export function getCurrentVideoParts(video: VideoInfo, detail: VideoDetail): DownloadPart[] {
@@ -323,21 +349,19 @@ export function useVideoDownload() {
       // 使用新的下载系统
       const sessdata = localStorage.getItem('sessdata')
         const currentTasks = newQueueStore.tasks
-        const existingTask = Object.values(currentTasks).find(t => t.media_id === video.bvid)
+        const matchesTargetTask = buildTargetMatcher(video, options.selectedPages)
+        const relatedTasks = Object.values(currentTasks).filter(matchesTargetTask)
         
         // 检查是否已经在新系统中（检查未完成的任务）
-        const isInNewQueue = existingTask && !['completed', 'cancelled'].includes(existingTask.state)
+        const isInNewQueue = relatedTasks.some(task => !['completed', 'cancelled'].includes(task.state))
         
         // 检查是否已下载完成
-        const isDownloaded = existingTask && existingTask.state === 'completed'
+        const isDownloaded = relatedTasks.some(task => task.state === 'completed')
 
         if (isInNewQueue) {
           // 从新下载系统移除（标记为取消）
           // 找出所有相同 bvid 的任务（系列视频可能有多个分P）
-          const allTasks = Object.values(currentTasks).filter(t => 
-            t.media_id === video.bvid && 
-            !['completed', 'cancelled'].includes(t.state)
-          )
+          const allTasks = relatedTasks.filter(t => !['completed', 'cancelled'].includes(t.state))
           
           if (allTasks.length === 0) {
             resetButton()
@@ -369,9 +393,7 @@ export function useVideoDownload() {
           // 添加到新下载系统
           try {
             if (options.forceRedownload) {
-              const completedTasks = Object.values(currentTasks).filter(task =>
-                task.media_id === video.bvid && task.state === 'completed'
-              )
+              const completedTasks = relatedTasks.filter(task => task.state === 'completed')
               await Promise.allSettled(completedTasks.map(task => newQueueStore.deleteTask(task.id)))
             }
 
@@ -386,6 +408,7 @@ export function useVideoDownload() {
               sessdata: sessdata || undefined,
               currentTasks,
               downloadPath,
+              selectedPages: options.selectedPages,
             })
 
             await newQueueStore.fetchTasks()

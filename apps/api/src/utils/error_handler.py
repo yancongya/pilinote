@@ -149,9 +149,13 @@ class ErrorHandler:
                     details={'original_error': error_message}
                 )
             elif error.errno == errno.ENOENT:
-                return FileSystemError(
-                    message=f"文件不存在: {error_message}",
+                return PiliNoteError(
                     error_type=ErrorType.FS_NOT_FOUND,
+                    message=f"文件不存在: {error_message}",
+                    error_code='PNL_FS_NOTFOUND_001',
+                    severity=ErrorSeverity.MEDIUM,
+                    recoverable=True,
+                    suggestion='请检查下载目录和临时文件是否被移动、删除，或重试任务',
                     details={'original_error': error_message}
                 )
             elif error.errno == errno.ETIMEDOUT:

@@ -34,7 +34,7 @@ const isPlayableEntry = (entry: LocalPlaybackEntry): boolean =>
 
 const parsePageNumberFromEntry = (entry: LocalPlaybackEntry): number | null => {
   const text = `${entry.title || ''} ${entry.path || ''}`
-  const match = text.match(/(?:^|[\\/\\s_-])P?0*(\d{1,3})(?=\s|[.、．_-]|$)/i)
+  const match = text.match(/(?:^|[\/\\\s_-])P?0*(\d{1,3})(?=\s|[.、．_-]|$)/i)
   if (!match) return null
   const page = Number(match[1])
   return Number.isFinite(page) && page > 0 ? page : null

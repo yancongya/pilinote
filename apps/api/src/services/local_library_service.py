@@ -78,12 +78,30 @@ class VideoFile:
         modified_time: float,
         title: str,
         cover_path: Optional[str] = None,
+        metadata_breakdown: Optional[Dict[str, int]] = None,
+        metadata_files_by_type: Optional[Dict[str, List[Dict[str, object]]]] = None,
     ):
         self.path = path  # 完整文件路径
         self.size = size  # 文件大小（字节）
         self.modified_time = modified_time  # 修改时间戳
         self.title = title  # 从文件名提取的标题
         self.cover_path = cover_path  # 同目录封面
+        self.metadata_breakdown = metadata_breakdown or {
+            'audio': 0,
+            'image': 0,
+            'subtitle': 0,
+            'note': 0,
+            'nfo': 0,
+            'other': 0,
+        }
+        self.metadata_files_by_type = metadata_files_by_type or {
+            'audio': [],
+            'image': [],
+            'subtitle': [],
+            'note': [],
+            'nfo': [],
+            'other': [],
+        }
 
 
 class LibraryScanResult:
@@ -109,7 +127,10 @@ class LibraryScanResult:
                 "file_count": folder["file_count"],
                 "size": folder["size"],
                 "content_size": folder.get("content_size", folder["size"]),
+                "content_files": folder.get("content_files", []),
                 "metadata_size": folder.get("metadata_size", 0),
+                "metadata_breakdown": folder.get("metadata_breakdown", {}),
+                "metadata_files_by_type": folder.get("metadata_files_by_type", {}),
                 "total_size": folder.get("total_size", folder["size"]),
                 "size_mb": folder["size_mb"],
                 "size_gb": folder["size_gb"],
@@ -188,13 +209,17 @@ class LibraryScanResult:
                         "size": f.size,
                         "size_mb": round(f.size / (1024 * 1024), 2),
                         "cover_path": f.cover_path,
+                        "metadata_breakdown": f.metadata_breakdown,
+                        "metadata_files_by_type": f.metadata_files_by_type,
                         "modified_time": f.modified_time,
                         "modified_date": datetime.fromtimestamp(f.modified_time).strftime("%Y-%m-%d %H:%M:%S")
                     }
                     for f in folder_data.get('files', [])
                 ],
                 "total_size": folder_data.get('total_size', 0),
-                "metadata_size": folder_data.get('metadata_size', 0)
+                "metadata_size": folder_data.get('metadata_size', 0),
+                "metadata_breakdown": folder_data.get('metadata_breakdown', {}),
+                "metadata_files_by_type": folder_data.get('metadata_files_by_type', {})
             }
         
         return serialized
@@ -205,9 +230,72 @@ class LocalLibraryService:
     
     # 支持的视频文件扩展名
     VIDEO_EXTENSIONS = {'.mp4', '.flv', '.mkv', '.webm', '.avi', '.mov', '.wmv', '.m4v'}
+    AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.aac', '.wav', '.flac', '.ogg', '.opus'}
+    IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'}
+    SUBTITLE_EXTENSIONS = {'.srt', '.ass', '.ssa', '.vtt', '.lrc'}
+    NOTE_EXTENSIONS = {'.md'}
     
     def __init__(self, db: Session):
         self.db = db
+
+    def _classify_metadata_file(self, filename: str, relative_path: str) -> str:
+        normalized_relative = relative_path.replace(os.sep, '/').lower()
+        lower_filename = filename.lower()
+        ext = os.path.splitext(lower_filename)[1]
+
+        if '/ai-versions/subtitle/' in f'/{normalized_relative}':
+            return 'subtitle'
+        if '/ai-versions/note/' in f'/{normalized_relative}' or '/ai-versions/mindmap/' in f'/{normalized_relative}':
+            return 'note'
+
+        if lower_filename.endswith('.nfo') or lower_filename.endswith('.nfo.bak'):
+            return 'nfo'
+        if ext in self.AUDIO_EXTENSIONS:
+            return 'audio'
+        if lower_filename.endswith('.srt.gz') or lower_filename.endswith('.vtt.gz') or lower_filename.endswith('.ass.gz'):
+            return 'subtitle'
+        if ext in self.SUBTITLE_EXTENSIONS:
+            return 'subtitle'
+        if ext in self.NOTE_EXTENSIONS:
+            return 'note'
+        if ext in self.IMAGE_EXTENSIONS or lower_filename in {'cover.jpg', 'cover.png', 'avatar.jpg', 'avatar.png'}:
+            return 'image'
+        if normalized_relative.startswith('images/'):
+            return 'image'
+        return 'other'
+
+    def _match_metadata_to_video(self, metadata_path: str, folder_path: str, video_files: List[VideoFile]) -> Optional[VideoFile]:
+        if len(video_files) == 1:
+            return video_files[0]
+
+        metadata_file = Path(metadata_path)
+        metadata_dir = metadata_file.parent
+        metadata_name = metadata_file.name.lower()
+        metadata_stem = metadata_name
+        for suffix in ('.bak', '.gz'):
+            if metadata_stem.endswith(suffix):
+                metadata_stem = metadata_stem[:-len(suffix)]
+        metadata_stem = Path(metadata_stem).stem.lower()
+
+        same_dir_videos = [video for video in video_files if Path(video.path).parent == metadata_dir]
+        if len(same_dir_videos) == 1:
+            return same_dir_videos[0]
+
+        stem_matches = [
+            video for video in same_dir_videos
+            if Path(video.path).stem.lower() == metadata_stem
+        ]
+        if len(stem_matches) == 1:
+            return stem_matches[0]
+
+        stem_matches = [
+            video for video in video_files
+            if Path(video.path).stem.lower() == metadata_stem
+        ]
+        if len(stem_matches) == 1:
+            return stem_matches[0]
+
+        return None
     
     def _get_download_directory(self) -> str:
         """获取下载目录路径"""
@@ -625,6 +713,24 @@ class LocalLibraryService:
                     content_size = 0
                     folder_files = []
                     metadata_size = 0  # 元数据文件大小
+                    metadata_breakdown = {
+                        'audio': 0,
+                        'image': 0,
+                        'subtitle': 0,
+                        'note': 0,
+                        'nfo': 0,
+                        'other': 0,
+                    }
+                    metadata_files_by_type = {
+                        'audio': [],
+                        'image': [],
+                        'subtitle': [],
+                        'note': [],
+                        'nfo': [],
+                        'other': [],
+                    }
+                    content_files = []
+                    pending_metadata_files = []
                     
                     # 扫描文件夹内的文件
                     for root, dirs, files in os.walk(folder_path):
@@ -652,23 +758,62 @@ class LocalLibraryService:
                                     relative_path = os.path.relpath(file_path, folder_path)
                                     normalized_relative = relative_path.replace(os.sep, '/').lower()
                                     lower_filename = filename.lower()
+                                    opus_id = (folder_metadata.get('nfo_data') or {}).get('opus_id')
+                                    primary_markdown_path = folder_metadata.get('markdown_path')
 
-                                    is_opus_content_file = (
-                                        normalized_relative.startswith('images/')
-                                        or lower_filename.endswith('.md')
-                                    )
+                                    is_opus_content_file = False
+                                    if opus_id:
+                                        is_primary_markdown = (
+                                            primary_markdown_path
+                                            and os.path.normpath(file_path) == os.path.normpath(primary_markdown_path)
+                                        )
+                                        is_opus_content_file = (
+                                            normalized_relative.startswith('images/')
+                                            or bool(is_primary_markdown)
+                                        )
 
                                     if is_opus_content_file:
                                         content_size += file_size
+                                        content_files.append({
+                                            "path": file_path,
+                                            "title": self._extract_title_from_filename(filename),
+                                            "size": file_size,
+                                            "size_mb": round(file_size / (1024 * 1024), 2),
+                                            "cover_path": None,
+                                            "metadata_breakdown": {},
+                                            "metadata_files_by_type": {},
+                                            "modified_time": file_stat.st_mtime,
+                                            "modified_date": datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                                        })
                                     else:
-                                        # 非视频文件（如nfo、封面、头像等），计入元数据大小
-                                        metadata_size += file_size
+                                        pending_metadata_files.append({
+                                            "name": filename,
+                                            "path": file_path,
+                                            "relative_path": relative_path.replace(os.sep, '/'),
+                                            "size": file_size,
+                                        })
                                     
                             except (OSError, FileNotFoundError) as e:
                                 error_msg = f"无法读取文件 {file_path}: {e}"
                                 logger.warning(error_msg)
                                 continue
                     
+                    for metadata_file in pending_metadata_files:
+                        metadata_size += metadata_file["size"]
+                        category = self._classify_metadata_file(metadata_file["name"], metadata_file["relative_path"])
+                        metadata_breakdown[category] += metadata_file["size"]
+                        metadata_entry = {
+                            "name": metadata_file["name"],
+                            "path": metadata_file["relative_path"],
+                            "size": metadata_file["size"],
+                        }
+                        metadata_files_by_type[category].append(metadata_entry)
+
+                        matched_video = self._match_metadata_to_video(metadata_file["path"], folder_path, folder_files)
+                        if matched_video:
+                            matched_video.metadata_breakdown[category] += metadata_file["size"]
+                            matched_video.metadata_files_by_type[category].append(metadata_entry)
+
                     if folder_files:
                         # 如果文件夹创建时间为 0，使用第一个文件的修改时间
                         if folder_created_time == 0 and folder_files:
@@ -679,7 +824,10 @@ class LocalLibraryService:
                             'metadata': folder_metadata,
                             'total_size': folder_size,
                             'content_size': content_size,
-                            'metadata_size': metadata_size
+                            'content_files': content_files.copy(),
+                            'metadata_size': metadata_size,
+                            'metadata_breakdown': metadata_breakdown.copy(),
+                            'metadata_files_by_type': {key: value.copy() for key, value in metadata_files_by_type.items()},
                         }
                         result.folder_count += 1
                         
@@ -691,7 +839,10 @@ class LocalLibraryService:
                             "file_count": folder_file_count,
                             "size": folder_size,
                             "content_size": content_size,
+                            "content_files": content_files.copy(),
                             "metadata_size": metadata_size,
+                            "metadata_breakdown": metadata_breakdown.copy(),
+                            "metadata_files_by_type": {key: value.copy() for key, value in metadata_files_by_type.items()},
                             "total_size": folder_size + content_size + metadata_size,
                             "size_mb": round(folder_size / (1024 * 1024), 2),
                             "size_gb": round(folder_size / (1024 * 1024 * 1024), 2),
@@ -713,7 +864,10 @@ class LocalLibraryService:
                             "file_count": 0,
                             "size": 0,
                             "content_size": content_size,
+                            "content_files": content_files.copy(),
                             "metadata_size": metadata_size,
+                            "metadata_breakdown": metadata_breakdown.copy(),
+                            "metadata_files_by_type": {key: value.copy() for key, value in metadata_files_by_type.items()},
                             "total_size": content_size + metadata_size,
                             "size_mb": 0,
                             "size_gb": 0,

@@ -131,7 +131,7 @@ export default function VideoListControls({
       className={`video-list-controls ${compact ? 'video-list-controls--compact' : ''} ${sticky ? '' : 'video-list-controls--inline'} ${className}`.trim()}
     >
       <div className={`controls-wrapper ${compact ? 'controls-wrapper--compact' : ''}`}>
-        <div className="controls-primary">
+        <div className="controls-search-row">
           {/* 搜索框 */}
           {showSearch && (
             <form className="search-box" onSubmit={handleSearchSubmit}>
@@ -157,7 +157,7 @@ export default function VideoListControls({
           )}
         </div>
 
-        <div className="controls-secondary">
+        <div className="controls-actions-row">
           <div className="controls-chip-row">
             {/* 排序选择器 */}
             {showSort && (
