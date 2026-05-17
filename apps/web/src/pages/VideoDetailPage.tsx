@@ -156,6 +156,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [localPlayback, setLocalPlayback] = useState<LocalPlaybackMap | null>(null)
   const [mediaMode, setMediaMode] = useState<'poster' | 'local-video'>('poster')
   const [partListMode, setPartListMode] = useState<'submission' | 'collection'>('submission')
+  const [relatedPanelCollapsed, setRelatedPanelCollapsed] = useState(true)
+  const [submissionListCollapsed, setSubmissionListCollapsed] = useState(false)
   const [expandedCollectionItems, setExpandedCollectionItems] = useState<Set<string>>(new Set())
   const [activePlaybackEntry, setActivePlaybackEntry] = useState<LocalPlaybackEntry | null>(null)
   const [switchingLayout, setSwitchingLayout] = useState(false)
@@ -555,17 +557,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
           !['completed', 'cancelled'].includes(task.state)
         )
         
-        // 检查是否在新下载系统已完成
-        const hasCompleted = newSystemTasks.some(task =>
-          task.media_id === pageBvid &&
-          task.meta?.cid === page.cid &&
-          task.state === 'completed'
-        )
-        
         if (hasInNewQueue) {
           cidsInList.add(page.cid)
           downloadedStatus[page.cid] = 'in_list'
-        } else if (hasCompleted || playableCidSet.has(page.cid)) {
+        } else if (playableCidSet.has(page.cid)) {
           downloadedStatus[page.cid] = 'downloaded'
         } else {
           downloadedStatus[page.cid] = 'none'
@@ -585,7 +580,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     if (!video) return
     
     try {
-      const result = await videoLibraryService.checkBeforeAdd({
+      await videoLibraryService.checkBeforeAdd({
         bvid: video.bvid,
         cid: video.cid,
         title: video.title || ''
@@ -601,22 +596,13 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
         !['completed', 'cancelled'].includes(task.state)
       )
       
-      const hasCompleted = newSystemTasks.some(task =>
-        task.media_id === video.bvid &&
-        task.state === 'completed'
-      )
-      
       let status: 'none' | 'in_list' | 'downloaded' = 'none'
       const hasLocalVideo = playableEntries.length > 0
 
-      if (result.action === 'skip' || result.action === 'show_confirm') {
-        status = 'downloaded'
-      } else if (hasLocalVideo) {
+      if (hasLocalVideo) {
         status = 'downloaded'
       } else if (hasInNewQueue) {
         status = 'in_list'
-      } else if (hasCompleted) {
-        status = 'downloaded'
       }
       
       setDownloadedVideoStatus({ [video.cid]: status })
@@ -733,15 +719,37 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       } as DownloadPart))
       : []
   }))
-  const collectionKnownDownloadItems: DownloadPart[] = collectionDisplayParts.flatMap(part =>
-    part.subparts.length > 0 ? part.subparts : [part]
-  )
+  const isCollectionPartCompleted = (part: DownloadPart & { subparts: DownloadPart[] }) => {
+    if (part.subparts.length > 0) {
+      return part.subparts.every(subpart => {
+        const downloadedByTask = isCollectionItemCompleted(subpart)
+        const downloadedByLocalPage = localPlayablePageNumbers.has(subpart.page)
+        return downloadedByTask || downloadedByLocalPage
+      })
+    }
+
+    return isCollectionItemCompleted(part)
+  }
   const collectionEpisodeCount = video?.ugcSeason?.episode_count || video?.ugcSeason?.sections?.reduce(
     (total: number, section: any) => total + (section.episodes?.length || 0),
     0
   ) || 0
   const isCollectionMember = !video?.isOpus && collectionEpisodeCount > 1
   const showingCollectionList = isCollectionMember && partListMode === 'collection'
+  const submissionTotalDuration = video?.pages?.reduce((total: number, page: any) => total + (page.duration || 0), 0) || 0
+  const collectionVideoCount = collectionDisplayParts.reduce((total: number, part) => {
+    if (part.subparts.length > 0) {
+      return total + part.subparts.length
+    }
+    return total + 1
+  }, 0)
+  const collectionTotalDuration = collectionDisplayParts.reduce((total: number, part) => {
+    if (part.duration) return total + part.duration
+    if (part.subparts.length > 0) {
+      return total + part.subparts.reduce((subTotal, subpart) => subTotal + (subpart.duration || 0), 0)
+    }
+    return total
+  }, 0)
   const activeLocalVideoUrl = activePlaybackEntry ? getLocalVideoUrl(activePlaybackEntry.path) : ''
   const playableLocalPages = playablePages.filter((page: any) => page.playable && page.localPath)
   const activePlayablePageIndex = activePlaybackEntry
@@ -752,6 +760,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     : -1
   const activePlayablePage = activePlayablePageIndex >= 0 ? playableLocalPages[activePlayablePageIndex] : null
   const seriesLayoutMode = localPlayback?.series_layout?.mode
+  const submissionGridColumns = 'repeat(3, minmax(0, 1fr))'
+  const collectionGridColumns = 'repeat(3, minmax(0, 1fr))'
   const canSwitchSeriesLayout = Boolean(
     !video?.isOpus &&
     localPlayback?.folder_path &&
@@ -962,11 +972,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }
 
   const getCollectionRemainingDownloadCount = () => {
-    return collectionKnownDownloadItems.filter(part => {
-      const downloadedByTask = isCollectionItemCompleted(part)
-      const downloadedByLocalPage = localPlayablePageNumbers.has(part.page)
-      return !downloadedByTask && !downloadedByLocalPage
-    }).length
+    return collectionDisplayParts.filter(part => !isCollectionPartCompleted(part)).length
   }
 
   // 获取按钮文本
@@ -1789,6 +1795,456 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
 
       </div>
 
+      {!video.isOpus && (isCollectionMember || (video.pages && video.pages.length > 1)) && (
+        <div style={{
+          padding: cardPadding,
+          background: 'var(--color-bg-tertiary)',
+          borderRadius: cardRadius,
+          display: 'grid',
+          gap: '12px'
+        }}>
+          <button
+            type="button"
+            onClick={() => setRelatedPanelCollapsed(prev => !prev)}
+            style={{
+              width: '100%',
+              padding: 0,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              textAlign: 'left',
+              color: 'var(--color-text-primary)'
+            }}
+            aria-expanded={!relatedPanelCollapsed}
+            aria-label={relatedPanelCollapsed ? '展开合集与分集信息' : '折叠合集与分集信息'}
+          >
+            <div style={{ display: 'grid', gap: '4px', minWidth: 0 }}>
+                <span style={{
+                  fontSize: responsiveStyle.fontSize.small,
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)'
+                }}>
+                {showingCollectionList
+                  ? `合集与分集信息 · 共${collectionEpisodeCount}个投稿，${collectionVideoCount}个视频`
+                  : `分集信息 · 共${video.pages?.length || 1}个视频`}
+              </span>
+              {isCollectionMember && (
+                <span style={{
+                  fontSize: '12px',
+                  color: 'var(--color-text-tertiary)'
+                }}>
+                  {video.ugcSeason?.title || '未命名合集'}
+                </span>
+              )}
+            </div>
+            {relatedPanelCollapsed ? (
+              <ChevronRight size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+            ) : (
+              <ChevronDown size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+            )}
+          </button>
+
+          {!relatedPanelCollapsed && (
+            <>
+              {isCollectionMember && (
+                <div style={{
+                  padding: cardPadding,
+                  background: 'var(--color-bg-primary)',
+                  borderRadius: cardRadius,
+                  fontSize: responsiveStyle.fontSize.small,
+                  color: 'var(--color-text-primary)',
+                  lineHeight: '1.5',
+                  display: 'grid',
+                  gap: '12px'
+                }}>
+                  <div>
+                    所属合集：{video.ugcSeason?.title || '未命名合集'}，共{collectionEpisodeCount}个投稿
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'nowrap'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      minWidth: 0,
+                      flex: 1
+                    }}>
+                      {[
+                        { value: 'submission', label: `当前投稿 (${video.pages?.length || 1})` },
+                        { value: 'collection', label: `合集列表 (${collectionEpisodeCount})` }
+                      ].map(option => {
+                        const active = partListMode === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setPartListMode(option.value as 'submission' | 'collection')}
+                            style={{
+                              padding: '7px 10px',
+                              borderRadius: '6px',
+                              border: active ? '1px solid var(--color-primary-500)' : '1px solid var(--color-border)',
+                              background: active ? 'var(--color-primary-50)' : 'var(--color-bg-primary)',
+                              color: active ? 'var(--color-primary-700)' : 'var(--color-text-primary)',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSubmissionListCollapsed(prev => !prev)}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        gap: '8px',
+                        minWidth: 0,
+                        flexShrink: 0,
+                        color: 'var(--color-text-primary)',
+                        padding: 0
+                      }}
+                      aria-expanded={!submissionListCollapsed}
+                      aria-label={submissionListCollapsed
+                        ? (showingCollectionList ? '展开合集列表' : '展开当前投稿视频列表')
+                        : (showingCollectionList ? '折叠合集列表' : '折叠当前投稿视频列表')}
+                    >
+                      <span style={{
+                        fontSize: '12px',
+                        color: 'var(--color-text-secondary)',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {showingCollectionList
+                          ? `${collectionEpisodeCount}投稿 · ${collectionVideoCount}视频 · ${formatDuration(collectionTotalDuration)}`
+                          : `${video.pages?.length || 0}视频 · ${formatDuration(submissionTotalDuration)}`}
+                      </span>
+                      {submissionListCollapsed ? (
+                        <ChevronRight size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                      ) : (
+                        <ChevronDown size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!isCollectionMember && video.pages && video.pages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setSubmissionListCollapsed(prev => !prev)}
+                  style={{
+                    width: '100%',
+                    padding: cardPadding,
+                    background: 'var(--color-bg-primary)',
+                    borderRadius: cardRadius,
+                    fontSize: responsiveStyle.fontSize.small,
+                    color: 'var(--color-text-primary)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    textAlign: 'left'
+                  }}
+                  aria-expanded={!submissionListCollapsed}
+                  aria-label={submissionListCollapsed ? '展开当前投稿视频列表' : '折叠当前投稿视频列表'}
+                >
+                  <span>
+                    共{video.pages.length}个视频，总时长：{formatDuration(submissionTotalDuration)}
+                  </span>
+                  {submissionListCollapsed ? (
+                    <ChevronRight size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                  ) : (
+                    <ChevronDown size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                  )}
+                </button>
+              )}
+
+              {!showingCollectionList && !submissionListCollapsed && video.pages && video.pages.length > 1 && (
+                <div style={{
+                  background: 'var(--color-bg-primary)',
+                  borderRadius: cardRadius,
+                  padding: listPadding,
+                  maxHeight: listMaxHeight,
+                  overflowY: 'auto'
+                }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: submissionGridColumns,
+                    gap: isCompactLayout ? '8px' : '12px'
+                  }}>
+                    {playablePages.map((page: any, index: number) => {
+                      const isInList = downloadedCids.has(page.cid)
+                      const status = downloadedVideoStatus[page.cid] || 'none'
+                      const isDownloaded = status === 'downloaded'
+                      const isPlayable = page.playable
+                      const isActivePlayback = mediaMode === 'local-video' && activePlaybackEntry?.cid === page.cid
+                      const canDownloadThisPage = status === 'none'
+
+                      return (
+                        <div
+                          key={page.cid || index}
+                          onClick={(event) => {
+                            if (isPlayable) {
+                              startPagePlayback(page)
+                            } else if (canDownloadThisPage) {
+                              void handleSinglePageDownload(page, event)
+                            }
+                          }}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'stretch',
+                            padding: isCompactLayout ? '10px' : '12px',
+                            background: 'var(--color-bg-tertiary)',
+                            borderRadius: isCompactLayout ? '6px' : '8px',
+                            opacity: isInList && !isDownloaded ? 0.6 : 1,
+                            cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
+                            border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
+                            boxShadow: isActivePlayback ? '0 0 0 3px rgba(59, 130, 246, 0.12)' : 'none',
+                            minWidth: 0,
+                            gap: '10px'
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: responsiveStyle.fontSize.small, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                              P{page.page}: {page.part || `第${page.page}个视频`}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                              {formatDuration(page.duration)}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            {isPlayable && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-primary-700)',
+                                background: 'var(--color-primary-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '600'
+                              }}>
+                                {isActivePlayback ? '正在播放' : '播放本地'}
+                              </span>
+                            )}
+                            {isDownloaded && !isPlayable && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-success-600)',
+                                background: 'var(--color-success-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '500'
+                              }}>
+                                已下载
+                              </span>
+                            )}
+                            {isInList && !isDownloaded && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-primary-600)',
+                                background: 'var(--color-primary-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '500'
+                              }}>
+                                队列中
+                              </span>
+                            )}
+                            {canDownloadThisPage && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-warning-700)',
+                                background: 'var(--color-warning-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '600'
+                              }}>
+                                下载此视频
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {showingCollectionList && !submissionListCollapsed && (
+                <div style={{
+                  background: 'var(--color-bg-primary)',
+                  borderRadius: cardRadius,
+                  padding: listPadding,
+                  maxHeight: listMaxHeight,
+                  overflowY: 'auto'
+                }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: collectionGridColumns,
+                    gap: isCompactLayout ? '8px' : '12px'
+                  }}>
+                    {collectionDisplayParts.map((part, index: number) => {
+                      const hasSubparts = part.subparts.length > 0
+                      const expanded = expandedCollectionItems.has(part.bvid)
+
+                      return (
+                        <div
+                          key={`${part.bvid}-${part.cid || index}`}
+                          style={{
+                            background: 'var(--color-bg-tertiary)',
+                            borderRadius: isCompactLayout ? '6px' : '8px',
+                            border: part.bvid === video.bvid ? '1px solid var(--color-primary-500)' : '1px solid transparent',
+                            overflow: 'hidden',
+                            gridColumn: hasSubparts ? '1 / -1' : 'auto',
+                            minWidth: 0
+                          }}
+                        >
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: hasSubparts ? '22px 64px minmax(0, 1fr)' : '64px minmax(0, 1fr)',
+                            gap: '12px',
+                            alignItems: 'center',
+                            padding: isCompactLayout ? '10px' : '12px'
+                          }}>
+                            {hasSubparts && (
+                              <button
+                                type="button"
+                                onClick={() => toggleCollectionItemExpanded(part.bvid)}
+                                aria-label={expanded ? '收起分P' : '展开分P'}
+                                style={{
+                                  width: '22px',
+                                  height: '22px',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: 'var(--color-text-secondary)',
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  cursor: 'pointer',
+                                  padding: 0
+                                }}
+                              >
+                                {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                              </button>
+                            )}
+                            <div style={{
+                              width: '64px',
+                              aspectRatio: '16 / 9',
+                              borderRadius: '6px',
+                              overflow: 'hidden',
+                              background: 'var(--color-bg-primary)'
+                            }}>
+                              {part.cover ? (
+                                <img
+                                  src={getProxyImageUrl(part.cover)}
+                                  alt={part.title}
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                />
+                              ) : (
+                                <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+                                  <Film size={18} style={{ color: 'var(--color-text-tertiary)' }} />
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{
+                                fontSize: responsiveStyle.fontSize.small,
+                                color: 'var(--color-text-primary)',
+                                marginBottom: '4px',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}>
+                                P{part.page}: {part.title}
+                                {part.bvid === video.bvid && (
+                                  <span style={{
+                                    marginLeft: '8px',
+                                    fontSize: '11px',
+                                    color: 'var(--color-primary-700)',
+                                    background: 'var(--color-primary-50)',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontWeight: 600
+                                  }}>
+                                    当前投稿
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+                                {part.bvid}{part.duration ? ` · ${formatDuration(part.duration)}` : ''}
+                                {hasSubparts ? ` · 包含${part.subparts.length}个视频` : ''}
+                              </div>
+                            </div>
+                          </div>
+
+                          {hasSubparts && expanded && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                              gap: isCompactLayout ? '8px' : '10px',
+                              padding: isCompactLayout ? '0 10px 10px 10px' : '0 12px 12px 12px'
+                            }}>
+                              {part.subparts.map((subpart: DownloadPart) => (
+                                <div key={`${subpart.bvid}-${subpart.cid || subpart.page}`} style={{
+                                  minWidth: 0,
+                                  padding: isCompactLayout ? '10px' : '12px',
+                                  borderRadius: '6px',
+                                  background: 'var(--color-bg-primary)',
+                                  color: 'var(--color-text-secondary)',
+                                  fontSize: '12px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'space-between',
+                                  gap: '8px'
+                                }}>
+                                  <span style={{
+                                    minWidth: 0,
+                                    color: 'var(--color-text-primary)',
+                                    fontSize: responsiveStyle.fontSize.small,
+                                    lineHeight: 1.4,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden'
+                                  }}>
+                                    分P{subpart.page}: {subpart.title}
+                                  </span>
+                                  <span style={{ flexShrink: 0, color: 'var(--color-text-tertiary)' }}>
+                                    {subpart.duration ? formatDuration(subpart.duration) : '--:--'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {!video.isOpus && (
         <div className="video-detail-uploader" style={{
           display: 'flex',
@@ -1945,310 +2401,6 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
           )}
 
         {renderCommentsSection()}
-
-        {isCollectionMember && (
-          <div style={{
-            padding: cardPadding,
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius,
-            fontSize: responsiveStyle.fontSize.small,
-            color: 'var(--color-text-primary)',
-            lineHeight: '1.5',
-            display: 'grid',
-            gap: '12px'
-          }}>
-            <div>
-              所属合集：{video.ugcSeason?.title || '未命名合集'}，共{collectionEpisodeCount}个投稿
-            </div>
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              flexWrap: 'wrap',
-              alignItems: 'center'
-            }}>
-              {[
-                { value: 'submission', label: `当前投稿 (${video.pages?.length || 1})` },
-                { value: 'collection', label: `合集列表 (${collectionEpisodeCount})` }
-              ].map(option => {
-                const active = partListMode === option.value
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setPartListMode(option.value as 'submission' | 'collection')}
-                    style={{
-                      padding: '7px 10px',
-                      borderRadius: '6px',
-                      border: active ? '1px solid var(--color-primary-500)' : '1px solid var(--color-border)',
-                      background: active ? 'var(--color-primary-50)' : 'var(--color-bg-primary)',
-                      color: active ? 'var(--color-primary-700)' : 'var(--color-text-primary)',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: 600
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 分P信息 */}
-        {!showingCollectionList && video.pages && video.pages.length > 1 && (
-          <div style={{
-            padding: cardPadding,
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius,
-            fontSize: responsiveStyle.fontSize.small,
-            color: 'var(--color-text-primary)'
-          }}>
-            共{video.pages.length}个视频，总时长：{formatDuration(video.pages.reduce((total: number, p: any) => total + p.duration, 0))}
-          </div>
-        )}
-
-        {/* 分P列表（仅多P视频显示） */}
-        {!showingCollectionList && video.pages && video.pages.length > 1 && (
-          <div style={{
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius,
-            padding: listPadding,
-            maxHeight: listMaxHeight,
-            overflowY: 'auto'
-          }}>
-            {playablePages.map((page: any, index: number) => {
-              const isInList = downloadedCids.has(page.cid)
-              const status = downloadedVideoStatus[page.cid] || 'none'
-              const isDownloaded = status === 'downloaded'
-              const isPlayable = page.playable
-              const isActivePlayback = mediaMode === 'local-video' && activePlaybackEntry?.cid === page.cid
-              const canDownloadThisPage = status === 'none'
-
-              return (
-                <div
-                  key={page.cid || index}
-                  onClick={(event) => {
-                    if (isPlayable) {
-                      startPagePlayback(page)
-                    } else if (canDownloadThisPage) {
-                      void handleSinglePageDownload(page, event)
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: isCompactLayout ? '10px' : '12px',
-                    background: 'var(--color-bg-primary)',
-                    borderRadius: isCompactLayout ? '6px' : '8px',
-                    marginBottom: index < video.pages.length - 1 ? (isCompactLayout ? '8px' : '10px') : '0',
-                    opacity: isInList && !isDownloaded ? 0.6 : 1,
-                    cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
-                    border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
-                    boxShadow: isActivePlayback ? '0 0 0 3px rgba(59, 130, 246, 0.12)' : 'none'
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: responsiveStyle.fontSize.small, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-                      P{page.page}: {page.part || `第${page.page}个视频`}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                      {formatDuration(page.duration)}
-                    </div>
-                  </div>
-                  {isPlayable && (
-                    <span style={{
-                      fontSize: '11px',
-                      color: 'var(--color-primary-700)',
-                      background: 'var(--color-primary-50)',
-                      padding: badgePadding,
-                      borderRadius: '4px',
-                      fontWeight: '600',
-                      marginRight: '8px'
-                    }}>
-                      {isActivePlayback ? '正在播放' : '播放本地'}
-                    </span>
-                  )}
-                  {isDownloaded && !isPlayable && (
-                    <span style={{
-                      fontSize: '11px',
-                      color: 'var(--color-success-600)',
-                      background: 'var(--color-success-50)',
-                      padding: badgePadding,
-                      borderRadius: '4px',
-                      fontWeight: '500'
-                    }}>
-                      已下载
-                    </span>
-                  )}
-                  {isInList && !isDownloaded && (
-                    <span style={{
-                      fontSize: '11px',
-                      color: 'var(--color-primary-600)',
-                      background: 'var(--color-primary-50)',
-                      padding: badgePadding,
-                      borderRadius: '4px',
-                      fontWeight: '500'
-                    }}>
-                      队列中
-                    </span>
-                  )}
-                  {canDownloadThisPage && (
-                    <span style={{
-                      fontSize: '11px',
-                      color: 'var(--color-warning-700)',
-                      background: 'var(--color-warning-50)',
-                      padding: badgePadding,
-                      borderRadius: '4px',
-                      fontWeight: '600'
-                    }}>
-                      下载此视频
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {showingCollectionList && (
-          <div style={{
-            background: 'var(--color-bg-tertiary)',
-            borderRadius: cardRadius,
-            padding: listPadding,
-            maxHeight: listMaxHeight,
-            overflowY: 'auto'
-          }}>
-            {collectionDisplayParts.map((part, index: number) => {
-              const hasSubparts = part.subparts.length > 0
-              const expanded = expandedCollectionItems.has(part.bvid)
-
-              return (
-                <div
-                  key={`${part.bvid}-${part.cid || index}`}
-                  style={{
-                    background: 'var(--color-bg-primary)',
-                    borderRadius: isCompactLayout ? '6px' : '8px',
-                    marginBottom: index < collectionDisplayParts.length - 1 ? (isCompactLayout ? '8px' : '10px') : '0',
-                    border: part.bvid === video.bvid ? '1px solid var(--color-primary-500)' : '1px solid transparent',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: hasSubparts ? '22px 64px minmax(0, 1fr)' : '64px minmax(0, 1fr)',
-                    gap: '12px',
-                    alignItems: 'center',
-                    padding: isCompactLayout ? '10px' : '12px'
-                  }}>
-                    {hasSubparts && (
-                      <button
-                        type="button"
-                        onClick={() => toggleCollectionItemExpanded(part.bvid)}
-                        aria-label={expanded ? '收起分P' : '展开分P'}
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          border: 'none',
-                          background: 'transparent',
-                          color: 'var(--color-text-secondary)',
-                          display: 'grid',
-                          placeItems: 'center',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </button>
-                    )}
-                    <div style={{
-                      width: '64px',
-                      aspectRatio: '16 / 9',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      background: 'var(--color-bg-tertiary)'
-                    }}>
-                      {part.cover ? (
-                        <img
-                          src={getProxyImageUrl(part.cover)}
-                          alt={part.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
-                          <Film size={18} style={{ color: 'var(--color-text-tertiary)' }} />
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{
-                        fontSize: responsiveStyle.fontSize.small,
-                        color: 'var(--color-text-primary)',
-                        marginBottom: '4px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>
-                        P{part.page}: {part.title}
-                        {part.bvid === video.bvid && (
-                          <span style={{
-                            marginLeft: '8px',
-                            fontSize: '11px',
-                            color: 'var(--color-primary-700)',
-                            background: 'var(--color-primary-50)',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontWeight: 600
-                          }}>
-                            当前投稿
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                        {part.bvid}{part.duration ? ` · ${formatDuration(part.duration)}` : ''}
-                        {hasSubparts ? ` · 包含${part.subparts.length}个视频` : ''}
-                      </div>
-                    </div>
-                  </div>
-
-                  {hasSubparts && expanded && (
-                    <div style={{
-                      display: 'grid',
-                      gap: '6px',
-                      padding: isCompactLayout ? '0 10px 10px 108px' : '0 12px 12px 110px'
-                    }}>
-                      {part.subparts.map((subpart: DownloadPart) => (
-                        <div key={`${subpart.bvid}-${subpart.cid || subpart.page}`} style={{
-                          minWidth: 0,
-                          padding: '8px 10px',
-                          borderRadius: '6px',
-                          background: 'var(--color-bg-tertiary)',
-                          color: 'var(--color-text-secondary)',
-                          fontSize: '12px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: '10px'
-                        }}>
-                          <span style={{
-                            minWidth: 0,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            分P{subpart.page}: {subpart.title}
-                          </span>
-                          <span style={{ flexShrink: 0, color: 'var(--color-text-tertiary)' }}>
-                            {subpart.duration ? formatDuration(subpart.duration) : '--:--'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
 
       </div>
       </div>

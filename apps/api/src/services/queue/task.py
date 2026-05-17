@@ -238,6 +238,28 @@ class TaskService:
         subtasks = []
         safe_title = sanitize_filename_component(str(info.get('title', 'video')), fallback='video')
 
+        page_value = None
+        part_title = None
+        series_title = None
+        if isinstance(self.task.meta, dict):
+            page_value = self.task.meta.get('page')
+            part_title = self.task.meta.get('part_title')
+            series_title = self.task.meta.get('series_title')
+
+        if page_value and part_title:
+            try:
+                page_num = int(page_value)
+                page_prefix = f"p{page_num:02d}"
+            except Exception:
+                page_prefix = f"p{page_value}"
+
+            base_series_title = str(series_title or info.get('title') or self.task.title or 'video')
+            page_display_title = str(part_title).strip() or f"P{page_value}"
+            safe_title = sanitize_filename_component(
+                f"{base_series_title} {page_prefix} {page_display_title}",
+                fallback='video'
+            )
+
         # 视频下载
         subtasks.append({
             'type': SubTaskType.VIDEO,
@@ -437,8 +459,16 @@ class TaskService:
                 final_output_dir.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Scheduler任务，直接使用输出目录: {final_output_dir}")
             else:
-                # 单个任务，创建基于标题的子文件夹
-                video_title = self.task.title.replace('/', '_').replace('\\', '_').replace(':', '_')
+                # 当前投稿的多P补下场景虽然是单任务，但应该继续写回系列总目录，
+                # 否则会被错误落到单独的分P标题目录里，无法和已有本地播放目录合并。
+                series_title = None
+                if isinstance(self.task.meta, dict):
+                    series_bvid = self.task.meta.get('series_bvid')
+                    if series_bvid == self.task.media_id:
+                        series_title = self.task.meta.get('series_title')
+
+                base_folder_title = series_title or self.task.title
+                video_title = str(base_folder_title).replace('/', '_').replace('\\', '_').replace(':', '_')
                 final_output_dir = output_dir / video_title
                 final_output_dir.mkdir(parents=True, exist_ok=True)
                 logger.info(f"单个任务，创建标题子目录: {final_output_dir}")

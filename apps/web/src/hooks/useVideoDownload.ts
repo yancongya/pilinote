@@ -356,7 +356,11 @@ export function useVideoDownload() {
         const isInNewQueue = relatedTasks.some(task => !['completed', 'cancelled'].includes(task.state))
         
         // 检查是否已下载完成
-        const isDownloaded = relatedTasks.some(task => task.state === 'completed')
+        // 对详情页指定分P的场景，不再让旧 completed 任务阻止重新加入下载列表。
+        // 详情页本地状态已经改为只认本地可播放文件，缺文件时应允许重新入队。
+        const shouldBlockCompleted = !options.selectedPages || options.selectedPages.size === 0
+        const isDownloaded = shouldBlockCompleted && relatedTasks.some(task => task.state === 'completed')
+        const completedTasks = relatedTasks.filter(task => task.state === 'completed')
 
         if (isInNewQueue) {
           // 从新下载系统移除（标记为取消）
@@ -392,8 +396,10 @@ export function useVideoDownload() {
         } else {
           // 添加到新下载系统
           try {
-            if (options.forceRedownload) {
-              const completedTasks = relatedTasks.filter(task => task.state === 'completed')
+            // 详情页指定分P重新加入下载列表时，如果只有旧 completed 记录，
+            // 需要先删掉它，否则后端会按身份去重复用旧 completed 任务，
+            // 下载列表里仍然看不到新的 backlog 任务。
+            if (options.forceRedownload || (!shouldBlockCompleted && completedTasks.length > 0)) {
               await Promise.allSettled(completedTasks.map(task => newQueueStore.deleteTask(task.id)))
             }
 
