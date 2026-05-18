@@ -79,13 +79,16 @@ const readRemoteRuntimeState = async (): Promise<AiRuntimeState | null> => {
     })
     if (!response.ok) return null
     const payload = await response.json().catch(() => null)
+    const runtimePayload = payload?.state || payload?.data?.state || payload
     const testedModels = normalizeTestedModels(
-      payload?.testedModels || payload?.tested_models || payload?.data?.testedModels || payload?.data?.tested_models,
+      runtimePayload?.testedModels || runtimePayload?.tested_models || payload?.data?.testedModels || payload?.data?.tested_models,
     )
     if (!Object.keys(testedModels).length) return null
     return {
       testedModels,
-      updatedAt: String(payload?.updatedAt || payload?.updated_at || new Date().toISOString()),
+      updatedAt: String(
+        runtimePayload?.updatedAt || runtimePayload?.updated_at || payload?.updatedAt || payload?.updated_at || new Date().toISOString(),
+      ),
       source: 'remote',
     }
   } catch {

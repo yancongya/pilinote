@@ -543,6 +543,7 @@ export function AiNoteModal({
   const effectivePipelineModeOverride = isSeriesMode ? 'video' : pipelineModeOverride
   const [viewState, setViewState] = useState<ViewState>('config')
   const [selectedModel, setSelectedModel] = useState('')
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false)
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
   const [style, setStyle] = useState('detailed')
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
@@ -1776,37 +1777,74 @@ export function AiNoteModal({
     )
   }
 
+  const handleRefreshModels = async () => {
+    if (isRefreshingModels) return
+
+    setIsRefreshingModels(true)
+    try {
+      const nextState = await aiRuntimeStateService.refresh()
+      const refreshedModels = nextState.testedModels[activeProvider] || []
+      if (refreshedModels.length > 0) {
+        showToast(`已刷新 ${refreshedModels.length} 个模型`, 'success')
+      } else {
+        showToast('未读取到已测试通过的模型，请先在设置面板重新测试并保存', 'warning')
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '刷新模型列表失败', 'error')
+    } finally {
+      setIsRefreshingModels(false)
+    }
+  }
+
+  const renderAnalysisConfig = () => (
+    <div className="ai-note-modal-config">
+      <div className="ai-note-select-group">
+        <div className="ai-note-select-group-head">
+          <label>模型</label>
+          <button
+            type="button"
+            className="ai-note-select-refresh"
+            onClick={() => {
+              void handleRefreshModels()
+            }}
+            disabled={isRefreshingModels}
+          >
+            {isRefreshingModels ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+            刷新
+          </button>
+        </div>
+        {providerModels.length > 0 ? (
+          <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="ai-note-select">
+            {providerModels.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        ) : (
+          <div className="ai-note-empty-hint">请先在设置面板测试并保存该服务商的模型</div>
+        )}
+      </div>
+
+      <div className="ai-note-select-group">
+        <label>详细程度</label>
+        <select value={detailLevel} onChange={e => setDetailLevel(e.target.value as 'simple' | 'detailed')} className="ai-note-select">
+          <option value="simple">简单</option>
+          <option value="detailed">详细</option>
+        </select>
+      </div>
+
+      <div className="ai-note-select-group">
+        <label>笔记风格</label>
+        <select value={style} onChange={e => setStyle(e.target.value)} className="ai-note-select">
+          {availableStyles.map(s => <option key={s.value} value={s.value}>{s.label} - {s.description}</option>)}
+        </select>
+      </div>
+    </div>
+  )
+
   const renderSingleContent = () => (
     <>
       {viewState === 'config' && (
         <>
           <div className="ai-note-modal-content">
-            <div className="ai-note-select-group">
-              <label>模型</label>
-              {providerModels.length > 0 ? (
-                <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="ai-note-select">
-                  {providerModels.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              ) : (
-                <div className="ai-note-empty-hint">请先在设置面板测试并保存该服务商的模型</div>
-              )}
-            </div>
-
-            <div className="ai-note-select-group">
-              <label>详细程度</label>
-              <select value={detailLevel} onChange={e => setDetailLevel(e.target.value as 'simple' | 'detailed')} className="ai-note-select">
-                <option value="simple">简单</option>
-                <option value="detailed">详细</option>
-              </select>
-            </div>
-
-            <div className="ai-note-select-group">
-              <label>笔记风格</label>
-              <select value={style} onChange={e => setStyle(e.target.value)} className="ai-note-select">
-                {availableStyles.map(s => <option key={s.value} value={s.value}>{s.label} - {s.description}</option>)}
-              </select>
-            </div>
-
+            {renderAnalysisConfig()}
           </div>
 
           {error && <div className="ai-note-modal-error">{error}</div>}
@@ -1831,6 +1869,7 @@ export function AiNoteModal({
       {viewState === 'result' && note && (
         <>
           <div className="ai-note-modal-content">
+            {renderAnalysisConfig()}
             <div className="ai-note-result-path-card">
               <div className="ai-note-result-path-label">本地 Markdown 路径</div>
               <div className="ai-note-result-path-value">{note?.generated_markdown_path || note?.meta?.generated_markdown_path || '暂无路径'}</div>
@@ -1865,6 +1904,7 @@ export function AiNoteModal({
   const renderSeriesContent = () => (
     <>
       <div className="ai-note-modal-content ai-note-series-content">
+        {renderAnalysisConfig()}
         <div className="ai-note-series-summary">
           <div className="ai-note-series-summary-head">
             <div>
@@ -2006,9 +2046,9 @@ export function AiNoteModal({
       </Modal>
 
       <style>{`
-        .ai-note-modal-overlay { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.4); pointer-events: auto; }
-        .ai-note-modal-panel { width: 100%; max-width: 460px; max-height: calc(100vh - 32px); background: var(--color-bg-primary); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); }
-        .ai-note-modal-panel[data-series-mode="true"] { max-width: 700px; }
+        .ai-note-modal-overlay { position: fixed; inset: 0; z-index: 12000; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top, 0px) + 12px) 16px max(16px, env(safe-area-inset-bottom, 0px) + 12px); background: rgba(0,0,0,0.52); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: auto; box-sizing: border-box; overflow: hidden; }
+        .ai-note-modal-panel { width: min(100%, 460px); max-width: 460px; max-height: calc(100dvh - max(32px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 24px)); background: var(--color-bg-primary); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); box-shadow: 0 24px 60px rgba(0,0,0,0.42); }
+        .ai-note-modal-panel[data-series-mode="true"] { width: min(100%, 700px); max-width: 700px; }
         .ai-note-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
         .ai-note-modal-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
         .ai-note-modal-title-link { padding: 0; border: none; background: transparent; color: inherit; cursor: pointer; }
@@ -2017,7 +2057,11 @@ export function AiNoteModal({
         .ai-note-modal-video-info { padding: 12px 20px; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border); font-size: 14px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ai-note-modal-content { flex: 1; overflow-y: auto; padding: 16px; }
         .ai-note-select-group { margin-bottom: 14px; }
+        .ai-note-select-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
         .ai-note-select-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+        .ai-note-select-group-head label { margin-bottom: 0; }
+        .ai-note-select-refresh { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
+        .ai-note-select-refresh:disabled { opacity: 0.65; cursor: not-allowed; }
         .ai-note-select { width: 100%; padding: 10px 14px; border-radius: 10px; font-size: 13px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); }
         .ai-note-empty-hint { padding: 10px 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 12px; }
         .ai-note-summary-chip { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
@@ -2064,6 +2108,13 @@ export function AiNoteModal({
         .ai-note-series-episode-actions { display: flex; align-items: flex-start; }
         .ai-note-series-episode-retry { padding: 7px 10px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-primary); cursor: pointer; font-size: 11px; }
         .ai-note-series-episode-retry:disabled { opacity: 0.6; cursor: not-allowed; }
+        @media (max-width: 768px) {
+          .ai-note-modal-overlay { align-items: stretch; padding: max(12px, env(safe-area-inset-top, 0px) + 8px) 12px max(12px, env(safe-area-inset-bottom, 0px) + 8px); }
+          .ai-note-modal-panel { width: 100%; max-height: calc(100dvh - max(24px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 16px)); border-radius: 16px; }
+          .ai-note-modal-header { padding: 12px 14px; }
+          .ai-note-modal-content { padding: 14px; }
+          .ai-note-modal-footer { padding: 12px 14px; }
+        }
         .ai-note-modal-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 20px; gap: 16px; }
         .ai-note-modal-loading-spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary-600); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }

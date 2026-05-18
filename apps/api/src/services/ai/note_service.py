@@ -890,19 +890,22 @@ class AiNoteService:
         subtitle_downloaded = False
         platform_subtitle_path = None
 
+        subtitle_dir = Path(actual_file_path).parent
+        subtitle_patterns = ["*.zh-CN.ai.srt", "*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
+
         if subtitle_filename:
-            # 使用指定的字幕文件
-            candidate = Path(actual_file_path).parent / subtitle_filename
+            # 优先使用指定的字幕文件；如果指定文件不存在，再回退到目录扫描
+            candidate = subtitle_dir / subtitle_filename
             if candidate.exists():
                 platform_subtitle_path = str(candidate)
                 subtitle_downloaded = True
             else:
                 logger.warning(f"指定的字幕文件不存在: {candidate}")
-        else:
+
+        if not subtitle_downloaded:
             # 按优先级查找字幕文件
-            subtitle_patterns = ["*.zh-CN.ai.srt", "*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
             for pattern in subtitle_patterns:
-                subtitle_files = list(Path(actual_file_path).parent.glob(pattern))
+                subtitle_files = list(subtitle_dir.glob(pattern))
                 if subtitle_files:
                     platform_subtitle_path = str(subtitle_files[0])
                     subtitle_downloaded = True
