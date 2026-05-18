@@ -271,8 +271,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   // 对可识别的B站视频或笔记提供AI笔记功能
   const canUseAiNote = Boolean(videoIdForNote)
   const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
-  const noteForStatus = lookup.note
-  const aiNoteButtonStatus = noteForStatus?.status === 'completed' ? 'completed' : 'none'
+  const noteForStatus = existingNote || lookup.note
+  const persistentAiNoteStatus = task.meta?.ai_note_status === 'completed'
+  const aiNoteButtonStatus =
+    noteForStatus?.status === 'completed' || persistentAiNoteStatus
+      ? 'completed'
+      : 'none'
 
   useEffect(() => {
     if (noteForStatus) {

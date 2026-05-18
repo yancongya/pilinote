@@ -139,6 +139,8 @@ class LibraryScanResult:
                 "avatar": folder.get("avatar"),
                 "avatar_path": folder.get("avatar_path"),
                 "markdown_path": folder.get("markdown_path"),
+                "ai_note_status": folder.get("ai_note_status", "none"),
+                "ai_note_paths": folder.get("ai_note_paths", []),
                 "studio": folder.get("studio"),
                 "nfo_data": folder.get("nfo_data"),
                 "created_time": folder.get("created_time", 0)
@@ -501,7 +503,9 @@ class LocalLibraryService:
             'nfo_data': None,
             'cover_path': None,
             'avatar_path': None,
-            'markdown_path': None
+            'markdown_path': None,
+            'ai_note_status': 'none',
+            'ai_note_paths': [],
         }
         
         try:
@@ -560,6 +564,24 @@ class LocalLibraryService:
                     if filename.lower().endswith('.md'):
                         metadata['markdown_path'] = os.path.join(folder_path, filename)
                         break
+
+            ai_note_paths: List[str] = []
+            note_versions_dir = os.path.join(folder_path, 'ai-versions', 'note')
+            if os.path.isdir(note_versions_dir):
+                for root, _, files in os.walk(note_versions_dir):
+                    for filename in files:
+                        if filename.lower().endswith('.md') or filename.lower() == 'versions.json':
+                            ai_note_paths.append(os.path.join(root, filename))
+
+            for root, _, files in os.walk(folder_path):
+                for filename in files:
+                    lower = filename.lower()
+                    if lower.endswith('.ai-note.md'):
+                        ai_note_paths.append(os.path.join(root, filename))
+
+            if ai_note_paths:
+                metadata['ai_note_status'] = 'completed'
+                metadata['ai_note_paths'] = sorted(set(ai_note_paths))
             
         except Exception as e:
             logger.warning(f"查找文件夹元数据失败 {folder_path}: {e}")
@@ -851,6 +873,8 @@ class LocalLibraryService:
                             "avatar": folder_metadata['avatar'],
                             "avatar_path": folder_metadata['avatar_path'],
                             "markdown_path": folder_metadata.get('markdown_path'),
+                            "ai_note_status": folder_metadata.get('ai_note_status', 'none'),
+                            "ai_note_paths": folder_metadata.get('ai_note_paths', []),
                             "studio": folder_metadata.get('studio'),
                             "nfo_data": folder_metadata.get('nfo_data'),
                             "created_time": folder_created_time
@@ -876,6 +900,8 @@ class LocalLibraryService:
                             "avatar": folder_metadata['avatar'],
                             "avatar_path": folder_metadata['avatar_path'],
                             "markdown_path": folder_metadata.get('markdown_path'),
+                            "ai_note_status": folder_metadata.get('ai_note_status', 'none'),
+                            "ai_note_paths": folder_metadata.get('ai_note_paths', []),
                             "studio": folder_metadata.get('studio'),
                             "nfo_data": folder_metadata.get('nfo_data'),
                             "created_time": folder_created_time

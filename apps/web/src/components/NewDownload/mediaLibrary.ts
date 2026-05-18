@@ -32,6 +32,8 @@ export interface MediaLibraryFolderMetadata {
   avatar_path?: string
   studio?: string
   markdown_path?: string
+  ai_note_status?: 'none' | 'completed'
+  ai_note_paths?: string[]
   nfo_data?: Record<string, any>
   created_time: number
 }
@@ -141,6 +143,8 @@ export function convertScanDataToMediaTasks(scanData: MediaLibraryScanData): Tas
         cover_path: folder.cover_path,
         avatar_path: folder.avatar_path,
         markdown_path: folder.markdown_path,
+        ai_note_status: folder.ai_note_status || 'none',
+        ai_note_paths: folder.ai_note_paths || [],
         nfo_data: folder.nfo_data,
         files: folderVideos,
         statistics: folder.nfo_data?.statistics,

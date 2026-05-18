@@ -99,7 +99,7 @@ class VersionManager:
     }
 
     # 字幕文件 glob 模式（优先级从高到低）
-    SUBTITLE_PATTERNS = ["*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
+    SUBTITLE_PATTERNS = ["*.zh-CN.ai.srt", "*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
     NOTE_PATTERNS = ["*.ai-note.md"]
 
     @staticmethod

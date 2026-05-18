@@ -409,6 +409,62 @@ class AiNoteService:
         self.db.add(note)
         self.db.commit()
 
+    def _collect_local_artifact_state(
+        self,
+        note: AiNote,
+        download: Optional[Download] = None,
+    ) -> Dict[str, Any]:
+        artifacts = self._analysis_artifacts(note)
+        source_path = note.video_id
+        if download and download.file_path:
+            source_path = download.file_path
+
+        resolved_file_path = self._resolve_video_file_path(source_path)
+        video_path = Path(resolved_file_path) if resolved_file_path else None
+        video_dir = video_path.parent if video_path else None
+
+        audio_path = artifacts.get("audio_path")
+        if not audio_path and video_path:
+            audio_path = str(video_path.with_suffix(".mp3"))
+
+        subtitle_patterns = ["*.zh-CN.ai.srt", "*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
+        subtitle_files: List[str] = []
+        if video_dir and video_dir.exists():
+            for pattern in subtitle_patterns:
+                subtitle_files.extend([str(path) for path in sorted(video_dir.glob(pattern))])
+
+        nfo_candidates: List[str] = []
+        nfo_path = artifacts.get("nfo_path")
+        if isinstance(nfo_path, str) and nfo_path:
+            nfo_candidates.append(nfo_path)
+        if video_path:
+            nfo_candidates.append(str(video_path.with_suffix(".nfo")))
+        if video_dir and video_dir.exists():
+            nfo_candidates.extend([
+                str(video_dir / "tvshow.nfo"),
+                str(video_dir / "movie.nfo"),
+            ])
+            for child in sorted(video_dir.iterdir()):
+                if child.is_file() and child.suffix.lower() == ".nfo":
+                    nfo_candidates.append(str(child))
+
+        generated_markdown_path = None
+        if isinstance(note.meta, dict):
+            generated_markdown_path = note.meta.get("generated_markdown_path")
+
+        return {
+            "video_path": str(video_path) if video_path and video_path.exists() else None,
+            "audio_path": audio_path if isinstance(audio_path, str) and Path(audio_path).exists() else None,
+            "audio_exists": bool(audio_path and Path(audio_path).exists()),
+            "subtitle_files": sorted(set(subtitle_files)),
+            "subtitle_exists": bool(subtitle_files),
+            "nfo_path": next((path for path in nfo_candidates if path and Path(path).exists()), None),
+            "nfo_exists": any(path and Path(path).exists() for path in nfo_candidates),
+            "generated_markdown_path": generated_markdown_path if isinstance(generated_markdown_path, str) and Path(generated_markdown_path).exists() else None,
+            "analysis_completed": note.status == "completed",
+            "has_transcript": bool(artifacts.get("transcript")),
+        }
+
     def _read_nfo_context(
         self,
         video_path: str,
@@ -829,6 +885,7 @@ class AiNoteService:
             raise ValueError(f"Video file not found: {actual_source_path}")
         start_stage = self._stage_index(resume_from_stage) if resume_from_stage else 0
         artifacts = self._analysis_artifacts(note)
+        resolved_level = self._resolve_level(style, level)
 
         subtitle_downloaded = False
         platform_subtitle_path = None
@@ -843,7 +900,7 @@ class AiNoteService:
                 logger.warning(f"指定的字幕文件不存在: {candidate}")
         else:
             # 按优先级查找字幕文件
-            subtitle_patterns = ["*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
+            subtitle_patterns = ["*.zh-CN.ai.srt", "*.zh-CN.srt", "*.ai-zh.srt", "*.srt"]
             for pattern in subtitle_patterns:
                 subtitle_files = list(Path(actual_file_path).parent.glob(pattern))
                 if subtitle_files:
@@ -860,7 +917,7 @@ class AiNoteService:
                     context = {
                         "t0_text": "",
                         "transcript": subtitle_content,
-                        "level": self._resolve_level(style, level),
+                        "level": resolved_level,
                         "subtitle_source": "platform",
                     }
                     start_stage = self._stage_index("NFO.READ")
@@ -872,13 +929,13 @@ class AiNoteService:
                     context: Dict[str, Any] = {
                         "t0_text": artifacts.get("t0_text", ""),
                         "transcript": artifacts.get("transcript", ""),
-                        "level": artifacts.get("level", self._resolve_level(style, level)),
+                        "level": artifacts.get("level", resolved_level),
                     }
             else:
                 context: Dict[str, Any] = {
                     "t0_text": artifacts.get("t0_text", ""),
                     "transcript": artifacts.get("transcript", ""),
-                    "level": artifacts.get("level", self._resolve_level(style, level)),
+                    "level": artifacts.get("level", resolved_level),
                 }
 
             if pipeline_mode == "image_text":
@@ -890,7 +947,7 @@ class AiNoteService:
                         current_stage=self._trace_stage(pipeline_mode, "DOC.READ"),
                     )
 
-                level = self._resolve_level(style, level)
+                level = resolved_level
                 context["level"] = level
                 image_context = NFOReader.read_image_text_context(actual_file_path)
                 context["t0_text"] = image_context.get("body_text", "") or image_context.get("text", "")
@@ -1413,7 +1470,7 @@ class AiNoteService:
             note=note,
         )
 
-        level = self._resolve_level(style, level)
+        level = self._resolve_level(style)
         t0_for_nfo = NFOReader.read_t0_text(video_path)
         self._add_trace(
             self._trace_stage(pipeline_mode, "NFO.READ"),
@@ -1927,6 +1984,9 @@ class AiNoteService:
         )
         if note:
             self._resolve_note_pipeline_mode(note)
+            meta = note.meta if isinstance(note.meta, dict) else {}
+            meta["artifact_state"] = self._collect_local_artifact_state(note)
+            note.meta = meta
             self.db.close()
             return note
 
@@ -1955,6 +2015,9 @@ class AiNoteService:
             )
             if note:
                 self._resolve_note_pipeline_mode(note, download=download)
+                meta = note.meta if isinstance(note.meta, dict) else {}
+                meta["artifact_state"] = self._collect_local_artifact_state(note, download=download)
+                note.meta = meta
                 self.db.close()
                 return note
 
@@ -1967,6 +2030,9 @@ class AiNoteService:
                 )
                 if note:
                     self._resolve_note_pipeline_mode(note, download=download)
+                    meta = note.meta if isinstance(note.meta, dict) else {}
+                    meta["artifact_state"] = self._collect_local_artifact_state(note, download=download)
+                    note.meta = meta
                     self.db.close()
                     return note
 
@@ -1981,6 +2047,9 @@ class AiNoteService:
                     )
                     if note:
                         self._resolve_note_pipeline_mode(note, download=download)
+                        meta = note.meta if isinstance(note.meta, dict) else {}
+                        meta["artifact_state"] = self._collect_local_artifact_state(note, download=download)
+                        note.meta = meta
                         self.db.close()
                         return note
 

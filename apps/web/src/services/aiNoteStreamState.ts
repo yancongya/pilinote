@@ -115,7 +115,7 @@ export function applyAiNoteStreamEvent(
     lastEvent: event,
   }
 
-  if (stage !== 'META') {
+  if (stage !== 'META' && stage !== 'INIT' && stage !== 'DONE') {
     const detail = event.data && typeof event.data === 'object' && 'detail' in event.data
       ? (event.data as Record<string, any>).detail
       : event.data

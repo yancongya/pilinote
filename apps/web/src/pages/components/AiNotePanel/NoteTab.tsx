@@ -485,8 +485,16 @@ export function NoteTab({
             const srtFiles = (filesResponse.data || [])
               .map((f: any) => (typeof f === 'string' ? f : f?.name || ''))
               .filter((name: string) => name.endsWith('.srt'));
-            const preferred = srtFiles.find((f: string) => f.includes('.ai-zh.srt') || f.includes('.zh-CN.srt'));
-            subtitleFilename = preferred || srtFiles[0];
+            const subtitlePriority = [
+              '.zh-CN.ai.srt',
+              '.ai-zh.srt',
+              '.zh-CN.srt',
+              '.srt',
+            ];
+            subtitleFilename =
+              subtitlePriority
+                .map((suffix) => srtFiles.find((f: string) => f.endsWith(suffix)))
+                .find(Boolean) || srtFiles[0];
           }
         } catch (e) {
           console.warn('[NoteTab] Failed to get subtitle files:', e);

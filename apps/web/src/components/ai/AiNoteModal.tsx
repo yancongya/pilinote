@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X, Sparkles, Loader2, RotateCcw, Copy, Pause, Play } from 'lucide-react'
 import {
   aiNoteService,
+  AI_NOTE_REANALYZE_STAGE_TEMPLATES,
   AI_NOTE_TRACE_STAGE_TEMPLATES,
   type NoteResponse,
   type AiTraceStep,
@@ -38,6 +39,7 @@ import {
   type SeriesQueueSummary,
 } from './seriesAnalysis'
 import Modal from '../Modal'
+import { apiService } from '../../services/api'
 
 interface AiNoteModalProps {
   videoId: string
@@ -105,6 +107,12 @@ const normalizeStage = (stage: string): string => {
 }
 
 const DEFAULT_PIPELINE_MODE: AiNotePipelineMode = 'video'
+const SUBTITLE_PRIORITY = [
+  '.zh-CN.ai.srt',
+  '.ai-zh.srt',
+  '.zh-CN.srt',
+  '.srt',
+]
 
 const getPipelineMode = (
   note?: NoteResponse | null,
@@ -137,6 +145,52 @@ const getPipelineMode = (
 
 const getStageTemplates = (mode: AiNotePipelineMode): AiNoteTraceStageTemplate[] => {
   return AI_NOTE_TRACE_STAGE_TEMPLATES[mode] || AI_NOTE_TRACE_STAGE_TEMPLATES.video
+}
+
+const resolvePreferredSubtitleFilename = async (
+  videoId: string,
+  preferredFilename?: string,
+): Promise<string | undefined> => {
+  const filesResponse: any = await apiService.getSubtitleFiles(videoId)
+  if (!filesResponse.success || !filesResponse.data) {
+    return preferredFilename
+  }
+
+  const srtFiles = (filesResponse.data || [])
+    .map((file: any) => (typeof file === 'string' ? file : file?.name || ''))
+    .filter((name: string) => name.endsWith('.srt'))
+
+  if (srtFiles.length === 0) {
+    return preferredFilename
+  }
+
+  if (preferredFilename && srtFiles.includes(preferredFilename)) {
+    return preferredFilename
+  }
+
+  return SUBTITLE_PRIORITY
+    .map((suffix) => srtFiles.find((name: string) => name.endsWith(suffix)))
+    .find(Boolean) || srtFiles[0]
+}
+
+const getEffectiveStageTemplates = (
+  mode: AiNotePipelineMode,
+  trace: AiTraceStep[],
+): AiNoteTraceStageTemplate[] => {
+  const normalizedStages = new Set(
+    trace
+      .map((step) => normalizeStage(step.stage))
+      .filter(Boolean),
+  )
+  const hasAudioOrSubtitleTrace =
+    normalizedStages.has(normalizeStage(`${mode}.AUDIO.FETCH`)) ||
+    normalizedStages.has(normalizeStage(`${mode}.SUBTITLE.GENERATE`))
+
+  if (!hasAudioOrSubtitleTrace && normalizedStages.size > 0) {
+    return AI_NOTE_REANALYZE_STAGE_TEMPLATES[mode] || AI_NOTE_REANALYZE_STAGE_TEMPLATES.video
+  }
+
+  return getStageTemplates(mode)
 }
 
 const getTraceStatus = (step: AiTraceStep, nextStep?: AiTraceStep): TraceDotStatus => {
@@ -178,12 +232,174 @@ const buildDetailPreview = (detail: AiTraceStep['detail']): string => {
   return lines.length ? lines.join('\n') : '暂无补充字段'
 }
 
-const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEFAULT_PIPELINE_MODE): TraceDotItem[] => {
-  const templates = getStageTemplates(mode)
+const pruneCompletedPlaceholderStages = (
+  note: NoteResponse | null,
+  templates: AiNoteTraceStageTemplate[],
+  trace: AiTraceStep[],
+): AiNoteTraceStageTemplate[] => {
+  if (!note || note.status !== 'completed') {
+    return templates
+  }
+
+  const normalizedStages = new Set(
+    trace.map((step) => normalizeStage(step.stage)).filter(Boolean),
+  )
+
+  return templates.filter((item) => {
+    const stage = normalizeStage(item.stage)
+    if (stage === 'CONTENT.GENERATE' && !normalizedStages.has(stage)) {
+      return false
+    }
+    return true
+  })
+}
+
+const buildDefaultTraceDotItems = (mode: AiNotePipelineMode = DEFAULT_PIPELINE_MODE): TraceDotItem[] => {
+  return getStageTemplates(mode).map((item, index) => ({
+    id: `${normalizeStage(item.stage)}-${index}`,
+    stage: item.stage,
+    title: item.title,
+    shortLabel: item.shortLabel,
+    summary: '等待执行',
+    status: 'pending',
+    statusLabel: TRACE_STATUS_META.pending.label,
+    detailText: '暂无日志',
+    detailPreview: '暂无原始详情',
+    steps: [],
+    progress: 0,
+  }))
+}
+
+const hydrateTraceWithCurrentStage = (
+  note: NoteResponse | null,
+  trace: AiTraceStep[],
+): AiTraceStep[] => {
+  if (!note) return trace
+  const currentStage =
+    note.current_stage ||
+    (typeof note.meta?.control === 'object' ? (note.meta?.control as any)?.current_stage : undefined)
+  const controlState =
+    note.control_state ||
+    (typeof note.meta?.control === 'object' ? (note.meta?.control as any)?.state : undefined)
+
+  if (!currentStage || controlState !== 'running') {
+    return trace
+  }
+
+  const exists = trace.some((step) => step.stage === currentStage)
+  if (exists) {
+    return trace
+  }
+
+  return [
+    ...trace,
+    {
+      stage: currentStage,
+      title: currentStage,
+      summary: '处理中...',
+      detail: { message: '处理中...' },
+      progress: undefined,
+      ts: new Date().toISOString(),
+    },
+  ]
+}
+
+const hydrateTraceWithArtifactState = (
+  note: NoteResponse | null,
+  trace: AiTraceStep[],
+  videoId?: string,
+  overrideMode?: AiNotePipelineMode,
+): AiTraceStep[] => {
+  if (!note || !note.meta || typeof note.meta !== 'object') {
+    return trace
+  }
+
+  const artifactState = (note.meta as Record<string, any>).artifact_state
+  if (!artifactState || typeof artifactState !== 'object') {
+    return trace
+  }
+
+  const mode = getPipelineMode(note, trace, videoId, overrideMode)
+  const nextTrace = [...trace]
+  const seen = new Set(nextTrace.map((step) => normalizeStage(step.stage)))
+
+  const pushSynthetic = (stage: string, title: string, summary: string, progress: number, detail: Record<string, any>) => {
+    const normalized = normalizeStage(stage)
+    if (seen.has(normalized)) return
+    seen.add(normalized)
+    nextTrace.push({
+      stage,
+      title,
+      summary,
+      detail,
+      progress,
+      ts: new Date().toISOString(),
+    })
+  }
+
+  if (mode !== 'image_text' && artifactState.audio_exists) {
+    pushSynthetic(
+      `${mode}.AUDIO.FETCH`,
+      '音频获取',
+      '已发现本地音频文件',
+      10,
+      {
+        audio_path: artifactState.audio_path,
+        source: 'local-artifact',
+      },
+    )
+  }
+
+  if (mode !== 'image_text' && artifactState.subtitle_exists) {
+    pushSynthetic(
+      `${mode}.SUBTITLE.GENERATE`,
+      '字幕复用',
+      '已发现本地字幕文件',
+      55,
+      {
+        subtitle_files: artifactState.subtitle_files || [],
+        source: 'local-artifact',
+      },
+    )
+  }
+
+  if (artifactState.nfo_exists) {
+    pushSynthetic(
+      `${mode}.NFO.READ`,
+      mode === 'image_text' ? '元数据读取' : 'NFO 读取',
+      '已发现本地元数据文件',
+      70,
+      {
+        nfo_path: artifactState.nfo_path,
+        source: 'local-artifact',
+      },
+    )
+  }
+
+  return nextTrace
+}
+
+export const buildTraceDotItemsForNote = (
+  note: NoteResponse | null,
+  trace: AiTraceStep[],
+  videoId?: string,
+  overrideMode?: AiNotePipelineMode,
+): TraceDotItem[] => {
+  const hydratedTrace = hydrateTraceWithArtifactState(note, trace, videoId, overrideMode)
+  const mode = getPipelineMode(note, hydratedTrace, videoId, overrideMode)
+  if (!hydratedTrace.length) {
+    return buildDefaultTraceDotItems(mode)
+  }
+
+  const templates = pruneCompletedPlaceholderStages(
+    note,
+    getEffectiveStageTemplates(mode, hydratedTrace),
+    hydratedTrace,
+  )
+
   const grouped = new Map<string, AiTraceStep[]>()
   templates.forEach(item => grouped.set(normalizeStage(item.stage), []))
-
-  trace.forEach(step => {
+  hydratedTrace.forEach(step => {
     const stage = normalizeStage(step.stage)
     const items = grouped.get(stage)
     if (items) {
@@ -251,32 +467,6 @@ const buildTraceDotItems = (trace: AiTraceStep[], mode: AiNotePipelineMode = DEF
       progress: last.progress,
     }
   })
-}
-
-const buildDefaultTraceDotItems = (mode: AiNotePipelineMode = DEFAULT_PIPELINE_MODE): TraceDotItem[] => {
-  return getStageTemplates(mode).map((item, index) => ({
-    id: `${normalizeStage(item.stage)}-${index}`,
-    stage: item.stage,
-    title: item.title,
-    shortLabel: item.shortLabel,
-    summary: '等待执行',
-    status: 'pending',
-    statusLabel: TRACE_STATUS_META.pending.label,
-    detailText: '暂无日志',
-    detailPreview: '暂无原始详情',
-    steps: [],
-    progress: 0,
-  }))
-}
-
-export const buildTraceDotItemsForNote = (
-  note: NoteResponse | null,
-  trace: AiTraceStep[],
-  videoId?: string,
-  overrideMode?: AiNotePipelineMode,
-): TraceDotItem[] => {
-  const mode = getPipelineMode(note, trace, videoId, overrideMode)
-  return trace.length ? buildTraceDotItems(trace, mode) : buildDefaultTraceDotItems(mode)
 }
 
 export function deriveAiNoteModalStateFromLookup(lookup: {
@@ -539,7 +729,7 @@ export function AiNoteModal({
     if (!existingNote) return
 
     setNote(existingNote)
-    setTrace((existingNote.meta?.trace as AiTraceStep[]) || [])
+    setTrace(hydrateTraceWithCurrentStage(existingNote, (existingNote.meta?.trace as AiTraceStep[]) || []))
     const nextStreamState = createAiNoteStreamState()
     streamStateRef.current = nextStreamState
     setStreamState(nextStreamState)
@@ -668,7 +858,7 @@ export function AiNoteModal({
 
         if (derived.note) {
           setNote(derived.note)
-          setTrace((derived.note.meta?.trace as AiTraceStep[]) || [])
+          setTrace(hydrateTraceWithCurrentStage(derived.note, (derived.note.meta?.trace as AiTraceStep[]) || []))
           activeNoteIdRef.current = derived.note.id
           setControlState(derived.note.control_state || (derived.note.meta?.control?.state as any) || 'running')
           if (derived.note.style) {
@@ -947,6 +1137,9 @@ export function AiNoteModal({
     analysisAbortRef.current = abortController
 
     const currentMode = isSeriesMode ? 'video' : (getPipelineMode(note, trace, videoIdToAnalyze, effectivePipelineModeOverride) || 'video')
+    const resolvedSubtitleFilename = currentMode !== 'image_text'
+      ? await resolvePreferredSubtitleFilename(videoIdToAnalyze, subtitleFilename)
+      : undefined
     const request = {
       video_id: videoIdToAnalyze,
       style,
@@ -954,7 +1147,7 @@ export function AiNoteModal({
       model_name: selectedModel,
       level: detailLevel,
       pipeline_mode: currentMode,
-      subtitle_filename: subtitleFilename,
+      subtitle_filename: resolvedSubtitleFilename,
     }
 
     currentRequestRef.current = {
