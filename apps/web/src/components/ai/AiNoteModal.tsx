@@ -1863,21 +1863,6 @@ export function AiNoteModal({
           </div>
 
           {error && <div className="ai-note-modal-error">{error}</div>}
-
-          <div className="ai-note-modal-footer">
-            <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
-              <RotateCcw size={16} />
-              重置
-            </button>
-            <button onClick={handlePauseOrResume} disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')} className="ai-note-modal-btn-secondary">
-              {effectiveControlState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
-              {effectiveControlState === 'paused' ? '继续' : '暂停'}
-            </button>
-            <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady} className="ai-note-modal-btn-primary">
-              {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              {isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')}
-            </button>
-          </div>
         </>
       )}
 
@@ -1902,19 +1887,18 @@ export function AiNoteModal({
               )}
             </div>
           </div>
-          <div className="ai-note-modal-footer">
-            <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
-              <RotateCcw size={16} />
-              重新分析
-            </button>
-            <button onClick={onClose} className="ai-note-modal-btn-primary">
-              关闭
-            </button>
-          </div>
         </>
       )}
     </>
   )
+
+  const showHeaderPauseAction = viewState === 'config' && (!isSeriesMode || Boolean(activeNoteIdRef.current) || effectiveControlState === 'paused')
+  const showHeaderAnalyzeAction = viewState === 'config'
+  const resetActionLabel = isSeriesMode ? '重置选集' : (viewState === 'result' ? '重新分析' : '重置')
+  const analyzeActionLabel = isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')
+  const analyzeActionDisabled = isSeriesMode
+    ? (isAnalyzing || !localAsrReady || selectedSeriesEpisodes.length === 0)
+    : (isAnalyzing || !localAsrReady)
 
   const renderSeriesContent = () => (
     <>
@@ -1963,21 +1947,6 @@ export function AiNoteModal({
       </div>
 
       {error && <div className="ai-note-modal-error">{error}</div>}
-
-      <div className="ai-note-modal-footer">
-        <button onClick={handleResetAnalyze} className="ai-note-modal-btn-secondary">
-          <RotateCcw size={16} />
-          重置选集
-        </button>
-        <button onClick={handlePauseOrResume} disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')} className="ai-note-modal-btn-secondary">
-          {effectiveControlState === 'paused' ? <Play size={16} /> : <Pause size={16} />}
-          {effectiveControlState === 'paused' ? '继续' : '暂停'}
-        </button>
-        <button onClick={handleAnalyze} disabled={isAnalyzing || !localAsrReady || selectedSeriesEpisodes.length === 0} className="ai-note-modal-btn-primary">
-          {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {isAnalyzing ? '分析中...' : (localAsrReady ? '开始分析' : '模型未就绪')}
-        </button>
-      </div>
     </>
   )
 
@@ -2006,9 +1975,44 @@ export function AiNoteModal({
             <Sparkles size={20} />
             <span>AI 笔记</span>
           </button>
-          <button className="ai-note-modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <div className="ai-note-modal-header-actions">
+            <button
+              type="button"
+              className="ai-note-modal-icon-btn"
+              onClick={handleResetAnalyze}
+              title={resetActionLabel}
+              aria-label={resetActionLabel}
+            >
+              <RotateCcw size={18} />
+            </button>
+            {showHeaderPauseAction && (
+              <button
+                type="button"
+                className="ai-note-modal-icon-btn"
+                onClick={handlePauseOrResume}
+                disabled={!activeNoteIdRef.current || (!isAnalyzing && effectiveControlState !== 'paused')}
+                title={effectiveControlState === 'paused' ? '继续分析' : '暂停分析'}
+                aria-label={effectiveControlState === 'paused' ? '继续分析' : '暂停分析'}
+              >
+                {effectiveControlState === 'paused' ? <Play size={18} /> : <Pause size={18} />}
+              </button>
+            )}
+            {showHeaderAnalyzeAction && (
+              <button
+                type="button"
+                className="ai-note-modal-icon-btn ai-note-modal-icon-btn-primary"
+                onClick={handleAnalyze}
+                disabled={analyzeActionDisabled}
+                title={analyzeActionLabel}
+                aria-label={analyzeActionLabel}
+              >
+                {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              </button>
+            )}
+            <button className="ai-note-modal-close" onClick={onClose} title="关闭" aria-label="关闭">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {isSeriesMode ? renderSeriesContent() : renderSingleContent()}
@@ -2064,11 +2068,16 @@ export function AiNoteModal({
         .ai-note-modal-overlay { position: fixed; inset: 0; z-index: 12000; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top, 0px) + 12px) 16px max(16px, env(safe-area-inset-bottom, 0px) + 12px); background: rgba(0,0,0,0.52); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: auto; box-sizing: border-box; overflow: hidden; }
         .ai-note-modal-panel { width: min(100%, 460px); max-width: 460px; max-height: calc(100dvh - max(32px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 24px)); background: var(--color-bg-primary); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--color-border); box-shadow: 0 24px 60px rgba(0,0,0,0.42); }
         .ai-note-modal-panel[data-series-mode="true"] { width: min(100%, 700px); max-width: 700px; }
-        .ai-note-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
+        .ai-note-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--color-border); }
         .ai-note-modal-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
         .ai-note-modal-title-link { padding: 0; border: none; background: transparent; color: inherit; cursor: pointer; }
         .ai-note-modal-title-link:disabled { cursor: default; opacity: 1; }
-        .ai-note-modal-close { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--color-text-secondary); border-radius: 8px; cursor: pointer; }
+        .ai-note-modal-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+        .ai-note-modal-icon-btn, .ai-note-modal-close { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; color: var(--color-text-secondary); border-radius: 10px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+        .ai-note-modal-icon-btn:hover, .ai-note-modal-close:hover { background: var(--color-bg-secondary); color: var(--color-text-primary); }
+        .ai-note-modal-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .ai-note-modal-icon-btn-primary { background: rgba(59,130,246,0.12); color: var(--color-primary-600); }
+        .ai-note-modal-icon-btn-primary:hover { background: rgba(59,130,246,0.18); color: var(--color-primary-600); }
         .ai-note-modal-video-info { padding: 12px 20px; background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border); font-size: 14px; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ai-note-modal-content { flex: 1; overflow-y: auto; padding: 16px; }
         .ai-note-select-group { margin-bottom: 14px; }
@@ -2129,6 +2138,7 @@ export function AiNoteModal({
           .ai-note-modal-overlay { align-items: stretch; padding: max(12px, env(safe-area-inset-top, 0px) + 8px) 12px max(12px, env(safe-area-inset-bottom, 0px) + 8px); }
           .ai-note-modal-panel { width: 100%; max-height: calc(100dvh - max(24px, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 16px)); border-radius: 16px; }
           .ai-note-modal-header { padding: 12px 14px; }
+          .ai-note-modal-header-actions { gap: 6px; }
           .ai-note-modal-content { padding: 14px; }
           .ai-note-modal-footer { padding: 12px 14px; }
         }
