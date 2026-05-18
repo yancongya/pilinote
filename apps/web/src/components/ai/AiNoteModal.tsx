@@ -546,6 +546,7 @@ export function AiNoteModal({
   const [isRefreshingModels, setIsRefreshingModels] = useState(false)
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
   const [style, setStyle] = useState('detailed')
+  const [promptExtras, setPromptExtras] = useState('')
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -603,6 +604,7 @@ export function AiNoteModal({
   useEffect(() => {
     if (!isOpen) {
       settingsFetchRequestedRef.current = false
+      setPromptExtras('')
       return
     }
 
@@ -1149,6 +1151,7 @@ export function AiNoteModal({
       level: detailLevel,
       pipeline_mode: currentMode,
       subtitle_filename: resolvedSubtitleFilename,
+      extras: promptExtras.trim() || undefined,
     }
 
     currentRequestRef.current = {
@@ -1156,7 +1159,7 @@ export function AiNoteModal({
       style,
       model_provider: activeProvider,
       model_name: selectedModel,
-      extras: detailLevel === 'simple' ? '请输出简洁版本' : '请输出详细版本',
+      extras: promptExtras.trim(),
       pipeline_mode: currentMode,
     }
 
@@ -1833,8 +1836,20 @@ export function AiNoteModal({
       <div className="ai-note-select-group">
         <label>笔记风格</label>
         <select value={style} onChange={e => setStyle(e.target.value)} className="ai-note-select">
-          {availableStyles.map(s => <option key={s.value} value={s.value}>{s.label} - {s.description}</option>)}
+          {availableStyles.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+      </div>
+
+      <div className="ai-note-select-group">
+        <label>补充要求</label>
+        <textarea
+          value={promptExtras}
+          onChange={e => setPromptExtras(e.target.value)}
+          className="ai-note-textarea"
+          rows={4}
+          placeholder="例如：更关注工作流步骤、保留英文术语、提取插件名和快捷键。本内容仅对本次分析生效。"
+        />
+        <div className="ai-note-input-hint">仅对本次分析生效，关闭弹窗后自动清空。</div>
       </div>
     </div>
   )
@@ -2063,6 +2078,8 @@ export function AiNoteModal({
         .ai-note-select-refresh { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
         .ai-note-select-refresh:disabled { opacity: 0.65; cursor: not-allowed; }
         .ai-note-select { width: 100%; padding: 10px 14px; border-radius: 10px; font-size: 13px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); }
+        .ai-note-textarea { width: 100%; min-height: 96px; padding: 10px 14px; border-radius: 10px; font-size: 13px; line-height: 1.6; resize: vertical; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); box-sizing: border-box; }
+        .ai-note-input-hint { margin-top: 6px; font-size: 12px; color: var(--color-text-tertiary); line-height: 1.5; }
         .ai-note-empty-hint { padding: 10px 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px dashed var(--color-border); color: var(--color-text-tertiary); font-size: 12px; }
         .ai-note-summary-chip { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
         .ai-note-modal-error { padding: 10px 16px; background: var(--color-error-50); font-size: 13px; color: var(--color-error-600); }
