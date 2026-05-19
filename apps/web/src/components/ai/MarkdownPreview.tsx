@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { Children, type ReactNode, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import clsx from 'clsx'
@@ -13,6 +13,7 @@ export interface MarkdownPreviewProps {
   content: string
   sourceFolderPath?: string | null
   className?: string
+  onSeekToSeconds?: (seconds: number) => void
 }
 
 type MarkdownHeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
@@ -130,6 +131,62 @@ const markdownPreviewStyles = `
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.markdown-preview .markdown-codeblock {
+  margin: 1.5rem 0;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.96));
+  box-shadow:
+    0 24px 60px rgba(2, 6, 23, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.markdown-preview .markdown-codeblock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(2, 6, 23, 0.25);
+}
+
+.markdown-preview .markdown-codeblock-lang {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(148, 163, 184, 0.95);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.markdown-preview .markdown-codeblock-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.25);
+  color: rgba(248, 250, 252, 0.95);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.markdown-preview .markdown-codeblock-copy:hover {
+  background: rgba(148, 163, 184, 0.10);
+}
+
+.markdown-preview .markdown-codeblock pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
 .markdown-preview pre code {
   display: block;
   padding: 1rem 1.1rem;
@@ -149,7 +206,7 @@ const markdownPreviewStyles = `
 
 .markdown-preview .markdown-table {
   margin: 1.5rem 0;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 16px;
   background: rgba(15, 23, 42, 0.55);
@@ -198,10 +255,89 @@ const markdownPreviewStyles = `
   color: rgba(186, 230, 253, 1);
 }
 
+.markdown-preview .markdown-seek-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  margin-right: 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  background: rgba(2, 6, 23, 0.35);
+  color: rgba(226, 232, 240, 0.96);
+  text-decoration: none;
+  font-weight: 750;
+  /* Use fixed sizing so it stays consistent inside h2/h3/... */
+  font-size: 12px;
+  line-height: 16px;
+  font-family: inherit;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+}
+
+.markdown-preview .markdown-seek-link span[aria-hidden='true'] {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.markdown-preview .markdown-seek-link:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(125, 211, 252, 0.38);
+}
+
+.markdown-preview .markdown-seek-link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .markdown-preview input[type='checkbox'] {
   margin-right: 0.5rem;
   transform: translateY(0.05rem);
   accent-color: rgb(14, 165, 233);
+}
+
+.markdown-preview .markdown-timestamp-details {
+  margin: 1.25rem 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  background: rgba(2, 6, 23, 0.18);
+  overflow: hidden;
+}
+
+.markdown-preview .markdown-timestamp-details summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 750;
+  color: rgba(226, 232, 240, 0.96);
+  user-select: none;
+}
+
+.markdown-preview .markdown-timestamp-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.markdown-preview .markdown-timestamp-details summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  margin-right: 6px;
+  color: rgba(148, 163, 184, 0.95);
+  transform: translateY(-0.5px);
+}
+
+.markdown-preview .markdown-timestamp-details[open] summary::before {
+  content: '▾';
+}
+
+.markdown-preview .markdown-timestamp-details > ul {
+  margin: 0;
+  padding: 10px 12px 12px 28px;
 }
 `
 
@@ -209,54 +345,235 @@ function renderHeading(
   Tag: MarkdownHeadingTag,
   children: ReactNode,
   nextHeadingId: (text: string) => string,
+  onSeekToSeconds?: (seconds: number) => void,
 ) {
   const text = extractMarkdownText(children)
   const id = nextHeadingId(text)
+  const trimmed = text.trim()
+  const match = trimmed.match(/^((?:\d{1,2}:)?\d{2}:\d{2})\s+(.+)$/)
+
+  const parseTimestampToSeconds = (timestamp: string): number | null => {
+    const ts = timestamp.trim()
+    const parts = ts.split(':').map(Number)
+    if (parts.some(p => !Number.isFinite(p))) return null
+    if (parts.length === 2) {
+      const [mm, ss] = parts
+      return mm * 60 + ss
+    }
+    if (parts.length === 3) {
+      const [hh, mm, ss] = parts
+      return hh * 3600 + mm * 60 + ss
+    }
+    return null
+  }
+
+  const timestamp = match ? match[1] : null
+  const headingTitle = match ? match[2].trim() : text
 
   return (
     <Tag
       id={id}
-      className={clsx(headingStyles[Tag], 'scroll-mt-24 cursor-pointer')}
-      onClick={() => {
-        const target = document.getElementById(id)
-        target?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-      }}
+      className={clsx(headingStyles[Tag], 'scroll-mt-24')}
     >
-      {children}
+      {timestamp && onSeekToSeconds && (
+        <button
+          type="button"
+          className="markdown-seek-link"
+          title="跳转播放进度"
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            const seconds = parseTimestampToSeconds(timestamp)
+            if (seconds === null || seconds < 0) return
+            onSeekToSeconds(seconds)
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: '0.95em', opacity: 0.9 }}>▶</span>
+          <span>{timestamp}</span>
+        </button>
+      )}
+      <span>{headingTitle}</span>
     </Tag>
   )
 }
 
-export function MarkdownPreview({ content, sourceFolderPath, className }: MarkdownPreviewProps) {
+function MarkdownCodeBlock({
+  codeText,
+  language,
+  className,
+}: {
+  codeText: string
+  language?: string | null
+  className?: string
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeText)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1100)
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <div className="markdown-codeblock">
+      <div className="markdown-codeblock-toolbar">
+        {language ? <div className="markdown-codeblock-lang">{language}</div> : <div />}
+        <button type="button" className="markdown-codeblock-copy" onClick={handleCopy}>
+          {copied ? '已复制' : '复制'}
+        </button>
+      </div>
+      <pre>
+        <code className={className}>{codeText}</code>
+      </pre>
+    </div>
+  )
+}
+
+export function MarkdownPreview({ content, sourceFolderPath, className, onSeekToSeconds }: MarkdownPreviewProps) {
   const nextHeadingId = createHeadingIdGenerator()
 
+  const parseTimestampToSeconds = (timestamp: string): number | null => {
+    const trimmed = timestamp.trim()
+    const match = trimmed.match(/^(\d{1,2}:)?\d{2}:\d{2}$/)
+    if (!match) return null
+    const parts = trimmed.split(':').map(Number)
+    if (parts.some(p => !Number.isFinite(p))) return null
+    if (parts.length === 2) {
+      const [mm, ss] = parts
+      return mm * 60 + ss
+    }
+    if (parts.length === 3) {
+      const [hh, mm, ss] = parts
+      return hh * 3600 + mm * 60 + ss
+    }
+    return null
+  }
+
   const components: Components = {
-    h1: ({ children }) => renderHeading('h1', children, nextHeadingId),
-    h2: ({ children }) => renderHeading('h2', children, nextHeadingId),
-    h3: ({ children }) => renderHeading('h3', children, nextHeadingId),
-    h4: ({ children }) => renderHeading('h4', children, nextHeadingId),
-    h5: ({ children }) => renderHeading('h5', children, nextHeadingId),
-    h6: ({ children }) => renderHeading('h6', children, nextHeadingId),
+    h1: ({ children }) => renderHeading('h1', children, nextHeadingId, onSeekToSeconds),
+    h2: ({ children }) => renderHeading('h2', children, nextHeadingId, onSeekToSeconds),
+    h3: ({ children }) => renderHeading('h3', children, nextHeadingId, onSeekToSeconds),
+    h4: ({ children }) => renderHeading('h4', children, nextHeadingId, onSeekToSeconds),
+    h5: ({ children }) => renderHeading('h5', children, nextHeadingId, onSeekToSeconds),
+    h6: ({ children }) => renderHeading('h6', children, nextHeadingId, onSeekToSeconds),
     p: ({ children }) => <p>{children}</p>,
     blockquote: ({ children }) => (
       <blockquote>
         {children}
       </blockquote>
     ),
-    ul: ({ children }) => <ul>{children}</ul>,
     ol: ({ children }) => <ol>{children}</ol>,
-    li: ({ children }) => <li>{children}</li>,
+    ul: ({ children }) => {
+      const items = Children.toArray(children)
+      const itemTexts = items.map(item => extractMarkdownText(item).trim()).filter(Boolean)
+      const timestampPattern = /^((?:\d{1,2}:)?\d{2}:\d{2})\s+/
+      const isTimestampList = itemTexts.length >= 4 && itemTexts.every(text => timestampPattern.test(text))
+
+      if (!isTimestampList) {
+        return <ul>{children}</ul>
+      }
+
+      return (
+        <details className="markdown-timestamp-details">
+          <summary>时间戳列表</summary>
+          <ul>{children}</ul>
+        </details>
+      )
+    },
+    li: ({ children }) => {
+      const text = extractMarkdownText(children).trim()
+      const match = text.match(/^((?:\d{1,2}:)?\d{2}:\d{2})\s+(.+)$/)
+      if (!match || !onSeekToSeconds) {
+        return <li>{children}</li>
+      }
+
+      const timestamp = match[1]
+      const rest = match[2]
+      const seconds = parseTimestampToSeconds(timestamp)
+      const enabled = seconds !== null && seconds >= 0
+
+      return (
+        <li>
+          <button
+            type="button"
+            disabled={!enabled}
+            className="markdown-seek-link"
+            title="跳转播放进度"
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              if (!enabled || seconds === null) return
+              onSeekToSeconds(seconds)
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: '0.95em', opacity: 0.9 }}>▶</span>
+            <span>{timestamp}</span>
+          </button>
+          <span>{rest}</span>
+        </li>
+      )
+    },
     a: ({ href = '', children }) => {
       const isInternalAnchor = href.startsWith('#')
+      const isSeekAnchor = href.startsWith('#pilinote-seek=')
+      const linkText = extractMarkdownText(children)
+      const isTimestampText = /^\s*(?:\d{1,2}:)?\d{2}:\d{2}\s*$/.test(linkText)
+      const seekValue = isSeekAnchor ? href.slice('#pilinote-seek='.length) : ''
+      const seekSeconds = isSeekAnchor ? Number(seekValue) : NaN
+
+      if (isSeekAnchor) {
+        const enabled = Number.isFinite(seekSeconds) && seekSeconds >= 0
+        return (
+          <button
+            type="button"
+            disabled={!enabled}
+            className={isTimestampText ? 'markdown-seek-link' : undefined}
+            title={isTimestampText ? '跳转播放进度' : undefined}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              if (!enabled) return
+              onSeekToSeconds?.(seekSeconds)
+            }}
+            style={{
+              // Neutralize default <button> styles while letting the CSS class
+              // control the "pill" appearance for timestamps.
+              border: isTimestampText ? undefined : 0,
+              background: isTimestampText ? undefined : 'transparent',
+              padding: isTimestampText ? undefined : 0,
+              color: 'inherit',
+              cursor: enabled ? 'pointer' : 'not-allowed',
+              font: isTimestampText ? undefined : 'inherit',
+              textDecoration: isTimestampText ? 'none' : 'underline',
+              textUnderlineOffset: isTimestampText ? undefined : '0.18em',
+            }}
+          >
+            {isTimestampText ? (
+              <>
+                <span aria-hidden="true" style={{ fontSize: '0.95em', opacity: 0.9 }}>▶</span>
+                <span>{children}</span>
+              </>
+            ) : (
+              children
+            )}
+          </button>
+        )
+      }
       return (
         <a
           href={href}
-          className=""
+          className={undefined}
           onClick={(event) => {
             if (!isInternalAnchor) {
               return
             }
             event.preventDefault()
+            event.stopPropagation()
+
             const targetId = href.slice(1)
             const target = document.getElementById(targetId)
             target?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
@@ -275,19 +592,22 @@ export function MarkdownPreview({ content, sourceFolderPath, className }: Markdo
           alt={alt}
           loading="lazy"
           src={resolvedSrc}
+          style={{ cursor: resolvedSrc ? 'zoom-in' : undefined }}
+          onClick={() => {
+            if (!resolvedSrc) return
+            window.open(resolvedSrc, '_blank', 'noopener,noreferrer')
+          }}
         />
       )
     },
     code: ({ className: codeClassName, children }) => {
       const codeText = String(children).replace(/\n$/, '')
       const isBlock = Boolean(codeClassName) || codeText.includes('\n')
+      const languageMatch = (codeClassName || '').match(/language-([a-z0-9_+-]+)/i)
+      const language = languageMatch?.[1] || null
 
       if (isBlock) {
-        return (
-          <pre>
-            <code className={codeClassName}>{codeText}</code>
-          </pre>
-        )
+        return <MarkdownCodeBlock codeText={codeText} language={language} className={codeClassName} />
       }
 
       return (

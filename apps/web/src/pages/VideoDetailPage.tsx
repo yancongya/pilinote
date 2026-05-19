@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, Outlet } from 'react-router-dom'
 import { apiService } from '../services/api'
 import { useAuthStore } from '../stores/auth'
@@ -12,7 +12,7 @@ import {
 } from '../hooks/useVideoDownload'
 import { videoLibraryService } from '../services/videoLibraryService'
 import AlertModal from '../components/AlertModal'
-import { ArrowLeft, ChevronDown, ChevronRight, Film, FolderTree, List, MessageCircle, Play, SkipBack, SkipForward, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Film, FolderTree, List, MessageCircle, Play, SkipBack, SkipForward, Sparkles, ThumbsUp, User, Eye, MessageSquare, Coins, Bookmark, Pin, PinOff } from 'lucide-react'
 import { getAvatarProxyUrl, getLocalImageUrl, getLocalVideoUrl } from '../config/api'
 import './VideoDetailPage.css'
 import {
@@ -24,6 +24,7 @@ import {
 } from './videoDetailPlayback'
 import { buildDetailTaskPayload, normalizeOpusMediaId } from './videoDetailMedia'
 import { parseLocalOpusMarkdown, type LocalOpusContent, type OpusBlock } from './videoDetailOpus'
+import { MarkdownPreview } from '../components/ai/MarkdownPreview'
 
 interface VideoDetailPageProps {
   type?: 'video' | 'opus'
@@ -163,6 +164,17 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [switchingLayout, setSwitchingLayout] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [localOpusContent, setLocalOpusContent] = useState<LocalOpusContent | null>(null)
+  const videoElementRef = useRef<HTMLVideoElement | null>(null)
+  const pendingSeekSecondsRef = useRef<number | null>(null)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
+  const [isVideoPinned, setIsVideoPinned] = useState(false)
+  const [mobileDetailTab, setMobileDetailTab] = useState<'intro' | 'ai'>('intro')
+  const [aiNoteMarkdown, setAiNoteMarkdown] = useState('')
+  const [aiNoteFolderPath, setAiNoteFolderPath] = useState<string | null>(null)
+  const [aiNoteLoading, setAiNoteLoading] = useState(false)
+  const [aiNoteError, setAiNoteError] = useState<string | null>(null)
+  const [aiNoteRevision, setAiNoteRevision] = useState(0)
+  const [localVideoDurationSeconds, setLocalVideoDurationSeconds] = useState<number | null>(null)
   const [alertModal, setAlertModal] = useState<{
     show: boolean
     title: string
@@ -241,6 +253,72 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const listPadding = isCompactLayout ? '12px' : '16px'
   const listMaxHeight = isCompactLayout ? '300px' : '400px'
   const pageGap = isCompactLayout ? '16px' : '20px'
+  const shouldStickyPlayer = mediaMode === 'local-video' && !video?.isOpus && (isVideoPinned || isVideoPlaying)
+
+  const aiNoteFileId = useMemo(() => {
+    if (!videoId || type === 'opus') return ''
+    return activePlaybackEntry?.path || localPlayback?.folder_path || videoId
+  }, [activePlaybackEntry?.path, localPlayback?.folder_path, type, videoId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = async () => {
+      if (!videoId || type === 'opus') {
+        setAiNoteMarkdown('')
+        setAiNoteFolderPath(null)
+        setAiNoteError(null)
+        setAiNoteLoading(false)
+        return
+      }
+
+      if (!aiNoteFileId) {
+        setAiNoteMarkdown('')
+        setAiNoteFolderPath(null)
+        setAiNoteError(null)
+        return
+      }
+
+      setAiNoteLoading(true)
+      setAiNoteError(null)
+
+      try {
+        const response = await apiService.getLocalFile(aiNoteFileId, 'note')
+        if (cancelled) return
+
+        if (response.success) {
+          setAiNoteMarkdown(typeof response.data === 'string' ? response.data : '')
+          setAiNoteFolderPath(response.folder_path ? String(response.folder_path) : null)
+          setAiNoteError(null)
+        } else {
+          setAiNoteMarkdown('')
+          setAiNoteFolderPath(null)
+          setAiNoteError(response.error || '加载笔记失败')
+        }
+      } catch (err) {
+        if (cancelled) return
+        setAiNoteMarkdown('')
+        setAiNoteFolderPath(null)
+        setAiNoteError(err instanceof Error ? err.message : '加载笔记失败')
+      } finally {
+        if (!cancelled) setAiNoteLoading(false)
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [aiNoteFileId, aiNoteRevision, type, videoId])
+
+  useEffect(() => {
+    if (mediaMode === 'poster') {
+      setIsVideoPlaying(false)
+      setIsVideoPinned(false)
+      pendingSeekSecondsRef.current = null
+    }
+  }, [mediaMode])
 
   // 获取代理图片URL
   const getProxyImageUrl = (url: string | null | undefined): string => {
@@ -941,6 +1019,103 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     })
   }
 
+  const parseTimestampToSeconds = (timestamp: unknown): number | null => {
+    if (typeof timestamp !== 'string') return null
+    const trimmed = timestamp.trim()
+    const match = trimmed.match(/^(\d{1,2}:)?\d{2}:\d{2}$/)
+    if (!match) return null
+    const parts = trimmed.split(':').map(Number)
+    if (parts.some(p => !Number.isFinite(p))) return null
+    if (parts.length === 2) {
+      const [mm, ss] = parts
+      return mm * 60 + ss
+    }
+    if (parts.length === 3) {
+      const [hh, mm, ss] = parts
+      return hh * 3600 + mm * 60 + ss
+    }
+    return null
+  }
+
+  type AiNoteKeypoint = { timestamp: string; seconds: number; title: string }
+
+  const aiNoteKeypoints = useMemo<AiNoteKeypoint[]>(() => {
+    if (!aiNoteMarkdown.trim()) return []
+    const lines = aiNoteMarkdown.split(/\r?\n/)
+
+    const results: AiNoteKeypoint[] = []
+    const seen = new Set<number>()
+
+    const pushPoint = (timestamp: unknown, title: unknown) => {
+      const seconds = parseTimestampToSeconds(timestamp)
+      if (seconds === null) return
+      if (seconds < 0) return
+      if (seen.has(seconds)) return
+      seen.add(seconds)
+      const ts = typeof timestamp === 'string' ? timestamp.trim() : ''
+      const tt = typeof title === 'string' ? title.trim() : ''
+      if (!ts) return
+      results.push({ timestamp: ts, seconds, title: tt })
+    }
+
+    // Prefer the explicit "## 时间戳" section.
+    const tsHeadingIndex = lines.findIndex(line => /^\s*##\s*时间戳\s*$/.test(line))
+    if (tsHeadingIndex >= 0) {
+      for (let i = tsHeadingIndex + 1; i < lines.length; i++) {
+        const line = lines[i]
+        if (/^\s*#{1,6}\s+/.test(line)) break
+        const itemMatch = line.match(/^\s*-\s*((?:[0-9]{1,2}:)?[0-9]{2}:[0-9]{2})\s+(.+)\s*$/)
+        if (!itemMatch) continue
+        pushPoint(itemMatch[1], itemMatch[2])
+      }
+    }
+
+    // Fallback: scan headings with timestamps.
+    if (results.length === 0) {
+      for (const line of lines) {
+        const headingMatch = line.match(/^\s*#{2,6}\s*(([0-9]{1,2}:)?[0-9]{2}:[0-9]{2})\s+(.+)\s*$/)
+        if (!headingMatch) continue
+        pushPoint(headingMatch[1], headingMatch[3])
+      }
+    }
+
+    results.sort((a, b) => a.seconds - b.seconds)
+    return results.slice(0, 18)
+  }, [aiNoteMarkdown])
+
+  const keypointBarDurationSeconds = useMemo(() => {
+    const fallback = typeof video?.duration === 'number' ? video.duration : Number(video?.duration || 0)
+    const durationFromMeta = Number.isFinite(fallback) && fallback > 0 ? fallback : 0
+    const durationFromVideo = typeof localVideoDurationSeconds === 'number' && localVideoDurationSeconds > 0
+      ? localVideoDurationSeconds
+      : 0
+    return durationFromVideo || durationFromMeta || (aiNoteKeypoints.at(-1)?.seconds || 0)
+  }, [aiNoteKeypoints, localVideoDurationSeconds, video?.duration])
+
+  const handleSeekToSeconds = useCallback((seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return
+    if (!video || video.isOpus || !hasLocalPlayback) return
+
+    if (mediaMode !== 'local-video') {
+      pendingSeekSecondsRef.current = seconds
+      handleCoverPlay()
+      return
+    }
+
+    const el = videoElementRef.current
+    if (!el) return
+
+    try {
+      el.currentTime = seconds
+      const maybePromise = el.play()
+      if (maybePromise && typeof (maybePromise as any).catch === 'function') {
+        ;(maybePromise as any).catch(() => {})
+      }
+    } catch {
+      // ignore
+    }
+  }, [handleCoverPlay, hasLocalPlayback, mediaMode, video])
+
   const isCollectionItemCompleted = (part: DownloadPart): boolean => {
     const tasks = Object.values(newQueueStore.tasks)
     return tasks.some(task =>
@@ -1519,6 +1694,153 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
     )
   }
 
+  const renderAiNotePanel = () => {
+    if (video.isOpus) {
+      return null
+    }
+
+    return (
+      <section
+        aria-label="AI 笔记"
+        style={{
+          padding: cardPadding,
+          background: 'var(--color-bg-tertiary)',
+          borderRadius: cardRadius,
+          border: '1px solid var(--color-border)',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '12px',
+          marginBottom: aiNoteKeypoints.length > 0 ? '12px' : '10px'
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: responsiveStyle.fontSize.small,
+              fontWeight: 700,
+              color: 'var(--color-text-primary)',
+              lineHeight: '1.2'
+            }}>
+              AI 笔记
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+              点击时间戳即可跳转播放进度
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setAiNoteRevision((v) => v + 1)}
+              disabled={aiNoteLoading}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '999px',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+                cursor: aiNoteLoading ? 'not-allowed' : 'pointer',
+                fontSize: '12px',
+                fontWeight: 650
+              }}
+            >
+              刷新
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigate(`${aiPanelPath}#note`)
+              }}
+              style={{
+                padding: '7px 10px',
+                borderRadius: '999px',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 650
+              }}
+            >
+              打开面板
+            </button>
+          </div>
+        </div>
+
+        {aiNoteKeypoints.length > 0 && keypointBarDurationSeconds > 0 && (
+          <div
+            className="video-detail-keypoint-bar-wrap"
+            style={{ marginBottom: '12px' }}
+          >
+            <div className="video-detail-keypoint-bar" role="list" aria-label="关键点时间轴">
+              {aiNoteKeypoints.map((item, index) => {
+                const next = aiNoteKeypoints[index + 1]
+                const start = item.seconds
+                const end = next ? next.seconds : keypointBarDurationSeconds
+                const safeStart = Math.max(0, Math.min(start, keypointBarDurationSeconds))
+                const safeEnd = Math.max(safeStart, Math.min(end, keypointBarDurationSeconds))
+                const left = (safeStart / keypointBarDurationSeconds) * 100
+                const width = ((safeEnd - safeStart) / keypointBarDurationSeconds) * 100
+                const hue = Math.round((index / Math.max(1, aiNoteKeypoints.length)) * 220)
+
+                return (
+                  <button
+                    key={`${item.seconds}-${item.timestamp}`}
+                    type="button"
+                    role="listitem"
+                    className="video-detail-keypoint-segment"
+                    onClick={() => handleSeekToSeconds(item.seconds)}
+                    title={`${item.timestamp}  ${item.title}`}
+                    style={{
+                      left: `${left}%`,
+                      width: `${Math.max(1.5, width)}%`,
+                      background: `linear-gradient(90deg, hsla(${hue}, 85%, 62%, 0.75), hsla(${hue}, 85%, 62%, 0.55))`,
+                      borderColor: `hsla(${hue}, 85%, 72%, 0.55)`,
+                    }}
+                    aria-label={`${item.timestamp} ${item.title}`}
+                  >
+                    <span className="sr-only">{`${item.timestamp} ${item.title}`}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {aiNoteLoading && (
+          <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+            加载中...
+          </div>
+        )}
+
+        {!aiNoteLoading && aiNoteError && (
+          <div style={{ fontSize: '12px', color: 'var(--color-error-600)' }}>
+            {aiNoteError}
+          </div>
+        )}
+
+        {!aiNoteLoading && !aiNoteError && !aiNoteMarkdown.trim() && (
+          <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
+            暂无笔记
+          </div>
+        )}
+
+        {!aiNoteLoading && !aiNoteError && aiNoteMarkdown.trim() && (
+          <div style={{ marginTop: '10px' }}>
+            <MarkdownPreview
+              content={aiNoteMarkdown}
+              sourceFolderPath={aiNoteFolderPath}
+              onSeekToSeconds={handleSeekToSeconds}
+              className="video-detail-ai-markdown"
+            />
+          </div>
+        )}
+      </section>
+    )
+  }
+
   return (
     <div className="video-detail-page">
       <header className="video-detail-header">
@@ -1557,9 +1879,10 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
       </header>
 
       <main className="video-detail-content">
-      {/* 主内容区 - 统一单列竖向流 */}
+      {/* 主内容区 */}
       <div className="video-detail-sections" style={{ gap: pageGap }}>
-      <div style={{ minWidth: 0 }}>
+      <div className="video-detail-left">
+      <div className={`video-detail-player-rail${shouldStickyPlayer ? ' is-sticky' : ''}`}>
         <div style={{
           position: 'relative',
           width: '100%',
@@ -1589,11 +1912,34 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
             mediaMode === 'local-video' && activeLocalVideoUrl ? (
               <video
                 key={activeLocalVideoUrl}
+                ref={videoElementRef}
                 src={activeLocalVideoUrl}
                 controls
                 autoPlay
                 playsInline
                 poster={video.cover ? getProxyImageUrl(video.cover) : undefined}
+                onPlay={() => setIsVideoPlaying(true)}
+                onPause={() => setIsVideoPlaying(false)}
+                onEnded={() => setIsVideoPlaying(false)}
+                onLoadedMetadata={() => {
+                  const pending = pendingSeekSecondsRef.current
+                  if (pending === null) return
+                  pendingSeekSecondsRef.current = null
+                  if (!videoElementRef.current) return
+                  try {
+                    videoElementRef.current.currentTime = pending
+                  } catch {
+                    // ignore
+                  }
+                }}
+                onDurationChange={() => {
+                  const el = videoElementRef.current
+                  if (!el) return
+                  const duration = Number(el.duration)
+                  if (Number.isFinite(duration) && duration > 0) {
+                    setLocalVideoDurationSeconds(duration)
+                  }
+                }}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -1687,6 +2033,33 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
 
           {!video.isOpus && mediaMode === 'local-video' && activePlaybackEntry && (
             <>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setIsVideoPinned((prev) => !prev)
+                }}
+                aria-label={isVideoPinned ? '取消钉固' : '钉固播放器'}
+                title={isVideoPinned ? '取消钉固' : '钉固播放器'}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '999px',
+                  border: 'none',
+                  padding: 0,
+                  background: 'rgba(15, 15, 15, 0.78)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                  zIndex: 2
+                }}
+              >
+                {isVideoPinned ? <PinOff size={18} /> : <Pin size={18} />}
+              </button>
               <button
                 onClick={(event) => {
                   event.stopPropagation()
@@ -1793,8 +2166,33 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
           )}
         </div>
 
+        {!video.isOpus && isCompactLayout && (
+          <div className="video-detail-player-tabs" role="tablist" aria-label="详情页切换">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileDetailTab === 'intro'}
+              className={`video-detail-player-tab${mobileDetailTab === 'intro' ? ' is-active' : ''}`}
+              onClick={() => setMobileDetailTab('intro')}
+            >
+              简介
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileDetailTab === 'ai'}
+              className={`video-detail-player-tab${mobileDetailTab === 'ai' ? ' is-active' : ''}`}
+              onClick={() => setMobileDetailTab('ai')}
+            >
+              AI
+            </button>
+          </div>
+        )}
+
       </div>
 
+      {(!isCompactLayout || mobileDetailTab === 'intro') && (
+      <div className="video-detail-intro-panel">
       {!video.isOpus && (isCollectionMember || (video.pages && video.pages.length > 1)) && (
         <div style={{
           padding: cardPadding,
@@ -2404,6 +2802,13 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
 
       </div>
       </div>
+      )}
+
+      {isCompactLayout && !video.isOpus && mobileDetailTab === 'ai' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: pageGap }}>
+          {renderAiNotePanel()}
+        </div>
+      )}
 
       {/* 图文内容 - 仅图文显示 */}
       {video.isOpus && localOpusBlocks.length > 0 && (
@@ -2544,6 +2949,13 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
         showConfirm={alertModal.showConfirm}
         onConfirm={alertModal.onConfirm}
       />
+      </div>
+      {!isCompactLayout && !video.isOpus && (
+        <div className="video-detail-right">
+          {renderAiNotePanel()}
+        </div>
+      )}
+      </div>
       </main>
 
       {/* AI笔记面板子路由 */}

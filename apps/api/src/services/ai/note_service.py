@@ -485,6 +485,7 @@ class AiNoteService:
         video_path: str,
         video_id: str,
         pipeline_mode: str,
+        formats: Optional[List[str]] = None,
         note: Optional[AiNote] = None,
     ) -> str:
         self._add_trace(
@@ -519,6 +520,39 @@ class AiNoteService:
                 note=note,
             )
             raise
+
+        # If the caller wants time-coded features (timestamps / screenshots),
+        # prefer feeding the LLM an SRT transcript when available, because it
+        # includes subtitle timecodes the model can reference.
+        normalized_formats = _normalize_note_formats(formats)
+        wants_timecoded_transcript = any(
+            format_name in {"screenshot", "timestamps"} for format_name in normalized_formats
+        )
+        if wants_timecoded_transcript:
+            video_file = Path(video_path)
+            srt_path = str(video_file.with_suffix(".srt"))
+            try:
+                if Path(srt_path).exists():
+                    transcript = Path(srt_path).read_text(encoding="utf-8")
+                    self._add_trace(
+                        self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                        "使用字幕时间码",
+                        f"已读取 {Path(srt_path).name}（为时间戳/截图功能提供时间码）",
+                        54.0,
+                        {"srt_path": srt_path, "length": len(transcript or "")},
+                        note=note,
+                    )
+                else:
+                    self._add_trace(
+                        self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                        "缺少字幕时间码",
+                        "未找到 .srt 文件，将继续使用纯文本转写（时间戳可能不可用）",
+                        54.0,
+                        {"srt_path": srt_path},
+                        note=note,
+                    )
+            except Exception as exc:
+                logger.warning("读取 SRT 失败，将继续使用纯文本转写: %s", exc)
         self._add_trace(
             self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
             "字幕生成完成",
@@ -528,6 +562,7 @@ class AiNoteService:
                 "length": len(transcript or ""),
                 "transcriber": "local-asr",
                 "has_transcript": bool(transcript and transcript.strip()),
+                "formats": normalized_formats,
             },
             note=note,
         )
@@ -1024,6 +1059,7 @@ class AiNoteService:
                             actual_file_path,
                             video_id,
                             pipeline_mode,
+                            formats=formats,
                             note=note,
                         )
                         context["transcript"] = transcript
@@ -1460,6 +1496,35 @@ class AiNoteService:
                 note=note,
             )
             raise
+
+        normalized_formats = _normalize_note_formats(formats)
+        wants_timecoded_transcript = any(
+            format_name in {"screenshot", "timestamps"} for format_name in normalized_formats
+        )
+        if wants_timecoded_transcript:
+            srt_path = str(video_file.with_suffix(".srt"))
+            try:
+                if Path(srt_path).exists():
+                    transcript = Path(srt_path).read_text(encoding="utf-8")
+                    self._add_trace(
+                        self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                        "使用字幕时间码",
+                        f"已读取 {Path(srt_path).name}（为时间戳/截图功能提供时间码）",
+                        54.0,
+                        {"srt_path": srt_path, "length": len(transcript or "")},
+                        note=note,
+                    )
+                else:
+                    self._add_trace(
+                        self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
+                        "缺少字幕时间码",
+                        "未找到 .srt 文件，将继续使用纯文本转写（时间戳可能不可用）",
+                        54.0,
+                        {"srt_path": srt_path},
+                        note=note,
+                    )
+            except Exception as exc:
+                logger.warning("读取 SRT 失败，将继续使用纯文本转写: %s", exc)
         self._add_trace(
             self._trace_stage(pipeline_mode, "SUBTITLE.GENERATE"),
             "字幕生成完成",
@@ -1469,6 +1534,7 @@ class AiNoteService:
                 "length": len(transcript or ""),
                 "transcriber": "local-asr",
                 "has_transcript": bool(transcript and transcript.strip()),
+                "formats": normalized_formats,
             },
             note=note,
         )

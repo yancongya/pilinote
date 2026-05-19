@@ -545,6 +545,7 @@ export function AiNoteModal({
   const [selectedModel, setSelectedModel] = useState('')
   const [isRefreshingModels, setIsRefreshingModels] = useState(false)
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
+  const [enableTimestamps, setEnableTimestamps] = useState(false)
   const [style, setStyle] = useState('detailed')
   const [promptExtras, setPromptExtras] = useState('')
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
@@ -622,6 +623,17 @@ export function AiNoteModal({
       fetchSettings()
     }
   }, [settings, fetchSettings, isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      const raw = window.localStorage.getItem('pilinote.aiNote.enableTimestamps')
+      if (raw === null) return
+      setEnableTimestamps(raw === '1' || raw === 'true')
+    } catch {
+      // ignore
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -1152,6 +1164,7 @@ export function AiNoteModal({
       pipeline_mode: currentMode,
       subtitle_filename: resolvedSubtitleFilename,
       extras: promptExtras.trim() || undefined,
+      formats: enableTimestamps ? ['summary', 'timestamps'] : undefined,
     }
 
     currentRequestRef.current = {
@@ -1841,7 +1854,28 @@ export function AiNoteModal({
       </div>
 
       <div className="ai-note-select-group">
-        <label>补充要求</label>
+        <div className="ai-note-select-group-head">
+          <label>补充要求</label>
+          <div className="ai-note-select-group-actions">
+            <label className="ai-note-option-row" title="根据字幕时间码生成关键点时间戳">
+              <input
+                type="checkbox"
+                checked={enableTimestamps}
+                disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text'}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  setEnableTimestamps(enabled)
+                  try {
+                    window.localStorage.setItem('pilinote.aiNote.enableTimestamps', enabled ? '1' : '0')
+                  } catch {
+                    // ignore
+                  }
+                }}
+              />
+              <span>关键点时间戳</span>
+            </label>
+          </div>
+        </div>
         <textarea
           value={promptExtras}
           onChange={e => setPromptExtras(e.target.value)}
@@ -2082,6 +2116,7 @@ export function AiNoteModal({
         .ai-note-modal-content { flex: 1; overflow-y: auto; padding: 16px; }
         .ai-note-select-group { margin-bottom: 14px; }
         .ai-note-select-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+        .ai-note-select-group-actions { display: inline-flex; align-items: center; gap: 10px; }
         .ai-note-select-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
         .ai-note-select-group-head label { margin-bottom: 0; }
         .ai-note-select-refresh { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -2097,6 +2132,10 @@ export function AiNoteModal({
         .ai-note-modal-btn-secondary,.ai-note-modal-btn-primary { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; }
         .ai-note-modal-btn-secondary { background: var(--color-bg-tertiary); color: var(--color-text-primary); border: none; }
         .ai-note-modal-btn-primary { background: var(--color-primary-600); color: white; border: none; }
+        .ai-note-option-row { margin-top: 10px; display: inline-flex; align-items: center; gap: 8px; color: var(--color-text-secondary); font-size: 12px; user-select: none; cursor: pointer; }
+        .ai-note-option-row input { width: 15px; height: 15px; accent-color: var(--color-primary-600); cursor: pointer; }
+        .ai-note-option-row:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
+        .ai-note-select-group-head .ai-note-option-row { margin-top: 0; }
         .ai-note-series-content { display: grid; gap: 14px; }
         .ai-note-series-summary { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02)); border: 1px solid rgba(59,130,246,0.16); }
         .ai-note-series-summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }

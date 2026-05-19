@@ -49,6 +49,11 @@ NOTE_STYLES = [
 NOTE_FORMATS = [
     {"label": "原片截图", "value": "screenshot", "description": "插入视频关键帧截图"},
     {
+        "label": "关键点时间戳",
+        "value": "timestamps",
+        "description": "输出可跳转的关键点时间戳（基于字幕时间码）",
+    },
+    {
         "label": "AI总结",
         "value": "summary",
         "description": "在笔记末尾加入 AI 生成的总结",

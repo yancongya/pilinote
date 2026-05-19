@@ -291,6 +291,7 @@ export const NOTE_STYLES = [
 
 export const NOTE_FORMATS = [
   { label: '原片截图', value: 'screenshot', description: '插入关键帧截图' },
+  { label: '关键点时间戳', value: 'timestamps', description: '生成关键点时间戳（基于字幕时间码）' },
 ] as const;
 
 export const DEFAULT_STYLE = 'detailed';

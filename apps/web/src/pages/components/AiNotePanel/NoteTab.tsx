@@ -244,6 +244,29 @@ export function NoteTab({
   const previewFolderPath = noteFolderPath || deriveFolderPath(noteFilePath)
   const isSourceView = fileType === 'source'
   const showAdvancedControls = !isSourceView
+  const timestampsEnabled = formats.includes('timestamps')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem('pilinote.aiNote.enableTimestamps')
+      if (raw === null) return
+      const enabled = raw === '1' || raw === 'true'
+      setFormats((prev) => {
+        const has = prev.includes('timestamps')
+        if (enabled && !has) {
+          const next = [...prev]
+          if (!next.includes('summary')) next.push('summary')
+          next.push('timestamps')
+          return next
+        }
+        if (!enabled && has) return prev.filter((f) => f !== 'timestamps')
+        return prev
+      })
+    } catch {
+      // ignore
+    }
+  }, [])
 
   const stageToastLabels: Record<string, string> = {
     'video.AUDIO.FETCH': '音频读取完成',
@@ -735,6 +758,36 @@ export function NoteTab({
               ))}
             </div>
             </div>
+          )}
+
+          {!isSourceView && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={timestampsEnabled}
+                disabled={isAnalyzing}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  setFormats((prev) => {
+                    const has = prev.includes('timestamps')
+                    if (enabled && !has) {
+                      const next = [...prev]
+                      if (!next.includes('summary')) next.push('summary')
+                      next.push('timestamps')
+                      return next
+                    }
+                    if (!enabled && has) return prev.filter((f) => f !== 'timestamps')
+                    return prev
+                  })
+                  try {
+                    window.localStorage.setItem('pilinote.aiNote.enableTimestamps', enabled ? '1' : '0')
+                  } catch {
+                    // ignore
+                  }
+                }}
+              />
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>关键点时间戳</span>
+            </label>
           )}
 
           {showAdvancedControls && (
