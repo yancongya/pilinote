@@ -236,16 +236,25 @@ async def get_local_image(file_path: str = Query(..., description="本地图片�
             raise HTTPException(status_code=404, detail=f"文件不存在: {file_path}")
 
         # 检查文件类型
-        allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
         file_ext = os.path.splitext(file_path)[1].lower()
 
         if file_ext not in allowed_extensions:
             raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_ext}")
 
+        media_types = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            ".svg": "image/svg+xml",
+        }
+
         # 返回文件
         return FileResponse(
             file_path,
-            media_type=f"image/{file_ext[1:]}",  # 去掉点号
+            media_type=media_types.get(file_ext, "application/octet-stream"),
         )
 
     except HTTPException:
