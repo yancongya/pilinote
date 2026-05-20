@@ -169,6 +169,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   
   // 服务商列表
   const [providers, setProviders] = useState<LLMProvider[]>([])
+  const providersRef = useRef<LLMProvider[]>([])
   const [activeProviderId, setActiveProviderId] = useState('openai')
   const [editingProvider, setEditingProvider] = useState<LLMProvider | null>(null)
   const [providerForm, setProviderForm] = useState({ name: '', baseUrl: '', apiKey: '', models: '' })
@@ -187,6 +188,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [providerTestingId, setProviderTestingId] = useState<string | null>(null)
   const providerTabsRef = useRef<HTMLDivElement | null>(null)
   const providerBarRef = useRef<HTMLDivElement | null>(null)
+  const providerSectionRef = useRef<HTMLDivElement | null>(null)
   const providerThumbDragState = useRef({
     isDragging: false,
     startX: 0,
@@ -196,6 +198,15 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     scrollLeft: 0,
     scrollWidth: 0,
     clientWidth: 0,
+  })
+  const providerReorderRef = useRef({
+    pressedId: '' as string,
+    startX: 0,
+    startY: 0,
+    startIndex: -1,
+    dragging: false,
+    timer: 0 as any,
+    didReorder: false,
   })
 
   const setNestedValue = (obj: Record<string, any>, path: string[], value: any) => {
@@ -218,9 +229,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         : []
       const providerMap = new Map<string, LLMProvider>()
 
-      DEFAULT_PROVIDERS.forEach(provider => {
-        providerMap.set(provider.id, provider)
-      })
+      // Preserve DB order (user custom sort). Append missing defaults afterwards.
       dbProviders.forEach(provider => {
         providerMap.set(provider.id, {
           ...provider,
@@ -229,8 +238,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           models: Array.isArray(provider.models) ? provider.models : [],
         })
       })
+      DEFAULT_PROVIDERS.forEach(provider => {
+        if (providerMap.has(provider.id)) return
+        providerMap.set(provider.id, provider)
+      })
       const mergedProviders = Array.from(providerMap.values())
       setProviders(mergedProviders)
+      providersRef.current = mergedProviders
 
       const unifiedLlm = settings?.llm
       if (unifiedLlm) {
@@ -430,6 +444,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     }
     
     await saveProviders(newProviders)
+    if (!editingProvider) {
+      setActiveProviderId(id)
+    }
     if (activeProviderId === id || (editingProvider && editingProvider.id === activeProviderId)) {
       setLocalSettings(prev => ({
         ...prev,
@@ -596,6 +613,34 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     () => promptCardData.filter(card => (card as any).displayCategory === selectedPromptCategory),
     [promptCardData, selectedPromptCategory],
   )
+
+  useEffect(() => {
+    // Ensure the active provider tab is visible and its config panel is in view (especially after adding).
+    const container = providerTabsRef.current
+    if (!container || !activeProviderId) return
+    const safeId = (() => {
+      try { return CSS.escape(activeProviderId) } catch { return activeProviderId }
+    })()
+    const btn = container.querySelector(`[data-provider-id="${safeId}"]`) as HTMLElement | null
+    if (btn) {
+      try {
+        btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      } catch {
+        // ignore
+      }
+    }
+    if (providerSectionRef.current) {
+      try {
+        providerSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      } catch {
+        // ignore
+      }
+    }
+  }, [activeProviderId])
+
+  useEffect(() => {
+    providersRef.current = providers
+  }, [providers])
 
   const handleOpenPromptCard = (card: PromptTemplateMeta) => {
     setSelectedPromptCard(card)
@@ -929,7 +974,95 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             <button
               key={p.id}
               className={`settings-provider-tab ${activeProviderId === p.id ? 'active' : ''}`}
+              data-provider-id={p.id}
+              onPointerDown={(event) => {
+                // Long-press to reorder providers (custom sort persisted to DB).
+                if (event.button !== 0) return
+                if (isEditingCurrentProvider) return
+                const container = providerTabsRef.current
+                if (!container) return
+                const idx = providers.findIndex(item => item.id === p.id)
+                providerReorderRef.current.pressedId = p.id
+                providerReorderRef.current.startX = event.clientX
+                providerReorderRef.current.startY = event.clientY
+                providerReorderRef.current.startIndex = idx
+                providerReorderRef.current.dragging = false
+                providerReorderRef.current.didReorder = false
+                if (providerReorderRef.current.timer) {
+                  clearTimeout(providerReorderRef.current.timer)
+                }
+                providerReorderRef.current.timer = setTimeout(() => {
+                  providerReorderRef.current.dragging = true
+                  try {
+                    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+                  } catch {
+                    // ignore
+                  }
+                }, 260)
+              }}
+              onPointerMove={(event) => {
+                const state = providerReorderRef.current
+                if (!state.pressedId) return
+                const moved = Math.abs(event.clientX - state.startX) + Math.abs(event.clientY - state.startY)
+                if (!state.dragging) {
+                  if (moved > 10 && state.timer) {
+                    clearTimeout(state.timer)
+                    state.timer = 0 as any
+                  }
+                  return
+                }
+                const container = providerTabsRef.current
+                if (!container) return
+                const tabs = Array.from(container.querySelectorAll<HTMLElement>('.settings-provider-tab'))
+                const centerX = event.clientX
+                let targetIndex = state.startIndex
+                for (let i = 0; i < tabs.length; i += 1) {
+                  const rect = tabs[i].getBoundingClientRect()
+                  if (centerX >= rect.left && centerX <= rect.right) {
+                    targetIndex = i
+                    break
+                  }
+                }
+                const currentIndex = providers.findIndex(item => item.id === state.pressedId)
+                if (targetIndex !== currentIndex && targetIndex >= 0) {
+                  const next = [...providers]
+                  const [picked] = next.splice(currentIndex, 1)
+                  next.splice(targetIndex, 0, picked)
+                  state.didReorder = true
+                  setProviders(next)
+                }
+              }}
+              onPointerUp={() => {
+                const state = providerReorderRef.current
+                if (state.timer) {
+                  clearTimeout(state.timer)
+                  state.timer = 0 as any
+                }
+                const didReorder = state.didReorder
+                state.pressedId = ''
+                state.dragging = false
+                state.didReorder = false
+                if (didReorder) {
+                  void saveProviders(providersRef.current)
+                }
+              }}
+              onPointerCancel={() => {
+                const state = providerReorderRef.current
+                if (state.timer) {
+                  clearTimeout(state.timer)
+                  state.timer = 0 as any
+                }
+                state.pressedId = ''
+                state.dragging = false
+                state.didReorder = false
+              }}
               onClick={() => {
+                const state = providerReorderRef.current
+                if (state.timer) {
+                  clearTimeout(state.timer)
+                  state.timer = 0 as any
+                }
+                if (state.dragging) return
                 setActiveProviderId(p.id)
                 setLocalSettings(prev => ({
                   ...prev,
@@ -961,7 +1094,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         </div>
         
         {/* 服务商配置 */}
-{currentProvider && (
+        <div ref={providerSectionRef}>
+        {currentProvider && (
           <div className="settings-provider-config">
             <div className="settings-provider-header">
               <span className="settings-provider-name">{currentProvider.name}</span>
@@ -1145,6 +1279,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             </div>
           </div>
         )}
+        </div>
       </SettingsSection>
 
       <SettingsSection
