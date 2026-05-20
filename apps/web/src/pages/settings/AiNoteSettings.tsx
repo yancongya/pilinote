@@ -188,7 +188,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [providerTestingId, setProviderTestingId] = useState<string | null>(null)
   const providerTabsRef = useRef<HTMLDivElement | null>(null)
   const providerBarRef = useRef<HTMLDivElement | null>(null)
-  const providerSectionRef = useRef<HTMLDivElement | null>(null)
+  const pendingProviderScrollIdRef = useRef<string>('')
   const providerThumbDragState = useRef({
     isDragging: false,
     startX: 0,
@@ -339,12 +339,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   // 保存服务商
   const saveProviders = async (newProviders: LLMProvider[]) => {
     try {
+      // Preserve user order for tabs: take newProviders order first, then append missing defaults.
       const providerMap = new Map<string, LLMProvider>()
-
-      DEFAULT_PROVIDERS.forEach(provider => {
+      newProviders.forEach(provider => {
         providerMap.set(provider.id, provider)
       })
-      newProviders.forEach(provider => {
+      DEFAULT_PROVIDERS.forEach(provider => {
+        if (providerMap.has(provider.id)) return
         providerMap.set(provider.id, provider)
       })
 
@@ -380,6 +381,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     }
     const newProviders = [...providers, newProvider]
     void saveProviders(newProviders)
+    pendingProviderScrollIdRef.current = id
     setActiveProviderId(id)
     setEditingProvider(newProvider)
     setProviderForm({ name: newProvider.name, baseUrl: '', apiKey: '', models: '' })
@@ -615,9 +617,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   )
 
   useEffect(() => {
-    // Ensure the active provider tab is visible and its config panel is in view (especially after adding).
+    // After adding a provider, keep the newly added tab visible without scrolling the whole page.
+    const pendingId = pendingProviderScrollIdRef.current
+    if (!pendingId) return
     const container = providerTabsRef.current
-    if (!container || !activeProviderId) return
+    if (!container) return
+    if (activeProviderId !== pendingId) return
+    pendingProviderScrollIdRef.current = ''
     const safeId = (() => {
       try { return CSS.escape(activeProviderId) } catch { return activeProviderId }
     })()
@@ -625,13 +631,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     if (btn) {
       try {
         btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-      } catch {
-        // ignore
-      }
-    }
-    if (providerSectionRef.current) {
-      try {
-        providerSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
       } catch {
         // ignore
       }
@@ -1094,7 +1093,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         </div>
         
         {/* 服务商配置 */}
-        <div ref={providerSectionRef}>
         {currentProvider && (
           <div className="settings-provider-config">
             <div className="settings-provider-header">
@@ -1279,7 +1277,6 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             </div>
           </div>
         )}
-        </div>
       </SettingsSection>
 
       <SettingsSection
