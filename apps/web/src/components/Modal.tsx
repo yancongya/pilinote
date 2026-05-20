@@ -26,6 +26,7 @@ export default function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const firstFocusableRef = useRef<HTMLButtonElement>(null)
+  const scrollYRef = useRef<number>(0)
 
   // ESC键关闭模态框
   useEffect(() => {
@@ -37,7 +38,14 @@ export default function Modal({
 
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown)
-      // 防止背景滚动
+      // 防止背景滚动，同时避免 iOS/Safari 在切换 overflow 时把页面滚回顶部：
+      // 记录当前滚动位置，把 body 固定住。
+      scrollYRef.current = window.scrollY || 0
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollYRef.current}px`
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      document.body.style.width = '100%'
       document.body.style.overflow = 'hidden'
       // 聚焦到模态框
       setTimeout(() => {
@@ -47,7 +55,18 @@ export default function Modal({
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
+      // Restore scroll locking
+      const top = document.body.style.top
+      document.body.style.position = ''
+      document.body.style.top = ''
+      document.body.style.left = ''
+      document.body.style.right = ''
+      document.body.style.width = ''
       document.body.style.overflow = 'unset'
+      const y = top ? Math.abs(parseInt(top, 10)) : scrollYRef.current
+      if (!Number.isNaN(y)) {
+        window.scrollTo(0, y)
+      }
     }
   }, [isOpen, onClose])
 
@@ -105,7 +124,7 @@ export default function Modal({
 
         {/* 底部 */}
         {footer && (
-          <div className="settings-modal-footer flex gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0">
+          <div className="settings-modal-footer flex items-center gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0">
             {footer}
           </div>
         )}
