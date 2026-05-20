@@ -175,6 +175,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [aiNoteError, setAiNoteError] = useState<string | null>(null)
   const [aiNoteRevision, setAiNoteRevision] = useState(0)
   const [localVideoDurationSeconds, setLocalVideoDurationSeconds] = useState<number | null>(null)
+  const submissionListRef = useRef<HTMLDivElement | null>(null)
+  const episodeCardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
   const [alertModal, setAlertModal] = useState<{
     show: boolean
     title: string
@@ -258,6 +260,22 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const normalizeLocalFsPath = (value: string): string => {
     return (value || '').replace(/^file:\/\//i, '').trim()
   }
+
+  const setEpisodeCardRef = useCallback((key: string) => {
+    return (node: HTMLDivElement | null) => {
+      episodeCardRefs.current.set(key, node)
+    }
+  }, [])
+
+  // When playback switches to another episode, keep the active card visible.
+  useEffect(() => {
+    if (mediaMode !== 'local-video') return
+    const cid = activePlaybackEntry?.cid
+    if (!cid) return
+    const node = episodeCardRefs.current.get(String(cid))
+    if (!node) return
+    node.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [activePlaybackEntry?.cid, mediaMode])
 
   const aiNoteFileId = useMemo(() => {
     if (!videoId || type === 'opus') return ''
@@ -2373,7 +2391,9 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                   padding: listPadding,
                   maxHeight: listMaxHeight,
                   overflowY: 'auto'
-                }}>
+                }}
+                ref={submissionListRef}
+                >
                   <div style={{
                     display: 'grid',
                     gridTemplateColumns: submissionGridColumns,
@@ -2390,6 +2410,7 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                       return (
                         <div
                           key={page.cid || index}
+                          ref={setEpisodeCardRef(String(page.cid || index))}
                           onClick={(event) => {
                             if (isPlayable) {
                               startPagePlayback(page)
@@ -2397,30 +2418,18 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                               void handleSinglePageDownload(page, event)
                             }
                           }}
+                          className={`video-detail-episode-card${isActivePlayback ? ' is-active' : ''}${isInList && !isDownloaded ? ' is-pending' : ''}`}
                           style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'stretch',
-                            padding: isCompactLayout ? '10px' : '12px',
-                            background: 'var(--color-bg-tertiary)',
-                            borderRadius: isCompactLayout ? '6px' : '8px',
                             opacity: isInList && !isDownloaded ? 0.6 : 1,
                             cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
-                            border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
-                            boxShadow: isActivePlayback ? '0 0 0 3px rgba(59, 130, 246, 0.12)' : 'none',
-                            minWidth: 0,
-                            gap: '10px'
                           }}
                         >
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: responsiveStyle.fontSize.small, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-                              P{page.page}: {page.part || `第${page.page}个视频`}
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                              {formatDuration(page.duration)}
-                            </div>
+                          <div className="video-detail-episode-title" title={`P${page.page}: ${page.part || `第${page.page}个视频`}`}>
+                            {`P${page.page}: ${page.part || `第${page.page}个视频`}`}
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <div className="video-detail-episode-footer">
+                            <div className="video-detail-episode-duration">{formatDuration(page.duration)}</div>
+                            <div className="video-detail-episode-actions">
                             {isPlayable && (
                               <span style={{
                                 fontSize: '11px',
@@ -2469,6 +2478,7 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                                 下载此视频
                               </span>
                             )}
+                            </div>
                           </div>
                         </div>
                       )
@@ -2705,71 +2715,60 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                           void handleSinglePageDownload(page, event)
                         }
                       }}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'stretch',
-                        padding: isCompactLayout ? '10px' : '12px',
-                        background: 'var(--color-bg-tertiary)',
-                        borderRadius: isCompactLayout ? '6px' : '8px',
-                        opacity: isInList && !isDownloaded ? 0.6 : 1,
-                        cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
-                        border: isActivePlayback ? '1px solid var(--color-primary-500)' : '1px solid transparent',
-                        boxShadow: isActivePlayback ? '0 0 0 3px rgba(59, 130, 246, 0.12)' : 'none',
-                        minWidth: 0,
-                        gap: '10px'
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: responsiveStyle.fontSize.small, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-                          P{page.page}: {page.part || `第${page.page}个视频`}
+                          className={`video-detail-episode-card${isActivePlayback ? ' is-active' : ''}${isInList && !isDownloaded ? ' is-pending' : ''}`}
+                          style={{
+                            opacity: isInList && !isDownloaded ? 0.6 : 1,
+                            cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
+                          }}
+                        >
+                          <div className="video-detail-episode-title" title={`P${page.page}: ${page.part || `第${page.page}个视频`}`}>
+                            {`P${page.page}: ${page.part || `第${page.page}个视频`}`}
+                          </div>
+                          <div className="video-detail-episode-footer">
+                            <div className="video-detail-episode-duration">{formatDuration(page.duration)}</div>
+                            <div className="video-detail-episode-actions">
+                            {isPlayable && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-primary-700)',
+                                background: 'var(--color-primary-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '600'
+                              }}>
+                                {isActivePlayback ? '正在播放' : '播放本地'}
+                              </span>
+                            )}
+                            {isDownloaded && !isPlayable && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-success-600)',
+                                background: 'var(--color-success-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '500'
+                              }}>
+                                已下载
+                              </span>
+                            )}
+                            {isInList && !isDownloaded && (
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--color-primary-600)',
+                                background: 'var(--color-primary-50)',
+                                padding: badgePadding,
+                                borderRadius: '4px',
+                                fontWeight: '500'
+                              }}>
+                                队列中
+                              </span>
+                            )}
+                            </div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                          {formatDuration(page.duration)}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        {isPlayable && (
-                          <span style={{
-                            fontSize: '11px',
-                            color: 'var(--color-primary-700)',
-                            background: 'var(--color-primary-50)',
-                            padding: badgePadding,
-                            borderRadius: '4px',
-                            fontWeight: '600'
-                          }}>
-                            {isActivePlayback ? '正在播放' : '播放本地'}
-                          </span>
-                        )}
-                        {isDownloaded && !isPlayable && (
-                          <span style={{
-                            fontSize: '11px',
-                            color: 'var(--color-success-600)',
-                            background: 'var(--color-success-50)',
-                            padding: badgePadding,
-                            borderRadius: '4px',
-                            fontWeight: '500'
-                          }}>
-                            已下载
-                          </span>
-                        )}
-                        {isInList && !isDownloaded && (
-                          <span style={{
-                            fontSize: '11px',
-                            color: 'var(--color-primary-600)',
-                            background: 'var(--color-primary-50)',
-                            padding: badgePadding,
-                            borderRadius: '4px',
-                            fontWeight: '500'
-                          }}>
-                            队列中
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                      )
+                    })}
+                  </div>
             </div>
           )}
         </div>
