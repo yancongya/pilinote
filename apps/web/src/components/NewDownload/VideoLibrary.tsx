@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { apiService } from '../../services/api'
-import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText, FolderTree, List, LayoutGrid, LayoutList } from 'lucide-react'
+import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText, FolderTree, List, Play } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
@@ -838,28 +838,20 @@ function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
             />
           </div>
         )}
-      </div>
 
-      <div className="album-card-info">
-        <div className="album-card-title-wrap">
-          <span className="album-card-title">{task.title}</span>
-        </div>
-        <div className="album-card-meta-row">
-          {task.meta?.studio && (
-            <div className="album-card-author">
-              {task.meta.avatar_path && (
-                <img
-                  src={getLocalImageUrl(task.meta.avatar_path)}
-                  alt={task.meta.studio}
-                  className="album-author-avatar"
-                />
-              )}
-              <span>{task.meta.studio}</span>
+        <div className="album-card-overlay">
+          <div className="album-card-overlay-gradient" />
+          <div className="album-card-overlay-content">
+            <span className="album-card-title">{task.title}</span>
+            <div className="album-card-hover-meta">
+              {task.meta?.studio && <span className="album-card-hover-author">{task.meta.studio}</span>}
+              {formatDateTime() && <span className="album-card-hover-time">{formatDateTime()}</span>}
             </div>
-          )}
-          {formatDateTime() && (
-            <span className="album-card-size">{formatDateTime()}</span>
-          )}
+          </div>
+        </div>
+
+        <div className="album-card-play-btn">
+          <Play size={22} fill="#fff" color="#fff" />
         </div>
       </div>
 
@@ -1013,6 +1005,19 @@ export default function VideoLibrary() {
           const typeA = getType(a)
           const typeB = getType(b)
           return sortDirection === 'desc' ? typeB - typeA : typeA - typeB
+        })
+        break
+      case 'ai_status':
+        sorted.sort((a, b) => {
+          const getAiOrder = (t: Task): number => {
+            const s = t.meta?.ai_note_status
+            if (s === 'completed') return 0
+            if (s && s !== 'none') return 1
+            return 2
+          }
+          const aiA = getAiOrder(a)
+          const aiB = getAiOrder(b)
+          return sortDirection === 'desc' ? aiB - aiA : aiA - aiB
         })
         break
       default:
@@ -1306,6 +1311,12 @@ export default function VideoLibrary() {
         }
         case 'author':
           return task.meta?.studio || '未知作者'
+        case 'ai_status': {
+          const s = task.meta?.ai_note_status
+          if (s === 'completed') return '已分析'
+          if (s && s !== 'none') return '分析中'
+          return '未分析'
+        }
         default:
           return ''
       }
@@ -1369,7 +1380,9 @@ export default function VideoLibrary() {
 
                   { value: 'likes', label: '按点赞量' },
 
-                  { value: 'type', label: '按类型' }
+                  { value: 'type', label: '按类型' },
+
+                  { value: 'ai_status', label: '按AI状态' }
 
                 ]}
 
@@ -1392,18 +1405,11 @@ export default function VideoLibrary() {
                 showGroupToggle={viewMode === 'album'}
                 grouped={grouped}
                 onGroupToggle={() => setGrouped(g => !g)}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
 
               />
             </div>
-
-            <button
-              className="view-mode-toggle"
-              onClick={() => setViewMode(m => m === 'detailed' ? 'album' : 'detailed')}
-              title={viewMode === 'detailed' ? '影集模式' : '详细模式'}
-              aria-label={viewMode === 'detailed' ? '切换到影集模式' : '切换到详细模式'}
-            >
-              {viewMode === 'detailed' ? <LayoutGrid size={18} /> : <LayoutList size={18} />}
-            </button>
           </div>
 
         )}

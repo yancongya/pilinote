@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Layers } from 'lucide-react'
+import { Layers, LayoutGrid, LayoutList } from 'lucide-react'
 import './VideoListControls.css'
 
 export interface VideoListControlsProps {
@@ -63,6 +63,10 @@ export interface VideoListControlsProps {
   grouped?: boolean
   /** 分组切换回调 */
   onGroupToggle?: () => void
+  /** 视图模式 */
+  viewMode?: 'detailed' | 'album'
+  /** 视图模式切换回调 */
+  onViewModeChange?: (mode: 'detailed' | 'album') => void
 }
 
 export default function VideoListControls({
@@ -96,6 +100,8 @@ export default function VideoListControls({
   showGroupToggle = false,
   grouped = false,
   onGroupToggle,
+  viewMode,
+  onViewModeChange,
 }: VideoListControlsProps) {
   const [searchInput, setSearchInput] = useState(keyword)
 
@@ -276,6 +282,18 @@ export default function VideoListControls({
                     <span>失败 {nfoUpdateProgress.failed}</span>
                     <span>总计 {nfoUpdateProgress.total}</span>
                   </div>
+                )}
+
+                {/* 视图模式切换 */}
+                {viewMode && onViewModeChange && (
+                  <button
+                    className="view-mode-toggle"
+                    onClick={() => onViewModeChange(viewMode === 'detailed' ? 'album' : 'detailed')}
+                    title={viewMode === 'detailed' ? '影集模式' : '详细模式'}
+                    aria-label={viewMode === 'detailed' ? '切换到影集模式' : '切换到详细模式'}
+                  >
+                    {viewMode === 'detailed' ? <LayoutGrid size={18} /> : <LayoutList size={18} />}
+                  </button>
                 )}
               </div>
             )}
