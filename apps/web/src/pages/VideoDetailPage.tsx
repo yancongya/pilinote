@@ -2936,9 +2936,194 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
       )}
 
       {isCompactLayout && !video.isOpus && mobileDetailTab === 'ai' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: pageGap }}>
-          {renderAiNotePanel()}
-        </div>
+        <>
+          <div className="video-detail-intro-panel">
+            {isCollectionMember && (
+              <div style={{
+                padding: cardPadding,
+                background: 'var(--color-bg-tertiary)',
+                borderRadius: cardRadius,
+                display: 'grid',
+                gap: '12px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setRelatedPanelCollapsed(prev => !prev)}
+                  style={{
+                    width: '100%',
+                    padding: 0,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    textAlign: 'left',
+                    color: 'var(--color-text-primary)'
+                  }}
+                  aria-expanded={!relatedPanelCollapsed}
+                  aria-label={relatedPanelCollapsed ? '展开合集与分集信息' : '折叠合集与分集信息'}
+                >
+                  <div style={{ display: 'grid', gap: '4px', minWidth: 0 }}>
+                    <span style={{
+                      fontSize: responsiveStyle.fontSize.small,
+                      fontWeight: 600,
+                      color: 'var(--color-text-primary)'
+                    }}>
+                      {`合集与分集信息 · 共${collectionEpisodeCount}个投稿，${collectionVideoCount}个视频`}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: 'var(--color-text-tertiary)'
+                    }}>
+                      {video.ugcSeason?.title || '未命名合集'}
+                    </span>
+                  </div>
+                  {relatedPanelCollapsed ? (
+                    <ChevronRight size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                  ) : (
+                    <ChevronDown size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                  )}
+                </button>
+              </div>
+            )}
+
+            {!isCollectionMember && video.pages && video.pages.length > 1 && (
+              <div style={{
+                padding: cardPadding,
+                background: 'var(--color-bg-tertiary)',
+                borderRadius: cardRadius,
+                display: 'grid',
+                gap: '12px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setSubmissionListCollapsed(prev => !prev)}
+                  style={{
+                    width: '100%',
+                    padding: 0,
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    textAlign: 'left',
+                    color: 'var(--color-text-primary)'
+                  }}
+                  aria-expanded={!submissionListCollapsed}
+                  aria-label={submissionListCollapsed ? '展开分集信息' : '折叠分集信息'}
+                >
+                  <span style={{ fontSize: responsiveStyle.fontSize.small, fontWeight: 600 }}>
+                    分集信息 · 共{video.pages.length}个视频 · 总时长 {formatDuration(submissionTotalDuration)}
+                  </span>
+                  {submissionListCollapsed ? (
+                    <ChevronRight size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                  ) : (
+                    <ChevronDown size={18} style={{ flexShrink: 0, color: 'var(--color-text-secondary)' }} />
+                  )}
+                </button>
+
+                {!submissionListCollapsed && (
+                  <div style={{
+                    background: 'var(--color-bg-primary)',
+                    borderRadius: cardRadius,
+                    padding: listPadding,
+                    maxHeight: listMaxHeight,
+                    overflowY: 'auto'
+                  }}
+                  ref={submissionListRef}
+                  >
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: submissionGridColumns,
+                      gap: isCompactLayout ? '8px' : '12px'
+                    }}>
+                      {playablePages.map((page: any, index: number) => {
+                        const isInList = downloadedCids.has(page.cid)
+                        const status = downloadedVideoStatus[page.cid] || 'none'
+                        const isDownloaded = status === 'downloaded'
+                        const isPlayable = page.playable
+                        const isActivePlayback = mediaMode === 'local-video' && activePlaybackEntry?.cid === page.cid
+                        const canDownloadThisPage = status === 'none'
+
+                        return (
+                          <div
+                            key={page.cid || index}
+                            ref={setEpisodeCardRef(String(page.cid || index))}
+                            onClick={(event) => {
+                              if (isPlayable) {
+                                startPagePlayback(page)
+                              } else if (canDownloadThisPage) {
+                                void handleSinglePageDownload(page, event)
+                              }
+                            }}
+                            className={`video-detail-episode-card${isActivePlayback ? ' is-active' : ''}${isInList && !isDownloaded ? ' is-pending' : ''}`}
+                            style={{
+                              opacity: isInList && !isDownloaded ? 0.6 : 1,
+                              cursor: isPlayable || canDownloadThisPage ? 'pointer' : 'default',
+                            }}
+                          >
+                            <div className="video-detail-episode-title" title={`P${page.page}: ${page.part || `第${page.page}个视频`}`}>
+                              {`P${page.page}: ${page.part || `第${page.page}个视频`}`}
+                            </div>
+                            <div className="video-detail-episode-footer">
+                              <div className="video-detail-episode-duration">{formatDuration(page.duration)}</div>
+                              <div className="video-detail-episode-actions">
+                                {isPlayable && (
+                                  <span style={{
+                                    fontSize: '11px',
+                                    color: 'var(--color-primary-700)',
+                                    background: 'var(--color-primary-50)',
+                                    padding: badgePadding,
+                                    borderRadius: '4px',
+                                    fontWeight: '600'
+                                  }}>
+                                    {isActivePlayback ? '正在播放' : '播放本地'}
+                                  </span>
+                                )}
+                                {isDownloaded && !isPlayable && (
+                                  <span style={{
+                                    fontSize: '11px',
+                                    color: 'var(--color-success-600)',
+                                    background: 'var(--color-success-50)',
+                                    padding: badgePadding,
+                                    borderRadius: '4px',
+                                    fontWeight: '500'
+                                  }}>
+                                    已下载
+                                  </span>
+                                )}
+                                {isInList && !isDownloaded && (
+                                  <span style={{
+                                    fontSize: '11px',
+                                    color: 'var(--color-primary-600)',
+                                    background: 'var(--color-primary-50)',
+                                    padding: badgePadding,
+                                    borderRadius: '4px',
+                                    fontWeight: '500'
+                                  }}>
+                                    队列中
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: pageGap }}>
+            {renderAiNotePanel()}
+          </div>
+        </>
       )}
 
       {/* 图文内容 - 仅图文显示 */}
