@@ -191,11 +191,11 @@
   color: var(--color-text-primary);
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.25rem;
-  max-height: 2.5rem; /* 2 lines */
+  max-height: 1.25rem; /* 1 line */
 }
 
 .video-detail-episode-footer {
