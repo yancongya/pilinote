@@ -144,13 +144,18 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
         {loading ? (
           <div className="settings-meta">加载模板中...</div>
         ) : (
-          <SettingsField label="Prompt 内容" hint="仅修改当前卡片对应的模板；保存后立即生效">
+          <div className="settings-prompt-form">
+            <div className="settings-prompt-form-head">
+              <div className="settings-prompt-form-title">Prompt</div>
+              <div className="settings-prompt-form-hint">仅修改当前卡片对应的模板；保存后立即生效</div>
+            </div>
             <textarea
-              className="settings-input settings-textarea settings-prompt-textarea"
+              className="settings-prompt-textarea"
               value={draft}
               onChange={e => setDraft(e.target.value)}
+              spellCheck={false}
             />
-          </SettingsField>
+          </div>
         )}
       </div>
 
@@ -185,8 +190,47 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
           display: none;
         }
 
-        .settings-prompt-modal .settings-prompt-textarea {
-          min-height: 220px;
+        .settings-prompt-form {
+          display: grid;
+          gap: 10px;
+        }
+
+        .settings-prompt-form-head {
+          display: grid;
+          gap: 4px;
+        }
+
+        .settings-prompt-form-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          line-height: 1.2;
+        }
+
+        .settings-prompt-form-hint {
+          font-size: 12px;
+          color: var(--color-text-tertiary);
+          line-height: 1.3;
+        }
+
+        .settings-prompt-textarea {
+          width: 100%;
+          min-height: 280px;
+          padding: 12px 12px;
+          border-radius: 12px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text-primary);
+          font-size: 13px;
+          line-height: 1.55;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          resize: vertical;
+          outline: none;
+        }
+
+        .settings-prompt-textarea:focus {
+          border-color: rgba(67, 110, 238, 0.6);
+          box-shadow: 0 0 0 3px rgba(67, 110, 238, 0.12);
         }
       `}</style>
     </Modal>
