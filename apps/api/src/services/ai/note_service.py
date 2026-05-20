@@ -1264,11 +1264,17 @@ class AiNoteService:
             index_payload = self._read_note_index_output(actual_file_path, note.id)
             cached_fingerprint = str(index_payload.get("cache_fingerprint") or "").strip()
             cached_md_path = str(index_payload.get("markdown_path") or "").strip()
-            if cached_fingerprint and cached_fingerprint == cache_fingerprint and cached_md_path:
+            if cached_md_path:
                 try:
                     cached_path = Path(cached_md_path)
                     if cached_path.exists():
+                        if not cached_fingerprint:
+                            # Backward compatibility: old index files did not include
+                            # cache_fingerprint. Reconstruct and persist it without LLM.
+                            cached_fingerprint = cache_fingerprint
                         cached_markdown = cached_path.read_text(encoding="utf-8")
+                        if cached_fingerprint != cache_fingerprint:
+                            raise RuntimeError("Cache fingerprint mismatch")
                         summary = self._extract_summary(cached_markdown)
                         note.content = cached_markdown
                         note.summary = summary
@@ -1290,6 +1296,23 @@ class AiNoteService:
                             current_stage=self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
                         )
                         self._persist_note_meta(note)
+                        # Ensure index file has the new cache_fingerprint field.
+                        try:
+                            self._write_note_index_output(
+                                actual_file_path,
+                                note.id,
+                                markdown_path=str(cached_path),
+                                input_fingerprint=input_fingerprint,
+                                cache_fingerprint=cache_fingerprint,
+                                pipeline_mode=pipeline_mode,
+                                style=style,
+                                formats=normalized_formats,
+                                model_provider=model_provider,
+                                model_name=model_name,
+                                extras=merged_extras,
+                            )
+                        except Exception:
+                            pass
                         if pipeline_mode == "series":
                             self._update_series_memory(actual_file_path, note.id, cached_markdown)
                         self._add_trace(
