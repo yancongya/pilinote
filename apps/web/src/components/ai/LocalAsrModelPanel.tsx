@@ -188,6 +188,19 @@ export function LocalAsrModelPanel({ compact = false }: LocalAsrModelPanelProps)
             <ChevronDown size={16} className="settings-select-icon" />
           </div>
 
+          {compact && (
+            <button
+              type="button"
+              className="settings-model-icon-btn"
+              onClick={() => void refresh()}
+              disabled={loading}
+              aria-label="刷新模型列表"
+              title="刷新"
+            >
+              {loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+            </button>
+          )}
+
           <button
             type="button"
             className="settings-model-icon-btn primary"
@@ -264,17 +277,6 @@ export function LocalAsrModelPanel({ compact = false }: LocalAsrModelPanelProps)
   if (compact) {
     return (
       <div className="settings-model-panel">
-        <div className="settings-model-panel-toolbar">
-          <button
-            type="button"
-            className="settings-button settings-button-secondary settings-refresh-btn"
-            onClick={() => void refresh()}
-            disabled={loading}
-          >
-            {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-            刷新
-          </button>
-        </div>
         {content}
       </div>
     )
