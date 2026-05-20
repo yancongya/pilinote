@@ -2936,7 +2936,7 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
       )}
 
       {isCompactLayout && !video.isOpus && mobileDetailTab === 'ai' && (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: pageGap }}>
           <div className="video-detail-intro-panel">
             {isCollectionMember && (
               <div style={{
@@ -3120,10 +3120,8 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: pageGap }}>
-            {renderAiNotePanel()}
-          </div>
-        </>
+          {renderAiNotePanel()}
+        </div>
       )}
 
       {/* 图文内容 - 仅图文显示 */}
@@ -3216,44 +3214,47 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
         </div>
       )}
 
-      <div style={{
-        padding: cardPadding,
-        background: 'var(--color-bg-tertiary)',
-        borderRadius: cardRadius
-      }}>
-        <button
-          onClick={handleAddToDownload}
-          disabled={downloading}
-          style={{
-            width: '100%',
-            padding: isCompactLayout ? '14px' : '16px',
-            background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
-            color: 'var(--color-white)',
-            border: 'none',
-            borderRadius: cardRadius,
-            fontSize: isCompactLayout ? '16px' : '17px',
-            fontWeight: '600',
-            cursor: downloading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if (!downloading) {
-              e.currentTarget.style.background = 'var(--color-primary-700)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!downloading) {
-              e.currentTarget.style.background = 'var(--color-primary-600)'
-            }
-          }}
-        >
-          {getButtonText()}
-        </button>
-      </div>
+      {(!isCompactLayout || mobileDetailTab === 'intro') && (
+        <div style={{
+          padding: cardPadding,
+          background: 'var(--color-bg-tertiary)',
+          borderRadius: cardRadius,
+          marginTop: pageGap
+        }}>
+          <button
+            onClick={handleAddToDownload}
+            disabled={downloading}
+            style={{
+              width: '100%',
+              padding: isCompactLayout ? '14px' : '16px',
+              background: downloading ? 'var(--color-secondary-400)' : 'var(--color-primary-600)',
+              color: 'var(--color-white)',
+              border: 'none',
+              borderRadius: cardRadius,
+              fontSize: isCompactLayout ? '16px' : '17px',
+              fontWeight: '600',
+              cursor: downloading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (!downloading) {
+                e.currentTarget.style.background = 'var(--color-primary-700)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!downloading) {
+                e.currentTarget.style.background = 'var(--color-primary-600)'
+              }
+            }}
+          >
+            {getButtonText()}
+          </button>
+        </div>
+      )}
 
       {/* AlertModal */}
       <AlertModal
