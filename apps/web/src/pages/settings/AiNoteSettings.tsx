@@ -337,7 +337,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   }, [providers])
 
   // 保存服务商
-  const saveProviders = async (newProviders: LLMProvider[]) => {
+  const saveProviders = async (newProviders: LLMProvider[], options?: { activeProviderId?: string }) => {
     try {
       // Preserve user order for tabs: take newProviders order first, then append missing defaults.
       const providerMap = new Map<string, LLMProvider>()
@@ -351,6 +351,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
       const mergedProviders = Array.from(providerMap.values())
       setProviders(mergedProviders)
+      providersRef.current = mergedProviders
+
+      const nextActiveProviderId = options?.activeProviderId || (settings?.llm?.provider || 'openai')
+      const nextActiveProvider = mergedProviders.find(p => p.id === nextActiveProviderId) || mergedProviders.find(p => p.id === 'openai') || mergedProviders[0]
       await updateSettings({
         llm: {
           ...((settings as any)?.llm || {
@@ -360,6 +364,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             api_key: '',
             temperature: 0.7,
           }),
+          provider: nextActiveProviderId,
+          base_url: nextActiveProvider?.baseUrl || (settings as any)?.llm?.base_url || '',
+          api_key: nextActiveProvider?.apiKey || (settings as any)?.llm?.api_key || '',
+          model: (nextActiveProvider?.models?.[0]) || (settings as any)?.llm?.model || 'gpt-4o-mini',
           providers: mergedProviders,
         },
       })
@@ -380,7 +388,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       isCustom: true,
     }
     const newProviders = [...providers, newProvider]
-    void saveProviders(newProviders)
+    void saveProviders(newProviders, { activeProviderId: id })
     pendingProviderScrollIdRef.current = id
     setActiveProviderId(id)
     setEditingProvider(newProvider)
