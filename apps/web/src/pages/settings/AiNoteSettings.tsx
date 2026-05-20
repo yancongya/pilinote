@@ -2073,12 +2073,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
         @media (max-width: 768px) {
           .settings-model-selector-bar {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr) auto auto;
           }
 
           .settings-model-selector-bar .settings-model-icon-btn {
-            width: 100%;
-            height: 38px;
+            width: 32px;
+            height: 32px;
           }
 
           .settings-model-list {
