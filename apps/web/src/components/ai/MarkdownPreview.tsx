@@ -7,6 +7,7 @@ import {
   createHeadingIdGenerator,
   extractMarkdownText,
   normalizeMarkdownImageDestinations,
+  liftTimestampSection,
   resolveMarkdownImageUrl,
 } from './markdownPreviewUtils'
 
@@ -435,7 +436,9 @@ function MarkdownCodeBlock({
 }
 
 export function MarkdownPreview({ content, sourceFolderPath, className, onSeekToSeconds }: MarkdownPreviewProps) {
-  const normalizedContent = useMemo(() => normalizeMarkdownImageDestinations(content), [content])
+  const normalizedContent = useMemo(() => {
+    return normalizeMarkdownImageDestinations(liftTimestampSection(content))
+  }, [content])
   const nextHeadingId = createHeadingIdGenerator()
 
   const parseTimestampToSeconds = (timestamp: string): number | null => {

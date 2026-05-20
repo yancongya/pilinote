@@ -32,6 +32,64 @@ export function normalizeMarkdownImageDestinations(markdown: string): string {
   })
 }
 
+export function liftTimestampSection(markdown: string): string {
+  if (!markdown) return markdown
+
+  const lines = markdown.split(/\r?\n/)
+  let inFence = false
+  let start = -1
+  let end = -1
+
+  const isFence = (line: string) => /^\s*```/.test(line)
+  const isTimestampHeading = (line: string) => /^\s*##\s*(时间戳|时间戳列表|时间轴)\s*$/.test(line)
+  const isH2Heading = (line: string) => /^\s*##\s+/.test(line)
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (isFence(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    if (isTimestampHeading(line)) {
+      start = i
+      break
+    }
+  }
+
+  if (start < 0) return markdown
+
+  // If it's already near the top, keep the original order.
+  if (start <= 20) return markdown
+
+  inFence = false
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (isFence(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+    if (isH2Heading(line)) {
+      end = i
+      break
+    }
+  }
+  if (end < 0) end = lines.length
+
+  const sectionLines = lines.slice(start, end)
+  const before = lines.slice(0, start)
+  const after = lines.slice(end)
+
+  // Remove excessive blank lines around the removed section.
+  while (before.length > 0 && before[before.length - 1].trim() === '') before.pop()
+  while (after.length > 0 && after[0].trim() === '') after.shift()
+
+  const section = sectionLines.join('\n').trimEnd()
+  const rest = [...before, ...after].join('\n').trimStart()
+  return `${section}\n\n${rest}`.trimEnd()
+}
+
 function stripFileProtocol(path: string): string {
   return path.replace(/^file:\/\//i, '')
 }
