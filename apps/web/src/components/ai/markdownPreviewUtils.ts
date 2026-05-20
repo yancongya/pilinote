@@ -39,10 +39,17 @@ export function liftTimestampSection(markdown: string): string {
   let inFence = false
   let start = -1
   let end = -1
+  let startLevel = 2
 
   const isFence = (line: string) => /^\s*```/.test(line)
-  const isTimestampHeading = (line: string) => /^\s*##\s*(时间戳|时间戳列表|时间轴)\s*$/.test(line)
-  const isH2Heading = (line: string) => /^\s*##\s+/.test(line)
+
+  const matchHeading = (line: string): { level: number; text: string } | null => {
+    const match = line.match(/^\s*(#{1,6})\s*(.+?)\s*$/)
+    if (!match) return null
+    return { level: match[1].length, text: match[2].trim() }
+  }
+
+  const isTimestampHeadingText = (text: string) => /^(时间戳|时间戳列表|时间轴)$/.test(text.trim())
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i]
@@ -51,8 +58,10 @@ export function liftTimestampSection(markdown: string): string {
       continue
     }
     if (inFence) continue
-    if (isTimestampHeading(line)) {
+    const heading = matchHeading(line)
+    if (heading && isTimestampHeadingText(heading.text)) {
       start = i
+      startLevel = heading.level
       break
     }
   }
@@ -70,7 +79,8 @@ export function liftTimestampSection(markdown: string): string {
       continue
     }
     if (inFence) continue
-    if (isH2Heading(line)) {
+    const heading = matchHeading(line)
+    if (heading && heading.level <= startLevel) {
       end = i
       break
     }
