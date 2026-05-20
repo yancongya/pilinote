@@ -4918,20 +4918,18 @@
 .album-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  gap: 12px;
   margin-top: 4px;
 }
 
 /* Album Card */
 .album-card {
   background: var(--color-bg-primary);
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: flex;
-  flex-direction: column;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .album-card:hover {
@@ -4945,7 +4943,6 @@
   aspect-ratio: 16 / 9;
   overflow: hidden;
   background: var(--color-bg-tertiary);
-  flex-shrink: 0;
 }
 
 .album-card-cover img {
@@ -4953,6 +4950,11 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.35s ease;
+}
+
+.album-card:hover .album-card-cover img {
+  transform: scale(1.05);
 }
 
 .album-cover-placeholder {
@@ -5018,81 +5020,88 @@
   z-index: 10;
 }
 
-.album-card-info {
-  padding: 10px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
+/* Overlay gradient + content */
+.album-card-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
 }
 
-.album-card-title-wrap {
-  overflow: hidden;
-  white-space: nowrap;
+.album-card-overlay-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
+  pointer-events: none;
+}
+
+.album-card-overlay-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 12px 38px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
 }
 
 .album-card-title {
-  display: inline-block;
+  color: #fff;
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
   line-height: 1.4;
   white-space: nowrap;
-  padding-right: 40px;
-}
-
-.album-card:hover .album-card-title {
-  animation: album-title-marquee 8s linear infinite;
-}
-
-@keyframes album-title-marquee {
-  0% { transform: translateX(0); }
-  15% { transform: translateX(0); }
-  80% { transform: translateX(calc(-100% + 120px)); }
-  100% { transform: translateX(calc(-100% + 120px)); }
-}
-
-.album-card-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.album-card-author {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
-.album-author-avatar {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
+.album-card-hover-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-.album-card-size {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
+.album-card:hover .album-card-hover-meta {
+  opacity: 1;
+}
+
+.album-card-hover-author,
+.album-card-hover-time {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
   white-space: nowrap;
 }
 
-.album-card-date {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-  margin: 0;
+/* Play button */
+.album-card-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 6;
+}
+
+.album-card:hover .album-card-play-btn {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 /* Dark mode adjustments */
@@ -5133,8 +5142,8 @@
     font-size: 13px;
   }
 
-  .album-card-info {
-    padding: 8px 10px 10px;
+  .album-card-overlay-content {
+    padding: 10px;
   }
 
   .view-mode-toggle {
