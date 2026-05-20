@@ -5,6 +5,8 @@ const API_BASE_URL = getApiBaseUrl();
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;
+  // Some endpoints (e.g. /api/local/file/...) use `error` instead of `message`.
+  error?: string;
   data?: T;
   total?: number;
   code?: number;

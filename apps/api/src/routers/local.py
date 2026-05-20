@@ -70,8 +70,17 @@ def build_note_file_response(video_dir: Path, preferred_stem: Optional[str] = No
     md_files = []
     if preferred_stem:
         preferred = video_dir / f"{preferred_stem}.ai-note.md"
-        if preferred.exists():
-            md_files.append(preferred)
+        # When a specific file stem is requested (typically by passing a local
+        # video file path), only return the matching note. Do not fall back to
+        # other notes in the folder, otherwise multi-part pages may show the
+        # wrong episode note.
+        if not preferred.exists():
+            return LocalFileResponse(
+                success=True,
+                data="",
+                folder_path=str(video_dir),
+            )
+        md_files.append(preferred)
     md_files.extend(
         file for file in sorted(video_dir.glob("*.ai-note.md")) if file not in md_files
     )

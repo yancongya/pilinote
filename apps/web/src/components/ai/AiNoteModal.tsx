@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Sparkles, Loader2, RotateCcw, Copy, Pause, Play } from 'lucide-react'
+import { X, Sparkles, Loader2, RotateCcw, Copy, Pause, Play, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   aiNoteService,
   AI_NOTE_REANALYZE_STAGE_TEMPLATES,
@@ -548,6 +548,7 @@ export function AiNoteModal({
   const [enableTimestamps, setEnableTimestamps] = useState(false)
   const [style, setStyle] = useState('detailed')
   const [promptExtras, setPromptExtras] = useState('')
+  const [seriesListCollapsed, setSeriesListCollapsed] = useState(false)
   const [note, setNote] = useState<NoteResponse | null>(existingNote || null)
   const [error, setError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -1938,7 +1939,20 @@ export function AiNoteModal({
     <>
       <div className="ai-note-modal-content ai-note-series-content">
         {renderAnalysisConfig()}
-        <div className="ai-note-series-summary">
+        <div
+          className="ai-note-series-summary"
+          role="button"
+          tabIndex={0}
+          aria-expanded={seriesListCollapsed ? 'false' : 'true'}
+          title={seriesListCollapsed ? '展开列表' : '折叠列表'}
+          onClick={() => setSeriesListCollapsed(prev => !prev)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              setSeriesListCollapsed(prev => !prev)
+            }
+          }}
+        >
           <div className="ai-note-series-summary-head">
             <div>
               <div className="ai-note-series-summary-title">系列任务</div>
@@ -1946,8 +1960,13 @@ export function AiNoteModal({
                 选中后会按顺序逐集执行现有单视频流水线
               </div>
             </div>
-            <div className="ai-note-series-summary-chip">
-              {seriesRunSummary.selected} / {seriesRunSummary.available} 已选
+            <div className="ai-note-series-summary-head-right">
+              <div className="ai-note-series-summary-chip">
+                {seriesRunSummary.selected} / {seriesRunSummary.available} 已选
+              </div>
+              <span className="ai-note-series-summary-chevron" aria-hidden="true">
+                {seriesListCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+              </span>
             </div>
           </div>
           <div className="ai-note-series-summary-stats">
@@ -1966,18 +1985,22 @@ export function AiNoteModal({
           )}
         </div>
 
-        <div className="ai-note-series-actions">
-          <button type="button" className="ai-note-series-action" onClick={handleSeriesSelectAll} disabled={isAnalyzing}>
-            全选可用
-          </button>
-          <button type="button" className="ai-note-series-action" onClick={handleSeriesClearSelection} disabled={isAnalyzing}>
-            清空选择
-          </button>
-        </div>
+        {!seriesListCollapsed && (
+          <>
+            <div className="ai-note-series-actions">
+              <button type="button" className="ai-note-series-action" onClick={handleSeriesSelectAll} disabled={isAnalyzing}>
+                全选可用
+              </button>
+              <button type="button" className="ai-note-series-action" onClick={handleSeriesClearSelection} disabled={isAnalyzing}>
+                清空选择
+              </button>
+            </div>
 
-        <div className="ai-note-series-list">
-          {sortedSeriesEpisodeStates.map(renderSeriesEpisodeRow)}
-        </div>
+            <div className="ai-note-series-list">
+              {sortedSeriesEpisodeStates.map(renderSeriesEpisodeRow)}
+            </div>
+          </>
+        )}
       </div>
 
       {error && <div className="ai-note-modal-error">{error}</div>}
@@ -2138,7 +2161,11 @@ export function AiNoteModal({
         .ai-note-select-group-head .ai-note-option-row { margin-top: 0; }
         .ai-note-series-content { display: grid; gap: 14px; }
         .ai-note-series-summary { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: linear-gradient(180deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02)); border: 1px solid rgba(59,130,246,0.16); }
+        .ai-note-series-summary { cursor: pointer; }
+        .ai-note-series-summary:focus-visible { outline: 2px solid rgba(59,130,246,0.55); outline-offset: 2px; }
         .ai-note-series-summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+        .ai-note-series-summary-head-right { display: inline-flex; align-items: center; gap: 10px; }
+        .ai-note-series-summary-chevron { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(2, 6, 23, 0.12); color: var(--color-text-secondary); }
         .ai-note-series-summary-title { font-size: 15px; font-weight: 700; color: var(--color-text-primary); }
         .ai-note-series-summary-subtitle { margin-top: 3px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
         .ai-note-series-summary-chip { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; background: var(--color-bg-primary); border: 1px solid var(--color-border); font-size: 12px; color: var(--color-text-primary); font-weight: 600; }

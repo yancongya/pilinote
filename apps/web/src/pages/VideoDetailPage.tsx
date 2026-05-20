@@ -255,10 +255,30 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const pageGap = isCompactLayout ? '16px' : '20px'
   const shouldStickyPlayer = mediaMode === 'local-video' && !video?.isOpus && (isVideoPinned || isVideoPlaying)
 
+  const normalizeLocalFsPath = (value: string): string => {
+    return (value || '').replace(/^file:\/\//i, '').trim()
+  }
+
   const aiNoteFileId = useMemo(() => {
     if (!videoId || type === 'opus') return ''
-    return activePlaybackEntry?.path || localPlayback?.folder_path || videoId
-  }, [activePlaybackEntry?.path, localPlayback?.folder_path, type, videoId])
+    // 1) Prefer the currently playing local video file.
+    if (activePlaybackEntry?.path) {
+      return normalizeLocalFsPath(activePlaybackEntry.path)
+    }
+
+    // 2) When not playing, prefer the first playable local entry.
+    const initialEntry = selectInitialPlayableEntry(
+      localPlayback,
+      video?.pages && video.pages.length > 1 ? undefined : video?.cid
+    )
+    if (initialEntry?.path) {
+      return normalizeLocalFsPath(initialEntry.path)
+    }
+
+    // 3) Fallback to folder path (may contain series root) and finally bvid.
+    const candidate = localPlayback?.folder_path || videoId
+    return typeof candidate === 'string' ? normalizeLocalFsPath(candidate) : String(candidate || '')
+  }, [activePlaybackEntry?.path, localPlayback, type, video?.cid, video?.pages, videoId])
 
   useEffect(() => {
     let cancelled = false
@@ -828,7 +848,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     }
     return total
   }, 0)
-  const activeLocalVideoUrl = activePlaybackEntry ? getLocalVideoUrl(activePlaybackEntry.path) : ''
+  const activeLocalVideoUrl = activePlaybackEntry ? getLocalVideoUrl(normalizeLocalFsPath(activePlaybackEntry.path)) : ''
   const playableLocalPages = playablePages.filter((page: any) => page.playable && page.localPath)
   const activePlayablePageIndex = activePlaybackEntry
     ? playableLocalPages.findIndex((page: any) =>
@@ -860,7 +880,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   })
 
   const startLocalPlayback = (entry: LocalPlaybackEntry) => {
-    setActivePlaybackEntry(entry)
+    setActivePlaybackEntry({
+      ...entry,
+      path: normalizeLocalFsPath(entry.path),
+    })
     setMediaMode('local-video')
   }
 
@@ -1089,7 +1112,8 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     const durationFromVideo = typeof localVideoDurationSeconds === 'number' && localVideoDurationSeconds > 0
       ? localVideoDurationSeconds
       : 0
-    return durationFromVideo || durationFromMeta || (aiNoteKeypoints.at(-1)?.seconds || 0)
+    const last = aiNoteKeypoints.length > 0 ? aiNoteKeypoints[aiNoteKeypoints.length - 1] : undefined
+    return durationFromVideo || durationFromMeta || (last?.seconds || 0)
   }, [aiNoteKeypoints, localVideoDurationSeconds, video?.duration])
 
   const handleSeekToSeconds = useCallback((seconds: number) => {
@@ -1751,7 +1775,11 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
             <button
               type="button"
               onClick={() => {
-                navigate(`${aiPanelPath}#note`)
+                navigate(`${aiPanelPath}#note`, {
+                  state: {
+                    initialFileId: aiNoteFileId || undefined,
+                  }
+                })
               }}
               style={{
                 padding: '7px 10px',

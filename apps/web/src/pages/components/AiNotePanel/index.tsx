@@ -62,7 +62,7 @@ export default function AiNotePanel() {
   const { videoId, opusId } = useParams<{ videoId?: string; opusId?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const routeState = location.state as { folderPath?: string } | null;
+  const routeState = location.state as { folderPath?: string; initialFileId?: string } | null;
   const [selectedSubtitleFilename, setSelectedSubtitleFilename] = useState<string>('');
   const [noteMarkdown, setNoteMarkdown] = useState('');
   const [noteTitle, setNoteTitle] = useState('mindmap');
@@ -73,7 +73,7 @@ export default function AiNotePanel() {
   const mediaId = videoId || opusId || '';
   const backToDetailPath = opusId ? `/opus/${mediaId}` : `/video/${mediaId}`;
   const isImageTextMode = Boolean(opusId);
-  const fallbackFolderPath = routeState?.folderPath || '';
+  const fallbackFolderPath = routeState?.folderPath || routeState?.initialFileId || '';
   const activeFileId = resolvedFileId || mediaId;
   const panelCacheKey = useMemo(() => buildAiNotePanelCacheKey({
     videoId: mediaId,
@@ -110,7 +110,7 @@ export default function AiNotePanel() {
 
     const resolveLocalFileId = async () => {
       if (fallbackFolderPath) {
-        setResolvedFileId(fallbackFolderPath);
+        setResolvedFileId(String(fallbackFolderPath).replace(/^file:\/\//i, '').trim());
         return;
       }
 
