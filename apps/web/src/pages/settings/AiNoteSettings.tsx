@@ -27,6 +27,7 @@ import {
   X,
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
+import Modal from '../../components/Modal'
 import { LocalAsrModelPanel } from '../../components/ai/LocalAsrModelPanel'
 import AiPromptTemplates from './AiPromptTemplates'
 import { PROMPT_TEMPLATE_CARDS, type PromptTemplateMeta } from '../../services/promptCatalog'
@@ -1284,44 +1285,18 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         onSaved={(nextTemplates) => setPromptTemplates(nextTemplates)}
       />
 
-      {showCreateStyleModal && (
-        <div className="settings-modal-overlay" onClick={() => setShowCreateStyleModal(false)}>
-          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="settings-modal-header">
-              <h4>创建新风格</h4>
-              <button
-                type="button"
-                className="settings-modal-close"
-                onClick={() => setShowCreateStyleModal(false)}
-              >
-                <span aria-hidden="true">×</span>
-              </button>
-            </div>
-            <div className="settings-modal-body">
-              <SettingsField label="风格名称">
-                <input
-                  type="text"
-                  className="settings-input"
-                  value={createStyleForm.label}
-                  onChange={(e) => setCreateStyleForm(prev => ({ ...prev, label: e.target.value }))}
-                />
-              </SettingsField>
-              <SettingsField label="描述">
-                <textarea
-                  className="settings-textarea"
-                  value={createStyleForm.description}
-                  onChange={(e) => setCreateStyleForm(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </SettingsField>
-              <SettingsField label="Prompt">
-                <textarea
-                  className="settings-textarea"
-                  value={createStyleForm.prompt}
-                  onChange={(e) => setCreateStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
-                />
-              </SettingsField>
-            </div>
-            <div className="settings-modal-footer">
+      <Modal
+        isOpen={showCreateStyleModal}
+        onClose={() => setShowCreateStyleModal(false)}
+        title="新建风格"
+        size="lg"
+        closeOnOverlayClick={true}
+        className="settings-prompt-modal"
+        accentColor="#22c55e"
+        footer={(
+          <div className="settings-prompt-footer">
+            <div />
+            <div className="settings-prompt-footer-right">
               <button className="settings-button settings-button-secondary" onClick={() => setShowCreateStyleModal(false)}>
                 取消
               </button>
@@ -1330,8 +1305,32 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               </button>
             </div>
           </div>
+        )}
+      >
+        <div className="settings-prompt-form">
+          <div className="settings-prompt-form-head">
+            <div className="settings-prompt-form-title">标题</div>
+          </div>
+          <input
+            type="text"
+            className="settings-input"
+            value={createStyleForm.label}
+            onChange={(e) => setCreateStyleForm(prev => ({ ...prev, label: e.target.value }))}
+            placeholder="例如：教程笔记"
+          />
+
+          <div className="settings-prompt-form-head" style={{ marginTop: 6 }}>
+            <div className="settings-prompt-form-title">Prompt</div>
+          </div>
+          <textarea
+            className="settings-prompt-textarea"
+            value={createStyleForm.prompt}
+            onChange={(e) => setCreateStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
+            spellCheck={false}
+            placeholder="输入该风格的写作要求…"
+          />
         </div>
-      )}
+      </Modal>
 
       <SettingsSection title="自动功能">
         <SettingsToggleRow
@@ -1558,78 +1557,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           gap: 4px;
         }
 
-        .settings-modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 80;
-          background: rgba(10, 12, 16, 0.18);
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          padding: 72px 20px 20px;
-          backdrop-filter: blur(4px);
-        }
-
-        .settings-modal {
-          width: min(560px, 100%);
-          max-height: min(78vh, 720px);
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          padding: 16px;
-          border-radius: 16px;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
-          overflow: hidden;
-        }
-
-        .settings-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .settings-modal-header h4 {
-          margin: 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--color-text-primary);
-        }
-
-        .settings-modal-close {
-          width: 36px;
-          height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: none;
-          border-radius: 12px;
-          background: transparent;
-          color: var(--color-text-secondary);
-          cursor: pointer;
-        }
-
-        .settings-modal-close:hover {
-          background: var(--color-bg-secondary);
-          color: var(--color-text-primary);
-        }
-
-        .settings-modal-body {
-          display: grid;
-          gap: 16px;
-          overflow-y: auto;
-          padding-right: 4px;
-        }
-
-        .settings-modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-          padding-top: 4px;
-          border-top: 1px solid var(--color-border);
-        }
+        /* Legacy .settings-modal* styles removed (now using shared <Modal />) */
 
         .settings-provider-header {
           display: flex;
