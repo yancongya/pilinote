@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 interface ModalProps {
@@ -109,7 +110,7 @@ export default function Modal({
     lg: 'max-w-[800px]',
   }
 
-  return (
+  return createPortal(
     <div 
       className="settings-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
       onClick={handleOverlayClick}
@@ -154,6 +155,7 @@ export default function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
