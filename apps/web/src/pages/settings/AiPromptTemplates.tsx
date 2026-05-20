@@ -105,12 +105,13 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
   }
 
   if (!activeMeta) return null
+  const headerMetaText = `${activeMeta.category} · ${activeMeta.title}`
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`编辑 ${activeMeta.title}`}
+      title={`编辑 ${headerMetaText}`}
       size="lg"
       closeOnOverlayClick={true}
       className="settings-prompt-modal"
@@ -172,11 +173,16 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
           padding: 18px;
         }
 
+        .settings-prompt-modal .settings-modal-header {
+          padding: 12px 16px;
+        }
+
+        .settings-prompt-modal .settings-modal-title {
+          font-size: 16px;
+        }
+
         .settings-prompt-modal .settings-prompt-summary {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 12px;
+          display: none;
         }
 
         .settings-prompt-modal .settings-prompt-textarea {
