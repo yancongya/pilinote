@@ -12,6 +12,7 @@ interface ModalProps {
   closeOnOverlayClick?: boolean
   showCloseButton?: boolean
   className?: string
+  accentColor?: string
 }
 
 export default function Modal({
@@ -24,6 +25,7 @@ export default function Modal({
   closeOnOverlayClick = true,
   showCloseButton = true,
   className = '',
+  accentColor,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null)
   const firstFocusableRef = useRef<HTMLButtonElement>(null)
@@ -122,6 +124,7 @@ export default function Modal({
         ref={modalRef}
         className={`settings-modal-panel dark:bg-slate-800 dark:border-slate-700 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] w-full overflow-hidden animate-in zoom-in-95 duration-200 ease-out max-h-[calc(100vh-40px)] flex flex-col ${sizeClasses[size]} ${className}`}
         onClick={(e) => e.stopPropagation()}
+        style={accentColor ? ({ ['--modal-accent' as any]: accentColor } as React.CSSProperties) : undefined}
       >
         {/* 头部 */}
         {(title || showCloseButton) && (

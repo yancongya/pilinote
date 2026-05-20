@@ -859,21 +859,25 @@
   padding: 8px 9px 7px;
   background: var(--color-bg-secondary);
   border-radius: 9px;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--prompt-accent, transparent) 22%, transparent);
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   min-height: 68px;
 }
 
 .settings-style-card.active {
-  border-color: var(--color-primary-600);
-  background: linear-gradient(180deg, rgba(67, 110, 238, 0.06), rgba(67, 110, 238, 0.02));
-  box-shadow: 0 6px 16px rgba(67, 110, 238, 0.08);
+  border-color: color-mix(in srgb, var(--prompt-accent, var(--color-primary-600)) 62%, var(--color-primary-600));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--prompt-accent, rgba(67, 110, 238, 0.08)) 12%, transparent),
+    rgba(0, 0, 0, 0)
+  );
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--prompt-accent, rgba(67, 110, 238, 0.12)) 24%, transparent);
   transform: translateY(-1px);
 }
 
 .settings-style-card:hover {
-  border-color: rgba(67, 110, 238, 0.25);
+  border-color: color-mix(in srgb, var(--prompt-accent, rgba(67, 110, 238, 0.25)) 50%, rgba(67, 110, 238, 0.25));
 }
 
 .settings-style-card-top {
@@ -890,8 +894,9 @@
   padding: 0 6px;
   border-radius: 999px;
   font-size: 10px;
-  color: var(--color-text-tertiary);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--prompt-accent, var(--color-text-tertiary));
+  background: color-mix(in srgb, var(--prompt-accent, rgba(255, 255, 255, 0.06)) 12%, rgba(255, 255, 255, 0.06));
+  border: 1px solid color-mix(in srgb, var(--prompt-accent, rgba(255, 255, 255, 0.12)) 22%, rgba(255, 255, 255, 0.12));
 }
 
 .settings-style-card-meta {

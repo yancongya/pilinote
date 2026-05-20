@@ -3,13 +3,23 @@ import Modal from '../../components/Modal'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { useToast } from '../../components/Toast'
 import type { PromptTemplateMeta } from '../../services/promptCatalog'
-import { SettingsField } from './shared'
 
 interface AiPromptTemplatesProps {
   isOpen: boolean
   onClose: () => void
   card: PromptTemplateMeta | null
   onSaved?: (templates: Record<string, any>) => void
+}
+
+const PROMPT_CATEGORY_ACCENT: Record<string, string> = {
+  风格: '#22c55e',
+  格式: '#3b82f6',
+  扩展: '#f97316',
+}
+
+const getPromptCategoryAccent = (category?: string | null) => {
+  if (!category) return '#3b82f6'
+  return PROMPT_CATEGORY_ACCENT[category] || '#a855f7'
 }
 
 const deepClone = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
@@ -106,6 +116,7 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
 
   if (!activeMeta) return null
   const headerMetaText = `${activeMeta.category} · ${activeMeta.title}`
+  const accentColor = getPromptCategoryAccent(activeMeta.category)
 
   return (
     <Modal
@@ -115,6 +126,7 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
       size="lg"
       closeOnOverlayClick={true}
       className="settings-prompt-modal"
+      accentColor={accentColor}
       footer={(
         <div className="settings-prompt-footer">
           <button
@@ -180,10 +192,24 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
 
         .settings-prompt-modal .settings-modal-header {
           padding: 12px 16px;
+          border-bottom-color: rgba(148, 163, 184, 0.18);
         }
 
         .settings-prompt-modal .settings-modal-title {
           font-size: 16px;
+          color: var(--color-text-primary);
+        }
+
+        .settings-prompt-modal .settings-modal-title::before {
+          content: '';
+          display: inline-block;
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: var(--modal-accent, #3b82f6);
+          margin-right: 10px;
+          vertical-align: middle;
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
         }
 
         .settings-prompt-modal .settings-prompt-summary {
@@ -229,8 +255,8 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
         }
 
         .settings-prompt-textarea:focus {
-          border-color: rgba(67, 110, 238, 0.6);
-          box-shadow: 0 0 0 3px rgba(67, 110, 238, 0.12);
+          border-color: color-mix(in srgb, var(--modal-accent, #3b82f6) 70%, transparent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--modal-accent, #3b82f6) 18%, transparent);
         }
       `}</style>
     </Modal>

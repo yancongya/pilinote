@@ -1188,6 +1188,13 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           <div className="settings-style-grid">
             {visiblePromptCards.map(card => {
               const data = promptCardData.find(item => item.key === card.key)
+              const promptAccent = (() => {
+                const category = card.category
+                if (category === '风格') return '#22c55e'
+                if (category === '格式') return '#3b82f6'
+                if (category === '扩展') return '#f97316'
+                return '#a855f7'
+              })()
               return (
                 <div
                     key={card.key}
@@ -1196,6 +1203,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     role="button"
                     tabIndex={0}
                     title="点击编辑 prompt"
+                    style={{ ['--prompt-accent' as any]: promptAccent } as React.CSSProperties}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
