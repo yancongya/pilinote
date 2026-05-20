@@ -1316,7 +1316,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         }
 
         .ai-note-settings .settings-section-header {
-          padding: 12px 14px;
+          padding: 8px 14px;
         }
 
         .ai-note-settings .settings-page-content {
