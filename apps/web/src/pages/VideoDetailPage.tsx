@@ -174,9 +174,6 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [aiNoteLoading, setAiNoteLoading] = useState(false)
   const [aiNoteError, setAiNoteError] = useState<string | null>(null)
   const [aiNoteRevision, setAiNoteRevision] = useState(0)
-  // When null, the note follows current playback/initial playable entry.
-  // When set, it locks to a specific local file path chosen by the user.
-  const [aiNoteLockedFileId, setAiNoteLockedFileId] = useState<string | null>(null)
   const [localVideoDurationSeconds, setLocalVideoDurationSeconds] = useState<number | null>(null)
   const [alertModal, setAlertModal] = useState<{
     show: boolean
@@ -283,12 +280,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     return typeof candidate === 'string' ? normalizeLocalFsPath(candidate) : String(candidate || '')
   }, [activePlaybackEntry?.path, localPlayback, type, video?.cid, video?.pages, videoId])
 
-  useEffect(() => {
-    // Reset lock when switching to another bvid/opuss page.
-    setAiNoteLockedFileId(null)
-  }, [type, videoId])
-
-  const aiNoteEffectiveFileId = aiNoteLockedFileId || aiNoteFileId
+  const aiNoteEffectiveFileId = aiNoteFileId
 
   useEffect(() => {
     let cancelled = false
@@ -1733,12 +1725,6 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
       return null
     }
 
-    const noteParts = playableEntries.map((entry, index) => ({
-      value: normalizeLocalFsPath(entry.path),
-      label: entry.title || `P${index + 1}`,
-    }))
-    const selectedPartValue = aiNoteEffectiveFileId
-
     return (
       <section
         aria-label="AI 笔记"
@@ -1813,54 +1799,6 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
           </div>
         </div>
 
-        {noteParts.length > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', flex: '0 0 auto' }}>分P</span>
-            <select
-              value={selectedPartValue}
-              onChange={(event) => {
-                setAiNoteLockedFileId(event.target.value)
-              }}
-              style={{
-                minWidth: 0,
-                flex: 1,
-                padding: '6px 10px',
-                borderRadius: '8px',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                fontSize: '12px',
-              }}
-            >
-              {noteParts.map((part) => (
-                <option key={part.value} value={part.value}>
-                  {part.label}
-                </option>
-              ))}
-            </select>
-            {aiNoteLockedFileId && (
-              <button
-                type="button"
-                onClick={() => setAiNoteLockedFileId(null)}
-                style={{
-                  flexShrink: 0,
-                  padding: '6px 10px',
-                  borderRadius: '999px',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-primary)',
-                  color: 'var(--color-text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 650
-                }}
-                title="恢复跟随当前播放"
-              >
-                跟随播放
-              </button>
-            )}
-          </div>
-        )}
-
         {aiNoteKeypoints.length > 0 && keypointBarDurationSeconds > 0 && (
           <div
             className="video-detail-keypoint-bar-wrap"
@@ -1915,7 +1853,7 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
 
         {!aiNoteLoading && !aiNoteError && !aiNoteMarkdown.trim() && (
           <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-            {aiNoteLockedFileId ? '所选分P暂无笔记' : '当前分P暂无笔记'}
+            当前分P暂无笔记
           </div>
         )}
 
