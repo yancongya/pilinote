@@ -92,6 +92,58 @@ def _compact_markdown_for_memory(markdown: str) -> str:
     return compact[:4000]
 
 
+def _detect_transcript_language(text: str) -> str:
+    """Heuristic language detection for subtitles/transcripts.
+
+    Returns: 'zh' | 'en' | 'mixed' | 'unknown'
+    """
+    if not text:
+        return "unknown"
+    sample = text[:20000]
+    cjk = sum(1 for ch in sample if "\u4e00" <= ch <= "\u9fff")
+    latin = sum(1 for ch in sample if ("a" <= ch.lower() <= "z"))
+    total_letters = cjk + latin
+    if total_letters < 50:
+        return "unknown"
+    cjk_ratio = cjk / max(1, total_letters)
+    latin_ratio = latin / max(1, total_letters)
+    if cjk_ratio >= 0.75:
+        return "zh"
+    if latin_ratio >= 0.75:
+        return "en"
+    return "mixed"
+
+
+def _build_language_policy_block(lang: str) -> str:
+    if lang == "zh":
+        return (
+            "## 语言与术语策略\n"
+            "- 检测到字幕主要为中文（zh）。\n"
+            "- 笔记必须输出中文；专业名词/品牌/快捷键等可保留英文原文。\n"
+            "- 遇到英文术语：保留英文 + 给出简短中文解释（同一术语全文保持一致）。"
+        )
+    if lang == "en":
+        return (
+            "## 语言与术语策略\n"
+            "- 检测到字幕主要为英文（en）。\n"
+            "- 笔记必须输出中文为主，但要保留关键英文术语原文。\n"
+            "- 处理顺序：先理解英文含义 -> 用中文整理笔记；术语首次出现给中英文对照。\n"
+            "- 不要让整篇笔记在中英文之间摇摆。"
+        )
+    if lang == "mixed":
+        return (
+            "## 语言与术语策略\n"
+            "- 检测到字幕为中英混合（mixed）。\n"
+            "- 笔记以中文为主，英文术语保留原文；首次出现时给出中文解释。\n"
+            "- 对同一术语/概念保持全篇一致的翻译与写法。"
+        )
+    return (
+        "## 语言与术语策略\n"
+        "- 无法可靠判断字幕语言（unknown）。\n"
+        "- 笔记仍必须输出中文为主；英文术语可保留并附中文解释。"
+    )
+
+
 def _normalize_note_formats(formats: Optional[List[str]]) -> List[str]:
     if not formats:
         return list(DEFAULT_FORMATS)
@@ -1231,6 +1283,10 @@ class AiNoteService:
             if series_memory:
                 merged_extras = f"## 系列记忆（来自历史分析，请遵循）\n{series_memory}\n\n{extras or ''}".strip()
 
+            transcript_lang = _detect_transcript_language(str(context.get("transcript") or ""))
+            lang_block = _build_language_policy_block(transcript_lang)
+            merged_extras = f"{lang_block}\n\n{merged_extras or ''}".strip()
+
             prompt = self._build_prompt_from_context(
                 context=context,
                 style=style,
@@ -1287,6 +1343,7 @@ class AiNoteService:
                             "input_fingerprint": input_fingerprint,
                             "cache_fingerprint": cache_fingerprint,
                             "cache_hit": True,
+                            "transcript_language": transcript_lang,
                         }
                         note.status = "completed"
                         note.completed_at = datetime.utcnow()
@@ -1310,6 +1367,7 @@ class AiNoteService:
                                 model_provider=model_provider,
                                 model_name=model_name,
                                 extras=merged_extras,
+                                transcript_language=transcript_lang,
                             )
                         except Exception:
                             pass
@@ -1389,6 +1447,7 @@ class AiNoteService:
                 model_provider=model_provider,
                 model_name=model_name,
                 extras=merged_extras,
+                transcript_language=transcript_lang,
             )
 
             note.content = markdown
@@ -1401,6 +1460,7 @@ class AiNoteService:
                 "generated_index_path": index_path,
                 "input_fingerprint": input_fingerprint,
                 "cache_fingerprint": cache_fingerprint,
+                "transcript_language": transcript_lang,
             }
             note.status = "completed"
             note.completed_at = datetime.utcnow()
@@ -2260,6 +2320,7 @@ class AiNoteService:
         model_provider: str,
         model_name: str,
         extras: Optional[str] = None,
+        transcript_language: str = "",
     ) -> str:
         """Write a lightweight, portable index file next to the generated markdown.
 
@@ -2289,6 +2350,7 @@ class AiNoteService:
             "model_provider": model_provider,
             "model_name": model_name,
             "extras": extras or "",
+            "transcript_language": transcript_language or "",
             "updated_at": datetime.utcnow().isoformat() + "Z",
         }
         index_path.write_text(
