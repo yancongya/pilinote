@@ -207,6 +207,36 @@ class AiTraceStep:
 
 
 class AiNoteService:
+    def _compute_cache_fingerprint(
+        self,
+        *,
+        pipeline_mode: str,
+        model_provider: str,
+        model_name: str,
+        style: str,
+        formats: List[str],
+        extras: Optional[str],
+        context: Dict[str, Any],
+    ) -> str:
+        """Stable cache key for reusing artifacts.
+
+        Intentionally excludes series memory injection, and uses the raw inputs
+        (t0 + transcript + params) so the fingerprint remains stable across
+        replays that only change contextual scaffolding.
+        """
+        payload = "\n".join(
+            [
+                pipeline_mode,
+                model_provider,
+                model_name,
+                style,
+                ",".join(formats or []),
+                (extras or "").strip(),
+                str(context.get("t0_text") or ""),
+                str(context.get("transcript") or ""),
+            ]
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
     """AI 笔记分析服务"""
 
     def __init__(self):
@@ -1209,6 +1239,15 @@ class AiNoteService:
             )
             self._store_analysis_artifacts(note, prompt=prompt)
             normalized_formats = _normalize_note_formats(formats)
+            cache_fingerprint = self._compute_cache_fingerprint(
+                pipeline_mode=pipeline_mode,
+                model_provider=model_provider,
+                model_name=model_name,
+                style=style,
+                formats=normalized_formats,
+                extras=extras,
+                context=context,
+            )
             input_fingerprint = hashlib.sha256(
                 ("\n".join([
                     pipeline_mode,
@@ -1223,9 +1262,9 @@ class AiNoteService:
 
             # Cache hit: reuse existing markdown if fingerprint matches.
             index_payload = self._read_note_index_output(actual_file_path, note.id)
-            cached_fingerprint = str(index_payload.get("input_fingerprint") or "").strip()
+            cached_fingerprint = str(index_payload.get("cache_fingerprint") or "").strip()
             cached_md_path = str(index_payload.get("markdown_path") or "").strip()
-            if cached_fingerprint and cached_fingerprint == input_fingerprint and cached_md_path:
+            if cached_fingerprint and cached_fingerprint == cache_fingerprint and cached_md_path:
                 try:
                     cached_path = Path(cached_md_path)
                     if cached_path.exists():
@@ -1240,6 +1279,7 @@ class AiNoteService:
                             "generated_markdown_path": str(cached_path),
                             "generated_index_path": str(self._resolve_index_path(actual_file_path, note.id)),
                             "input_fingerprint": input_fingerprint,
+                            "cache_fingerprint": cache_fingerprint,
                             "cache_hit": True,
                         }
                         note.status = "completed"
@@ -1319,6 +1359,7 @@ class AiNoteService:
                 note.id,
                 markdown_path=markdown_path,
                 input_fingerprint=input_fingerprint,
+                cache_fingerprint=cache_fingerprint,
                 pipeline_mode=pipeline_mode,
                 style=style,
                 formats=normalized_formats,
@@ -1336,6 +1377,7 @@ class AiNoteService:
                 "generated_markdown_path": markdown_path,
                 "generated_index_path": index_path,
                 "input_fingerprint": input_fingerprint,
+                "cache_fingerprint": cache_fingerprint,
             }
             note.status = "completed"
             note.completed_at = datetime.utcnow()
@@ -2188,6 +2230,7 @@ class AiNoteService:
         *,
         markdown_path: str,
         input_fingerprint: str,
+        cache_fingerprint: str,
         pipeline_mode: str,
         style: str,
         formats: List[str],
@@ -2216,6 +2259,7 @@ class AiNoteService:
             "source_path": str(source_path),
             "markdown_path": str(markdown_path),
             "input_fingerprint": input_fingerprint,
+            "cache_fingerprint": cache_fingerprint,
             "pipeline_mode": pipeline_mode,
             "style": style,
             "formats": list(formats or []),
