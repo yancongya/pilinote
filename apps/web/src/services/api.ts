@@ -60,6 +60,16 @@ class ApiService {
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 
+  // For FastAPI `{param:path}` routes we must preserve slashes, otherwise
+  // encodeURIComponent() will turn them into `%2F` and Starlette may not
+  // reliably decode/route them.
+  private encodePathParam(value: string): string {
+    return String(value || '')
+      .split('/')
+      .map((segment) => encodeURIComponent(segment))
+      .join('/')
+  }
+
   async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -952,7 +962,7 @@ class ApiService {
     const params = new URLSearchParams();
     params.append('file_type', fileType);
     if (filename) params.append('filename', filename);
-    return this.request<string>(`/api/local/file/${encodeURIComponent(videoId)}?${params.toString()}`, {
+    return this.request<string>(`/api/local/file/${this.encodePathParam(videoId)}?${params.toString()}`, {
       method: 'GET',
     });
   }
@@ -961,7 +971,7 @@ class ApiService {
     const params = new URLSearchParams();
     params.append('file_type', fileType);
     if (filename) params.append('filename', filename);
-    return this.request<any>(`/api/local/file/${encodeURIComponent(videoId)}?${params.toString()}`, {
+    return this.request<any>(`/api/local/file/${this.encodePathParam(videoId)}?${params.toString()}`, {
       method: 'POST',
       body: JSON.stringify({ content }),
       headers: { 'Content-Type': 'application/json' },
@@ -1031,7 +1041,7 @@ class ApiService {
       const params = new URLSearchParams({ video_id: videoId });
       return this.request<any>(`/api/local/versions/by-path/subtitle-files?${params.toString()}`, { method: 'GET' });
     }
-    return this.request<any>(`/api/local/versions/subtitle-files/${encodeURIComponent(videoId)}`, { method: 'GET' });
+    return this.request<any>(`/api/local/versions/subtitle-files/${this.encodePathParam(videoId)}`, { method: 'GET' });
   }
 
   async getVersions(videoId: string, type: string, filename?: string): Promise<ApiResponse<any>> {
@@ -1042,7 +1052,7 @@ class ApiService {
       params.append('video_id', videoId);
       return this.request<any>(`/api/local/versions/by-path?${params.toString()}`, { method: 'GET' });
     }
-    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}?${params.toString()}`, { method: 'GET' });
+    return this.request<any>(`/api/local/versions/${this.encodePathParam(videoId)}?${params.toString()}`, { method: 'GET' });
   }
 
   async getVersionContent(videoId: string, hash: string, type: string, filename?: string): Promise<ApiResponse<any>> {
@@ -1053,7 +1063,7 @@ class ApiService {
       params.append('video_id', videoId);
       return this.request<any>(`/api/local/versions/by-path/content/${hash}?${params.toString()}`, { method: 'GET' });
     }
-    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}/${hash}?${params.toString()}`, { method: 'GET' });
+    return this.request<any>(`/api/local/versions/${this.encodePathParam(videoId)}/${hash}?${params.toString()}`, { method: 'GET' });
   }
 
   async switchVersion(videoId: string, type: string, hash: string, filename?: string): Promise<ApiResponse<any>> {
@@ -1064,7 +1074,7 @@ class ApiService {
         body: JSON.stringify({ type, hash, filename }),
       });
     }
-    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}/switch`, {
+    return this.request<any>(`/api/local/versions/${this.encodePathParam(videoId)}/switch`, {
       method: 'POST',
       body: JSON.stringify({ type, hash, filename }),
     });
@@ -1078,7 +1088,7 @@ class ApiService {
       params.append('video_id', videoId);
       return this.request<any>(`/api/local/versions/by-path/content/${hash}?${params.toString()}`, { method: 'DELETE' });
     }
-    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}/${hash}?${params.toString()}`, { method: 'DELETE' });
+    return this.request<any>(`/api/local/versions/${this.encodePathParam(videoId)}/${hash}?${params.toString()}`, { method: 'DELETE' });
   }
 
   async saveVersion(videoId: string, type: string, content: string, source: string = 'manual', label: string = '', filename?: string): Promise<ApiResponse<any>> {
@@ -1089,7 +1099,7 @@ class ApiService {
         body: JSON.stringify({ type, content, source, label, filename }),
       });
     }
-    return this.request<any>(`/api/local/versions/${encodeURIComponent(videoId)}`, {
+    return this.request<any>(`/api/local/versions/${this.encodePathParam(videoId)}`, {
       method: 'POST',
       body: JSON.stringify({ type, content, source, label, filename }),
     });
