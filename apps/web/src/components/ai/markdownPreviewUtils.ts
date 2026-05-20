@@ -36,6 +36,14 @@ function stripFileProtocol(path: string): string {
   return path.replace(/^file:\/\//i, '')
 }
 
+function stripAngleBrackets(path: string): string {
+  const trimmed = path.trim()
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
 function isSpecialUrl(path: string): boolean {
   return /^(?:https?:|blob:|data:|mailto:|tel:)/i.test(path)
 }
@@ -104,7 +112,7 @@ export function createHeadingIdGenerator(): HeadingIdGenerator {
 }
 
 export function resolveMarkdownImageUrl(src: string, sourceFolderPath?: string | null): string {
-  const cleanedSrc = stripFileProtocol(src.trim())
+  const cleanedSrc = stripFileProtocol(stripAngleBrackets(src))
   if (!cleanedSrc) {
     return ''
   }
