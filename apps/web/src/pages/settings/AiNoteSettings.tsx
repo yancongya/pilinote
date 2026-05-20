@@ -1171,6 +1171,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             <div className="settings-style-category-switcher">
               {(Object.keys(promptCategoryIcons) as Array<keyof typeof promptCategoryIcons>).map(category => {
                 const Icon = promptCategoryIcons[category]
+                const accent = (() => {
+                  if (category === '风格') return '#22c55e'
+                  if (category === '格式') return '#3b82f6'
+                  if (category === '扩展') return '#f97316'
+                  return '#a855f7'
+                })()
                 return (
                   <button
                     key={category}
@@ -1178,6 +1184,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     className={`settings-style-category-btn ${selectedPromptCategory === category ? 'active' : ''}`}
                     onClick={() => setSelectedPromptCategory(category)}
                     title={category}
+                    style={{ ['--prompt-accent' as any]: accent } as React.CSSProperties}
                   >
                     <Icon size={14} />
                   </button>
@@ -2166,16 +2173,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           justify-content: center;
           width: 28px;
           height: 28px;
-          border: 1px solid var(--color-border);
+          border: 1px solid color-mix(in srgb, var(--prompt-accent, var(--color-border)) 26%, var(--color-border));
           border-radius: 8px;
           background: var(--color-bg-primary);
-          color: var(--color-text-secondary);
+          color: var(--prompt-accent, var(--color-text-secondary));
           cursor: pointer;
         }
 
         .settings-style-category-btn.active {
-          background: var(--color-primary-600);
-          border-color: var(--color-primary-600);
+          background: color-mix(in srgb, var(--prompt-accent, var(--color-primary-600)) 22%, rgba(0, 0, 0, 0));
+          border-color: color-mix(in srgb, var(--prompt-accent, var(--color-primary-600)) 62%, var(--color-primary-600));
           color: white;
         }
 
