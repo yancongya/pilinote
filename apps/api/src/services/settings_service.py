@@ -382,10 +382,34 @@ class SettingsService:
                 all_settings, "ai_note.format.include_summary", True
             ),
         }
+
+        outputs_dict = {
+            "page": {
+                "enabled": self._get_setting_value(all_settings, "ai_note.outputs.page.enabled", False),
+                "llm": {
+                    "provider": self._get_setting_value(all_settings, "ai_note.outputs.page.llm.provider", ai_note_llm_dict["provider"]),
+                    "base_url": self._get_setting_value(all_settings, "ai_note.outputs.page.llm.base_url", ai_note_llm_dict["base_url"]),
+                    "model": self._get_setting_value(all_settings, "ai_note.outputs.page.llm.model", ai_note_llm_dict["model"]),
+                    "api_key": self._get_setting_value(all_settings, "ai_note.outputs.page.llm.api_key", ai_note_llm_dict["api_key"]),
+                    "temperature": float(self._get_setting_value(all_settings, "ai_note.outputs.page.llm.temperature", ai_note_llm_dict["temperature"])),
+                },
+            },
+            "image": {
+                "enabled": self._get_setting_value(all_settings, "ai_note.outputs.image.enabled", False),
+                "llm": {
+                    "provider": self._get_setting_value(all_settings, "ai_note.outputs.image.llm.provider", ai_note_llm_dict["provider"]),
+                    "base_url": self._get_setting_value(all_settings, "ai_note.outputs.image.llm.base_url", ai_note_llm_dict["base_url"]),
+                    "model": self._get_setting_value(all_settings, "ai_note.outputs.image.llm.model", ai_note_llm_dict["model"]),
+                    "api_key": self._get_setting_value(all_settings, "ai_note.outputs.image.llm.api_key", ai_note_llm_dict["api_key"]),
+                    "temperature": float(self._get_setting_value(all_settings, "ai_note.outputs.image.llm.temperature", ai_note_llm_dict["temperature"])),
+                },
+            },
+        }
         ai_note_settings = AiNoteSettings(
             llm=ai_note_llm_dict,
             style=style_dict,
             format=format_dict,
+            outputs=outputs_dict,
             auto_analyze=self._get_setting_value(
                 all_settings, "ai_note.auto_analyze", False
             ),
@@ -531,6 +555,24 @@ class SettingsService:
                                     self._update_single_setting(
                                         f"{category}.{sub_key}.{llm_key}", llm_value
                                     )
+                                continue
+                            if category == "ai_note" and sub_key == "outputs":
+                                # Third-level nested settings for derived outputs.
+                                for output_key, output_value in value.items():
+                                    if not isinstance(output_value, dict):
+                                        continue
+                                    if "enabled" in output_value:
+                                        self._update_single_setting(
+                                            f"ai_note.outputs.{output_key}.enabled",
+                                            output_value.get("enabled"),
+                                        )
+                                    llm_value = output_value.get("llm")
+                                    if isinstance(llm_value, dict):
+                                        for llm_key, llm_val in llm_value.items():
+                                            self._update_single_setting(
+                                                f"ai_note.outputs.{output_key}.llm.{llm_key}",
+                                                llm_val,
+                                            )
                                 continue
                             # 处理二级嵌套（如download.video和download.metadata，以及storage.sidecar）
                             for nested_key, nested_value in value.items():
@@ -700,6 +742,18 @@ class SettingsService:
                 "ai_note.format.include_timestamp": "true",
                 "ai_note.format.include_summary": "true",
                 "ai_note.auto_analyze": "false",
+                "ai_note.outputs.page.enabled": "false",
+                "ai_note.outputs.page.llm.provider": "openai",
+                "ai_note.outputs.page.llm.base_url": "",
+                "ai_note.outputs.page.llm.model": "gpt-4o-mini",
+                "ai_note.outputs.page.llm.api_key": "",
+                "ai_note.outputs.page.llm.temperature": "0.7",
+                "ai_note.outputs.image.enabled": "false",
+                "ai_note.outputs.image.llm.provider": "openai",
+                "ai_note.outputs.image.llm.base_url": "",
+                "ai_note.outputs.image.llm.model": "gpt-4o-mini",
+                "ai_note.outputs.image.llm.api_key": "",
+                "ai_note.outputs.image.llm.temperature": "0.7",
             }
 
             llm_default_providers = [

@@ -186,6 +186,10 @@ class AiNoteSettings(BaseModel):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     style: NoteStyleSettings = Field(default_factory=NoteStyleSettings)
     format: NoteFormatSettings = Field(default_factory=NoteFormatSettings)
+    outputs: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="扩展产物输出设置（网页/生图等）",
+    )
     auto_analyze: bool = Field(default=False, description="自动分析已下载视频")
 
 

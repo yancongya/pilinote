@@ -59,6 +59,28 @@ interface AiNoteLocalSettings {
     format: string
     include_timestamp: boolean
   }
+  outputs: {
+    page: {
+      enabled: boolean
+      llm: {
+        provider: string
+        base_url: string
+        model: string
+        api_key: string
+        temperature: number
+      }
+    }
+    image: {
+      enabled: boolean
+      llm: {
+        provider: string
+        base_url: string
+        model: string
+        api_key: string
+        temperature: number
+      }
+    }
+  }
   auto_analyze: boolean
 }
 
@@ -117,6 +139,28 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     format: {
       format: 'markdown',
       include_timestamp: true,
+    },
+    outputs: {
+      page: {
+        enabled: false,
+        llm: {
+          provider: 'openai',
+          base_url: 'https://api.openai.com/v1',
+          model: 'gpt-4o-mini',
+          api_key: '',
+          temperature: 0.7,
+        },
+      },
+      image: {
+        enabled: false,
+        llm: {
+          provider: 'openai',
+          base_url: 'https://api.openai.com/v1',
+          model: 'gpt-4o-mini',
+          api_key: '',
+          temperature: 0.7,
+        },
+      },
     },
     auto_analyze: false,
   })
@@ -206,6 +250,28 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           format: {
             format: settings?.ai_note?.format.format || 'markdown',
             include_timestamp: settings?.ai_note?.format.include_timestamp ?? true,
+          },
+          outputs: {
+            page: {
+              enabled: Boolean((settings as any)?.ai_note?.outputs?.page?.enabled),
+              llm: {
+                provider: ((settings as any)?.ai_note?.outputs?.page?.llm?.provider || currentProviderId),
+                base_url: ((settings as any)?.ai_note?.outputs?.page?.llm?.base_url || unifiedLlm.base_url || currentProvider.baseUrl),
+                model: ((settings as any)?.ai_note?.outputs?.page?.llm?.model || unifiedLlm.model || currentProvider.models[0] || 'gpt-4o-mini'),
+                api_key: ((settings as any)?.ai_note?.outputs?.page?.llm?.api_key || unifiedLlm.api_key || ''),
+                temperature: ((settings as any)?.ai_note?.outputs?.page?.llm?.temperature ?? unifiedLlm.temperature ?? 0.7),
+              },
+            },
+            image: {
+              enabled: Boolean((settings as any)?.ai_note?.outputs?.image?.enabled),
+              llm: {
+                provider: ((settings as any)?.ai_note?.outputs?.image?.llm?.provider || currentProviderId),
+                base_url: ((settings as any)?.ai_note?.outputs?.image?.llm?.base_url || unifiedLlm.base_url || currentProvider.baseUrl),
+                model: ((settings as any)?.ai_note?.outputs?.image?.llm?.model || unifiedLlm.model || currentProvider.models[0] || 'gpt-4o-mini'),
+                api_key: ((settings as any)?.ai_note?.outputs?.image?.llm?.api_key || unifiedLlm.api_key || ''),
+                temperature: ((settings as any)?.ai_note?.outputs?.image?.llm?.temperature ?? unifiedLlm.temperature ?? 0.7),
+              },
+            },
           },
           auto_analyze: settings?.ai_note?.auto_analyze ?? false,
         })
@@ -770,6 +836,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               ...currentAiNote.format,
               ...localSettings.format,
             },
+            outputs: localSettings.outputs as any,
             auto_analyze: localSettings.auto_analyze,
           },
         })
@@ -1034,6 +1101,92 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         subtitle="管理本地语音识别模型、下载状态和切换操作"
       >
         <LocalAsrModelPanel compact />
+      </SettingsSection>
+
+      <SettingsSection
+        title="扩展产物"
+        subtitle="为网页展示与生图生成单独配置模型（仅显示已测试通过的模型）"
+      >
+        {(['page', 'image'] as const).map((outputKey) => {
+          const label = outputKey === 'page' ? '网页' : '图片'
+          const output = localSettings.outputs[outputKey]
+          const testedModels = runtimeState.testedModels[output.llm.provider] || []
+
+          return (
+            <div key={outputKey} style={{ display: 'grid', gap: '12px', padding: '12px 0' }}>
+              <SettingsToggleRow
+                label={`生成${label}`}
+                checked={output.enabled}
+                onChange={(checked) => setLocalSettings(prev => ({
+                  ...prev,
+                  outputs: {
+                    ...prev.outputs,
+                    [outputKey]: { ...prev.outputs[outputKey], enabled: checked },
+                  },
+                }))}
+              />
+
+              <div style={{ display: 'grid', gap: '10px', opacity: output.enabled ? 1 : 0.5, pointerEvents: output.enabled ? 'auto' : 'none' }}>
+                <SettingsField label={`${label}模型服务商`} hint="从已配置服务商中选择；可在上方先测试模型连通性">
+                  <select
+                    className="settings-select"
+                    value={output.llm.provider}
+                    onChange={(e) => {
+                      const provider = e.target.value
+                      const providerCfg = providers.find(p => p.id === provider)
+                      const nextModels = runtimeState.testedModels[provider] || []
+                      const nextModel = nextModels[0] || providerCfg?.models?.[0] || ''
+                      setLocalSettings(prev => ({
+                        ...prev,
+                        outputs: {
+                          ...prev.outputs,
+                          [outputKey]: {
+                            ...prev.outputs[outputKey],
+                            llm: {
+                              ...prev.outputs[outputKey].llm,
+                              provider,
+                              base_url: providerCfg?.baseUrl || prev.outputs[outputKey].llm.base_url,
+                              api_key: providerCfg?.apiKey || prev.outputs[outputKey].llm.api_key,
+                              model: nextModel || prev.outputs[outputKey].llm.model,
+                            },
+                          },
+                        },
+                      }))
+                    }}
+                  >
+                    {providers.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </SettingsField>
+
+                <SettingsField label={`${label}模型`} hint={testedModels.length ? '仅展示已测试通过的模型' : '当前服务商还没有测试通过的模型'}>
+                  <select
+                    className="settings-select"
+                    value={output.llm.model}
+                    onChange={(e) => setLocalSettings(prev => ({
+                      ...prev,
+                      outputs: {
+                        ...prev.outputs,
+                        [outputKey]: {
+                          ...prev.outputs[outputKey],
+                          llm: { ...prev.outputs[outputKey].llm, model: e.target.value },
+                        },
+                      },
+                    }))}
+                    disabled={!testedModels.length}
+                  >
+                    {testedModels.length ? testedModels.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    )) : (
+                      <option value="">请先测试模型</option>
+                    )}
+                  </select>
+                </SettingsField>
+              </div>
+            </div>
+          )
+        })}
       </SettingsSection>
 
       <SettingsSection title="prompt管理">

@@ -113,6 +113,29 @@ export interface Settings {
     format: {
       format: string
       include_timestamp: boolean
+      include_summary?: boolean
+    }
+    outputs?: {
+      page?: {
+        enabled: boolean
+        llm: {
+          provider: string
+          base_url: string
+          model: string
+          api_key: string
+          temperature: number
+        }
+      }
+      image?: {
+        enabled: boolean
+        llm: {
+          provider: string
+          base_url: string
+          model: string
+          api_key: string
+          temperature: number
+        }
+      }
     }
     auto_analyze: boolean
   }
