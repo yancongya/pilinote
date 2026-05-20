@@ -572,14 +572,6 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
               </div>
             )}
             
-            {/* 上传时间 */}
-            {task.meta?.premiered && (
-              <div className="library-folder-premiered-inline">
-                <Calendar size={12} />
-                <span>{task.meta.premiered}</span>
-              </div>
-            )}
-
             <div className="library-folder-author-actions" onClick={(event) => event.stopPropagation()}>
               <div className="library-folder-size">
                 <span>{formatFileSize(task.meta.total_size)}</span>
