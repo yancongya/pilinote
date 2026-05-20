@@ -5020,72 +5020,6 @@
   z-index: 10;
 }
 
-/* Overlay gradient + content */
-.album-card-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-
-.album-card:hover .album-card-overlay {
-  opacity: 1;
-}
-
-.album-card-overlay-gradient {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
-  pointer-events: none;
-}
-
-.album-card-overlay-content {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  pointer-events: none;
-}
-
-.album-card-hover-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.album-card-hover-author,
-.album-card-hover-time {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-/* Title bar below cover */
-.album-card-title-bar {
-  padding: 8px 12px 10px;
-  min-width: 0;
-}
-
-.album-card-title-bar .album-card-title {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* Play button */
 .album-card-play-btn {
   position: absolute;
@@ -5108,6 +5042,95 @@
 .album-card:hover .album-card-play-btn {
   opacity: 1;
   transform: translate(-50%, -50%) scale(1);
+}
+
+/* Title bar below cover */
+.album-card-title-bar {
+  padding: 8px 12px 10px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.album-card-title-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.album-card-title-bar-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.album-card-title-clip {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+
+.album-card-title-clip .album-card-title {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.album-card:hover .album-card-title-clip .album-card-title {
+  animation: album-title-scroll 8s linear infinite;
+}
+
+@keyframes album-title-scroll {
+  0% { transform: translateX(0); }
+  10% { transform: translateX(0); }
+  80% { transform: translateX(calc(-100% + 120px)); }
+  100% { transform: translateX(calc(-100% + 120px)); }
+}
+
+/* Title bar meta rows */
+.album-card-title-bar-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.album-card-title-bar-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.album-card-date {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+.album-card-size {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.album-card-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.5;
 }
 
 /* Dark mode adjustments */
@@ -5144,7 +5167,7 @@
     gap: 12px;
   }
 
-  .album-card-title-bar .album-card-title {
+  .album-card-title-clip .album-card-title {
     font-size: 12px;
   }
 

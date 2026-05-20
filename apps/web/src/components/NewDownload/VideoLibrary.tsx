@@ -788,8 +788,21 @@ function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
     return task.meta?.premiered || ''
   }
 
+  const TAG_PALETTE = [
+    { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
+    { bg: 'rgba(34,197,94,0.12)', color: '#22c55e' },
+    { bg: 'rgba(168,85,247,0.12)', color: '#a855f7' },
+    { bg: 'rgba(249,115,22,0.12)', color: '#f97316' },
+    { bg: 'rgba(236,72,153,0.12)', color: '#ec4899' },
+    { bg: 'rgba(6,182,212,0.12)', color: '#06b6d4' },
+  ]
+
+  const tags = Array.isArray((task.meta as Record<string, any>)?.tags)
+    ? (task.meta as Record<string, any>).tags.slice(0, 3) as string[]
+    : []
+
   return (
-    <div className="album-card" onClick={handleCardClick}>
+    <div className="album-card" onClick={handleCardClick} title={task.title}>
       <div className="album-card-cover">
         {hasCover ? (
           <img
@@ -839,23 +852,42 @@ function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
           </div>
         )}
 
-        <div className="album-card-overlay">
-          <div className="album-card-overlay-gradient" />
-          <div className="album-card-overlay-content">
-            <div className="album-card-hover-meta">
-              {task.meta?.studio && <span className="album-card-hover-author">{task.meta.studio}</span>}
-              {formatDateTime() && <span className="album-card-hover-time">{formatDateTime()}</span>}
-            </div>
-          </div>
-        </div>
-
         <div className="album-card-play-btn">
           <Play size={22} fill="#fff" color="#fff" />
         </div>
       </div>
 
       <div className="album-card-title-bar">
-        <span className="album-card-title">{task.title}</span>
+        <div className="album-card-title-bar-row">
+          {task.meta?.studio && task.meta?.avatar_path && (
+            <img
+              src={getLocalImageUrl(task.meta.avatar_path)}
+              alt={task.meta.studio}
+              className="album-card-title-bar-avatar"
+            />
+          )}
+          <div className="album-card-title-clip">
+            <span className="album-card-title">{task.title}</span>
+          </div>
+        </div>
+        <div className="album-card-title-bar-meta">
+          {formatDateTime() && <span className="album-card-date">{formatDateTime()}</span>}
+          {task.meta?.total_size ? (
+            <span className="album-card-size">{formatFileSize(task.meta.total_size)}</span>
+          ) : null}
+        </div>
+        {tags.length > 0 && (
+          <div className="album-card-title-bar-tags">
+            {tags.map((tag: string, i: number) => {
+              const c = TAG_PALETTE[i % TAG_PALETTE.length]
+              return (
+                <span key={tag} className="album-card-tag" style={{ background: c.bg, color: c.color }}>
+                  {tag}
+                </span>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {canUseAiNote && (

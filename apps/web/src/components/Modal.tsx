@@ -28,7 +28,7 @@ export default function Modal({
   const firstFocusableRef = useRef<HTMLButtonElement>(null)
   const scrollYRef = useRef<number>(0)
   const scrollContainerRef = useRef<HTMLElement | null>(null)
-  const preventScrollHandlerRef = useRef<((e: Event) => void) | null>(null)
+  const prevOverflowRef = useRef<string>('')
 
   // ESC键关闭模态框
   useEffect(() => {
@@ -46,14 +46,8 @@ export default function Modal({
       if (settingsScroll) {
         scrollContainerRef.current = settingsScroll
         scrollYRef.current = settingsScroll.scrollTop
-        // Avoid toggling overflow on iOS/Safari (can momentarily jump scrollTop).
-        // Instead, intercept wheel/touchmove to prevent scroll.
-        const handler = (e: Event) => {
-          e.preventDefault()
-        }
-        preventScrollHandlerRef.current = handler
-        settingsScroll.addEventListener('wheel', handler, { passive: false })
-        settingsScroll.addEventListener('touchmove', handler, { passive: false })
+        prevOverflowRef.current = settingsScroll.style.overflowY
+        settingsScroll.style.overflowY = 'hidden'
       } else {
         // Fallback: lock body and restore scroll position on close.
         scrollContainerRef.current = null
@@ -67,7 +61,14 @@ export default function Modal({
       }
       // 聚焦到模态框
       setTimeout(() => {
-        firstFocusableRef.current?.focus()
+        const el = firstFocusableRef.current
+        if (!el) return
+        // Avoid browsers scrolling the underlying container when focusing the close button.
+        try {
+          ;(el as any).focus({ preventScroll: true })
+        } catch {
+          el.focus()
+        }
       }, 100)
     }
 
@@ -76,12 +77,7 @@ export default function Modal({
       // Restore scroll locking
       const container = scrollContainerRef.current
       if (container) {
-        const handler = preventScrollHandlerRef.current
-        if (handler) {
-          container.removeEventListener('wheel', handler as any)
-          container.removeEventListener('touchmove', handler as any)
-        }
-        preventScrollHandlerRef.current = null
+        container.style.overflowY = prevOverflowRef.current || ''
         container.scrollTop = scrollYRef.current
       } else {
         const top = document.body.style.top
@@ -115,7 +111,7 @@ export default function Modal({
 
   return (
     <div 
-      className="settings-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
+      className="settings-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
