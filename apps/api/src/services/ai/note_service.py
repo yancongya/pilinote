@@ -1,10 +1,12 @@
 import os
 import re
+import json
 import logging
 import time
 import multiprocessing
 import subprocess
 import threading
+import hashlib
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -1167,6 +1169,18 @@ class AiNoteService:
                 extras=extras,
             )
             self._store_analysis_artifacts(note, prompt=prompt)
+            normalized_formats = _normalize_note_formats(formats)
+            input_fingerprint = hashlib.sha256(
+                ("\n".join([
+                    pipeline_mode,
+                    model_provider,
+                    model_name,
+                    style,
+                    ",".join(normalized_formats),
+                    (extras or "").strip(),
+                    prompt,
+                ])).encode("utf-8")
+            ).hexdigest()
             t0_len = len(context.get("t0_text", ""))
             t1_len = len(context.get("transcript", ""))
             self._add_trace(
@@ -1217,6 +1231,18 @@ class AiNoteService:
             markdown_path = self._write_markdown_output(
                 actual_file_path, note.id, markdown
             )
+            index_path = self._write_note_index_output(
+                actual_file_path,
+                note.id,
+                markdown_path=markdown_path,
+                input_fingerprint=input_fingerprint,
+                pipeline_mode=pipeline_mode,
+                style=style,
+                formats=normalized_formats,
+                model_provider=model_provider,
+                model_name=model_name,
+                extras=extras,
+            )
 
             note.content = markdown
             note.summary = summary
@@ -1225,6 +1251,8 @@ class AiNoteService:
                 **(note.meta or {}),
                 "pipeline_mode": pipeline_mode,
                 "generated_markdown_path": markdown_path,
+                "generated_index_path": index_path,
+                "input_fingerprint": input_fingerprint,
             }
             note.status = "completed"
             note.completed_at = datetime.utcnow()
@@ -2050,6 +2078,54 @@ class AiNoteService:
         output_path = output_dir / f"{base_name}.ai-note.md"
         output_path.write_text(markdown, encoding="utf-8")
         return str(output_path)
+
+    def _write_note_index_output(
+        self,
+        source_path: str,
+        note_id: str,
+        *,
+        markdown_path: str,
+        input_fingerprint: str,
+        pipeline_mode: str,
+        style: str,
+        formats: List[str],
+        model_provider: str,
+        model_name: str,
+        extras: Optional[str] = None,
+    ) -> str:
+        """Write a lightweight, portable index file next to the generated markdown.
+
+        This index allows stable cache hits even when the DB is missing, and it
+        moves together with the episode folder when the series layout changes.
+        """
+        source_file = Path(source_path)
+        output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        base_name = source_file.stem
+        if base_name.endswith(".ai-note"):
+            base_name = base_name[: -len(".ai-note")]
+        if not base_name or source_file.name.startswith("."):
+            base_name = source_file.parent.name or note_id
+
+        index_path = output_dir / f"{base_name}.ai-note.index.json"
+        payload = {
+            "schema": 1,
+            "note_id": note_id,
+            "source_path": str(source_path),
+            "markdown_path": str(markdown_path),
+            "input_fingerprint": input_fingerprint,
+            "pipeline_mode": pipeline_mode,
+            "style": style,
+            "formats": list(formats or []),
+            "model_provider": model_provider,
+            "model_name": model_name,
+            "extras": extras or "",
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        }
+        index_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return str(index_path)
 
     def get_note(self, note_id: str) -> Optional[AiNote]:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
