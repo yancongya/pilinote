@@ -43,6 +43,8 @@ export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 'formats.screenshot', title: '原片截图', category: '格式', path: ['layers', 'formats', 'screenshot'], kind: 'text' },
   { key: 'formats.timestamps', title: '关键点时间戳', category: '格式', path: ['layers', 'formats', 'timestamps'], kind: 'text' },
   { key: 'formats.summary', title: 'AI 总结', category: '格式', path: ['layers', 'formats', 'summary'], kind: 'text' },
+  { key: 'outputs.page', title: '网页展示', category: '扩展', path: ['layers', 'outputs', 'page'], kind: 'text' },
+  { key: 'outputs.image', title: '图解图片', category: '扩展', path: ['layers', 'outputs', 'image'], kind: 'text' },
 ]
 
 export function buildPromptStyleOptions(

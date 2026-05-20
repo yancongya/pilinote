@@ -3,7 +3,7 @@ import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
 import type { Settings } from '../../stores/settings'
 import { useSettingsStore } from '../../stores/settings'
 import { useAiRuntimeState } from '../../hooks/useAiRuntimeState'
-import { 
+import {
   Brain, 
   Key, 
   Sparkles,
@@ -20,6 +20,7 @@ import {
   Layers3,
   FileText,
   LayoutGrid,
+  Package,
   Eye,
   EyeOff,
   Wifi,
@@ -176,7 +177,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [promptTemplates, setPromptTemplates] = useState<Record<string, any>>({})
   const [defaultPromptTemplates, setDefaultPromptTemplates] = useState<Record<string, any>>({})
   const [selectedPromptCard, setSelectedPromptCard] = useState<PromptTemplateMeta | null>(null)
-  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'基础' | '分层' | '风格' | '格式'>('基础')
+  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'基础' | '分层' | '风格' | '格式' | '扩展'>('基础')
   const [customStyles, setCustomStyles] = useState<Array<{ value: string; label: string; description: string; prompt: string }>>([])
   const [showCreateStyleModal, setShowCreateStyleModal] = useState(false)
   const [createStyleForm, setCreateStyleForm] = useState({ label: '', description: '', prompt: '' })
@@ -496,6 +497,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     分层: Layers3,
     风格: Sparkles,
     格式: LayoutGrid,
+    扩展: Package,
   } as const
 
   const promptCardData = useMemo(() => {
