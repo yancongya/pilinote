@@ -112,7 +112,7 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
       onClose={onClose}
       title={`编辑 ${activeMeta.title}`}
       size="lg"
-      closeOnOverlayClick={false}
+      closeOnOverlayClick={true}
       className="settings-prompt-modal"
       footer={(
         <>
