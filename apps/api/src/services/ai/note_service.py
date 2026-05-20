@@ -1935,21 +1935,30 @@ class AiNoteService:
                 return f"[Screenshot at {timestamp}]()"
 
             video_name = Path(video_path).stem
-            filename = f"{video_name}_{self._normalize_screenshot_timestamp(timestamp)}.jpg"
+            # Screenshot is written as a sidecar file alongside the video so it
+            # can be moved automatically by the series layout switcher.
+            # NOTE: must start with "{stem}." to match VideoLibraryService._sidecars_for_stem().
+            filename = f"{video_name}.screenshot.{self._normalize_screenshot_timestamp(timestamp)}.jpg"
             video_dir = Path(video_path).parent
-            output_dir = video_dir / "screenshots"
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = str(output_dir / filename)
-            legacy_output_path = video_dir / filename
+            output_path = str(video_dir / filename)
+            # Legacy paths:
+            # 1) old flat sidecar name in root: "{stem}_{ts}.jpg"
+            legacy_output_path = video_dir / f"{video_name}_{self._normalize_screenshot_timestamp(timestamp)}.jpg"
+            # 2) old screenshots subdir: "./screenshots/{stem}_{ts}.jpg"
+            legacy_dir_output_path = video_dir / "screenshots" / f"{video_name}_{self._normalize_screenshot_timestamp(timestamp)}.jpg"
 
             if Path(output_path).exists():
                 logger.info(f"截图已存在: {filename}")
-                return f"![Screenshot at {timestamp}](./screenshots/{filename})"
+                return f"![Screenshot at {timestamp}](./{filename})"
             if legacy_output_path.exists():
                 logger.info(f"截图已存在(兼容旧路径): {filename}")
-                return f"![Screenshot at {timestamp}](./{filename})"
+                return f"![Screenshot at {timestamp}](./{legacy_output_path.name})"
+            if legacy_dir_output_path.exists():
+                logger.info(f"截图已存在(兼容旧路径): {legacy_dir_output_path.name}")
+                return f"![Screenshot at {timestamp}](./screenshots/{legacy_dir_output_path.name})"
 
             try:
+                video_dir.mkdir(parents=True, exist_ok=True)
                 subprocess.run(
                     [
                         "ffmpeg",
@@ -1970,7 +1979,7 @@ class AiNoteService:
                 )
                 if Path(output_path).exists():
                     logger.info(f"截图生成成功: {filename}")
-                    return f"![Screenshot at {timestamp}](./screenshots/{filename})"
+                    return f"![Screenshot at {timestamp}](./{filename})"
             except subprocess.TimeoutExpired:
                 logger.warning(f"截图生成超时: {timestamp}")
             except FileNotFoundError:

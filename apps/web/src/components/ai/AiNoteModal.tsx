@@ -546,6 +546,7 @@ export function AiNoteModal({
   const [isRefreshingModels, setIsRefreshingModels] = useState(false)
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
   const [enableTimestamps, setEnableTimestamps] = useState(false)
+  const [enableScreenshots, setEnableScreenshots] = useState(false)
   const [style, setStyle] = useState('detailed')
   const [promptExtras, setPromptExtras] = useState('')
   const [seriesListCollapsed, setSeriesListCollapsed] = useState(false)
@@ -631,6 +632,17 @@ export function AiNoteModal({
       const raw = window.localStorage.getItem('pilinote.aiNote.enableTimestamps')
       if (raw === null) return
       setEnableTimestamps(raw === '1' || raw === 'true')
+    } catch {
+      // ignore
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      const raw = window.localStorage.getItem('pilinote.aiNote.enableScreenshots')
+      if (raw === null) return
+      setEnableScreenshots(raw === '1' || raw === 'true')
     } catch {
       // ignore
     }
@@ -1165,7 +1177,14 @@ export function AiNoteModal({
       pipeline_mode: currentMode,
       subtitle_filename: resolvedSubtitleFilename,
       extras: promptExtras.trim() || undefined,
-      formats: enableTimestamps ? ['summary', 'timestamps'] : undefined,
+      formats: (() => {
+        const formats: string[] = []
+        if (enableScreenshots) formats.push('screenshot')
+        if (enableTimestamps) formats.push('timestamps')
+        if (formats.length === 0) return undefined
+        // Keep `summary` on by default when any advanced formats are selected.
+        return ['summary', ...formats]
+      })(),
     }
 
     currentRequestRef.current = {
@@ -1855,10 +1874,10 @@ export function AiNoteModal({
       </div>
 
       <div className="ai-note-select-group">
-        <div className="ai-note-select-group-head">
-          <label>补充要求</label>
-          <div className="ai-note-select-group-actions">
-            <label className="ai-note-option-row" title="根据字幕时间码生成关键点时间戳">
+          <div className="ai-note-select-group-head">
+            <label>补充要求</label>
+            <div className="ai-note-select-group-actions">
+              <label className="ai-note-option-row" title="根据字幕时间码生成关键点时间戳">
               <input
                 type="checkbox"
                 checked={enableTimestamps}
@@ -1874,9 +1893,26 @@ export function AiNoteModal({
                 }}
               />
               <span>关键点时间戳</span>
-            </label>
+              </label>
+              <label className="ai-note-option-row" title="在笔记中插入原片关键帧截图（需要模型输出 Screenshot 标记，后端用 ffmpeg 生成）">
+                <input
+                  type="checkbox"
+                  checked={enableScreenshots}
+                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text'}
+                  onChange={(e) => {
+                    const enabled = e.target.checked
+                    setEnableScreenshots(enabled)
+                    try {
+                      window.localStorage.setItem('pilinote.aiNote.enableScreenshots', enabled ? '1' : '0')
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                />
+                <span>原片截图</span>
+              </label>
+            </div>
           </div>
-        </div>
         <textarea
           value={promptExtras}
           onChange={e => setPromptExtras(e.target.value)}
