@@ -177,7 +177,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [promptTemplates, setPromptTemplates] = useState<Record<string, any>>({})
   const [defaultPromptTemplates, setDefaultPromptTemplates] = useState<Record<string, any>>({})
   const [selectedPromptCard, setSelectedPromptCard] = useState<PromptTemplateMeta | null>(null)
-  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'基础' | '分层' | '风格' | '格式' | '扩展'>('基础')
+  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'通用' | 'Markdown' | '扩展产物' | '风格'>('通用')
   const [customStyles, setCustomStyles] = useState<Array<{ value: string; label: string; description: string; prompt: string }>>([])
   const [showCreateStyleModal, setShowCreateStyleModal] = useState(false)
   const [createStyleForm, setCreateStyleForm] = useState({ label: '', description: '', prompt: '' })
@@ -493,12 +493,23 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const isEditingCurrentProvider = Boolean(currentProvider && editingProvider?.id === currentProvider.id)
   const canDeleteCurrentProvider = Boolean(currentProvider && (currentProvider.isCustom || currentProvider.id.startsWith('custom_')))
   const promptCategoryIcons = {
-    基础: FileText,
-    分层: Layers3,
+    通用: FileText,
+    Markdown: LayoutGrid,
+    扩展产物: Package,
     风格: Sparkles,
-    格式: LayoutGrid,
-    扩展: Package,
   } as const
+
+  const getPromptDisplayCategory = (rawCategory: string, key: string) => {
+    // Only affects UI grouping; does not change prompt template key/path, so it won't affect prompt concatenation.
+    if (rawCategory === '基础') return '通用' as const
+    if (rawCategory === '格式') return 'Markdown' as const
+    if (rawCategory === '扩展') return '扩展产物' as const
+    if (rawCategory === '风格') return '风格' as const
+    // Hide legacy internal layers from the UI (they are implementation details for prompt assembly).
+    if (rawCategory === '分层') return null
+    // Fallback: keep it visible under 通用
+    return '通用' as const
+  }
 
   const promptCardData = useMemo(() => {
     const builtinCards = PROMPT_TEMPLATE_CARDS.map(card => {
@@ -514,8 +525,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         : typeof defaultValue === 'string'
           ? defaultValue
           : ''
+      const displayCategory = getPromptDisplayCategory(card.category, card.key)
       return {
         ...card,
+        displayCategory,
         preview: currentText || defaultText || '点击编辑',
         modified: currentText !== defaultText,
       }
@@ -530,6 +543,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         key,
         title: style.label || '未命名风格',
         category: '风格',
+        displayCategory: '风格' as const,
         path: ['layers', 't3', style.value],
         kind: 'text' as const,
         preview: currentText || style.prompt || defaultText || '点击编辑',
@@ -544,7 +558,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     return [...builtinCards, ...styleCards]
   }, [customStyles, defaultPromptTemplates, promptTemplates])
   const visiblePromptCards = useMemo(
-    () => promptCardData.filter(card => card.category === selectedPromptCategory),
+    () => promptCardData.filter(card => (card as any).displayCategory === selectedPromptCategory),
     [promptCardData, selectedPromptCategory],
   )
 
@@ -1172,9 +1186,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               {(Object.keys(promptCategoryIcons) as Array<keyof typeof promptCategoryIcons>).map(category => {
                 const Icon = promptCategoryIcons[category]
                 const accent = (() => {
+                  if (category === '通用') return '#64748b'
+                  if (category === 'Markdown') return '#3b82f6'
+                  if (category === '扩展产物') return '#f97316'
                   if (category === '风格') return '#22c55e'
-                  if (category === '格式') return '#3b82f6'
-                  if (category === '扩展') return '#f97316'
                   return '#a855f7'
                 })()
                 return (
@@ -1196,10 +1211,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             {visiblePromptCards.map(card => {
               const data = promptCardData.find(item => item.key === card.key)
               const promptAccent = (() => {
-                const category = card.category
+                const category = (card as any).displayCategory || card.category
+                if (category === '通用') return '#64748b'
+                if (category === 'Markdown') return '#3b82f6'
+                if (category === '扩展产物') return '#f97316'
                 if (category === '风格') return '#22c55e'
-                if (category === '格式') return '#3b82f6'
-                if (category === '扩展') return '#f97316'
                 return '#a855f7'
               })()
               return (
@@ -1216,10 +1232,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                         e.preventDefault()
                         handleOpenPromptCard(card)
                       }
-                    }}
-                  >
+                  }}
+                >
                   <div className="settings-style-card-top">
-                    <span className="settings-style-card-badge">{card.category}</span>
+                    <span className="settings-style-card-badge">{(card as any).displayCategory || card.category}</span>
                     <div className="settings-style-card-meta">
                       <button
                         type="button"
