@@ -1864,7 +1864,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
         .settings-model-selector-bar {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) auto auto;
+          grid-template-columns: minmax(0, 1fr) auto auto auto;
           gap: 8px;
           align-items: center;
         }
@@ -2073,7 +2073,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
 
         @media (max-width: 768px) {
           .settings-model-selector-bar {
-            grid-template-columns: minmax(0, 1fr) auto auto;
+            grid-template-columns: minmax(0, 1fr) auto auto auto;
           }
 
           .settings-model-selector-bar .settings-model-icon-btn {
