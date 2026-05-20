@@ -115,14 +115,24 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
       closeOnOverlayClick={true}
       className="settings-prompt-modal"
       footer={(
-        <>
-          <button className="settings-button settings-button-secondary" onClick={resetCurrent} disabled={loading || saving}>
-            重置当前
+        <div className="settings-prompt-footer">
+          <button
+            className="settings-button settings-button-secondary"
+            onClick={resetCurrent}
+            disabled={loading || saving}
+            title="恢复为默认模板"
+          >
+            重置
           </button>
-          <button className="settings-button settings-button-primary" onClick={handleSave} disabled={loading || saving}>
-            {saving ? '保存中...' : '保存'}
-          </button>
-        </>
+          <div className="settings-prompt-footer-right">
+            <button className="settings-button settings-button-secondary" onClick={onClose} disabled={saving}>
+              取消
+            </button>
+            <button className="settings-button settings-button-primary" onClick={handleSave} disabled={loading || saving}>
+              {saving ? '保存中...' : '保存'}
+            </button>
+          </div>
+        </div>
       )}
     >
       <div className="settings-prompt-editor">
@@ -133,7 +143,7 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
         {loading ? (
           <div className="settings-meta">加载模板中...</div>
         ) : (
-          <SettingsField label="Prompt 内容" hint="修改后会立即同步到提示词模板">
+          <SettingsField label="Prompt 内容" hint="仅修改当前卡片对应的模板；保存后立即生效">
             <textarea
               className="settings-input settings-textarea settings-prompt-textarea"
               value={draft}
@@ -142,6 +152,37 @@ export default function AiPromptTemplates({ isOpen, onClose, card, onSaved }: Ai
           </SettingsField>
         )}
       </div>
+
+      <style>{`
+        .settings-prompt-footer {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .settings-prompt-footer-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .settings-prompt-modal .settings-modal-body {
+          padding: 18px;
+        }
+
+        .settings-prompt-modal .settings-prompt-summary {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .settings-prompt-modal .settings-prompt-textarea {
+          min-height: 220px;
+        }
+      `}</style>
     </Modal>
   )
 }

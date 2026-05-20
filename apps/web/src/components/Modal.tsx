@@ -150,7 +150,7 @@ export default function Modal({
 
         {/* 底部 */}
         {footer && (
-          <div className="settings-modal-footer flex items-center gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0">
+          <div className="settings-modal-footer flex items-center gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0 w-full">
             {footer}
           </div>
         )}
