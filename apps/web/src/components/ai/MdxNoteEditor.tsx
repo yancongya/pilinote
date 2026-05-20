@@ -17,7 +17,7 @@ import {
 import type { RealmPlugin } from '@mdxeditor/editor'
 import clsx from 'clsx'
 
-import { resolveMarkdownImageUrl } from './markdownPreviewUtils'
+import { normalizeMarkdownImageDestinations, resolveMarkdownImageUrl } from './markdownPreviewUtils'
 
 export type MdxNoteEditorMode = 'edit' | 'preview' | 'split'
 
@@ -405,7 +405,7 @@ const editorStyle = `
 `
 
 function normalizeMarkdownForMdxEditor(markdown: string): string {
-  return markdown.replace(/<br\s*>/gi, '<br />')
+  return normalizeMarkdownImageDestinations(markdown).replace(/<br\s*>/gi, '<br />')
 }
 
 function buildPlugins(sourceFolderPath?: string | null, editable = false): RealmPlugin[] {

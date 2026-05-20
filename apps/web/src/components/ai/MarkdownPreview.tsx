@@ -1,4 +1,4 @@
-import { Children, type ReactNode, useState } from 'react'
+import { Children, type ReactNode, useMemo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import clsx from 'clsx'
@@ -6,6 +6,7 @@ import clsx from 'clsx'
 import {
   createHeadingIdGenerator,
   extractMarkdownText,
+  normalizeMarkdownImageDestinations,
   resolveMarkdownImageUrl,
 } from './markdownPreviewUtils'
 
@@ -434,6 +435,7 @@ function MarkdownCodeBlock({
 }
 
 export function MarkdownPreview({ content, sourceFolderPath, className, onSeekToSeconds }: MarkdownPreviewProps) {
+  const normalizedContent = useMemo(() => normalizeMarkdownImageDestinations(content), [content])
   const nextHeadingId = createHeadingIdGenerator()
 
   const parseTimestampToSeconds = (timestamp: string): number | null => {
@@ -629,10 +631,10 @@ export function MarkdownPreview({ content, sourceFolderPath, className, onSeekTo
   }
 
   return (
-    <div className={clsx('markdown-preview mx-auto w-full max-w-[920px] px-1 sm:px-2 md:px-4', className)}>
+      <div className={clsx('markdown-preview mx-auto w-full max-w-[920px] px-1 sm:px-2 md:px-4', className)}>
       <style>{markdownPreviewStyles}</style>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {content}
+        {normalizedContent}
       </ReactMarkdown>
     </div>
   )

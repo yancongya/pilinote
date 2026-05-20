@@ -1947,15 +1947,21 @@ class AiNoteService:
             # 2) old screenshots subdir: "./screenshots/{stem}_{ts}.jpg"
             legacy_dir_output_path = video_dir / "screenshots" / f"{video_name}_{self._normalize_screenshot_timestamp(timestamp)}.jpg"
 
+            def as_markdown_image(link_path: str) -> str:
+                # CommonMark does not allow spaces in link destinations unless they
+                # are wrapped in <...>. Our sidecar filenames often contain spaces,
+                # so always wrap to ensure markdown renderers treat it as an image.
+                return f"![Screenshot at {timestamp}](<{link_path}>)"
+
             if Path(output_path).exists():
                 logger.info(f"截图已存在: {filename}")
-                return f"![Screenshot at {timestamp}](./{filename})"
+                return as_markdown_image(f"./{filename}")
             if legacy_output_path.exists():
                 logger.info(f"截图已存在(兼容旧路径): {filename}")
-                return f"![Screenshot at {timestamp}](./{legacy_output_path.name})"
+                return as_markdown_image(f"./{legacy_output_path.name}")
             if legacy_dir_output_path.exists():
                 logger.info(f"截图已存在(兼容旧路径): {legacy_dir_output_path.name}")
-                return f"![Screenshot at {timestamp}](./screenshots/{legacy_dir_output_path.name})"
+                return as_markdown_image(f"./screenshots/{legacy_dir_output_path.name}")
 
             try:
                 video_dir.mkdir(parents=True, exist_ok=True)
@@ -1979,7 +1985,7 @@ class AiNoteService:
                 )
                 if Path(output_path).exists():
                     logger.info(f"截图生成成功: {filename}")
-                    return f"![Screenshot at {timestamp}](./{filename})"
+                    return as_markdown_image(f"./{filename}")
             except subprocess.TimeoutExpired:
                 logger.warning(f"截图生成超时: {timestamp}")
             except FileNotFoundError:

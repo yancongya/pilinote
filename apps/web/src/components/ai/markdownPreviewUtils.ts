@@ -8,6 +8,30 @@ function normalizePathSegment(segment: string): string {
   return segment.replace(/\\/g, '/').trim()
 }
 
+// CommonMark does not allow spaces in link destinations unless they are wrapped
+// in `<...>`. Our local screenshot sidecars frequently contain spaces and
+// CJK/brace characters, so normalize image destinations to keep renderers happy.
+export function normalizeMarkdownImageDestinations(markdown: string): string {
+  if (!markdown) return markdown
+
+  return markdown.replace(/!\[([^\]]*)\]\(([^)\n]+)\)/g, (full, alt, rawDest) => {
+    const dest = String(rawDest || '').trim()
+    if (!dest) return full
+
+    // Keep already-wrapped or already-encoded destinations untouched.
+    if ((dest.startsWith('<') && dest.endsWith('>')) || dest.includes('%20')) {
+      return full
+    }
+
+    // If there's whitespace, wrap the destination in `<...>` so it parses.
+    if (/\s/.test(dest)) {
+      return `![${alt}](<${dest}>)`
+    }
+
+    return full
+  })
+}
+
 function stripFileProtocol(path: string): string {
   return path.replace(/^file:\/\//i, '')
 }
