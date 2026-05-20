@@ -592,7 +592,10 @@ export function MarkdownPreview({ content, sourceFolderPath, className, onSeekTo
       return (
         <img
           alt={alt}
-          loading="lazy"
+          // NOTE: `loading=lazy` is unreliable inside nested scroll containers
+          // (Chrome/Edge may never load the image if dimensions are unknown).
+          // Our markdown screenshots are few and user-triggered, so eager is OK.
+          loading="eager"
           src={resolvedSrc}
           style={{ cursor: resolvedSrc ? 'zoom-in' : undefined }}
           onClick={() => {
