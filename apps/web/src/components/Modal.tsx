@@ -28,7 +28,7 @@ export default function Modal({
   const firstFocusableRef = useRef<HTMLButtonElement>(null)
   const scrollYRef = useRef<number>(0)
   const scrollContainerRef = useRef<HTMLElement | null>(null)
-  const prevOverflowRef = useRef<string>('')
+  const preventScrollHandlerRef = useRef<((e: Event) => void) | null>(null)
 
   // ESC键关闭模态框
   useEffect(() => {
@@ -46,8 +46,14 @@ export default function Modal({
       if (settingsScroll) {
         scrollContainerRef.current = settingsScroll
         scrollYRef.current = settingsScroll.scrollTop
-        prevOverflowRef.current = settingsScroll.style.overflowY
-        settingsScroll.style.overflowY = 'hidden'
+        // Avoid toggling overflow on iOS/Safari (can momentarily jump scrollTop).
+        // Instead, intercept wheel/touchmove to prevent scroll.
+        const handler = (e: Event) => {
+          e.preventDefault()
+        }
+        preventScrollHandlerRef.current = handler
+        settingsScroll.addEventListener('wheel', handler, { passive: false })
+        settingsScroll.addEventListener('touchmove', handler, { passive: false })
       } else {
         // Fallback: lock body and restore scroll position on close.
         scrollContainerRef.current = null
@@ -70,7 +76,12 @@ export default function Modal({
       // Restore scroll locking
       const container = scrollContainerRef.current
       if (container) {
-        container.style.overflowY = prevOverflowRef.current || ''
+        const handler = preventScrollHandlerRef.current
+        if (handler) {
+          container.removeEventListener('wheel', handler as any)
+          container.removeEventListener('touchmove', handler as any)
+        }
+        preventScrollHandlerRef.current = null
         container.scrollTop = scrollYRef.current
       } else {
         const top = document.body.style.top
