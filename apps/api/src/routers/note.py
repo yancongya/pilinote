@@ -474,16 +474,28 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
 
     # 查找视频文件
     file_path = None
-    video_dir = find_video_dir(request.video_id)
-    logger.info(f"[SSE] video_dir={video_dir}")
-    
-    if video_dir and video_dir.exists():
-        service = NoteService()
-        resolved_path = service._resolve_video_file_path(str(video_dir))
-        logger.info(f"[SSE] resolved_path={resolved_path}")
-        if resolved_path:
-            file_path = resolved_path
-        service.db.close()
+
+    # 1) If caller passes a local path (file or dir), prefer it directly.
+    try:
+        direct = Path(request.video_id)
+        if direct.exists():
+            file_path = str(direct)
+            logger.info(f"[SSE] resolved direct file_path={file_path}")
+    except Exception:
+        file_path = None
+
+    # 2) Otherwise try resolving by bvid/cv id from downloads folder.
+    if not file_path:
+        video_dir = find_video_dir(request.video_id)
+        logger.info(f"[SSE] video_dir={video_dir}")
+
+        if video_dir and video_dir.exists():
+            service = NoteService()
+            resolved_path = service._resolve_video_file_path(str(video_dir))
+            logger.info(f"[SSE] resolved_path={resolved_path}")
+            if resolved_path:
+                file_path = resolved_path
+            service.db.close()
 
     if not file_path:
         download = _resolve_download_for_note(request.video_id)
