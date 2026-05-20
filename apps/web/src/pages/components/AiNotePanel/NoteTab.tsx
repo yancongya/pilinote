@@ -245,6 +245,7 @@ export function NoteTab({
   const isSourceView = fileType === 'source'
   const showAdvancedControls = !isSourceView
   const timestampsEnabled = formats.includes('timestamps')
+  const screenshotsEnabled = formats.includes('screenshot')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -261,6 +262,28 @@ export function NoteTab({
           return next
         }
         if (!enabled && has) return prev.filter((f) => f !== 'timestamps')
+        return prev
+      })
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem('pilinote.aiNote.enableScreenshots')
+      if (raw === null) return
+      const enabled = raw === '1' || raw === 'true'
+      setFormats((prev) => {
+        const has = prev.includes('screenshot')
+        if (enabled && !has) {
+          const next = [...prev]
+          if (!next.includes('summary')) next.push('summary')
+          next.push('screenshot')
+          return next
+        }
+        if (!enabled && has) return prev.filter((f) => f !== 'screenshot')
         return prev
       })
     } catch {
@@ -790,27 +813,34 @@ export function NoteTab({
             </label>
           )}
 
-          {showAdvancedControls && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {NOTE_FORMATS.filter(format => format.value !== 'screenshot').map(format => {
-                const active = formats.includes(format.value);
-                return (
-                  <button
-                    key={format.value}
-                    type="button"
-                    onClick={() => {
-                      if (isAnalyzing) return;
-                      setFormats(prev => prev.includes(format.value) ? prev.filter(f => f !== format.value) : [...prev, format.value]);
-                    }}
-                    style={{ padding: '8px 12px', borderRadius: '9999px', background: active ? '#22c55e' : 'var(--color-bg-secondary)', color: active ? '#fff' : 'var(--color-text-primary)', border: 'none', cursor: 'pointer' }}
-                  >
-                    {format.label}
-                  </button>
-                );
-              })}
-            </div>
-            </div>
+          {!isSourceView && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={screenshotsEnabled}
+                disabled={isAnalyzing}
+                onChange={(e) => {
+                  const enabled = e.target.checked
+                  setFormats((prev) => {
+                    const has = prev.includes('screenshot')
+                    if (enabled && !has) {
+                      const next = [...prev]
+                      if (!next.includes('summary')) next.push('summary')
+                      next.push('screenshot')
+                      return next
+                    }
+                    if (!enabled && has) return prev.filter((f) => f !== 'screenshot')
+                    return prev
+                  })
+                  try {
+                    window.localStorage.setItem('pilinote.aiNote.enableScreenshots', enabled ? '1' : '0')
+                  } catch {
+                    // ignore
+                  }
+                }}
+              />
+              <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>原片截图</span>
+            </label>
           )}
 
           {!isSourceView && (
