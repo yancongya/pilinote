@@ -44,6 +44,19 @@ function stripAngleBrackets(path: string): string {
   return trimmed
 }
 
+function tryDecodeUriComponent(value: string): string {
+  // Markdown parsers often percent-encode spaces and unicode in link destinations
+  // (e.g. `P01%20-%20...jpg`). For local filesystem paths we need the decoded
+  // string before we re-encode it into the API query param, otherwise `%` becomes
+  // `%25` and the backend will look for a non-existent file.
+  if (!value || !value.includes('%')) return value
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 function isSpecialUrl(path: string): boolean {
   return /^(?:https?:|blob:|data:|mailto:|tel:)/i.test(path)
 }
@@ -112,7 +125,7 @@ export function createHeadingIdGenerator(): HeadingIdGenerator {
 }
 
 export function resolveMarkdownImageUrl(src: string, sourceFolderPath?: string | null): string {
-  const cleanedSrc = stripFileProtocol(stripAngleBrackets(src))
+  const cleanedSrc = tryDecodeUriComponent(stripFileProtocol(stripAngleBrackets(src)))
   if (!cleanedSrc) {
     return ''
   }
