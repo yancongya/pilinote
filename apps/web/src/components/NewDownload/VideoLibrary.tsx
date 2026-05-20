@@ -4,7 +4,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { useToast } from '../../components/Toast'
 import { videoLibraryService } from '../../services/videoLibraryService'
 import { apiService } from '../../services/api'
-import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText, FolderTree, List } from 'lucide-react'
+import { Inbox as EmptyIcon, RefreshCw, Calendar, Film, Eye, ThumbsUp, Coins, Star, Hash, Share2, MessageSquare, MessageCircle, FileText, FolderTree, List, LayoutGrid, LayoutList } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import VideoListControls from '../VideoListControls'
@@ -712,6 +712,181 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   )
 }
 
+function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
+  task: Task
+  getLocalImageUrl: (path: string) => string
+  formatFileSize: (bytes: number) => string
+}) {
+  const navigate = useNavigate()
+  const { showToast } = useToast()
+  const isOpus = task.media_type === 'opus'
+  const hasMultipleVideos = !isOpus && task.meta?.file_count > 1
+  const hasCover = task.cover && task.cover.trim()
+  const coverUrl = task.cover ? getLocalImageUrl(task.cover) : ''
+
+  const [isLocalAsrReady, setIsLocalAsrReady] = useState(true)
+  const [showAiNoteModal, setShowAiNoteModal] = useState(false)
+  const [existingNote, setExistingNote] = useState<NoteResponse | null>(null)
+
+  const folderPath = task.meta?.folder_path
+  const bvid = task.meta?.nfo_data?.bvid
+  const cvId = task.meta?.nfo_data?.cv_id || task.meta?.nfo_data?.id
+  const videoIdForNote = isOpus ? (cvId || folderPath) : (bvid || folderPath)
+  const canUseAiNote = Boolean(videoIdForNote)
+  const lookup = useAiNoteLookup(canUseAiNote ? videoIdForNote : null)
+  const noteForStatus = existingNote || lookup.note
+  const persistentAiNoteStatus = task.meta?.ai_note_status === 'completed'
+  const aiNoteButtonStatus = noteForStatus?.status === 'completed' || persistentAiNoteStatus ? 'completed' : 'none'
+
+  useEffect(() => {
+    if (noteForStatus) setExistingNote(noteForStatus)
+  }, [noteForStatus])
+
+  useEffect(() => {
+    let cancelled = false
+    if (isOpus) return
+    localAsrModelService.checkReady().then(result => {
+      if (!cancelled) setIsLocalAsrReady(result.ready)
+    }).catch(() => {
+      if (!cancelled) setIsLocalAsrReady(false)
+    })
+    return () => { cancelled = true }
+  }, [isOpus])
+
+  const handleAiNoteClick = () => {
+    if (!isLocalAsrReady && !isOpus) {
+      showToast('请先在 AI 笔记设置中下载并启用本地 ASR 模型', 'warning')
+      return
+    }
+    setShowAiNoteModal(true)
+  }
+
+  const handleAiNoteComplete = (note: NoteResponse) => {
+    setExistingNote(note)
+  }
+
+  const handleCardClick = () => {
+    const route = getMediaLibraryRoute(task)
+    if (route) navigate(route)
+  }
+
+  const formatDuration = (duration: string | number): string => {
+    if (!duration) return '--:--'
+    if (typeof duration === 'string') return duration
+    if (typeof duration === 'number') {
+      if (duration === 0) return '--:--'
+      const hours = Math.floor(duration / 3600)
+      const minutes = Math.floor((duration % 3600) / 60)
+      const seconds = Math.floor(duration % 60)
+      if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`
+    }
+    return '--:--'
+  }
+
+  const formatDateTime = (): string => {
+    if (task.created_at) {
+      const d = new Date(task.created_at)
+      if (!isNaN(d.getTime())) {
+        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        const ts = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+        return `${ds} ${ts}`
+      }
+    }
+    return task.meta?.premiered || ''
+  }
+
+  return (
+    <div className="album-card" onClick={handleCardClick}>
+      <div className="album-card-cover">
+        {hasCover ? (
+          <img
+            src={coverUrl}
+            alt={task.title}
+            loading="lazy"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+              const placeholder = e.currentTarget.parentElement?.querySelector('.album-cover-placeholder')
+              if (placeholder) (placeholder as HTMLElement).style.display = 'flex'
+            }}
+          />
+        ) : null}
+        <div className="album-cover-placeholder" style={{ display: hasCover ? 'none' : 'flex' }}>
+          {isOpus ? <FileText size={28} /> : <Film size={28} />}
+        </div>
+
+        {!isOpus && task.meta?.runtime && (
+          <div className="album-card-duration">{formatDuration(task.meta.runtime)}</div>
+        )}
+
+        {isOpus && (
+          <div className="album-card-duration album-card-duration--opus">图文</div>
+        )}
+
+        {task.meta?.rating && (
+          <div className="album-card-rating">
+            <Star size={10} fill="#f59e0b" color="#f59e0b" />
+            <span>{task.meta.rating}</span>
+          </div>
+        )}
+
+        {hasMultipleVideos && (
+          <div className="album-card-multi">
+            <Film size={14} />
+            <span>{task.meta?.file_count || 0}</span>
+          </div>
+        )}
+
+        {canUseAiNote && (
+          <div style={{ position: 'absolute', left: '8px', top: '8px', zIndex: 30 }} onClick={(e) => e.stopPropagation()}>
+            <AiNoteButton
+              status={aiNoteButtonStatus}
+              onClick={handleAiNoteClick}
+              disabled={!isOpus && !isLocalAsrReady}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="album-card-info">
+        <div className="album-card-title-wrap">
+          <span className="album-card-title">{task.title}</span>
+        </div>
+        <div className="album-card-meta-row">
+          {task.meta?.studio && (
+            <div className="album-card-author">
+              {task.meta.avatar_path && (
+                <img
+                  src={getLocalImageUrl(task.meta.avatar_path)}
+                  alt={task.meta.studio}
+                  className="album-author-avatar"
+                />
+              )}
+              <span>{task.meta.studio}</span>
+            </div>
+          )}
+          {formatDateTime() && (
+            <span className="album-card-size">{formatDateTime()}</span>
+          )}
+        </div>
+      </div>
+
+      {canUseAiNote && (
+        <AiNoteModal
+          videoId={videoIdForNote}
+          videoTitle={task.title}
+          existingNote={existingNote}
+          pipelineModeOverride={isOpus ? 'image_text' : undefined}
+          aiRoutePath={isOpus ? `/opus/${encodeURIComponent(String(videoIdForNote))}/ai` : `/video/${encodeURIComponent(String(videoIdForNote))}/ai`}
+          isOpen={showAiNoteModal}
+          onClose={() => setShowAiNoteModal(false)}
+          onComplete={handleAiNoteComplete}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function VideoLibrary() {
   const { connected } = useNewQueueStore()
   const { settings } = useSettingsStore()
@@ -725,6 +900,8 @@ export default function VideoLibrary() {
   const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('desc')
   const [isUpdatingNfo, setIsUpdatingNfo] = useState(false)
   const [nfoUpdateProgress, setNfoUpdateProgress] = useState({ success: 0, failed: 0, total: 0 })
+  const [viewMode, setViewMode] = useState<'detailed' | 'album'>('detailed')
+  const [grouped, setGrouped] = useState(false)
 
   // 格式化文件大小
   const formatFileSize = (bytes: number): string => {
@@ -832,6 +1009,18 @@ export default function VideoLibrary() {
           const likesA = a.meta?.statistics?.like || 0
           const likesB = b.meta?.statistics?.like || 0
           return sortDirection === 'desc' ? likesB - likesA : likesA - likesB
+        })
+        break
+      case 'type':
+        sorted.sort((a, b) => {
+          const getType = (t: Task): number => {
+            if (t.media_type === 'opus') return 1
+            if ((t.meta?.file_count || 1) > 1) return 2
+            return 0
+          }
+          const typeA = getType(a)
+          const typeB = getType(b)
+          return sortDirection === 'desc' ? typeB - typeA : typeA - typeB
         })
         break
       default:
@@ -1074,71 +1263,158 @@ export default function VideoLibrary() {
 
     const filteredTasks = getFilteredAndSortedTasks()
 
+    const timeGroupGranularity = (() => {
+      if (order !== 'premiered' && order !== 'created') return null
+      let min: number | null = null
+      let max: number | null = null
+      for (const t of tasks) {
+        const ts = order === 'premiered' ? (t.meta?.premiered ? new Date(t.meta.premiered).getTime() : null) : t.created_at
+        if (ts === null || ts === undefined || isNaN(ts)) continue
+        if (min === null || ts < min) min = ts
+        if (max === null || ts > max) max = ts
+      }
+      if (min === null || max === null) return 'year'
+      const minD = new Date(min), maxD = new Date(max)
+      if (minD.getFullYear() !== maxD.getFullYear()) return 'year'
+      if (minD.getMonth() !== maxD.getMonth()) return 'month'
+      return 'day'
+    })()
+
+    const getGroupKey = (task: Task): string => {
+      switch (order) {
+        case 'type': {
+          if (task.media_type === 'opus') return '图文'
+          if ((task.meta?.file_count || 1) > 1) return '系列视频'
+          return '单个视频'
+        }
+        case 'premiered': {
+          const p = task.meta?.premiered
+          if (!p) return '未知日期'
+          if (timeGroupGranularity === 'day') return p
+          if (timeGroupGranularity === 'month') return p.substring(0, 7)
+          return p.substring(0, 4)
+        }
+        case 'created': {
+          if (!task.created_at) return '未知时间'
+          const d = new Date(task.created_at)
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          if (timeGroupGranularity === 'day') return `${y}-${m}-${day}`
+          if (timeGroupGranularity === 'month') return `${y}-${m}`
+          return `${y}`
+        }
+        case 'name': {
+          const name = task.title || ''
+          const first = name.trim().charAt(0)
+          if (!first) return '#'
+          if (/[a-zA-Z]/.test(first)) return first.toUpperCase()
+          if (/[\u4e00-\u9fff]/.test(first)) return first
+          return '#'
+        }
+        case 'author':
+          return task.meta?.studio || '未知作者'
+        default:
+          return ''
+      }
+    }
+
+    const getGroupLabel = (key: string): string => {
+      if (timeGroupGranularity === 'year') return `${key}年`
+      return key
+    }
+
+    const groupedEntries = !grouped ? null : Array.from(
+      filteredTasks.reduce((map, task) => {
+        const key = getGroupKey(task)
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push(task)
+        return map
+      }, new Map<string, Task[]>())
+    )
+
   
 
     return (
 
       <div className="video-library">
 
-        {/* 搜索和排序 */}
+        {/* 搜索排序和视图切换 */}
 
         {hasTasks && (
 
-          <VideoListControls
+          <div className="library-controls-row">
+            <div className="library-controls-row-main">
+              <VideoListControls
 
-            keyword={keyword}
+                keyword={keyword}
 
-            order={order}
+                order={order}
 
-            sortDirection={sortDirection}
+                sortDirection={sortDirection}
 
-            onKeywordChange={setKeyword}
+                onKeywordChange={setKeyword}
 
-            onOrderChange={setOrder}
+                onOrderChange={setOrder}
 
-            onSortDirectionChange={setSortDirection}
+                onSortDirectionChange={setSortDirection}
 
-            sortOptions={[
+                sortOptions={[
 
-              { value: 'created', label: '按创建时间' },
+                  { value: 'created', label: '按创建时间' },
 
-              { value: 'premiered', label: '按上传时间' },
+                  { value: 'premiered', label: '按上传时间' },
 
-              { value: 'size', label: '按大小' },
+                  { value: 'size', label: '按大小' },
 
-              { value: 'name', label: '按命名首字母' },
+                  { value: 'name', label: '按命名首字母' },
 
-              { value: 'author', label: '按作者' },
+                  { value: 'author', label: '按作者' },
 
-              { value: 'duration', label: '按时长' },
+                  { value: 'duration', label: '按时长' },
 
-              { value: 'views', label: '按播放量' },
+                  { value: 'views', label: '按播放量' },
 
-              { value: 'likes', label: '按点赞量' }
+                  { value: 'likes', label: '按点赞量' },
 
-            ]}
+                  { value: 'type', label: '按类型' }
 
-            seriesCount={tasks.length}
+                ]}
 
-            videoCount={totalFiles}
+                seriesCount={tasks.length}
 
-            totalSize={totalSize}
+                videoCount={totalFiles}
 
-            onRefresh={handleRefreshLibrary}
+                totalSize={totalSize}
 
-            isRefreshing={isRefreshing}
+                onRefresh={handleRefreshLibrary}
 
-            isUpdatingNfo={isUpdatingNfo}
+                isRefreshing={isRefreshing}
 
-            nfoUpdateProgress={nfoUpdateProgress}
+                isUpdatingNfo={isUpdatingNfo}
 
-            formatFileSize={formatFileSize}
+                nfoUpdateProgress={nfoUpdateProgress}
 
-          />
+                formatFileSize={formatFileSize}
+
+                showGroupToggle={viewMode === 'album'}
+                grouped={grouped}
+                onGroupToggle={() => setGrouped(g => !g)}
+
+              />
+            </div>
+
+            <button
+              className="view-mode-toggle"
+              onClick={() => setViewMode(m => m === 'detailed' ? 'album' : 'detailed')}
+              title={viewMode === 'detailed' ? '影集模式' : '详细模式'}
+              aria-label={viewMode === 'detailed' ? '切换到影集模式' : '切换到详细模式'}
+            >
+              {viewMode === 'detailed' ? <LayoutGrid size={18} /> : <LayoutList size={18} />}
+            </button>
+          </div>
 
         )}
-
-  
 
         {/* 空状态 */}
 
@@ -1178,13 +1454,9 @@ export default function VideoLibrary() {
 
         )}
 
-  
+        {/* 详细模式 - 列表 */}
 
-  
-
-        {/* 任务列表 */}
-
-        {hasTasks && (
+        {hasTasks && viewMode === 'detailed' && (
 
           <div className="task-list">
 
@@ -1210,8 +1482,6 @@ export default function VideoLibrary() {
 
             ))}
 
-            
-
             {/* 搜索无结果 */}
 
             {filteredTasks.length === 0 && keyword && (
@@ -1234,6 +1504,52 @@ export default function VideoLibrary() {
 
           </div>
 
+        )}
+
+        {/* 影集模式 - 网格 */}
+        {hasTasks && viewMode === 'album' && (
+          <>
+            {grouped && groupedEntries ? (
+              groupedEntries.map(([key, tasks]) => (
+                <div key={key} className="album-group-section">
+                  <div className="album-group-header" data-group-count={tasks.length}>
+                    <h3>{getGroupLabel(key)}</h3>
+                    <span className="album-group-count">{tasks.length}</span>
+                  </div>
+                  <div className="album-grid">
+                    {tasks.map((task) => (
+                      <AlbumCard
+                        key={task.id}
+                        task={task}
+                        getLocalImageUrl={getLocalImageUrl}
+                        formatFileSize={formatFileSize}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="album-grid">
+                {filteredTasks.map((task) => (
+                  <AlbumCard
+                    key={task.id}
+                    task={task}
+                    getLocalImageUrl={getLocalImageUrl}
+                    formatFileSize={formatFileSize}
+                  />
+                ))}
+              </div>
+            )}
+            {filteredTasks.length === 0 && keyword && (
+              <div className="empty-state">
+                <EmptyIcon size={48} color="var(--color-text-secondary)" />
+                <p>未找到匹配的媒体</p>
+                <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                  请尝试其他关键词或清除搜索条件
+                </p>
+              </div>
+            )}
+          </>
         )}
     </div>
   )

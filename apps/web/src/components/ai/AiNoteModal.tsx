@@ -547,6 +547,8 @@ export function AiNoteModal({
   const [detailLevel, setDetailLevel] = useState<'simple' | 'detailed'>('detailed')
   const [enableTimestamps, setEnableTimestamps] = useState(false)
   const [enableScreenshots, setEnableScreenshots] = useState(false)
+  const [enablePageOutput, setEnablePageOutput] = useState(false)
+  const [enableImageOutput, setEnableImageOutput] = useState(false)
   const [style, setStyle] = useState('detailed')
   const [promptExtras, setPromptExtras] = useState('')
   const [seriesListCollapsed, setSeriesListCollapsed] = useState(false)
@@ -643,6 +645,28 @@ export function AiNoteModal({
       const raw = window.localStorage.getItem('pilinote.aiNote.enableScreenshots')
       if (raw === null) return
       setEnableScreenshots(raw === '1' || raw === 'true')
+    } catch {
+      // ignore
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      const raw = window.localStorage.getItem('pilinote.aiNote.enablePageOutput')
+      if (raw === null) return
+      setEnablePageOutput(raw === '1' || raw === 'true')
+    } catch {
+      // ignore
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      const raw = window.localStorage.getItem('pilinote.aiNote.enableImageOutput')
+      if (raw === null) return
+      setEnableImageOutput(raw === '1' || raw === 'true')
     } catch {
       // ignore
     }
@@ -1177,6 +1201,8 @@ export function AiNoteModal({
       pipeline_mode: currentMode,
       subtitle_filename: resolvedSubtitleFilename,
       extras: promptExtras.trim() || undefined,
+      generate_page: Boolean(enablePageOutput),
+      generate_image: Boolean(enableImageOutput),
       formats: (() => {
         const formats: string[] = []
         if (enableScreenshots) formats.push('screenshot')
@@ -1910,6 +1936,40 @@ export function AiNoteModal({
                   }}
                 />
                 <span>原片截图</span>
+              </label>
+              <label className="ai-note-option-row" title="生成网页展示产物（使用设置中配置的网页模型）">
+                <input
+                  type="checkbox"
+                  checked={enablePageOutput}
+                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text'}
+                  onChange={(e) => {
+                    const enabled = e.target.checked
+                    setEnablePageOutput(enabled)
+                    try {
+                      window.localStorage.setItem('pilinote.aiNote.enablePageOutput', enabled ? '1' : '0')
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                />
+                <span>网页</span>
+              </label>
+              <label className="ai-note-option-row" title="生成图解图片产物（使用设置中配置的图片模型）">
+                <input
+                  type="checkbox"
+                  checked={enableImageOutput}
+                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text'}
+                  onChange={(e) => {
+                    const enabled = e.target.checked
+                    setEnableImageOutput(enabled)
+                    try {
+                      window.localStorage.setItem('pilinote.aiNote.enableImageOutput', enabled ? '1' : '0')
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                />
+                <span>图片</span>
               </label>
             </div>
           </div>

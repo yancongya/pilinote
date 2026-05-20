@@ -930,6 +930,7 @@ class AiNoteService:
         model_provider: str,
         model_name: str,
         pipeline_mode: Optional[str] = None,
+        meta: Optional[Dict[str, Any]] = None,
     ) -> AiNote:
         normalized_pipeline_mode = self._normalize_pipeline_mode(pipeline_mode)
         note = AiNote(
@@ -941,7 +942,7 @@ class AiNoteService:
             status="processing",
             model_provider=model_provider,
             model_name=model_name,
-            meta={"pipeline_mode": normalized_pipeline_mode},
+            meta={"pipeline_mode": normalized_pipeline_mode, **(meta or {})},
         )
         self.db.add(note)
         self.db.commit()

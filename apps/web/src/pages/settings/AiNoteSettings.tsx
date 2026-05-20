@@ -1112,80 +1112,53 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         {(['page', 'image'] as const).map((outputKey) => {
           const label = outputKey === 'page' ? '网页' : '图片'
           const output = localSettings.outputs[outputKey]
-          const testedModels = runtimeState.testedModels[output.llm.provider] || []
+          const modelOptions = Object.entries(runtimeState.testedModels || {}).flatMap(([provider, models]) =>
+            (models || []).map((model) => ({
+              provider,
+              model,
+              value: `${provider}::${model}`,
+              // Provider is intentionally not shown as a separate control; it's derived from the chosen model.
+              label: model,
+            }))
+          )
+          const currentValue = `${output.llm.provider}::${output.llm.model}`
 
           return (
             <div key={outputKey} style={{ display: 'grid', gap: '12px', padding: '12px 0' }}>
-              <SettingsToggleRow
-                label={`生成${label}`}
-                checked={output.enabled}
-                onChange={(checked) => setLocalSettings(prev => ({
-                  ...prev,
-                  outputs: {
-                    ...prev.outputs,
-                    [outputKey]: { ...prev.outputs[outputKey], enabled: checked },
-                  },
-                }))}
-              />
-
-              <div style={{ display: 'grid', gap: '10px', opacity: output.enabled ? 1 : 0.5, pointerEvents: output.enabled ? 'auto' : 'none' }}>
-                <SettingsField label={`${label}模型服务商`} hint="从已配置服务商中选择；可在上方先测试模型连通性">
-                  <select
-                    className="settings-select"
-                    value={output.llm.provider}
-                    onChange={(e) => {
-                      const provider = e.target.value
-                      const providerCfg = providers.find(p => p.id === provider)
-                      const nextModels = runtimeState.testedModels[provider] || []
-                      const nextModel = nextModels[0] || providerCfg?.models?.[0] || ''
-                      setLocalSettings(prev => ({
-                        ...prev,
-                        outputs: {
-                          ...prev.outputs,
-                          [outputKey]: {
-                            ...prev.outputs[outputKey],
-                            llm: {
-                              ...prev.outputs[outputKey].llm,
-                              provider,
-                              base_url: providerCfg?.baseUrl || prev.outputs[outputKey].llm.base_url,
-                              api_key: providerCfg?.apiKey || prev.outputs[outputKey].llm.api_key,
-                              model: nextModel || prev.outputs[outputKey].llm.model,
-                            },
-                          },
-                        },
-                      }))
-                    }}
-                  >
-                    {providers.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </SettingsField>
-
-                <SettingsField label={`${label}模型`} hint={testedModels.length ? '仅展示已测试通过的模型' : '当前服务商还没有测试通过的模型'}>
-                  <select
-                    className="settings-select"
-                    value={output.llm.model}
-                    onChange={(e) => setLocalSettings(prev => ({
+              <SettingsField label={`${label}模型`} hint={modelOptions.length ? '仅展示已测试通过的模型' : '暂无已测试通过的模型，请先在上方测试模型'}>
+                <select
+                  className="settings-select"
+                  value={modelOptions.some(o => o.value === currentValue) ? currentValue : (modelOptions[0]?.value || '')}
+                  onChange={(e) => {
+                    const raw = e.target.value || ''
+                    const [provider, model] = raw.split('::')
+                    const providerCfg = providers.find(p => p.id === provider)
+                    setLocalSettings(prev => ({
                       ...prev,
                       outputs: {
                         ...prev.outputs,
                         [outputKey]: {
                           ...prev.outputs[outputKey],
-                          llm: { ...prev.outputs[outputKey].llm, model: e.target.value },
+                          llm: {
+                            ...prev.outputs[outputKey].llm,
+                            provider: provider || prev.outputs[outputKey].llm.provider,
+                            model: model || prev.outputs[outputKey].llm.model,
+                            base_url: providerCfg?.baseUrl || prev.outputs[outputKey].llm.base_url,
+                            api_key: providerCfg?.apiKey || prev.outputs[outputKey].llm.api_key,
+                          },
                         },
                       },
-                    }))}
-                    disabled={!testedModels.length}
-                  >
-                    {testedModels.length ? testedModels.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    )) : (
-                      <option value="">请先测试模型</option>
-                    )}
-                  </select>
-                </SettingsField>
-              </div>
+                    }))
+                  }}
+                  disabled={!modelOptions.length}
+                >
+                  {modelOptions.length ? modelOptions.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  )) : (
+                    <option value="">请先测试模型</option>
+                  )}
+                </select>
+              </SettingsField>
             </div>
           )
         })}

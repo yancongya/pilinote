@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Layers } from 'lucide-react'
 import './VideoListControls.css'
 
 export interface VideoListControlsProps {
@@ -56,6 +57,12 @@ export interface VideoListControlsProps {
   compact?: boolean
   /** 是否保持粘性定位 */
   sticky?: boolean
+  /** 是否显示分组切换 */
+  showGroupToggle?: boolean
+  /** 是否已分组 */
+  grouped?: boolean
+  /** 分组切换回调 */
+  onGroupToggle?: () => void
 }
 
 export default function VideoListControls({
@@ -85,7 +92,10 @@ export default function VideoListControls({
   isUpdatingNfo = false,
   nfoUpdateProgress,
   compact = false,
-  sticky = true
+  sticky = true,
+  showGroupToggle = false,
+  grouped = false,
+  onGroupToggle,
 }: VideoListControlsProps) {
   const [searchInput, setSearchInput] = useState(keyword)
 
@@ -185,6 +195,18 @@ export default function VideoListControls({
                     title={sortDirection === 'desc' ? '降序排列' : '升序排列'}
                   >
                     {sortDirection === 'desc' ? '↓' : '↑'}
+                  </button>
+                )}
+
+                {/* 分组切换按钮 */}
+                {showGroupToggle && onGroupToggle && (
+                  <button
+                    className={`group-toggle-btn${grouped ? ' active' : ''}`}
+                    onClick={onGroupToggle}
+                    aria-label={grouped ? '关闭分组' : '分组显示'}
+                    title={grouped ? '关闭分组' : '分组显示'}
+                  >
+                    <Layers size={14} />
                   </button>
                 )}
               </div>

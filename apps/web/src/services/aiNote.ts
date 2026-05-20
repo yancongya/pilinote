@@ -10,6 +10,8 @@ export interface AnalyzeRequest {
   extras?: string;
   subtitle_filename?: string;
   pipeline_mode?: AiNotePipelineMode;
+  generate_page?: boolean;
+  generate_image?: boolean;
 }
 
 export interface AnalyzeResponse {
