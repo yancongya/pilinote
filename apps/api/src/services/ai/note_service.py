@@ -59,6 +59,38 @@ _SCREENSHOT_MARKER_PATTERN = re.compile(
     r"\*?Screenshot-\[((?:\d{1,2}:)?\d{2}:\d{2})\]\*?"
 )
 
+_SERIES_MEMORY_FILENAME = "series.ai-note.memory.json"
+
+
+def _safe_read_json(path: Path) -> Dict[str, Any]:
+    try:
+        if not path.exists():
+            return {}
+        raw = path.read_text(encoding="utf-8")
+        if not raw.strip():
+            return {}
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _compact_markdown_for_memory(markdown: str) -> str:
+    """Compact markdown into short reusable memory (no LLM)."""
+    if not markdown:
+        return ""
+    lines = [line.rstrip() for line in markdown.splitlines()]
+    picked: List[str] = []
+    for line in lines:
+        if line.startswith("#"):
+            picked.append(line)
+        elif line.lstrip().startswith(("-", "*")) and len(picked) < 40:
+            picked.append(line)
+        if len(picked) >= 50:
+            break
+    compact = "\n".join(picked).strip()
+    return compact[:4000]
+
 
 def _normalize_note_formats(formats: Optional[List[str]]) -> List[str]:
     if not formats:
@@ -1162,11 +1194,18 @@ class AiNoteService:
                 },
                 note=note,
             )
+            series_memory = ""
+            if pipeline_mode == "series":
+                series_memory = self._read_series_memory(actual_file_path)
+            merged_extras = extras
+            if series_memory:
+                merged_extras = f"## 系列记忆（来自历史分析，请遵循）\n{series_memory}\n\n{extras or ''}".strip()
+
             prompt = self._build_prompt_from_context(
                 context=context,
                 style=style,
                 formats=_normalize_note_formats(formats),
-                extras=extras,
+                extras=merged_extras,
             )
             self._store_analysis_artifacts(note, prompt=prompt)
             normalized_formats = _normalize_note_formats(formats)
@@ -1177,10 +1216,54 @@ class AiNoteService:
                     model_name,
                     style,
                     ",".join(normalized_formats),
-                    (extras or "").strip(),
+                    (merged_extras or "").strip(),
                     prompt,
                 ])).encode("utf-8")
             ).hexdigest()
+
+            # Cache hit: reuse existing markdown if fingerprint matches.
+            index_payload = self._read_note_index_output(actual_file_path, note.id)
+            cached_fingerprint = str(index_payload.get("input_fingerprint") or "").strip()
+            cached_md_path = str(index_payload.get("markdown_path") or "").strip()
+            if cached_fingerprint and cached_fingerprint == input_fingerprint and cached_md_path:
+                try:
+                    cached_path = Path(cached_md_path)
+                    if cached_path.exists():
+                        cached_markdown = cached_path.read_text(encoding="utf-8")
+                        summary = self._extract_summary(cached_markdown)
+                        note.content = cached_markdown
+                        note.summary = summary
+                        note.pipeline_mode = pipeline_mode
+                        note.meta = {
+                            **(note.meta or {}),
+                            "pipeline_mode": pipeline_mode,
+                            "generated_markdown_path": str(cached_path),
+                            "generated_index_path": str(self._resolve_index_path(actual_file_path, note.id)),
+                            "input_fingerprint": input_fingerprint,
+                            "cache_hit": True,
+                        }
+                        note.status = "completed"
+                        note.completed_at = datetime.utcnow()
+                        self._set_note_control(
+                            note.id,
+                            "completed",
+                            current_stage=self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
+                        )
+                        self._persist_note_meta(note)
+                        if pipeline_mode == "series":
+                            self._update_series_memory(actual_file_path, note.id, cached_markdown)
+                        self._add_trace(
+                            self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
+                            "命中缓存",
+                            f"复用已生成笔记 {cached_path.name}",
+                            100.0,
+                            {"markdown_path": str(cached_path), "input_fingerprint": input_fingerprint},
+                            note=note,
+                        )
+                        logger.info("Cache hit; reused markdown for note_id=%s", note.id)
+                        return
+                except Exception as exc:
+                    logger.warning("Cache hit check failed, will continue generation: %s", exc)
             t0_len = len(context.get("t0_text", ""))
             t1_len = len(context.get("transcript", ""))
             self._add_trace(
@@ -1241,7 +1324,7 @@ class AiNoteService:
                 formats=normalized_formats,
                 model_provider=model_provider,
                 model_name=model_name,
-                extras=extras,
+                extras=merged_extras,
             )
 
             note.content = markdown
@@ -1270,6 +1353,11 @@ class AiNoteService:
                 download.ai_style = style
                 download.ai_status = "completed"
                 self.db.commit()
+
+            if pipeline_mode == "series":
+                memory_path = self._update_series_memory(actual_file_path, note.id, markdown)
+                note.meta = {**(note.meta or {}), "series_memory_path": memory_path}
+                self._persist_note_meta(note)
 
             self._add_trace(
                 self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
@@ -2079,6 +2167,20 @@ class AiNoteService:
         output_path.write_text(markdown, encoding="utf-8")
         return str(output_path)
 
+    def _resolve_index_path(self, source_path: str, note_id: str) -> Path:
+        source_file = Path(source_path)
+        output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        base_name = source_file.stem
+        if base_name.endswith(".ai-note"):
+            base_name = base_name[: -len(".ai-note")]
+        if not base_name or source_file.name.startswith("."):
+            base_name = source_file.parent.name or note_id
+        return output_dir / f"{base_name}.ai-note.index.json"
+
+    def _read_note_index_output(self, source_path: str, note_id: str) -> Dict[str, Any]:
+        return _safe_read_json(self._resolve_index_path(source_path, note_id))
+
     def _write_note_index_output(
         self,
         source_path: str,
@@ -2126,6 +2228,59 @@ class AiNoteService:
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         return str(index_path)
+
+    def _resolve_series_root(self, video_path: str) -> Path:
+        """Resolve a stable-ish series root folder for both layouts.
+
+        Heuristic:
+        - Walk up until reaching downloads folder; pick the nearest folder that
+          looks like a series root: contains tvshow.nfo OR name starts with '系列-'.
+        - Fallback to the immediate parent.
+        """
+        video_file = Path(video_path)
+        start = video_file.parent if video_file.is_file() else video_file
+        downloads_root = Path("/Users/tanyancong/工作/开发/pilinote") / "downloads"
+        current = start
+        best = start
+        while True:
+            if current.name.startswith("系列-") or (current / "tvshow.nfo").exists():
+                best = current
+            if current == downloads_root or current.parent == current:
+                break
+            if downloads_root in current.parents:
+                current = current.parent
+                continue
+            break
+        return best
+
+    def _read_series_memory(self, video_path: str) -> str:
+        root = self._resolve_series_root(video_path)
+        payload = _safe_read_json(root / _SERIES_MEMORY_FILENAME)
+        memory = payload.get("memory_text") if isinstance(payload, dict) else ""
+        return str(memory or "").strip()
+
+    def _update_series_memory(self, video_path: str, note_id: str, markdown: str) -> str:
+        root = self._resolve_series_root(video_path)
+        memory_path = root / _SERIES_MEMORY_FILENAME
+        payload = _safe_read_json(memory_path)
+        prev = str(payload.get("memory_text") or "").strip()
+        delta = _compact_markdown_for_memory(markdown)
+        if not delta:
+            return str(memory_path)
+        merged = (prev + "\n\n" + delta).strip() if prev else delta
+        merged = merged[:6000]
+        out = {
+            "schema": 1,
+            "series_root": str(root),
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_by_note_id": note_id,
+            "memory_text": merged,
+        }
+        try:
+            memory_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as exc:
+            logger.warning("Failed to write series memory: %s", exc)
+        return str(memory_path)
 
     def get_note(self, note_id: str) -> Optional[AiNote]:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
