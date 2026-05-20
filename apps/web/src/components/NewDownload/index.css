@@ -5026,6 +5026,12 @@
   inset: 0;
   z-index: 5;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.album-card:hover .album-card-overlay {
+  opacity: 1;
 }
 
 .album-card-overlay-gradient {
@@ -5033,7 +5039,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 45%;
+  height: 50%;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
   pointer-events: none;
 }
@@ -5043,41 +5049,41 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px 12px 38px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   pointer-events: none;
 }
 
-.album-card-title {
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-}
-
 .album-card-hover-meta {
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.album-card:hover .album-card-hover-meta {
-  opacity: 1;
 }
 
 .album-card-hover-author,
 .album-card-hover-time {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 11px;
   white-space: nowrap;
+}
+
+/* Title bar below cover */
+.album-card-title-bar {
+  padding: 8px 12px 10px;
+  min-width: 0;
+}
+
+.album-card-title-bar .album-card-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Play button */
@@ -5138,12 +5144,8 @@
     gap: 12px;
   }
 
-  .album-card-title {
-    font-size: 13px;
-  }
-
-  .album-card-overlay-content {
-    padding: 10px;
+  .album-card-title-bar .album-card-title {
+    font-size: 12px;
   }
 
   .view-mode-toggle {

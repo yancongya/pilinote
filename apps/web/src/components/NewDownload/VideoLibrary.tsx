@@ -842,7 +842,6 @@ function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
         <div className="album-card-overlay">
           <div className="album-card-overlay-gradient" />
           <div className="album-card-overlay-content">
-            <span className="album-card-title">{task.title}</span>
             <div className="album-card-hover-meta">
               {task.meta?.studio && <span className="album-card-hover-author">{task.meta.studio}</span>}
               {formatDateTime() && <span className="album-card-hover-time">{formatDateTime()}</span>}
@@ -853,6 +852,10 @@ function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
         <div className="album-card-play-btn">
           <Play size={22} fill="#fff" color="#fff" />
         </div>
+      </div>
+
+      <div className="album-card-title-bar">
+        <span className="album-card-title">{task.title}</span>
       </div>
 
       {canUseAiNote && (
