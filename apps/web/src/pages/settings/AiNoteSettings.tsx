@@ -499,6 +499,41 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     风格: Sparkles,
   } as const
 
+  const promptCategoryDesc: Record<keyof typeof promptCategoryIcons, string> = {
+    通用: '通用写作守则与全局约束（影响所有输出）',
+    Markdown: 'Markdown 笔记结构片段（如时间戳、截图标记、总结等）',
+    扩展产物: '额外产物的生成指导（网页展示、图解图片等）',
+    风格: '写作风格（语气与表达方式），不改变结构要求',
+  }
+
+  const getPromptCardHint = (card: PromptTemplateMeta): string | null => {
+    const displayCategory = (card as any).displayCategory || card.category
+    if (displayCategory === '风格') return null
+    // Keep hints short; shown as native tooltip on hover.
+    switch (card.key) {
+      case 'base.system':
+        return '系统级提示词：决定模型的整体角色与输出边界'
+      case 'base.final':
+        return '最终要求：全局质量约束（不编造、去水话、输出规范等）'
+      case 'base_image_text.system':
+        return '图文系统提示词：图文模式下的整体角色与输出边界'
+      case 'base_image_text.final':
+        return '图文最终要求：图文模式下的全局质量约束'
+      case 'formats.timestamps':
+        return '关键点时间戳：要求在全文贯穿时间戳并可回跳'
+      case 'formats.screenshot':
+        return '原片截图：要求输出 Screenshot 标记供后端截图插入'
+      case 'formats.summary':
+        return 'AI 总结：规定总结的结构与内容要点'
+      case 'outputs.page':
+        return '网页展示：生成网页展示产物的指导'
+      case 'outputs.image':
+        return '图解图片：生成图解图片产物的指导'
+      default:
+        return '点击编辑该提示词模板'
+    }
+  }
+
   const getPromptDisplayCategory = (rawCategory: string, key: string) => {
     // Only affects UI grouping; does not change prompt template key/path, so it won't affect prompt concatenation.
     if (rawCategory === '基础') return '通用' as const
@@ -1181,7 +1216,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       <SettingsSection title="prompt管理">
         <div className="settings-style-section">
           <div className="settings-style-section-title settings-style-section-title-row">
-            <span>{selectedPromptCategory}</span>
+            <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+              <span>{selectedPromptCategory}</span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-text-tertiary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {promptCategoryDesc[selectedPromptCategory]}
+              </span>
+            </div>
             <div className="settings-style-category-switcher">
               {(Object.keys(promptCategoryIcons) as Array<keyof typeof promptCategoryIcons>).map(category => {
                 const Icon = promptCategoryIcons[category]
@@ -1218,6 +1258,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 if (category === '风格') return '#22c55e'
                 return '#a855f7'
               })()
+              const hoverHint = getPromptCardHint(card)
+              const displayCategory = (card as any).displayCategory || card.category
+              const displayTitle = displayCategory === '风格' ? card.title.replace(/^T\d+\s*/i, '') : card.title
               return (
                 <div
                     key={card.key}
@@ -1225,7 +1268,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                   onClick={() => handleOpenPromptCard(card)}
                     role="button"
                     tabIndex={0}
-                    title="点击编辑 prompt"
+                    title={hoverHint || '点击编辑 prompt'}
                     style={{ ['--prompt-accent' as any]: promptAccent } as React.CSSProperties}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -1252,7 +1295,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     </div>
                   </div>
                   <div className="settings-style-card-header">
-                    <span className="settings-style-card-label">{card.title}</span>
+                    <span className="settings-style-card-label">{displayTitle}</span>
                   </div>
                   <p className="settings-style-card-desc">{data?.preview || '点击编辑'}</p>
                 </div>
