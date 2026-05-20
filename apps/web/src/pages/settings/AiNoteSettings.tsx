@@ -27,9 +27,8 @@ import {
   X,
 } from 'lucide-react'
 import { useToast } from '../../components/Toast'
-import Modal from '../../components/Modal'
 import { LocalAsrModelPanel } from '../../components/ai/LocalAsrModelPanel'
-import AiPromptTemplates from './AiPromptTemplates'
+import PromptEditorModal from './PromptEditorModal'
 import { PROMPT_TEMPLATE_CARDS, type PromptTemplateMeta } from '../../services/promptCatalog'
 import { aiPromptTemplatesService } from '../../services/aiPromptTemplates'
 import { aiRuntimeStateService } from '../../services/aiRuntimeState'
@@ -1278,59 +1277,24 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         </div>
       </SettingsSection>
 
-      <AiPromptTemplates
+      <PromptEditorModal
         isOpen={Boolean(selectedPromptCard)}
         onClose={() => setSelectedPromptCard(null)}
+        mode="edit_template"
         card={selectedPromptCard}
         onSaved={(nextTemplates) => setPromptTemplates(nextTemplates)}
       />
 
-      <Modal
+      <PromptEditorModal
         isOpen={showCreateStyleModal}
         onClose={() => setShowCreateStyleModal(false)}
-        title="新建风格"
-        size="lg"
-        closeOnOverlayClick={true}
-        className="settings-prompt-modal"
-        accentColor="#22c55e"
-        footer={(
-          <div className="settings-prompt-footer">
-            <div />
-            <div className="settings-prompt-footer-right">
-              <button className="settings-button settings-button-secondary" onClick={() => setShowCreateStyleModal(false)}>
-                取消
-              </button>
-              <button className="settings-button settings-button-primary" onClick={handleCreateCustomStyle}>
-                创建
-              </button>
-            </div>
-          </div>
-        )}
-      >
-        <div className="settings-prompt-form">
-          <div className="settings-prompt-form-head">
-            <div className="settings-prompt-form-title">标题</div>
-          </div>
-          <input
-            type="text"
-            className="settings-input"
-            value={createStyleForm.label}
-            onChange={(e) => setCreateStyleForm(prev => ({ ...prev, label: e.target.value }))}
-            placeholder="例如：教程笔记"
-          />
-
-          <div className="settings-prompt-form-head" style={{ marginTop: 6 }}>
-            <div className="settings-prompt-form-title">Prompt</div>
-          </div>
-          <textarea
-            className="settings-prompt-textarea"
-            value={createStyleForm.prompt}
-            onChange={(e) => setCreateStyleForm(prev => ({ ...prev, prompt: e.target.value }))}
-            spellCheck={false}
-            placeholder="输入该风格的写作要求…"
-          />
-        </div>
-      </Modal>
+        mode="create_style"
+        styleTitle={createStyleForm.label}
+        stylePrompt={createStyleForm.prompt}
+        onChangeStyleTitle={(value) => setCreateStyleForm(prev => ({ ...prev, label: value }))}
+        onChangeStylePrompt={(value) => setCreateStyleForm(prev => ({ ...prev, prompt: value }))}
+        onCreateStyle={handleCreateCustomStyle}
+      />
 
       <SettingsSection title="自动功能">
         <SettingsToggleRow
