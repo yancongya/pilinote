@@ -124,13 +124,30 @@ class CustomScanConfig(BaseModel):
     )
 
 
+class SubscriptionSourceScanConfig(BaseModel):
+    """订阅源扫描配置"""
+
+    source_id: str = Field(default="", description="订阅源 ID")
+    source_type: str = Field(default="favorite_folder", description="订阅源类型 (favorite_folder/ugc_season)")
+    title: str = Field(default="", description="订阅源名称")
+    max_videos: int = Field(default=0, ge=0, le=999, description="最大扫描视频数，0表示不扫描")
+
+
+class SubscriptionScanConfig(BaseModel):
+    """订阅源自定义扫描配置"""
+
+    enabled: bool = Field(default=False, description="是否启用订阅源自定义扫描")
+    source_list: List[SubscriptionSourceScanConfig] = Field(
+        default_factory=list, description="订阅源扫描列表"
+    )
+
+
 class AutoDownloadSettings(BaseModel):
     """自动下载设置"""
 
     enabled: bool = Field(default=False, description="启用自动下载")
-    trigger_type: str = Field(
-        default="interval", description="触发方式 (interval/cron)"
-    )
+    # 旧版全局触发方式（保留兼容）
+    trigger_type: str = Field(default="interval", description="触发方式 (interval/cron)")
     scan_interval: int = Field(default=60, ge=15, description="扫描间隔（分钟）")
     cron_expression: str = Field(default="", description="Cron 表达式")
     concurrent_limit: ConcurrentLimit = Field(default_factory=ConcurrentLimit)
@@ -138,6 +155,29 @@ class AutoDownloadSettings(BaseModel):
     watch_later_max: int = Field(
         default=0, ge=0, le=999, description="稍后再看最大扫描数量，0表示不扫描"
     )
+
+    # 新版：每个来源单独配置触发方式（用于定时页 3-tab）
+    favorite_trigger_type: str = Field(default="interval", description="收藏夹触发方式 (interval/cron)")
+    favorite_scan_interval: int = Field(default=60, ge=15, description="收藏夹扫描间隔（分钟）")
+    favorite_cron_expression: str = Field(default="", description="收藏夹 Cron 表达式")
+
+    watch_later_trigger_type: str = Field(default="interval", description="稍后再看触发方式 (interval/cron)")
+    watch_later_scan_interval: int = Field(default=60, ge=15, description="稍后再看扫描间隔（分钟）")
+    watch_later_cron_expression: str = Field(default="", description="稍后再看 Cron 表达式")
+
+    subscription_trigger_type: str = Field(default="interval", description="订阅源触发方式 (interval/cron)")
+    subscription_scan_interval: int = Field(default=60, ge=15, description="订阅源扫描间隔（分钟）")
+    subscription_cron_expression: str = Field(default="", description="订阅源 Cron 表达式")
+    scan_favorite: bool = Field(default=True, description="是否扫描收藏夹")
+    scan_watch_later: bool = Field(default=True, description="是否扫描稍后再看")
+    scan_subscription: bool = Field(default=False, description="是否扫描订阅源(订阅收藏夹/合集)")
+    subscription_max_sources: int = Field(
+        default=10, ge=0, le=999, description="订阅源最大扫描数量，0表示不扫描"
+    )
+    subscription_max_videos: int = Field(
+        default=20, ge=0, le=999, description="每个订阅源最大扫描视频数，0表示不扫描"
+    )
+    subscription_scan: SubscriptionScanConfig = Field(default_factory=SubscriptionScanConfig)
     auto_start_after_scan: bool = Field(
         default=False, description="扫描完成后是否自动开始下载"
     )

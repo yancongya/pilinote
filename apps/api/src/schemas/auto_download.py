@@ -9,7 +9,7 @@ from datetime import datetime
 class ScanRecord(BaseModel):
     """扫描记录模型"""
     id: str = Field(..., description="记录 ID")
-    source_type: str = Field(..., description="视频源类型 (favorite/watch_later)")
+    source_type: str = Field(..., description="视频源类型 (favorite/watch_later/subscription)")
     source_id: str = Field(..., description="视频源 ID")
     last_scan_time: datetime = Field(..., description="最后扫描时间")
     total_videos: int = Field(..., ge=0, description="总视频数")
@@ -24,7 +24,7 @@ class ScanRecord(BaseModel):
 
 class ScanTriggerRequest(BaseModel):
     """触发扫描请求"""
-    source_type: str = Field(..., description="视频源类型 (favorite/watch_later)")
+    source_type: str = Field(..., description="视频源类型 (favorite/watch_later/subscription)")
     source_id: str = Field(default="all", description="视频源 ID，默认为 all")
 
 

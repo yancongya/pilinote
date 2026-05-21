@@ -34,6 +34,9 @@ class SchedulerService:
     def __init__(self):
         self.scheduler: Optional[BackgroundScheduler] = None
         self.auto_scan_job_id = 'auto_scan'
+        self.auto_scan_favorite_job_id = 'auto_scan_favorite'
+        self.auto_scan_watch_later_job_id = 'auto_scan_watch_later'
+        self.auto_scan_subscription_job_id = 'auto_scan_subscription'
         # 缓存当前配置，避免频繁重置
         self._current_config = {
             'enabled': False,
@@ -275,7 +278,19 @@ class SchedulerService:
                     'enabled': False,
                     'trigger_type': None,
                     'scan_interval': None,
-                    'cron_expression': None
+                    'cron_expression': None,
+                    'favorite_trigger_type': None,
+                    'favorite_scan_interval': None,
+                    'favorite_cron_expression': None,
+                    'watch_later_trigger_type': None,
+                    'watch_later_scan_interval': None,
+                    'watch_later_cron_expression': None,
+                    'subscription_trigger_type': None,
+                    'subscription_scan_interval': None,
+                    'subscription_cron_expression': None,
+                    'scan_favorite': None,
+                    'scan_watch_later': None,
+                    'scan_subscription': None,
                 }
                 
                 if auto_download:
@@ -283,6 +298,18 @@ class SchedulerService:
                     new_config['trigger_type'] = auto_download.trigger_type
                     new_config['scan_interval'] = auto_download.scan_interval
                     new_config['cron_expression'] = auto_download.cron_expression
+                    new_config['favorite_trigger_type'] = getattr(auto_download, 'favorite_trigger_type', 'interval')
+                    new_config['favorite_scan_interval'] = getattr(auto_download, 'favorite_scan_interval', auto_download.scan_interval)
+                    new_config['favorite_cron_expression'] = getattr(auto_download, 'favorite_cron_expression', '')
+                    new_config['watch_later_trigger_type'] = getattr(auto_download, 'watch_later_trigger_type', 'interval')
+                    new_config['watch_later_scan_interval'] = getattr(auto_download, 'watch_later_scan_interval', auto_download.scan_interval)
+                    new_config['watch_later_cron_expression'] = getattr(auto_download, 'watch_later_cron_expression', '')
+                    new_config['subscription_trigger_type'] = getattr(auto_download, 'subscription_trigger_type', 'interval')
+                    new_config['subscription_scan_interval'] = getattr(auto_download, 'subscription_scan_interval', auto_download.scan_interval)
+                    new_config['subscription_cron_expression'] = getattr(auto_download, 'subscription_cron_expression', '')
+                    new_config['scan_favorite'] = getattr(auto_download, 'scan_favorite', True)
+                    new_config['scan_watch_later'] = getattr(auto_download, 'scan_watch_later', True)
+                    new_config['scan_subscription'] = getattr(auto_download, 'scan_subscription', False)
                 
                 # 检查配置是否改变
                 if new_config == self._current_config:
@@ -295,34 +322,86 @@ class SchedulerService:
                 
                 if not auto_download:
                     logger.debug("[Scheduler] 未找到自动下载配置")
-                    self._remove_auto_scan_job()
+                    self._remove_auto_scan_jobs()
                     return
                 
                 # 检查是否启用自动下载
                 if not auto_download.enabled:
                     logger.debug("[Scheduler] 自动下载未启用")
-                    self._remove_auto_scan_job()
+                    self._remove_auto_scan_jobs()
                     return
-                
-                # 根据触发类型设置不同的定时任务
-                trigger_type = auto_download.trigger_type
-                
-                if trigger_type == 'interval':
-                    # 间隔执行
-                    scan_interval = auto_download.scan_interval
-                    self._schedule_interval_scan(scan_interval)
-                elif trigger_type == 'cron':
-                    # Cron 表达式
-                    cron_expression = auto_download.cron_expression
-                    self._schedule_cron_scan(cron_expression)
-                else:
-                    logger.warning(f"[Scheduler] 未知的触发类型: {trigger_type}")
-                    self._remove_auto_scan_job()
+
+                # 逐来源设置定时任务（各来源独立 interval/cron）
+                self._update_source_scan_job(
+                    source='favorite',
+                    job_id=self.auto_scan_favorite_job_id,
+                    enabled=bool(getattr(auto_download, 'scan_favorite', True)),
+                    trigger_type=getattr(auto_download, 'favorite_trigger_type', 'interval'),
+                    scan_interval=int(getattr(auto_download, 'favorite_scan_interval', auto_download.scan_interval)),
+                    cron_expression=getattr(auto_download, 'favorite_cron_expression', ''),
+                )
+
+                self._update_source_scan_job(
+                    source='watch_later',
+                    job_id=self.auto_scan_watch_later_job_id,
+                    enabled=bool(getattr(auto_download, 'scan_watch_later', True)),
+                    trigger_type=getattr(auto_download, 'watch_later_trigger_type', 'interval'),
+                    scan_interval=int(getattr(auto_download, 'watch_later_scan_interval', auto_download.scan_interval)),
+                    cron_expression=getattr(auto_download, 'watch_later_cron_expression', ''),
+                )
+
+                self._update_source_scan_job(
+                    source='subscription',
+                    job_id=self.auto_scan_subscription_job_id,
+                    enabled=bool(getattr(auto_download, 'scan_subscription', False)),
+                    trigger_type=getattr(auto_download, 'subscription_trigger_type', 'interval'),
+                    scan_interval=int(getattr(auto_download, 'subscription_scan_interval', auto_download.scan_interval)),
+                    cron_expression=getattr(auto_download, 'subscription_cron_expression', ''),
+                )
                     
         except Exception as e:
             logger.error(f"[Scheduler] 更新自动扫描配置失败: {str(e)}")
+
+    def _remove_auto_scan_jobs(self):
+        self._remove_job_by_id(self.auto_scan_job_id)
+        self._remove_job_by_id(self.auto_scan_favorite_job_id)
+        self._remove_job_by_id(self.auto_scan_watch_later_job_id)
+        self._remove_job_by_id(self.auto_scan_subscription_job_id)
+
+    def _remove_job_by_id(self, job_id: str):
+        try:
+            if self.scheduler and self.scheduler.get_job(job_id):
+                self.scheduler.remove_job(job_id)
+                logger.debug(f"[Scheduler] 已移除定时任务: {job_id}")
+        except Exception as e:
+            logger.error(f"[Scheduler] 移除定时任务失败 {job_id}: {str(e)}")
+
+    def _update_source_scan_job(
+        self,
+        source: str,
+        job_id: str,
+        enabled: bool,
+        trigger_type: str,
+        scan_interval: int,
+        cron_expression: str,
+    ):
+        if not enabled:
+            self._remove_job_by_id(job_id)
+            return
+
+        effective_trigger = trigger_type
+        effective_interval = scan_interval
+        effective_cron = cron_expression
+
+        if effective_trigger == 'interval':
+            self._schedule_interval_scan(job_id, effective_interval, lambda: asyncio.run(self.perform_auto_scan(source)))
+        elif effective_trigger == 'cron':
+            self._schedule_cron_scan(job_id, effective_cron, lambda: asyncio.run(self.perform_auto_scan(source)))
+        else:
+            logger.warning(f"[Scheduler] 未知的触发类型({source}): {effective_trigger}")
+            self._remove_job_by_id(job_id)
     
-    def _schedule_interval_scan(self, minutes: int):
+    def _schedule_interval_scan(self, job_id: str, minutes: int, fn):
         """
         设置间隔扫描任务
         
@@ -330,15 +409,14 @@ class SchedulerService:
             minutes: 扫描间隔（分钟）
         """
         try:
-            # 移除旧的定时任务
-            self._remove_auto_scan_job()
+            self._remove_job_by_id(job_id)
             
             # 添加新的定时任务（包装为同步函数）
             self.scheduler.add_job(
-                lambda: asyncio.run(self.perform_auto_scan()),
+                fn,
                 trigger=IntervalTrigger(minutes=minutes),
-                id=self.auto_scan_job_id,
-                name='自动扫描任务',
+                id=job_id,
+                name=f'自动扫描任务:{job_id}',
                 replace_existing=True
             )
             
@@ -346,7 +424,7 @@ class SchedulerService:
         except Exception as e:
             logger.error(f"[Scheduler] 设置间隔扫描任务失败: {str(e)}")
     
-    def _schedule_cron_scan(self, cron_expression: str):
+    def _schedule_cron_scan(self, job_id: str, cron_expression: str, fn):
         """
         设置 Cron 扫描任务
         
@@ -356,18 +434,17 @@ class SchedulerService:
         try:
             if not cron_expression:
                 logger.warning("[Scheduler] Cron 表达式为空，取消定时扫描")
-                self._remove_auto_scan_job()
+                self._remove_job_by_id(job_id)
                 return
             
-            # 移除旧的定时任务
-            self._remove_auto_scan_job()
+            self._remove_job_by_id(job_id)
             
             # 添加新的定时任务（包装为同步函数）
             self.scheduler.add_job(
-                lambda: asyncio.run(self.perform_auto_scan()),
+                fn,
                 trigger=CronTrigger.from_crontab(cron_expression),
-                id=self.auto_scan_job_id,
-                name='自动扫描任务',
+                id=job_id,
+                name=f'自动扫描任务:{job_id}',
                 replace_existing=True
             )
             
@@ -375,16 +452,7 @@ class SchedulerService:
         except Exception as e:
             logger.error(f"[Scheduler] 设置 Cron 扫描任务失败: {str(e)}")
     
-    def _remove_auto_scan_job(self):
-        """移除自动扫描任务"""
-        try:
-            if self.scheduler and self.scheduler.get_job(self.auto_scan_job_id):
-                self.scheduler.remove_job(self.auto_scan_job_id)
-                logger.debug("[Scheduler] 已移除自动扫描任务")
-        except Exception as e:
-            logger.error(f"[Scheduler] 移除自动扫描任务失败: {str(e)}")
-    
-    async def perform_auto_scan(self):
+    async def perform_auto_scan(self, source: str = "all"):
         """
         执行自动扫描
         
@@ -414,30 +482,48 @@ class SchedulerService:
                 
                 # 创建扫描服务
                 scan_service = ScanService(db)
-                
-                # 扫描收藏夹
-                logger.info("[Scheduler] 开始扫描收藏夹...")
-                try:
-                    result = await scan_service.trigger_scan(
-                        source_type='favorite',
-                        source_id='all',
-                        user_mid=active_user.mid
-                    )
-                    logger.info(f"[Scheduler] 收藏夹扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
-                except Exception as e:
-                    logger.error(f"[Scheduler] 收藏夹扫描失败: {str(e)}")
-                
-                # 扫描稍后再看
-                logger.info("[Scheduler] 开始扫描稍后再看...")
-                try:
-                    result = await scan_service.trigger_scan(
-                        source_type='watch_later',
-                        source_id='all',
-                        user_mid=active_user.mid
-                    )
-                    logger.info(f"[Scheduler] 稍后再看扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
-                except Exception as e:
-                    logger.error(f"[Scheduler] 稍后再看扫描失败: {str(e)}")
+
+                if source in ("all", "favorite") and auto_download.scan_favorite:
+                    logger.info("[Scheduler] 开始扫描收藏夹...")
+                    try:
+                        result = await scan_service.trigger_scan(
+                            source_type='favorite',
+                            source_id='all',
+                            user_mid=active_user.mid
+                        )
+                        logger.info(f"[Scheduler] 收藏夹扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
+                    except Exception as e:
+                        logger.error(f"[Scheduler] 收藏夹扫描失败: {str(e)}")
+                else:
+                    logger.info("[Scheduler] 已关闭收藏夹扫描，跳过")
+
+                if source in ("all", "watch_later") and auto_download.scan_watch_later:
+                    logger.info("[Scheduler] 开始扫描稍后再看...")
+                    try:
+                        result = await scan_service.trigger_scan(
+                            source_type='watch_later',
+                            source_id='all',
+                            user_mid=active_user.mid
+                        )
+                        logger.info(f"[Scheduler] 稍后再看扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
+                    except Exception as e:
+                        logger.error(f"[Scheduler] 稍后再看扫描失败: {str(e)}")
+                else:
+                    logger.info("[Scheduler] 已关闭稍后再看扫描，跳过")
+
+                if source in ("all", "subscription") and auto_download.scan_subscription:
+                    logger.info("[Scheduler] 开始扫描订阅源...")
+                    try:
+                        result = await scan_service.trigger_scan(
+                            source_type='subscription',
+                            source_id='all',
+                            user_mid=active_user.mid
+                        )
+                        logger.info(f"[Scheduler] 订阅源扫描完成: 总计={result.total}, 新视频={result.new}, 已添加={result.added}")
+                    except Exception as e:
+                        logger.error(f"[Scheduler] 订阅源扫描失败: {str(e)}")
+                else:
+                    logger.info("[Scheduler] 已关闭订阅源扫描，跳过")
                 
                 logger.info("[Scheduler] 自动扫描完成")
                 

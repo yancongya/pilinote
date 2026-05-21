@@ -1,13 +1,107 @@
-/* ===================================
-   PiliNote 设计令牌系统
-   Design Tokens System
-   =================================== */
-@import './design-tokens.css';
+/* Tailwind CSS (v4) */
+@import "tailwindcss";
+@import "./design-tokens.css";
+@config "../tailwind.config.js";
 
-/* Tailwind CSS 框架 */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Settings system components (Tailwind-managed). Keep these in the main Tailwind entry. */
+@layer components {
+  .settings-button {
+    /* A single global button primitive for settings UIs. */
+    @apply inline-flex items-center justify-center gap-2 min-h-10 px-4 py-2.5 rounded-lg border border-transparent text-sm font-semibold cursor-pointer transition-colors select-none;
+    min-width: 72px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .settings-button:active:not(:disabled) {
+    @apply scale-[0.99];
+  }
+
+  .settings-button:focus-visible {
+    @apply outline-none ring-2 ring-primary-500/40 ring-offset-2 ring-offset-transparent;
+  }
+
+  .settings-button:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  /* Primary: solid */
+  .settings-button-primary {
+    /* Subtle tinted button: no solid fill, no white text */
+    @apply text-primary-600 border-primary-300 bg-primary-50;
+  }
+
+  .settings-button-primary:hover:not(:disabled) {
+    @apply bg-primary-100 border-primary-400;
+  }
+
+  .dark .settings-button-primary {
+    @apply text-primary-200 border-primary-700 bg-slate-800;
+  }
+
+  .dark .settings-button-primary:hover:not(:disabled) {
+    @apply bg-slate-700 border-primary-600;
+  }
+
+  /* Secondary: subtle surface */
+  .settings-button-secondary {
+    @apply bg-white text-slate-800 border-slate-200;
+  }
+
+  .dark .settings-button-secondary {
+    @apply bg-slate-700 text-slate-100 border-slate-600;
+  }
+
+  .settings-button-secondary:hover:not(:disabled) {
+    @apply bg-slate-50;
+  }
+
+  .dark .settings-button-secondary:hover:not(:disabled) {
+    @apply bg-slate-600;
+  }
+
+  /* Danger: solid */
+  .settings-button-danger {
+    /* Subtle tinted danger: no solid fill, no white text */
+    @apply text-error-600 border-error-100 bg-error-50;
+  }
+
+  .settings-button-danger:hover:not(:disabled) {
+    @apply bg-error-100 border-error-100;
+  }
+
+  .dark .settings-button-danger {
+    @apply text-error-100 border-error-600 bg-slate-800;
+  }
+
+  .dark .settings-button-danger:hover:not(:disabled) {
+    @apply bg-slate-700 border-error-500;
+  }
+
+  /* Modal footer: slightly denser sizing, but keep the same variants */
+  .settings-modal-footer .settings-button {
+    @apply min-h-9 px-3 py-2 rounded-lg text-[13px] font-semibold;
+    min-width: 76px;
+  }
+
+  /* Footer layout: support both 2-button (Cancel/Save) and 3-button (Reset/Cancel/Save) patterns */
+  .settings-modal-footer {
+    @apply justify-between;
+  }
+
+  .settings-prompt-footer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .settings-prompt-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
 
 * {
   margin: 0;
@@ -7425,6 +7519,72 @@ html body #root .home-container .home-content .content-wrapper #history-panel {
   background: rgba(255, 255, 255, 0.5);
 }
 
+/* 简版 segmented（用于面板内部，不带 track 组件） */
+.settings-segmented {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  background: var(--color-bg-secondary);
+  border-radius: 10px;
+}
+
+.settings-segmented-item {
+  flex: 1;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-segmented-item:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.settings-segmented-item.is-active {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.settings-segmented-item-label {
+  line-height: 1;
+}
+
+.settings-segmented-item-spacer {
+  flex: 1;
+}
+
+.settings-segmented-item-icon {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-segmented-item.is-active .settings-segmented-item-icon {
+  color: var(--color-text-primary);
+}
+
+.settings-segmented-item-icon:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--color-text-primary);
+}
+
+.settings-segmented-item-icon:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .settings-segment-button.active {
   background: var(--color-bg-primary);
   color: var(--color-primary-600);
@@ -10589,13 +10749,15 @@ html {
   border-color: var(--color-primary-600);
 }
 
+/* Legacy dark-mode overrides for `.settings-button` caused all buttons to become
+   solid-blue. Buttons are now themed via `.settings-button-*` variants. */
 .dark .settings-button {
-  background: var(--color-primary-600);
-  color: var(--color-white);
+  background: transparent;
+  color: inherit;
 }
 
 .dark .settings-button:hover {
-  background: var(--color-primary-700);
+  background: transparent;
 }
 
 .dark .settings-button.secondary {

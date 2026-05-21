@@ -275,6 +275,19 @@ class SettingsService:
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse custom_scan setting: {e}")
 
+        # 提取 subscription_scan 配置
+        subscription_scan_setting = all_settings.get("auto_download.subscription_scan")
+        subscription_scan_dict = {"enabled": False, "source_list": []}
+        if subscription_scan_setting:
+            try:
+                subscription_scan_data = json.loads(subscription_scan_setting.value)
+                subscription_scan_dict = {
+                    "enabled": subscription_scan_data.get("enabled", False),
+                    "source_list": subscription_scan_data.get("source_list", []),
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse subscription_scan setting: {e}")
+
         auto_download_settings = AutoDownloadSettings(
             enabled=self._get_setting_value(
                 all_settings, "auto_download.enabled", False
@@ -295,6 +308,49 @@ class SettingsService:
                     all_settings, "auto_download.watch_later_max", 0
                 )
             ),
+            favorite_trigger_type=self._get_setting_value(
+                all_settings, "auto_download.favorite_trigger_type", "interval"
+            ),
+            favorite_scan_interval=int(
+                self._get_setting_value(all_settings, "auto_download.favorite_scan_interval", 60)
+            ),
+            favorite_cron_expression=self._get_setting_value(
+                all_settings, "auto_download.favorite_cron_expression", ""
+            ),
+            watch_later_trigger_type=self._get_setting_value(
+                all_settings, "auto_download.watch_later_trigger_type", "interval"
+            ),
+            watch_later_scan_interval=int(
+                self._get_setting_value(all_settings, "auto_download.watch_later_scan_interval", 60)
+            ),
+            watch_later_cron_expression=self._get_setting_value(
+                all_settings, "auto_download.watch_later_cron_expression", ""
+            ),
+            subscription_trigger_type=self._get_setting_value(
+                all_settings, "auto_download.subscription_trigger_type", "interval"
+            ),
+            subscription_scan_interval=int(
+                self._get_setting_value(all_settings, "auto_download.subscription_scan_interval", 60)
+            ),
+            subscription_cron_expression=self._get_setting_value(
+                all_settings, "auto_download.subscription_cron_expression", ""
+            ),
+            scan_favorite=bool(
+                self._get_setting_value(all_settings, "auto_download.scan_favorite", True)
+            ),
+            scan_watch_later=bool(
+                self._get_setting_value(all_settings, "auto_download.scan_watch_later", True)
+            ),
+            scan_subscription=bool(
+                self._get_setting_value(all_settings, "auto_download.scan_subscription", False)
+            ),
+            subscription_max_sources=int(
+                self._get_setting_value(all_settings, "auto_download.subscription_max_sources", 10)
+            ),
+            subscription_max_videos=int(
+                self._get_setting_value(all_settings, "auto_download.subscription_max_videos", 20)
+            ),
+            subscription_scan=subscription_scan_dict,
             auto_start_after_scan=self._get_setting_value(
                 all_settings, "auto_download.auto_start_after_scan", False
             ),
@@ -724,6 +780,21 @@ class SettingsService:
                 "auto_download.concurrent_limit.video": "3",
                 "auto_download.concurrent_limit.page": "3",
                 "auto_download.watch_later_max": "0",
+                "auto_download.favorite_trigger_type": "interval",
+                "auto_download.favorite_scan_interval": "60",
+                "auto_download.favorite_cron_expression": "",
+                "auto_download.watch_later_trigger_type": "interval",
+                "auto_download.watch_later_scan_interval": "60",
+                "auto_download.watch_later_cron_expression": "",
+                "auto_download.subscription_trigger_type": "interval",
+                "auto_download.subscription_scan_interval": "60",
+                "auto_download.subscription_cron_expression": "",
+                "auto_download.scan_favorite": "true",
+                "auto_download.scan_watch_later": "true",
+                "auto_download.scan_subscription": "false",
+                "auto_download.subscription_max_sources": "10",
+                "auto_download.subscription_max_videos": "20",
+                "auto_download.subscription_scan": json.dumps({"enabled": False, "source_list": []}),
                 "auto_download.auto_start_after_scan": "false",
                 "auto_download.storage_threshold_gb": "20",
             }

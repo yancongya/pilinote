@@ -8,6 +8,7 @@ interface ModalProps {
   title?: string
   children: React.ReactNode
   footer?: React.ReactNode
+  footerAlign?: 'end' | 'center' | 'stretch'
   size?: 'sm' | 'md' | 'lg'
   closeOnOverlayClick?: boolean
   showCloseButton?: boolean
@@ -21,6 +22,7 @@ export default function Modal({
   title,
   children,
   footer,
+  footerAlign = 'end',
   size = 'md',
   closeOnOverlayClick = true,
   showCloseButton = true,
@@ -129,9 +131,9 @@ export default function Modal({
       >
         {/* 头部 */}
         {(title || showCloseButton) && (
-          <div className="settings-modal-header flex items-center justify-between p-5 border-b dark:border-slate-700 border-slate-200 flex-shrink-0">
+          <div className="settings-modal-header flex items-center justify-between px-5 py-4 border-b dark:border-slate-700 border-slate-200 flex-shrink-0">
             {title && (
-              <h3 id="modal-title" className="settings-modal-title text-lg font-bold dark:text-slate-100 text-slate-800 leading-tight">{title}</h3>
+              <h3 id="modal-title" className="settings-modal-title text-[17px] font-bold dark:text-slate-100 text-slate-800 leading-tight">{title}</h3>
             )}
             {showCloseButton && (
               <button
@@ -154,7 +156,14 @@ export default function Modal({
 
         {/* 底部 */}
         {footer && (
-          <div className="settings-modal-footer flex items-center gap-3 p-4 border-t dark:border-slate-700 border-slate-200 justify-end flex-shrink-0 w-full">
+          <div
+            className={[
+              "settings-modal-footer flex items-center gap-3 p-4 border-t dark:border-slate-700 border-slate-200 flex-shrink-0 w-full",
+              footerAlign === 'end' ? 'justify-end' : '',
+              footerAlign === 'center' ? 'justify-center' : '',
+              footerAlign === 'stretch' ? 'justify-stretch' : '',
+            ].filter(Boolean).join(' ')}
+          >
             {footer}
           </div>
         )}

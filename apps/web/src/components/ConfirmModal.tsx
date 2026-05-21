@@ -29,44 +29,37 @@ export default function ConfirmModal({
     }
   }
 
-  const getButtonClass = (variant: string, disabled: boolean) => {
-    const baseClass = "px-5 py-3 border-none rounded-xl text-sm font-semibold cursor-pointer transition-all duration-150 ease-out min-h-[44px] min-w-[44px] touch-manipulation"
-    const disabledClass = disabled ? "opacity-50 cursor-not-allowed" : ""
-    
-    if (variant === 'primary') {
-      return `${baseClass} bg-primary-600 text-white shadow-primary ${!disabled ? 'hover:bg-primary-700 hover:shadow-primary-hover' : ''} ${disabledClass}`
-    } else if (variant === 'danger') {
-      return `${baseClass} bg-error-600 text-white shadow-error ${!disabled ? 'hover:bg-error-700 hover:shadow-error-hover' : ''} ${disabledClass}`
-    } else {
-      return `${baseClass} dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600 dark:hover:text-secondary-100 bg-secondary-100 text-secondary-600 ${!disabled ? 'hover:bg-secondary-200 hover:text-secondary-800' : ''} ${disabledClass}`
-    }
-  }
+  const confirmClass =
+    confirmVariant === 'danger'
+      ? 'settings-button settings-button-danger settings-confirm-danger'
+      : 'settings-button settings-button-primary settings-confirm-primary'
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      footerAlign="stretch"
       footer={
-        <>
+        <div className="settings-confirm-actions">
           <button
-            className={getButtonClass('cancel', loading)}
+            className="settings-button settings-button-secondary settings-confirm-secondary"
             onClick={onClose}
             disabled={loading}
           >
             {cancelText}
           </button>
           <button
-            className={getButtonClass(confirmVariant, loading)}
+            className={confirmClass}
             onClick={handleConfirm}
             disabled={loading}
           >
             {loading ? '处理中...' : confirmText}
           </button>
-        </>
+        </div>
       }
     >
-      <p className="m-0 text-base dark:text-slate-300 text-slate-600 leading-relaxed">{message}</p>
+      <p className="m-0 text-[15px] dark:text-slate-300 text-slate-600 leading-relaxed">{message}</p>
     </Modal>
   )
 }

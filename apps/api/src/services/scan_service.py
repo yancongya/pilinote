@@ -494,6 +494,119 @@ class ScanService:
                         return [], []
                     
                     return self._transform_watchlater_to_videos(video_list), []
+
+            elif source_type == "subscription":
+                # 获取订阅源（订阅收藏夹/订阅合集）的视频
+                logger.info("开始获取订阅源列表")
+                if not user_mid:
+                    logger.warning("subscription 扫描需要 user_mid，跳过")
+                    return [], []
+
+                # 从设置读取订阅扫描限制（0 表示不扫描）
+                subscription_max_sources = 10
+                subscription_max_videos = 20
+                subscription_scan_enabled = False
+                subscription_source_map: dict[str, int] = {}
+                try:
+                    from src.services.settings_service import SettingsService
+
+                    settings_service = SettingsService(self.db)
+                    settings = settings_service.get_settings()
+                    auto_download = getattr(settings, "auto_download", None)
+                    if auto_download:
+                        subscription_max_sources = int(getattr(auto_download, "subscription_max_sources", 10) or 0)
+                        subscription_max_videos = int(getattr(auto_download, "subscription_max_videos", 20) or 0)
+                        subscription_scan = getattr(auto_download, "subscription_scan", None) or {}
+                        source_list = getattr(subscription_scan, "source_list", None) if hasattr(subscription_scan, "source_list") else subscription_scan.get("source_list", [])
+                        if isinstance(source_list, list):
+                            subscription_scan_enabled = len(source_list) > 0
+                            for item in source_list:
+                                if not isinstance(item, dict):
+                                    continue
+                                sid = str(item.get("source_id") or "")
+                                stype = str(item.get("source_type") or "")
+                                max_v = int(item.get("max_videos") or 0)
+                                if sid and stype:
+                                    subscription_source_map[f"{stype}:{sid}"] = max_v
+                except Exception as e:
+                    logger.warning(f"读取订阅扫描限制失败，使用默认值: {e}")
+
+                if subscription_max_sources == 0 or subscription_max_videos == 0:
+                    logger.info("订阅源扫描数量限制为0，跳过扫描")
+                    return [], []
+
+                # B 站“我的订阅”接口：当前实现统一走 collected_folders，返回 list（包含订阅收藏夹/订阅合集）
+                sources_result = await service.get_collected_folders(
+                    decoded_sessdata,
+                    user_mid,
+                    page=1,
+                    page_size=min(subscription_max_sources, 100) if subscription_max_sources > 0 else 20,
+                )
+                if not sources_result.get("success"):
+                    logger.error(f"订阅源列表获取失败: {sources_result}")
+                    return [], []
+
+                raw_sources = (sources_result.get("data") or {}).get("list") or []
+                if subscription_max_sources and subscription_max_sources < len(raw_sources):
+                    raw_sources = raw_sources[:subscription_max_sources]
+
+                videos: list[ScanVideoInfo] = []
+
+                for source in raw_sources:
+                    raw_type = source.get("type")
+                    source_id_value = source.get("id") or source.get("fid") or source.get("media_id")
+                    if not source_id_value:
+                        continue
+
+                    source_type = "ugc_season" if raw_type == 21 else "favorite_folder"
+                    source_key = f"{source_type}:{int(source_id_value)}"
+
+                    # 启用订阅源自定义扫描时：只扫描列表里 max_videos > 0 的订阅源
+                    if subscription_scan_enabled:
+                        if source_key not in subscription_source_map:
+                            continue
+                        configured_max = int(subscription_source_map.get(source_key) or 0)
+                        if configured_max <= 0:
+                            continue
+                        per_source_max_videos = configured_max
+                    else:
+                        per_source_max_videos = subscription_max_videos
+
+                    # raw_type=21: ugc_season（订阅合集/系列）
+                    try:
+                        if raw_type == 21:
+                            detail_result = await service.get_subscription_season_detail(
+                                decoded_sessdata,
+                                int(source_id_value),
+                                page=1,
+                                page_size=min(per_source_max_videos, 100),
+                            )
+                            if not detail_result.get("success"):
+                                logger.warning(f"订阅合集详情获取失败: {detail_result.get('message')}")
+                                continue
+                            media_list = (detail_result.get("data") or {}).get("medias", []) or []
+                        else:
+                            detail_result = await service.get_folder_detail(
+                                decoded_sessdata,
+                                int(source_id_value),
+                                page=1,
+                                page_size=min(per_source_max_videos, 100),
+                            )
+                            if not detail_result.get("success"):
+                                logger.warning(f"订阅收藏夹详情获取失败: {detail_result.get('message')}")
+                                continue
+                            media_list = (detail_result.get("data") or {}).get("medias", []) or []
+
+                        if per_source_max_videos and per_source_max_videos < len(media_list):
+                            media_list = media_list[:per_source_max_videos]
+
+                        videos.extend(self._transform_to_scan_videos(media_list))
+                    except Exception as e:
+                        logger.error(f"获取订阅源详情异常: {e}")
+                        continue
+
+                logger.info(f"订阅源总共收集到 {len(videos)} 个视频")
+                return videos, []
             
             return [], []
         except Exception as e:
