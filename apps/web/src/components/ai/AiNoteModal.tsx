@@ -1016,6 +1016,26 @@ export function AiNoteModal({
   }, [isOpen])
 
   const activeProvider = settings?.llm?.provider || 'openai'
+  const pageOutputModel = (settings as any)?.ai_note?.outputs?.page?.llm?.model || ''
+  const pageOutputProvider = (settings as any)?.ai_note?.outputs?.page?.llm?.provider || ''
+  const imageOutputModel = (settings as any)?.ai_note?.outputs?.image?.llm?.model || ''
+  const imageOutputProvider = (settings as any)?.ai_note?.outputs?.image?.llm?.provider || ''
+  const canEnablePageOutput = Boolean(pageOutputProvider && pageOutputModel)
+  const canEnableImageOutput = Boolean(imageOutputProvider && imageOutputModel)
+
+  useEffect(() => {
+    if (!canEnablePageOutput && enablePageOutput) {
+      setEnablePageOutput(false)
+      try { window.localStorage.setItem('pilinote.aiNote.enablePageOutput', '0') } catch {}
+    }
+  }, [canEnablePageOutput, enablePageOutput])
+
+  useEffect(() => {
+    if (!canEnableImageOutput && enableImageOutput) {
+      setEnableImageOutput(false)
+      try { window.localStorage.setItem('pilinote.aiNote.enableImageOutput', '0') } catch {}
+    }
+  }, [canEnableImageOutput, enableImageOutput])
 
   const providerModels = useMemo(() => {
     return runtimeState.testedModels[activeProvider] || []
@@ -2002,7 +2022,7 @@ export function AiNoteModal({
                 <input
                   type="checkbox"
                   checked={enablePageOutput}
-                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text'}
+                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text' || !canEnablePageOutput}
                   onChange={(e) => {
                     const enabled = e.target.checked
                     setEnablePageOutput(enabled)
@@ -2019,7 +2039,7 @@ export function AiNoteModal({
                 <input
                   type="checkbox"
                   checked={enableImageOutput}
-                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text'}
+                  disabled={isAnalyzing || effectivePipelineModeOverride === 'image_text' || !canEnableImageOutput}
                   onChange={(e) => {
                     const enabled = e.target.checked
                     setEnableImageOutput(enabled)

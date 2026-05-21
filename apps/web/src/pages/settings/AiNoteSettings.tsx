@@ -251,6 +251,9 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       if (unifiedLlm) {
         const currentProviderId = unifiedLlm.provider || 'openai'
         const currentProvider = providerMap.get(currentProviderId) || providerMap.get('openai') || DEFAULT_PROVIDERS[0]
+        const pageOutput = (settings as any)?.ai_note?.outputs?.page
+        const imageOutput = (settings as any)?.ai_note?.outputs?.image
+        const getMaybeString = (value: any): string | undefined => (typeof value === 'string' ? value : undefined)
         setLocalSettings({
           llm: {
             provider: currentProviderId,
@@ -269,23 +272,24 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           },
           outputs: {
             page: {
-              enabled: Boolean((settings as any)?.ai_note?.outputs?.page?.enabled),
+              enabled: Boolean(pageOutput?.enabled),
               llm: {
-                provider: ((settings as any)?.ai_note?.outputs?.page?.llm?.provider || currentProviderId),
-                base_url: ((settings as any)?.ai_note?.outputs?.page?.llm?.base_url || unifiedLlm.base_url || currentProvider.baseUrl),
-                model: ((settings as any)?.ai_note?.outputs?.page?.llm?.model || unifiedLlm.model || currentProvider.models[0] || 'gpt-4o-mini'),
-                api_key: ((settings as any)?.ai_note?.outputs?.page?.llm?.api_key || unifiedLlm.api_key || ''),
-                temperature: ((settings as any)?.ai_note?.outputs?.page?.llm?.temperature ?? unifiedLlm.temperature ?? 0.7),
+                // Allow leaving these empty (disabled) without falling back to the note model.
+                provider: getMaybeString(pageOutput?.llm?.provider) ?? '',
+                base_url: getMaybeString(pageOutput?.llm?.base_url) ?? '',
+                model: getMaybeString(pageOutput?.llm?.model) ?? '',
+                api_key: getMaybeString(pageOutput?.llm?.api_key) ?? '',
+                temperature: (pageOutput?.llm?.temperature ?? unifiedLlm.temperature ?? 0.7),
               },
             },
             image: {
-              enabled: Boolean((settings as any)?.ai_note?.outputs?.image?.enabled),
+              enabled: Boolean(imageOutput?.enabled),
               llm: {
-                provider: ((settings as any)?.ai_note?.outputs?.image?.llm?.provider || currentProviderId),
-                base_url: ((settings as any)?.ai_note?.outputs?.image?.llm?.base_url || unifiedLlm.base_url || currentProvider.baseUrl),
-                model: ((settings as any)?.ai_note?.outputs?.image?.llm?.model || unifiedLlm.model || currentProvider.models[0] || 'gpt-4o-mini'),
-                api_key: ((settings as any)?.ai_note?.outputs?.image?.llm?.api_key || unifiedLlm.api_key || ''),
-                temperature: ((settings as any)?.ai_note?.outputs?.image?.llm?.temperature ?? unifiedLlm.temperature ?? 0.7),
+                provider: getMaybeString(imageOutput?.llm?.provider) ?? '',
+                base_url: getMaybeString(imageOutput?.llm?.base_url) ?? '',
+                model: getMaybeString(imageOutput?.llm?.model) ?? '',
+                api_key: getMaybeString(imageOutput?.llm?.api_key) ?? '',
+                temperature: (imageOutput?.llm?.temperature ?? unifiedLlm.temperature ?? 0.7),
               },
             },
           },
@@ -1384,11 +1388,11 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                   <SettingsField label={`${label}模型`} hint={modelOptions.length ? '仅展示已测试通过的模型' : '暂无已测试通过的模型，请先在上方测试模型'} hintInline>
                     <select
                       className="settings-select"
-                      value={modelOptions.some(o => o.value === currentValue) ? currentValue : (modelOptions[0]?.value || '')}
+                      value={modelOptions.some(o => o.value === currentValue) ? currentValue : ''}
                       onChange={(e) => {
                         const raw = e.target.value || ''
-                        const [provider, model] = raw.split('::')
-                        const providerCfg = providers.find(p => p.id === provider)
+                        const [provider, model] = raw ? raw.split('::') : ['', '']
+                        const providerCfg = provider ? providers.find(p => p.id === provider) : undefined
                         setLocalSettings(prev => ({
                           ...prev,
                           outputs: {
@@ -1397,10 +1401,10 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                               ...prev.outputs[outputKey],
                               llm: {
                                 ...prev.outputs[outputKey].llm,
-                                provider: provider || prev.outputs[outputKey].llm.provider,
-                                model: model || prev.outputs[outputKey].llm.model,
-                                base_url: providerCfg?.baseUrl || prev.outputs[outputKey].llm.base_url,
-                                api_key: providerCfg?.apiKey || prev.outputs[outputKey].llm.api_key,
+                                provider: provider || '',
+                                model: model || '',
+                                base_url: providerCfg?.baseUrl || '',
+                                api_key: providerCfg?.apiKey || '',
                               },
                             },
                           },
@@ -1408,9 +1412,14 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                       }}
                       disabled={!modelOptions.length}
                     >
-                      {modelOptions.length ? modelOptions.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      )) : (
+                      {modelOptions.length ? (
+                        <>
+                          <option value="">不启用（留空）</option>
+                          {modelOptions.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </>
+                      ) : (
                         <option value="">请先测试模型</option>
                       )}
                     </select>
