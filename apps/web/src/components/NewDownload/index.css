@@ -4672,10 +4672,8 @@
 
 .library-folder-tag {
   padding: 2px 8px;
-  background: var(--color-bg-tertiary);
   border-radius: 4px;
   font-size: 11px;
-  color: var(--color-text-primary);
   white-space: nowrap;
 }
 
@@ -4686,6 +4684,92 @@
   font-size: 11px;
   color: var(--color-text-secondary);
   font-weight: 500;
+}
+
+/* 标签过滤栏 */
+.library-tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 4px;
+}
+
+.library-tag-filter-btn {
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, var(--tag-color) 30%, transparent);
+  border-radius: 14px;
+  background: var(--tag-bg);
+  color: var(--tag-color);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.library-tag-filter-btn:hover {
+  filter: brightness(0.9);
+}
+
+.library-tag-filter-btn.active {
+  background: var(--tag-color);
+  color: #fff;
+  border-color: var(--tag-color);
+}
+
+.library-tag-filter-clear {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 4px;
+  transition: color 0.15s;
+}
+
+.library-tag-filter-clear:hover {
+  color: var(--color-danger-500);
+}
+
+.library-tag-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(0,0,0,0.08);
+}
+
+.library-tag-filter-btn.active .library-tag-filter-count {
+  background: rgba(255,255,255,0.25);
+}
+
+.library-tag-filter-eye {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.library-tag-filter-eye:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-tertiary);
 }
 
 .library-folder-videos {

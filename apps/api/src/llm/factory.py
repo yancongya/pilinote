@@ -15,6 +15,8 @@ class LLMClientFactory:
         LLMProvider.CLAUDE: ClaudeClient,
         LLMProvider.DEEPSEEK: DeepSeekClient,
         LLMProvider.OLLAMA: OllamaClient,
+        # Custom providers are treated as OpenAI-compatible endpoints configured via base_url/api_key.
+        LLMProvider.CUSTOM: OpenAIClient,
     }
 
     @staticmethod
@@ -37,6 +39,9 @@ class LLMClientFactory:
                 api_key = os.getenv("ANTHROPIC_API_KEY")
             elif provider == LLMProvider.DEEPSEEK:
                 api_key = os.getenv("DEEPSEEK_API_KEY")
+            elif provider == LLMProvider.CUSTOM:
+                # Custom providers are configured per-provider in settings; don't silently fall back to OPENAI_API_KEY.
+                api_key = os.getenv("CUSTOM_API_KEY")
         # Ollama 不需要 api_key
 
         return client_class(api_key=api_key, base_url=base_url, **kwargs)

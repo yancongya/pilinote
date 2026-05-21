@@ -58,6 +58,10 @@ const setNestedValue = (obj: Record<string, any>, path: string[], value: any) =>
   cursor[path[path.length - 1]] = value
 }
 
+const IMAGE_TEXT_COMBINED_KEY = 'base_image_text.prompt'
+const FIXED_PREFIX_KEY = 'base.fixed_prefix'
+const COMBINED_DELIMITER = '\n\n---\n\n'
+
 export default function PromptEditorModal({
   isOpen,
   onClose,
@@ -102,11 +106,38 @@ export default function PromptEditorModal({
         setTemplates(currentTemplates)
         setDefaultTemplates(baseTemplates)
 
-        const currentValue = getNestedValue(currentTemplates, activeMeta.path)
-        if (activeMeta.kind === 'lines') {
-          setDraft(Array.isArray(currentValue) ? currentValue.join('\n') : '')
+        if (activeMeta.key === FIXED_PREFIX_KEY) {
+          const fixed = getNestedValue(currentTemplates, ['base', 'fixed_prefix'])
+          const fixedText = typeof fixed === 'string' ? fixed : ''
+          if (fixedText.trim()) {
+            setDraft(fixedText)
+          } else {
+            // Migration fallback: compose legacy templates into a single fixed prefix prompt.
+            const sys = getNestedValue(currentTemplates, ['base', 'system'])
+            const fin = getNestedValue(currentTemplates, ['base', 'final'])
+            const sum = getNestedValue(currentTemplates, ['layers', 'formats', 'summary'])
+            const imgSys = getNestedValue(currentTemplates, ['base_image_text', 'system'])
+            const imgFinal = getNestedValue(currentTemplates, ['base_image_text', 'final'])
+            const systemText = typeof sys === 'string' ? sys : ''
+            const finalText = Array.isArray(fin) ? fin.join('\n') : (typeof fin === 'string' ? fin : '')
+            const summaryText = typeof sum === 'string' ? sum : ''
+            const imgSystemText = typeof imgSys === 'string' ? imgSys : ''
+            const imgFinalText = Array.isArray(imgFinal) ? imgFinal.join('\n') : (typeof imgFinal === 'string' ? imgFinal : '')
+            setDraft([systemText.trim(), finalText.trim(), summaryText.trim(), [imgSystemText.trim(), imgFinalText.trim()].filter(Boolean).join(COMBINED_DELIMITER)].filter(Boolean).join(COMBINED_DELIMITER))
+          }
+        } else if (activeMeta.key === IMAGE_TEXT_COMBINED_KEY) {
+          const curSystem = getNestedValue(currentTemplates, ['base_image_text', 'system'])
+          const curFinal = getNestedValue(currentTemplates, ['base_image_text', 'final'])
+          const systemText = typeof curSystem === 'string' ? curSystem : ''
+          const finalText = Array.isArray(curFinal) ? curFinal.join('\n') : (typeof curFinal === 'string' ? curFinal : '')
+          setDraft([systemText.trim(), finalText.trim()].filter(Boolean).join(COMBINED_DELIMITER))
         } else {
-          setDraft(typeof currentValue === 'string' ? currentValue : '')
+          const currentValue = getNestedValue(currentTemplates, activeMeta.path)
+          if (activeMeta.kind === 'lines') {
+            setDraft(Array.isArray(currentValue) ? currentValue.join('\n') : '')
+          } else {
+            setDraft(typeof currentValue === 'string' ? currentValue : '')
+          }
         }
       } catch (error) {
         showToast(`加载模板失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error')
@@ -119,12 +150,40 @@ export default function PromptEditorModal({
 
   const resetCurrent = () => {
     if (!activeMeta) return
+    if (activeMeta.key === FIXED_PREFIX_KEY) {
+      const fixed = getNestedValue(defaultTemplates, ['base', 'fixed_prefix'])
+      const fixedText = typeof fixed === 'string' ? fixed : ''
+      if (fixedText.trim()) {
+        setDraft(fixedText)
+        return
+      }
+      const defSys = getNestedValue(defaultTemplates, ['base', 'system'])
+      const defFin = getNestedValue(defaultTemplates, ['base', 'final'])
+      const defSum = getNestedValue(defaultTemplates, ['layers', 'formats', 'summary'])
+      const defImgSys = getNestedValue(defaultTemplates, ['base_image_text', 'system'])
+      const defImgFinal = getNestedValue(defaultTemplates, ['base_image_text', 'final'])
+      const systemText = typeof defSys === 'string' ? defSys : ''
+      const finalText = Array.isArray(defFin) ? defFin.join('\n') : (typeof defFin === 'string' ? defFin : '')
+      const summaryText = typeof defSum === 'string' ? defSum : ''
+      const imgSystemText = typeof defImgSys === 'string' ? defImgSys : ''
+      const imgFinalText = Array.isArray(defImgFinal) ? defImgFinal.join('\n') : (typeof defImgFinal === 'string' ? defImgFinal : '')
+      setDraft([systemText.trim(), finalText.trim(), summaryText.trim(), [imgSystemText.trim(), imgFinalText.trim()].filter(Boolean).join(COMBINED_DELIMITER)].filter(Boolean).join(COMBINED_DELIMITER))
+      return
+    }
+
+    if (activeMeta.key === IMAGE_TEXT_COMBINED_KEY) {
+      const defSystem = getNestedValue(defaultTemplates, ['base_image_text', 'system'])
+      const defFinal = getNestedValue(defaultTemplates, ['base_image_text', 'final'])
+      const systemText = typeof defSystem === 'string' ? defSystem : ''
+      const finalText = Array.isArray(defFinal) ? defFinal.join('\n') : (typeof defFinal === 'string' ? defFinal : '')
+      setDraft([systemText.trim(), finalText.trim()].filter(Boolean).join(COMBINED_DELIMITER))
+      return
+    }
+
     const currentDefault = getNestedValue(defaultTemplates, activeMeta.path)
-    setDraft(
-      activeMeta.kind === 'lines'
-        ? (Array.isArray(currentDefault) ? currentDefault.join('\n') : '')
-        : (typeof currentDefault === 'string' ? currentDefault : ''),
-    )
+    setDraft(activeMeta.kind === 'lines'
+      ? (Array.isArray(currentDefault) ? currentDefault.join('\n') : '')
+      : (typeof currentDefault === 'string' ? currentDefault : ''))
   }
 
   const handleSave = async () => {
@@ -132,10 +191,24 @@ export default function PromptEditorModal({
     setSaving(true)
     try {
       const nextTemplates = deepClone(templates)
-      const value = activeMeta.kind === 'lines'
-        ? draft.split('\n').map(line => line.trim()).filter(Boolean)
-        : draft.trim()
-      setNestedValue(nextTemplates, activeMeta.path, value)
+      if (activeMeta.key === FIXED_PREFIX_KEY) {
+        setNestedValue(nextTemplates, ['base', 'fixed_prefix'], draft.trim())
+      } else if (activeMeta.key === IMAGE_TEXT_COMBINED_KEY) {
+        const parts = (draft || '').split(/\n\s*---\s*\n/)
+        const systemPart = (parts[0] || '').trim()
+        const finalPart = (parts.slice(1).join('\n---\n') || '').trim()
+        setNestedValue(nextTemplates, ['base_image_text', 'system'], systemPart)
+        setNestedValue(
+          nextTemplates,
+          ['base_image_text', 'final'],
+          finalPart ? finalPart.split('\n').map(line => line.trim()).filter(Boolean) : [],
+        )
+      } else {
+        const value = activeMeta.kind === 'lines'
+          ? draft.split('\n').map(line => line.trim()).filter(Boolean)
+          : draft.trim()
+        setNestedValue(nextTemplates, activeMeta.path, value)
+      }
       await aiPromptTemplatesService.saveTemplates(nextTemplates)
       setTemplates(nextTemplates)
       onSaved?.(nextTemplates)
@@ -334,4 +407,3 @@ export default function PromptEditorModal({
     </Modal>
   )
 }
-

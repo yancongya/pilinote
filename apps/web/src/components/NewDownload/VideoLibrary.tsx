@@ -546,9 +546,12 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
             {task.meta?.tags && task.meta.tags.length > 0 && (
               <div className="library-folder-tags">
                 <Hash size={12} />
-                {task.meta.tags.slice(0, 3).map((tag: string, index: number) => (
-                  <span key={index} className="library-folder-tag">{tag}</span>
-                ))}
+                {task.meta.tags.slice(0, 3).map((tag: string, index: number) => {
+                  const c = TAG_PALETTE[index % TAG_PALETTE.length]
+                  return (
+                    <span key={index} className="library-folder-tag" style={{ background: c.bg, color: c.color }}>{tag}</span>
+                  )
+                })}
                 {task.meta.tags.length > 3 && (
                   <span className="library-folder-tag-more">+{task.meta.tags.length - 3}</span>
                 )}
@@ -704,6 +707,17 @@ function LibraryCard({ task, isExpanded, onToggle, getLocalImageUrl, formatFileS
   )
 }
 
+const TAG_PALETTE = [
+  { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
+  { bg: 'rgba(34,197,94,0.12)', color: '#22c55e' },
+  { bg: 'rgba(168,85,247,0.12)', color: '#a855f7' },
+  { bg: 'rgba(249,115,22,0.12)', color: '#f97316' },
+  { bg: 'rgba(236,72,153,0.12)', color: '#ec4899' },
+  { bg: 'rgba(6,182,212,0.12)', color: '#06b6d4' },
+  { bg: 'rgba(132,204,22,0.12)', color: '#84cc16' },
+  { bg: 'rgba(20,184,166,0.12)', color: '#14b8a6' },
+]
+
 function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
   task: Task
   getLocalImageUrl: (path: string) => string
@@ -787,15 +801,6 @@ function AlbumCard({ task, getLocalImageUrl, formatFileSize }: {
     }
     return task.meta?.premiered || ''
   }
-
-  const TAG_PALETTE = [
-    { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
-    { bg: 'rgba(34,197,94,0.12)', color: '#22c55e' },
-    { bg: 'rgba(168,85,247,0.12)', color: '#a855f7' },
-    { bg: 'rgba(249,115,22,0.12)', color: '#f97316' },
-    { bg: 'rgba(236,72,153,0.12)', color: '#ec4899' },
-    { bg: 'rgba(6,182,212,0.12)', color: '#06b6d4' },
-  ]
 
   const tags = Array.isArray((task.meta as Record<string, any>)?.tags)
     ? (task.meta as Record<string, any>).tags.slice(0, 3) as string[]
@@ -921,6 +926,30 @@ export default function VideoLibrary() {
   const [nfoUpdateProgress, setNfoUpdateProgress] = useState({ success: 0, failed: 0, total: 0 })
   const [viewMode, setViewMode] = useState<'detailed' | 'album'>('detailed')
   const [grouped, setGrouped] = useState(false)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [showAllTags, setShowAllTags] = useState(false)
+
+  // 全部标签列表（按出现次数降序排列）
+  const allTags = useMemo(() => {
+    const countMap = new Map<string, number>()
+    for (const task of tasks) {
+      const tags = task.meta?.tags
+      if (Array.isArray(tags)) {
+        const seen = new Set<string>()
+        for (const tag of tags) {
+          if (tag && typeof tag === 'string' && !seen.has(tag)) {
+            seen.add(tag)
+            countMap.set(tag, (countMap.get(tag) || 0) + 1)
+          }
+        }
+      }
+    }
+    return Array.from(countMap.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'zh'))
+      .map(([tag, count]) => ({ tag, count }))
+  }, [tasks])
+
+  const displayTags = showAllTags ? allTags : allTags.filter(e => e.count > 1)
 
   // 格式化文件大小
   const formatFileSize = (bytes: number): string => {
@@ -1073,6 +1102,15 @@ export default function VideoLibrary() {
         const title = task.title?.toLowerCase() || ''
         const studio = task.meta?.studio?.toLowerCase() || ''
         return title.includes(lowerKeyword) || studio.includes(lowerKeyword)
+      })
+    }
+    
+    // 标签过滤
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(task => {
+        const taskTags = task.meta?.tags
+        if (!Array.isArray(taskTags) || taskTags.length === 0) return false
+        return selectedTags.some(tag => taskTags.includes(tag))
       })
     }
     
@@ -1447,6 +1485,50 @@ export default function VideoLibrary() {
             </div>
           </div>
 
+        )}
+
+        {/* 标签过滤 */}
+        {allTags.length > 0 && (
+          <div className="library-tag-filter">
+            {displayTags.map((entry, index) => {
+              const isActive = selectedTags.includes(entry.tag)
+              const c = TAG_PALETTE[index % TAG_PALETTE.length]
+              return (
+                <button
+                  key={entry.tag}
+                  className={`library-tag-filter-btn${isActive ? ' active' : ''}`}
+                  style={{
+                    '--tag-color': c.color,
+                    '--tag-bg': c.bg,
+                  } as React.CSSProperties}
+                  onClick={() => {
+                    setSelectedTags(prev =>
+                      isActive ? prev.filter(t => t !== entry.tag) : [...prev, entry.tag]
+                    )
+                  }}
+                >
+                  {entry.tag} <span className="library-tag-filter-count">{entry.count}</span>
+                </button>
+              )
+            })}
+            {allTags.filter(e => e.count === 1).length > 0 && (
+              <button
+                className="library-tag-filter-eye"
+                onClick={() => setShowAllTags(v => !v)}
+                title={showAllTags ? '隐藏仅出现1次的标签' : '显示全部标签'}
+              >
+                <Eye size={14} />
+              </button>
+            )}
+            {selectedTags.length > 0 && (
+              <button
+                className="library-tag-filter-clear"
+                onClick={() => setSelectedTags([])}
+              >
+                清除
+              </button>
+            )}
+          </div>
         )}
 
         {/* 空状态 */}

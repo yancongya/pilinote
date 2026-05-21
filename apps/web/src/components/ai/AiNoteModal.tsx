@@ -1049,7 +1049,17 @@ export function AiNoteModal({
     return seriesEpisodeRuntimeStates[activeSeriesEpisodeId] || null
   }, [activeSeriesEpisodeId, seriesEpisodeRuntimeStates])
 
-  const currentTrace = trace.length ? trace : ((note?.meta?.trace as AiTraceStep[]) || [])
+  const noteMetaTrace = (note?.meta?.trace as AiTraceStep[]) || []
+  // Prefer the richer trace from note.meta once available (especially after completion),
+  // because SSE/local stream state can lag behind and miss late-stage trace entries.
+  const currentTrace = useMemo(() => {
+    const local = Array.isArray(trace) ? trace : []
+    const meta = Array.isArray(noteMetaTrace) ? noteMetaTrace : []
+    if (meta.length && local.length) {
+      return meta.length >= local.length ? meta : local
+    }
+    return meta.length ? meta : local
+  }, [noteMetaTrace, trace])
   const effectiveControlState = controlState || (note?.control_state || (note?.meta?.control?.state as any) || 'running')
   const activeSeriesTrace = useMemo(() => {
     if (!isSeriesMode) return currentTrace
@@ -1292,6 +1302,8 @@ export function AiNoteModal({
             void finalizeCompletedNote(noteId)
               .then((finalNote) => {
                 const finalTrace = (finalNote.meta?.trace as AiTraceStep[]) || next.trace
+                // Prefer the full trace persisted in note.meta once the pipeline is done.
+                setTrace(finalTrace)
                 if (queueEpisodeId) {
                   setSeriesEpisodeRuntimeStates(prev => ({
                     ...prev,
@@ -1735,6 +1747,55 @@ export function AiNoteModal({
     } catch {
       showToast('复制日志失败', 'error')
     }
+  }
+
+  const renderTraceDetailSections = (detail?: Record<string, any> | null) => {
+    if (!detail || typeof detail !== 'object') return null
+
+    const sections: Array<{ key: string; title: string; value: any }> = []
+    if (typeof (detail as any).t0_text === 'string' && (detail as any).t0_text.trim()) {
+      sections.push({ key: 't0_text', title: 'NFO 整理结果（T0）', value: (detail as any).t0_text })
+    }
+    if (typeof (detail as any).prompt === 'string' && (detail as any).prompt.trim()) {
+      sections.push({ key: 'prompt', title: '完整 Prompt', value: (detail as any).prompt })
+    }
+    if (Array.isArray((detail as any).messages) && (detail as any).messages.length) {
+      sections.push({ key: 'messages', title: '发送给模型的消息（messages）', value: (detail as any).messages })
+    }
+    if (typeof (detail as any).response === 'string' && (detail as any).response.trim()) {
+      sections.push({ key: 'response', title: '模型原始返回（未后处理）', value: (detail as any).response })
+    }
+    // Cache/meta fields: always helpful but not huge.
+    const cacheFields: Record<string, any> = {}
+    for (const k of ['cache_hit', 'cache_fingerprint', 'input_fingerprint', 'generated_markdown_path', 'markdown_path', 'transcript_language', 't0_length', 't1_length', 'prompt_length', 'response_length', 'provider', 'model', 'base_url']) {
+      if ((detail as any)[k] !== undefined && (detail as any)[k] !== null && String((detail as any)[k]).trim?.() !== '') {
+        cacheFields[k] = (detail as any)[k]
+      }
+    }
+    if (Object.keys(cacheFields).length) {
+      sections.push({ key: 'meta', title: '关键信息', value: cacheFields })
+    }
+
+    if (!sections.length) return null
+
+    return (
+      <div className="ai-note-trace-detail-block">
+        <div className="ai-note-trace-detail-block-title">完整日志</div>
+        <div className="ai-note-trace-detail-sections">
+          {sections.map((section) => {
+            const text = typeof section.value === 'string'
+              ? section.value
+              : (() => { try { return JSON.stringify(section.value, null, 2) } catch { return String(section.value) } })()
+            return (
+              <details key={section.key} className="ai-note-trace-detail-section" open={section.key === 'meta'}>
+                <summary className="ai-note-trace-detail-section-summary">{section.title}</summary>
+                <pre className="ai-note-trace-detail-json">{text}</pre>
+              </details>
+            )
+          })}
+        </div>
+      </div>
+    )
   }
 
   const renderTraceBar = () => {
@@ -2192,6 +2253,35 @@ export function AiNoteModal({
       >
         {selectedTraceItem && (
           <div className="ai-note-trace-detail">
+            {(() => {
+              const steps = selectedTraceItem.steps || []
+              const lastStep = steps.length ? steps[steps.length - 1] : null
+              const history = steps.length > 1 ? steps.slice(0, -1) : []
+              const historyText = history.length
+                ? history
+                    .map((step, idx) => {
+                      const ts = step.ts ? `\n时间: ${step.ts}` : ''
+                      const summaryText = step.summary?.trim() || '暂无摘要'
+                      const detail = step.detail ? (() => { try { return JSON.stringify(step.detail, null, 2) } catch { return '' } })() : ''
+                      return `步骤 ${idx + 1}: ${step.title || step.stage}${ts}\n摘要: ${summaryText}${detail ? `\n${detail}` : ''}`
+                    })
+                    .join('\n\n')
+                : ''
+
+              return (
+                <>
+                  {historyText && (
+                    <details className="ai-note-trace-detail-history">
+                      <summary className="ai-note-trace-detail-history-summary">展开历史步骤（{history.length}）</summary>
+                      <pre className="ai-note-trace-detail-json">{historyText}</pre>
+                    </details>
+                  )}
+                  {lastStep?.detail ? (
+                    renderTraceDetailSections(lastStep.detail)
+                  ) : null}
+                </>
+              )
+            })()}
             <div className="ai-note-trace-detail-head">
               <div className="ai-note-trace-detail-stage">{selectedTraceItem.stage}</div>
               <span className="ai-note-trace-detail-status" data-status={selectedTraceItem.status}>
@@ -2209,10 +2299,6 @@ export function AiNoteModal({
             {typeof selectedTraceItem.progress === 'number' && (
               <div className="ai-note-trace-detail-meta">进度 {Math.round(selectedTraceItem.progress)}%</div>
             )}
-            <div className="ai-note-trace-detail-block">
-              <div className="ai-note-trace-detail-block-title">补充字段</div>
-              <pre className="ai-note-trace-detail-json">{selectedTraceItem.detailPreview}</pre>
-            </div>
           </div>
         )}
       </Modal>
@@ -2355,12 +2441,21 @@ export function AiNoteModal({
         .ai-note-trace-detail-block { display: grid; gap: 8px; }
         .ai-note-trace-detail-block-title { font-size: 12px; font-weight: 700; color: var(--color-text-primary); }
         .ai-note-trace-detail-json { margin: 0; padding: 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 12px; line-height: 1.55; white-space: pre-wrap; color: var(--color-text-secondary); overflow: auto; }
-        .ai-note-trace-detail-summary-box { margin: 0; padding: 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: var(--color-text-secondary); overflow: auto; }
+	        .ai-note-trace-detail-summary-box { margin: 0; padding: 12px; border-radius: 10px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: var(--color-text-secondary); overflow: auto; }
+	        .ai-note-trace-detail-sections { display: flex; flex-direction: column; gap: 10px; }
+	        .ai-note-trace-detail-section { border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-secondary); overflow: hidden; }
+	        .ai-note-trace-detail-section-summary { cursor: pointer; padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--color-text-secondary); list-style: none; }
+        .ai-note-trace-detail-section-summary::-webkit-details-marker { display: none; }
+        .ai-note-trace-detail-section[open] .ai-note-trace-detail-section-summary { color: var(--color-text-primary); }
+        .ai-note-trace-detail-history { border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-secondary); overflow: hidden; margin-bottom: 10px; }
+        .ai-note-trace-detail-history-summary { cursor: pointer; padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--color-text-secondary); list-style: none; }
+        .ai-note-trace-detail-history-summary::-webkit-details-marker { display: none; }
+        .ai-note-trace-detail-history[open] .ai-note-trace-detail-history-summary { color: var(--color-text-primary); }
         .ai-note-trace-detail-copy,.ai-note-trace-detail-close { padding: 10px 14px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease; }
         .ai-note-trace-detail-copy { display: inline-flex; align-items: center; gap: 6px; background: var(--color-primary-600); color: white; }
         .ai-note-trace-detail-close { background: var(--color-bg-secondary); color: var(--color-text-primary); }
         .ai-note-trace-detail-copy:hover,.ai-note-trace-detail-close:hover { transform: translateY(-1px); }
       `}</style>
     </div>
-  )
-}
+	  )
+	}

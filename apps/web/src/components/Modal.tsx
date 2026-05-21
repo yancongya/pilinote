@@ -114,11 +114,12 @@ export default function Modal({
 
   return createPortal(
     <div 
-      className="settings-modal-overlay fixed inset-0 z-[1000] flex items-center justify-center p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
+      className="settings-modal-overlay fixed inset-0 flex items-center justify-center p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150 ease-out"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "modal-title" : undefined}
+      style={{ zIndex: 20000 }}
     >
       <div 
         ref={modalRef}

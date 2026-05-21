@@ -269,6 +269,7 @@ class AiNoteService:
         model_provider: str,
         model_name: str,
         style: str,
+        level: str,
         formats: List[str],
         extras: Optional[str],
         context: Dict[str, Any],
@@ -285,6 +286,7 @@ class AiNoteService:
                 model_provider,
                 model_name,
                 style,
+                level,
                 ",".join(formats or []),
                 (extras or "").strip(),
                 str(context.get("t0_text") or ""),
@@ -1221,13 +1223,16 @@ class AiNoteService:
                         self._add_trace(
                             self._trace_stage(pipeline_mode, "NFO.READ"),
                             "NFO 读取",
-                            f"正在读取 NFO 并使用 {level} 模板整理内容",
+                            "正在读取 NFO 并整理元数据",
                             70.0,
                             {
                                 "level": level,
                                 "nfo_path": artifacts.get("nfo_path"),
                                 "nfo_found": artifacts.get("nfo_found"),
                                 "t0_length": len(context.get("t0_text", "")),
+                                # For debugging/verification in UI trace.
+                                # This can be large, but is only stored in note meta for the current analysis.
+                                "t0_text": context.get("t0_text", ""),
                             },
                             note=note,
                         )
@@ -1304,6 +1309,7 @@ class AiNoteService:
                 model_provider=model_provider,
                 model_name=model_name,
                 style=style,
+                level=str(context.get("level") or ""),
                 formats=normalized_formats,
                 extras=extras,
                 context=context,
@@ -1320,75 +1326,8 @@ class AiNoteService:
                 ])).encode("utf-8")
             ).hexdigest()
 
-            # Cache hit: reuse existing markdown if fingerprint matches.
-            index_payload = self._read_note_index_output(actual_file_path, note.id)
-            cached_fingerprint = str(index_payload.get("cache_fingerprint") or "").strip()
-            cached_md_path = str(index_payload.get("markdown_path") or "").strip()
-            if cached_md_path:
-                try:
-                    cached_path = Path(cached_md_path)
-                    if cached_path.exists():
-                        if not cached_fingerprint:
-                            # Backward compatibility: old index files did not include
-                            # cache_fingerprint. Reconstruct and persist it without LLM.
-                            cached_fingerprint = cache_fingerprint
-                        cached_markdown = cached_path.read_text(encoding="utf-8")
-                        if cached_fingerprint != cache_fingerprint:
-                            raise RuntimeError("Cache fingerprint mismatch")
-                        summary = self._extract_summary(cached_markdown)
-                        note.content = cached_markdown
-                        note.summary = summary
-                        note.pipeline_mode = pipeline_mode
-                        note.meta = {
-                            **(note.meta or {}),
-                            "pipeline_mode": pipeline_mode,
-                            "generated_markdown_path": str(cached_path),
-                            "generated_index_path": str(self._resolve_index_path(actual_file_path, note.id)),
-                            "input_fingerprint": input_fingerprint,
-                            "cache_fingerprint": cache_fingerprint,
-                            "cache_hit": True,
-                            "transcript_language": transcript_lang,
-                        }
-                        note.status = "completed"
-                        note.completed_at = datetime.utcnow()
-                        self._set_note_control(
-                            note.id,
-                            "completed",
-                            current_stage=self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
-                        )
-                        self._persist_note_meta(note)
-                        # Ensure index file has the new cache_fingerprint field.
-                        try:
-                            self._write_note_index_output(
-                                actual_file_path,
-                                note.id,
-                                markdown_path=str(cached_path),
-                                input_fingerprint=input_fingerprint,
-                                cache_fingerprint=cache_fingerprint,
-                                pipeline_mode=pipeline_mode,
-                                style=style,
-                                formats=normalized_formats,
-                                model_provider=model_provider,
-                                model_name=model_name,
-                                extras=merged_extras,
-                                transcript_language=transcript_lang,
-                            )
-                        except Exception:
-                            pass
-                        if pipeline_mode == "series":
-                            self._update_series_memory(actual_file_path, note.id, cached_markdown)
-                        self._add_trace(
-                            self._trace_stage(pipeline_mode, "CONTENT.GENERATE"),
-                            "命中缓存",
-                            f"复用已生成笔记 {cached_path.name}",
-                            100.0,
-                            {"markdown_path": str(cached_path), "input_fingerprint": input_fingerprint},
-                            note=note,
-                        )
-                        logger.info("Cache hit; reused markdown for note_id=%s", note.id)
-                        return
-                except Exception as exc:
-                    logger.warning("Cache hit check failed, will continue generation: %s", exc)
+            # Always re-run LLM generation even if an older markdown exists.
+            # We still persist cache_fingerprint in the index/meta for debugging, but never short-circuit.
             t0_len = len(context.get("t0_text", ""))
             t1_len = len(context.get("transcript", ""))
             self._add_trace(
@@ -1399,6 +1338,7 @@ class AiNoteService:
                 {
                     "prompt_length": len(prompt),
                     "prompt_preview": prompt[:500],
+                    "prompt": prompt,
                     "t0_length": t0_len,
                     "t1_length": t1_len,
                     "has_t1": t1_len > 0,
@@ -2061,10 +2001,16 @@ class AiNoteService:
                         "model": model_name,
                         "prompt_length": len(prompt),
                         "prompt_preview": prompt[:1200],
+                        "base_url": provider_config.get("base_url"),
                     },
                     note=note,
                 )
-            provider = LLMProvider(model_provider)
+            # Allow user-defined provider ids like "custom_123" stored in settings.llm.providers.
+            # For client selection we only need the semantic provider type; unknown ids fall back to CUSTOM.
+            try:
+                provider = LLMProvider(model_provider)
+            except Exception:
+                provider = LLMProvider.CUSTOM
             client = LLMClientFactory.create_client(provider, **provider_config)
             if is_incremental and previous_summary:
                 incremental_prompt = f"{prompt}{previous_summary}"
@@ -2087,6 +2033,19 @@ class AiNoteService:
                 # 支持流式调用
                 logger.info(f"[LLM] 使用流式调用 {model_provider}/{model_name}")
                 stream = client.chat_stream(messages, model=model_name, temperature=0.7)
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
+                    "LLM 请求参数",
+                    "已构造请求消息（system/user）",
+                    92.0,
+                    {
+                        "provider": model_provider,
+                        "model": model_name,
+                        "base_url": provider_config.get("base_url"),
+                        "messages": [m.dict() if hasattr(m, "dict") else {"role": getattr(m, "role", ""), "content": getattr(m, "content", "")} for m in messages],
+                    },
+                    note=note,
+                )
                 try:
                     for chunk_text in stream:
                         if note and task_control_registry.is_cancelled(note.id):
@@ -2100,6 +2059,19 @@ class AiNoteService:
             else:
                 # 回退到同步调用
                 logger.info(f"[LLM] 使用同步调用 {model_provider}/{model_name}")
+                self._add_trace(
+                    self._trace_stage(pipeline_mode, "LLM.ANALYZE"),
+                    "LLM 请求参数",
+                    "已构造请求消息（system/user）",
+                    92.0,
+                    {
+                        "provider": model_provider,
+                        "model": model_name,
+                        "base_url": provider_config.get("base_url"),
+                        "messages": [m.dict() if hasattr(m, "dict") else {"role": getattr(m, "role", ""), "content": getattr(m, "content", "")} for m in messages],
+                    },
+                    note=note,
+                )
                 response = client.chat(messages, model=model_name, temperature=0.7)
                 response_content = (
                     response.content
@@ -2116,6 +2088,7 @@ class AiNoteService:
                     "response_preview": response_content[:500]
                     if response_content
                     else "",
+                    "response": response_content or "",
                 },
                 note=note,
             )

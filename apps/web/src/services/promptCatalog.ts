@@ -23,10 +23,7 @@ export function normalizePromptStyleValue(value?: string | null): string {
 }
 
 export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
-  { key: 'base.system', title: '系统提示词', category: '基础', path: ['base', 'system'], kind: 'text' },
-  { key: 'base.final', title: '最终要求', category: '基础', path: ['base', 'final'], kind: 'lines' },
-  { key: 'base_image_text.system', title: '图文系统提示词', category: '基础', path: ['base_image_text', 'system'], kind: 'text' },
-  { key: 'base_image_text.final', title: '图文最终要求', category: '基础', path: ['base_image_text', 'final'], kind: 'lines' },
+  { key: 'base.fixed_prefix', title: '固定前置提示词', category: '基础', path: ['base', 'fixed_prefix'], kind: 'text' },
   { key: 't0', title: 'T0 视频信息', category: '分层', path: ['layers', 't0'], kind: 'text' },
   { key: 't1', title: 'T1 视频文本', category: '分层', path: ['layers', 't1'], kind: 'text' },
   { key: 't0_image_text', title: 'T0 图文信息', category: '分层', path: ['layers', 't0_image_text'], kind: 'text' },
@@ -42,7 +39,6 @@ export const PROMPT_TEMPLATE_CARDS: PromptTemplateMeta[] = [
   { key: 't3.meeting_minutes', title: 'T3 会议纪要', category: '风格', path: ['layers', 't3', 'meeting_minutes'], kind: 'text' },
   { key: 'formats.screenshot', title: '原片截图', category: '格式', path: ['layers', 'formats', 'screenshot'], kind: 'text' },
   { key: 'formats.timestamps', title: '关键点时间戳', category: '格式', path: ['layers', 'formats', 'timestamps'], kind: 'text' },
-  { key: 'formats.summary', title: 'AI 总结', category: '格式', path: ['layers', 'formats', 'summary'], kind: 'text' },
   { key: 'outputs.page', title: '网页展示', category: '扩展', path: ['layers', 'outputs', 'page'], kind: 'text' },
   { key: 'outputs.image', title: '图解图片', category: '扩展', path: ['layers', 'outputs', 'image'], kind: 'text' },
 ]

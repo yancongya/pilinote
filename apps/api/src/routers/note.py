@@ -553,8 +553,10 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
         try:
             import time
             
-            # 追踪已推送的 trace 条目，避免重复推送
-            pushed_trace_stages = set()
+            # 追踪已推送的 trace 条目，避免重复推送。
+            # 同一个 stage 可能会写入多条 trace（例如 PROMPT.BUILD: 开始/完成），
+            # 所以这里不能只按 stage 去重。
+            pushed_trace_keys = set()
             
             # 发送初始事件
             yield f"data: {json.dumps({'stage': 'INIT', 'status': 'processing', 'data': {'note_id': note_id, 'message': '开始分析...'}}, ensure_ascii=False)}\n\n"
@@ -572,13 +574,17 @@ async def pipeline_analyze_note(request: PipelineAnalyzeRequest, background_task
                     
                     # 推送新增的 trace 事件（从 meta 中获取）
                     trace = (note_status.meta or {}).get("trace", [])
-                    logger.info(f"[SSE] note_id={note_id}, trace_count={len(trace)}, pushed_count={len(pushed_trace_stages)}")
+                    logger.info(f"[SSE] note_id={note_id}, trace_count={len(trace)}, pushed_count={len(pushed_trace_keys)}")
                     
                     for trace_entry in trace:
-                        stage_key = trace_entry.get("stage", "")
-                        if stage_key and stage_key not in pushed_trace_stages:
-                            pushed_trace_stages.add(stage_key)
-                            logger.info(f"[SSE] Pushing stage: {stage_key}")
+                        stage_key = str(trace_entry.get("stage", "") or "").strip()
+                        title_key = str(trace_entry.get("title", "") or "").strip()
+                        ts_key = str(trace_entry.get("ts", "") or "").strip()
+                        # stable-ish key for this concrete trace row
+                        trace_key = f"{stage_key}|{title_key}|{ts_key}"
+                        if stage_key and trace_key not in pushed_trace_keys:
+                            pushed_trace_keys.add(trace_key)
+                            logger.info(f"[SSE] Pushing trace: {trace_key}")
                             event_data = {
                                 "stage": stage_key,
                                 "status": "completed",

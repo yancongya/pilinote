@@ -46,9 +46,13 @@ async def test_model(request: TestModelRequest):
 
         provider_enum = provider_map.get(provider_id)
         if not provider_enum:
-            raise HTTPException(
-                status_code=400, detail=f"不支持的提供商: {request.provider}"
-            )
+            # Support user-defined provider ids like "custom_123" (OpenAI-compatible base_url/api_key).
+            if provider_id == "custom" or provider_id.startswith("custom_"):
+                provider_enum = LLMProvider.CUSTOM
+            else:
+                raise HTTPException(
+                    status_code=400, detail=f"不支持的提供商: {request.provider}"
+                )
 
         # 创建客户端
         client = LLMClientFactory.create_client(
@@ -73,6 +77,8 @@ async def test_model(request: TestModelRequest):
         )
 
         runtime_state = get_ai_runtime_state_service()
+        # Persist tested model under the original provider id (including custom_XXX),
+        # so the frontend can show it for the exact provider tab.
         runtime_state.merge_tested_model(provider_id, request.model)
 
         logger.info(f"模型测试成功: {request.provider}/{request.model}")

@@ -178,7 +178,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [promptTemplates, setPromptTemplates] = useState<Record<string, any>>({})
   const [defaultPromptTemplates, setDefaultPromptTemplates] = useState<Record<string, any>>({})
   const [selectedPromptCard, setSelectedPromptCard] = useState<PromptTemplateMeta | null>(null)
-  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'通用' | 'Markdown' | '扩展产物' | '风格'>('通用')
+  const [selectedPromptCategory, setSelectedPromptCategory] = useState<'通用' | '详略' | '结构' | '风格' | '扩展产物'>('通用')
   const [customStyles, setCustomStyles] = useState<Array<{ value: string; label: string; description: string; prompt: string }>>([])
   const [showCreateStyleModal, setShowCreateStyleModal] = useState(false)
   const [createStyleForm, setCreateStyleForm] = useState({ label: '', description: '', prompt: '' })
@@ -186,6 +186,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const [modelDraft, setModelDraft] = useState('')
   const [modelTestStatus, setModelTestStatus] = useState<Record<string, boolean | 'loading'>>({})
   const [providerTestingId, setProviderTestingId] = useState<string | null>(null)
+  const [asrPanelTab, setAsrPanelTab] = useState<'asr' | 'extension'>('asr')
   const providerTabsRef = useRef<HTMLDivElement | null>(null)
   const providerBarRef = useRef<HTMLDivElement | null>(null)
   const pendingProviderScrollIdRef = useRef<string>('')
@@ -353,7 +354,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
       setProviders(mergedProviders)
       providersRef.current = mergedProviders
 
-      const nextActiveProviderId = options?.activeProviderId || (settings?.llm?.provider || 'openai')
+      const nextActiveProviderId = options?.activeProviderId || activeProviderId || (settings?.llm?.provider || 'openai')
       const nextActiveProvider = mergedProviders.find(p => p.id === nextActiveProviderId) || mergedProviders.find(p => p.id === 'openai') || mergedProviders[0]
       await updateSettings({
         llm: {
@@ -521,14 +522,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const canDeleteCurrentProvider = Boolean(currentProvider && (currentProvider.isCustom || currentProvider.id.startsWith('custom_')))
   const promptCategoryIcons = {
     通用: FileText,
-    Markdown: LayoutGrid,
-    扩展产物: Package,
+    详略: Layers3,
+    结构: LayoutGrid,
     风格: Sparkles,
+    扩展产物: Package,
   } as const
 
   const promptCategoryDesc: Record<keyof typeof promptCategoryIcons, string> = {
-    通用: '通用写作守则与全局约束（影响所有输出）',
-    Markdown: 'Markdown 笔记结构片段（如时间戳、截图标记、总结等）',
+    通用: '固定前置提示词（影响所有输出）',
+    详略: '控制笔记的详细程度（简略 / 详细）',
+    结构: '控制 Markdown 结构（关键点时间戳 / 原片截图标记等）',
     扩展产物: '额外产物的生成指导（网页展示、图解图片等）',
     风格: '写作风格（语气与表达方式），不改变结构要求',
   }
@@ -538,20 +541,12 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
     if (displayCategory === '风格') return null
     // Keep hints short; shown as native tooltip on hover.
     switch (card.key) {
-      case 'base.system':
-        return '系统级提示词：决定模型的整体角色与输出边界'
-      case 'base.final':
-        return '最终要求：全局质量约束（不编造、去水话、输出规范等）'
-      case 'base_image_text.system':
-        return '图文系统提示词：图文模式下的整体角色与输出边界'
-      case 'base_image_text.final':
-        return '图文最终要求：图文模式下的全局质量约束'
+      case 'base.fixed_prefix':
+        return '固定前置提示词：包含通用写作守则与全局约束（合并后的 T0）'
       case 'formats.timestamps':
         return '关键点时间戳：要求在全文贯穿时间戳并可回跳'
       case 'formats.screenshot':
         return '原片截图：要求输出 Screenshot 标记供后端截图插入'
-      case 'formats.summary':
-        return 'AI 总结：规定总结的结构与内容要点'
       case 'outputs.page':
         return '网页展示：生成网页展示产物的指导'
       case 'outputs.image':
@@ -564,11 +559,14 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   const getPromptDisplayCategory = (rawCategory: string, key: string) => {
     // Only affects UI grouping; does not change prompt template key/path, so it won't affect prompt concatenation.
     if (rawCategory === '基础') return '通用' as const
-    if (rawCategory === '格式') return 'Markdown' as const
+    if (rawCategory === '格式') return '结构' as const
     if (rawCategory === '扩展') return '扩展产物' as const
     if (rawCategory === '风格') return '风格' as const
     // Hide legacy internal layers from the UI (they are implementation details for prompt assembly).
-    if (rawCategory === '分层') return null
+    if (rawCategory === '分层') {
+      if (key === 't2.simple' || key === 't2.detailed') return '详略' as const
+      return null
+    }
     // Fallback: keep it visible under 通用
     return '通用' as const
   }
@@ -648,6 +646,15 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
   useEffect(() => {
     providersRef.current = providers
   }, [providers])
+
+  useEffect(() => {
+    // Safety: after refresh/loading, ensure there is always an active provider selected.
+    if (!providers.length) return
+    if (providers.some(p => p.id === activeProviderId)) return
+    const preferred = (settings as any)?.llm?.provider
+    const next = providers.find(p => p.id === preferred)?.id || providers[0].id
+    setActiveProviderId(next)
+  }, [activeProviderId, providers, settings])
 
   const handleOpenPromptCard = (card: PromptTemplateMeta) => {
     setSelectedPromptCard(card)
@@ -1050,7 +1057,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 state.dragging = false
                 state.didReorder = false
                 if (didReorder) {
-                  void saveProviders(providersRef.current)
+                  void saveProviders(providersRef.current, { activeProviderId })
                 }
               }}
               onPointerCancel={() => {
@@ -1106,16 +1113,16 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             <div className="settings-provider-header">
               <span className="settings-provider-name">{currentProvider.name}</span>
               <div className="settings-provider-actions">
-                <button type="button" onClick={() => handleEditProvider(currentProvider)} title="编辑">
+                <button type="button" className="settings-provider-action edit" onClick={() => handleEditProvider(currentProvider)} title="编辑">
                   <Edit2 size={14} />
                 </button>
                 {currentProvider.isDefault && (
-                  <button type="button" onClick={() => handleResetProvider(currentProvider.id)} title="重置">
+                  <button type="button" className="settings-provider-action reset" onClick={() => handleResetProvider(currentProvider.id)} title="重置">
                     <RotateCcw size={14} />
                   </button>
                 )}
                 {canDeleteCurrentProvider && (
-                  <button type="button" onClick={() => handleDeleteProvider(currentProvider.id)} title="删除">
+                  <button type="button" className="settings-provider-action delete" onClick={() => handleDeleteProvider(currentProvider.id)} title="删除">
                     <Trash2 size={14} />
                   </button>
                 )}
@@ -1123,6 +1130,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                   <>
                     <button
                       type="button"
+                      className="settings-provider-action cancel"
                       onClick={() => {
                         setEditingProvider(null)
                         setProviderForm({ name: '', baseUrl: '', apiKey: '', models: '' })
@@ -1131,7 +1139,7 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                     >
                       <X size={14} />
                     </button>
-                    <button type="button" onClick={handleSaveProvider} title="保存修改">
+                    <button type="button" className="settings-provider-action save" onClick={handleSaveProvider} title="保存修改">
                       <CheckCircle size={14} />
                     </button>
                   </>
@@ -1287,70 +1295,131 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
         )}
       </SettingsSection>
 
-      <SettingsSection
-        title="本地 ASR 模型"
-        subtitle="管理本地语音识别模型、下载状态和切换操作"
-      >
-        <LocalAsrModelPanel compact />
-      </SettingsSection>
+      <SettingsSection>
+        <div className="asr-extension-tabs">
+          <button
+            type="button"
+            className={`asr-extension-tab${asrPanelTab === 'asr' ? ' active' : ''}`}
+            onClick={() => setAsrPanelTab('asr')}
+          >
+            <Cpu size={14} />
+            <span>ASR 模型</span>
+          </button>
+          <button
+            type="button"
+            className={`asr-extension-tab${asrPanelTab === 'extension' ? ' active' : ''}`}
+            onClick={() => setAsrPanelTab('extension')}
+          >
+            <Package size={14} />
+            <span>模型选择</span>
+          </button>
+        </div>
 
-      <SettingsSection
-        title="扩展产物"
-        subtitle="为网页展示与生图生成单独配置模型（仅显示已测试通过的模型）"
-      >
-        {(['page', 'image'] as const).map((outputKey) => {
-          const label = outputKey === 'page' ? '网页' : '图片'
-          const output = localSettings.outputs[outputKey]
-          const modelOptions = Object.entries(runtimeState.testedModels || {}).flatMap(([provider, models]) =>
-            (models || []).map((model) => ({
-              provider,
-              model,
-              value: `${provider}::${model}`,
-              // Provider is intentionally not shown as a separate control; it's derived from the chosen model.
-              label: model,
-            }))
-          )
-          const currentValue = `${output.llm.provider}::${output.llm.model}`
+        {asrPanelTab === 'asr' && (
+          <div style={{ paddingTop: '12px' }}>
+            <LocalAsrModelPanel compact />
+          </div>
+        )}
 
-          return (
-            <div key={outputKey} style={{ display: 'grid', gap: '12px', padding: '12px 0' }}>
-              <SettingsField label={`${label}模型`} hint={modelOptions.length ? '仅展示已测试通过的模型' : '暂无已测试通过的模型，请先在上方测试模型'}>
-                <select
-                  className="settings-select"
-                  value={modelOptions.some(o => o.value === currentValue) ? currentValue : (modelOptions[0]?.value || '')}
-                  onChange={(e) => {
-                    const raw = e.target.value || ''
-                    const [provider, model] = raw.split('::')
-                    const providerCfg = providers.find(p => p.id === provider)
-                    setLocalSettings(prev => ({
-                      ...prev,
-                      outputs: {
-                        ...prev.outputs,
-                        [outputKey]: {
-                          ...prev.outputs[outputKey],
-                          llm: {
-                            ...prev.outputs[outputKey].llm,
-                            provider: provider || prev.outputs[outputKey].llm.provider,
-                            model: model || prev.outputs[outputKey].llm.model,
-                            base_url: providerCfg?.baseUrl || prev.outputs[outputKey].llm.base_url,
-                            api_key: providerCfg?.apiKey || prev.outputs[outputKey].llm.api_key,
-                          },
-                        },
-                      },
+        {asrPanelTab === 'extension' && (
+          <div style={{ paddingTop: '12px' }}>
+            <div style={{ display: 'grid', gap: '12px', padding: '12px 0' }}>
+              <SettingsField label="笔记模型" hint="AI 笔记生成的默认模型，优先级高于弹窗面板选择的模型" hintInline>
+                {(() => {
+                  const modelOptions = Object.entries(runtimeState.testedModels || {}).flatMap(([provider, models]) =>
+                    (models || []).map((model) => ({
+                      provider,
+                      model,
+                      value: `${provider}::${model}`,
+                      label: model,
                     }))
-                  }}
-                  disabled={!modelOptions.length}
-                >
-                  {modelOptions.length ? modelOptions.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  )) : (
-                    <option value="">请先测试模型</option>
-                  )}
-                </select>
+                  )
+                  const currentValue = `${localSettings.llm.provider}::${localSettings.llm.model}`
+                  return (
+                    <select
+                      className="settings-select"
+                      value={modelOptions.some(o => o.value === currentValue) ? currentValue : (modelOptions[0]?.value || '')}
+                      onChange={(e) => {
+                        const raw = e.target.value || ''
+                        const [provider, model] = raw.split('::')
+                        const providerCfg = providers.find(p => p.id === provider)
+                        setLocalSettings(prev => ({
+                          ...prev,
+                          llm: {
+                            ...prev.llm,
+                            provider: provider || prev.llm.provider,
+                            model: model || prev.llm.model,
+                            base_url: providerCfg?.baseUrl || prev.llm.base_url,
+                            api_key: providerCfg?.apiKey || prev.llm.api_key,
+                          },
+                        }))
+                      }}
+                      disabled={!modelOptions.length}
+                    >
+                      {modelOptions.length ? modelOptions.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      )) : (
+                        <option value="">请先测试模型</option>
+                      )}
+                    </select>
+                  )
+                })()}
               </SettingsField>
             </div>
-          )
-        })}
+            {(['page', 'image'] as const).map((outputKey) => {
+              const label = outputKey === 'page' ? '网页' : '图片'
+              const output = localSettings.outputs[outputKey]
+              const modelOptions = Object.entries(runtimeState.testedModels || {}).flatMap(([provider, models]) =>
+                (models || []).map((model) => ({
+                  provider,
+                  model,
+                  value: `${provider}::${model}`,
+                  label: model,
+                }))
+              )
+              const currentValue = `${output.llm.provider}::${output.llm.model}`
+
+              return (
+                <div key={outputKey} style={{ display: 'grid', gap: '12px', padding: '12px 0' }}>
+                  <SettingsField label={`${label}模型`} hint={modelOptions.length ? '仅展示已测试通过的模型' : '暂无已测试通过的模型，请先在上方测试模型'} hintInline>
+                    <select
+                      className="settings-select"
+                      value={modelOptions.some(o => o.value === currentValue) ? currentValue : (modelOptions[0]?.value || '')}
+                      onChange={(e) => {
+                        const raw = e.target.value || ''
+                        const [provider, model] = raw.split('::')
+                        const providerCfg = providers.find(p => p.id === provider)
+                        setLocalSettings(prev => ({
+                          ...prev,
+                          outputs: {
+                            ...prev.outputs,
+                            [outputKey]: {
+                              ...prev.outputs[outputKey],
+                              llm: {
+                                ...prev.outputs[outputKey].llm,
+                                provider: provider || prev.outputs[outputKey].llm.provider,
+                                model: model || prev.outputs[outputKey].llm.model,
+                                base_url: providerCfg?.baseUrl || prev.outputs[outputKey].llm.base_url,
+                                api_key: providerCfg?.apiKey || prev.outputs[outputKey].llm.api_key,
+                              },
+                            },
+                          },
+                        }))
+                      }}
+                      disabled={!modelOptions.length}
+                    >
+                      {modelOptions.length ? modelOptions.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      )) : (
+                        <option value="">请先测试模型</option>
+                      )}
+                    </select>
+                  </SettingsField>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </SettingsSection>
 
       <SettingsSection title="prompt管理">
@@ -1367,7 +1436,8 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
                 const Icon = promptCategoryIcons[category]
                 const accent = (() => {
                   if (category === '通用') return '#64748b'
-                  if (category === 'Markdown') return '#3b82f6'
+                  if (category === '详略') return '#a855f7'
+                  if (category === '结构') return '#3b82f6'
                   if (category === '扩展产物') return '#f97316'
                   if (category === '风格') return '#22c55e'
                   return '#a855f7'
@@ -1393,14 +1463,17 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
               const promptAccent = (() => {
                 const category = (card as any).displayCategory || card.category
                 if (category === '通用') return '#64748b'
-                if (category === 'Markdown') return '#3b82f6'
+                if (category === '详略') return '#a855f7'
+                if (category === '结构') return '#3b82f6'
                 if (category === '扩展产物') return '#f97316'
                 if (category === '风格') return '#22c55e'
                 return '#a855f7'
               })()
               const hoverHint = getPromptCardHint(card)
               const displayCategory = (card as any).displayCategory || card.category
-              const displayTitle = displayCategory === '风格' ? card.title.replace(/^T\d+\s*/i, '') : card.title
+              const displayTitle = displayCategory === '风格'
+                ? card.title.replace(/^T\d+\s*/i, '')
+                : card.title.replace(/^T\d+\s*/i, '')
               return (
                 <div
                     key={card.key}
@@ -1731,6 +1804,20 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
           cursor: pointer;
           border-radius: 6px;
         }
+
+        .settings-provider-action.edit { color: var(--color-primary-600); }
+        .settings-provider-action.reset { color: var(--color-text-tertiary); }
+        .settings-provider-action.delete { color: var(--color-error-600); }
+        .settings-provider-action.cancel { color: var(--color-text-secondary); }
+        .settings-provider-action.save { color: var(--color-success, #22c55e); }
+
+        .settings-provider-action.edit:hover { background: rgba(59, 130, 246, 0.12); }
+        .settings-provider-action.reset:hover { background: var(--color-bg-secondary); }
+        .settings-provider-action.delete:hover { background: rgba(239, 68, 68, 0.12); }
+        .settings-provider-action.cancel:hover { background: var(--color-bg-secondary); }
+        .settings-provider-action.save:hover { background: rgba(34, 197, 94, 0.12); }
+
+        /* Prompt card hover hints use native title tooltips (no custom tooltip UI). */
 
         .settings-label-row {
           display: flex;
@@ -2354,6 +2441,41 @@ const AiNoteSettings = forwardRef<AiNoteSettingsRef>((_props, ref) => {
             flex-direction: column;
             align-items: stretch;
           }
+        }
+
+        .asr-extension-tabs {
+          display: flex;
+          gap: 4px;
+          border-bottom: 1px solid var(--color-border);
+          padding-bottom: 0;
+          margin-bottom: 0;
+        }
+
+        .asr-extension-tab {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border: none;
+          background: transparent;
+          color: var(--color-text-secondary);
+          font-size: 13px;
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          margin-bottom: -1px;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+        }
+
+        .asr-extension-tab:hover {
+          color: var(--color-text-primary);
+          background: var(--color-bg-tertiary);
+          border-radius: 4px 4px 0 0;
+        }
+
+        .asr-extension-tab.active {
+          color: var(--color-primary-500);
+          border-bottom-color: var(--color-primary-500);
         }
       `}</style>
     </div>
