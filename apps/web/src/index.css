@@ -26,20 +26,20 @@
 
   /* Primary: solid */
   .settings-button-primary {
-    /* Subtle tinted button: no solid fill, no white text */
-    @apply text-primary-600 border-primary-300 bg-primary-50;
+    /* Settings primary button: tinted outline (no solid fill, no white text) */
+    @apply text-primary-600 border-primary-300 bg-transparent;
   }
 
   .settings-button-primary:hover:not(:disabled) {
-    @apply bg-primary-100 border-primary-400;
+    @apply bg-primary-50 border-primary-400;
   }
 
   .dark .settings-button-primary {
-    @apply text-primary-200 border-primary-700 bg-slate-800;
+    @apply text-primary-200 border-primary-700 bg-transparent;
   }
 
   .dark .settings-button-primary:hover:not(:disabled) {
-    @apply bg-slate-700 border-primary-600;
+    @apply bg-slate-700/40 border-primary-600;
   }
 
   /* Secondary: subtle surface */
@@ -61,20 +61,20 @@
 
   /* Danger: solid */
   .settings-button-danger {
-    /* Subtle tinted danger: no solid fill, no white text */
-    @apply text-error-600 border-error-100 bg-error-50;
+    /* Settings danger button: tinted outline (no solid fill, no white text) */
+    @apply text-error-600 border-error-100 bg-transparent;
   }
 
   .settings-button-danger:hover:not(:disabled) {
-    @apply bg-error-100 border-error-100;
+    @apply bg-error-50 border-error-100;
   }
 
   .dark .settings-button-danger {
-    @apply text-error-100 border-error-600 bg-slate-800;
+    @apply text-error-100 border-error-600 bg-transparent;
   }
 
   .dark .settings-button-danger:hover:not(:disabled) {
-    @apply bg-slate-700 border-error-500;
+    @apply bg-slate-700/40 border-error-500;
   }
 
   /* Modal footer: slightly denser sizing, but keep the same variants */
