@@ -342,7 +342,10 @@ function LoginPage({ onLogin }: LoginPageProps) {
           <User className="guest-mode-icon" />
         </button>
         <div className="login-header">
-          <h1 className="login-title">PiliNote</h1>
+        <h1 className="login-title">
+          <img src="/brand/logo.png" alt="PiliNote" className="login-logo-icon" />
+          <span>PiliNote</span>
+        </h1>
           <p className="login-subtitle">B站视频下载管理系统</p>
         </div>
 

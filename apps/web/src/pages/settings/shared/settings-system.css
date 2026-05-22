@@ -97,10 +97,20 @@
   position: relative;
   padding: 0 16px;
   gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.s-tab-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .s-tab {
-  flex: 1;
+  /* Default: fill the bar. If the bar becomes too narrow, min-width forces overflow → scroll. */
+  flex: 1 1 0;
+  min-width: 86px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -128,6 +138,13 @@
 
 .s-tab-label {
   white-space: nowrap;
+}
+
+/* Very narrow: show icons only to avoid wrapping */
+@media (max-width: 420px) {
+  .s-tab-label {
+    display: none;
+  }
 }
 
 .s-tab-indicator {

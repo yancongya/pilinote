@@ -110,15 +110,36 @@ export const HeaderLeft = styled.div`
  * Logo
  */
 export const Logo = styled.h1`
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
   font-size: 20px;
   font-weight: 700;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+
+  img {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    /* Make sure the image isn't affected by the text gradient */
+    -webkit-text-fill-color: initial;
+  }
+
+  span {
+    display: inline-block;
+  }
   
   @media (min-width: 768px) {
     font-size: 24px;
+
+    img {
+      width: 36px;
+      height: 36px;
+    }
   }
 `;
 

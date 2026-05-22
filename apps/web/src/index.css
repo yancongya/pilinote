@@ -3,104 +3,96 @@
 @import "./design-tokens.css";
 @config "../tailwind.config.js";
 
-/* Settings system components (Tailwind-managed). Keep these in the main Tailwind entry. */
-@layer components {
-  .settings-button {
-    /* A single global button primitive for settings UIs. */
-    @apply inline-flex items-center justify-center gap-2 min-h-10 px-4 py-2.5 rounded-lg border border-transparent text-sm font-semibold cursor-pointer transition-colors select-none;
-    min-width: 72px;
-    -webkit-tap-highlight-color: transparent;
-  }
+/* Settings system components.
+ * Important: keep this plain CSS (no Tailwind @apply) to avoid build-time utility resolution issues.
+ */
+.settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 150ms ease, border-color 150ms ease, transform 80ms ease, box-shadow 150ms ease;
+}
 
-  .settings-button:active:not(:disabled) {
-    @apply scale-[0.99];
-  }
+.settings-button:active:not(:disabled) {
+  transform: scale(0.99);
+}
 
-  .settings-button:focus-visible {
-    @apply outline-none ring-2 ring-primary-500/40 ring-offset-2 ring-offset-transparent;
-  }
+.settings-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-600) 22%, transparent);
+}
 
-  .settings-button:disabled {
-    @apply opacity-60 cursor-not-allowed;
-  }
+.settings-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
-  /* Primary: solid */
-  .settings-button-primary {
-    /* Settings primary button: tinted outline (no solid fill, no white text) */
-    @apply text-primary-600 border-primary-300 bg-transparent;
-  }
+/* Primary: tinted outline (no solid fill, no white text) */
+.settings-button-primary {
+  border-color: color-mix(in srgb, var(--color-primary-600) 35%, var(--color-border));
+  color: var(--color-primary-600);
+}
+.settings-button-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary-600) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary-600) 55%, var(--color-border));
+}
 
-  .settings-button-primary:hover:not(:disabled) {
-    @apply bg-primary-50 border-primary-400;
-  }
+/* Secondary: subtle surface */
+.settings-button-secondary {
+  background: var(--color-bg-secondary);
+}
+.settings-button-secondary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-bg-secondary) 70%, var(--color-text-tertiary));
+}
 
-  .dark .settings-button-primary {
-    @apply text-primary-200 border-primary-700 bg-transparent;
-  }
+/* Danger: tinted outline (no solid fill, no white text) */
+.settings-button-danger {
+  border-color: color-mix(in srgb, var(--color-error-600) 35%, var(--color-border));
+  color: var(--color-error-600);
+}
+.settings-button-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error-600) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-error-600) 55%, var(--color-border));
+}
 
-  .dark .settings-button-primary:hover:not(:disabled) {
-    @apply bg-slate-700/40 border-primary-600;
-  }
+/* Modal footer: denser sizing, but keep the same variants */
+.settings-modal-footer .settings-button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  min-width: 76px;
+}
 
-  /* Secondary: subtle surface */
-  .settings-button-secondary {
-    @apply bg-white text-slate-800 border-slate-200;
-  }
+/* Footer layout: support both 2-button and 3-button patterns */
+.settings-modal-footer {
+  justify-content: space-between;
+}
 
-  .dark .settings-button-secondary {
-    @apply bg-slate-700 text-slate-100 border-slate-600;
-  }
+.settings-prompt-footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 
-  .settings-button-secondary:hover:not(:disabled) {
-    @apply bg-slate-50;
-  }
-
-  .dark .settings-button-secondary:hover:not(:disabled) {
-    @apply bg-slate-600;
-  }
-
-  /* Danger: solid */
-  .settings-button-danger {
-    /* Settings danger button: tinted outline (no solid fill, no white text) */
-    @apply text-error-600 border-error-100 bg-transparent;
-  }
-
-  .settings-button-danger:hover:not(:disabled) {
-    @apply bg-error-50 border-error-100;
-  }
-
-  .dark .settings-button-danger {
-    @apply text-error-100 border-error-600 bg-transparent;
-  }
-
-  .dark .settings-button-danger:hover:not(:disabled) {
-    @apply bg-slate-700/40 border-error-500;
-  }
-
-  /* Modal footer: slightly denser sizing, but keep the same variants */
-  .settings-modal-footer .settings-button {
-    @apply min-h-9 px-3 py-2 rounded-lg text-[13px] font-semibold;
-    min-width: 76px;
-  }
-
-  /* Footer layout: support both 2-button (Cancel/Save) and 3-button (Reset/Cancel/Save) patterns */
-  .settings-modal-footer {
-    @apply justify-between;
-  }
-
-  .settings-prompt-footer {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .settings-prompt-footer-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+.settings-prompt-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 * {
@@ -124,6 +116,26 @@ body {
   line-height: 1.6;
   overflow: hidden; /* 防止页面整体滚动 */
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* App logo (header) */
+.app-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.app-logo-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.app-logo-text {
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 /* 暗色模式全局样式 - 由CSS变量自动处理 */
@@ -291,11 +303,21 @@ body {
 }
 
 .login-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   font-size: 32px;
   font-weight: 700;
   color: var(--color-primary-600);
   margin-bottom: 8px;
   letter-spacing: -0.5px;
+}
+
+.login-logo-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
 }
 
 .login-subtitle {

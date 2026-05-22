@@ -189,7 +189,10 @@ function MainLayout() {
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </S.MobileMenuToggle>
-          <S.Logo>PiliNote</S.Logo>
+          <S.Logo>
+            <img src="/brand/logo.png" alt="PiliNote" />
+            <span>PiliNote</span>
+          </S.Logo>
         </S.HeaderLeft>
         <S.HeaderRight>
           {user ? (

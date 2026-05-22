@@ -168,7 +168,10 @@ function MainLayout() {
       
       <header className="home-header">
         <div className="header-left">
-          <h1>PiliNote</h1>
+          <h1 className="app-logo">
+            <img src="/brand/logo.png" alt="PiliNote" className="app-logo-icon" />
+            <span className="app-logo-text">PiliNote</span>
+          </h1>
         </div>
         <div className="header-right">
           {user ? (
