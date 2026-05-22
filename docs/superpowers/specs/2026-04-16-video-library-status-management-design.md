@@ -519,9 +519,9 @@ interface VideoLibraryConfig {
 
 ### 相关文档
 
-- [下载系统整合优化文档](../../download/system-refactor.md)
-- [队列系统文档](../../download/queue.md)
-- [任务系统文档](../../download/tasks.md)
+- [下载系统整合优化文档](../download/system-refactor.md)
+- [队列系统文档](../download/queue.md)
+- [任务系统文档](../download/tasks.md)
 
 ### API端点清单
 
