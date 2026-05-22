@@ -540,7 +540,7 @@ def safe_parse_nfo(nfo_path: str) -> Dict:
 
 - [评论数据提取](../download/comment-extraction.md)
 - [本地视频库API](../api/library-api.md)
-- [下载服务](../download/download-service.md)
+- [下载服务](../components/download-service.md)
 - [API端点](../api/endpoints.md)
 
 ---

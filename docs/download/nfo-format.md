@@ -584,9 +584,9 @@ NFO文件作为本地缓存，减少对B站API的依赖，提高响应速度。
 ## 相关文档
 
 - [NFO处理器实现](./handlers.md)
-- [下载服务实现](./download-service.md)
+- [下载服务实现](../components/download-service.md)
 - [本地视频库API](../api/library-api.md)
-- [视频库前端实现](../web/video-library.md)
+- [视频库前端实现](../components/video-library.md)
 
 ---
 

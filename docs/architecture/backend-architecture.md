@@ -650,9 +650,9 @@ gunicorn src.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 
 ## 相关文档
 
-- [项目概述](../01-overview/project-overview.md)
+- [项目概述](../base/project-overview.md)
 - [前端架构](./frontend-architecture.md)
-- [数据库架构](./database-architecture.md)
+- [数据库架构](../database/database-architecture.md)
 - [系统架构](./system.md)
 
 ---

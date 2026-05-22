@@ -400,9 +400,9 @@ interface Scheduler {
 
 ## 相关文档
 
-- [项目概述](../01-overview/project-overview.md)
+- [项目概述](../base/project-overview.md)
 - [后端架构](./backend-architecture.md)
-- [数据库架构](./database-architecture.md)
+- [数据库架构](../database/database-architecture.md)
 - [开发指南](../../AGENTS.md)
 
 ---

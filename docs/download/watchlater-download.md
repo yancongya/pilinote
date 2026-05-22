@@ -539,11 +539,11 @@ useEffect(() => {
 
 - [VideoListContainer](../components/video-list-container.md) - 视频列表容器
 - [AlertModal](../components/alert-modal.md) - 提示弹窗
-- [DownloadManager](../download/download-manager.md) - 下载管理器
+- [DownloadManager](../components/download-manager.md) - 下载管理器
 
 ## 相关 Hooks
 
-- [useVideoDownload](../hooks/use-video-download.md) - 下载管理 Hook
+- [前端下载实现](../web/implementation.md) - 下载相关前端实现（含 Hooks/Stores）
 
 ## 相关文档
 

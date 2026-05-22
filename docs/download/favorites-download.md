@@ -547,8 +547,8 @@ function FavoritesContent() {
 ## 相关文档
 
 - [收藏页前端实现](../web/favorites-page.md) - 收藏页实现
-- [下载队列系统](./download-queue.md) - 下载队列架构
-- [useVideoDownload Hook](../hooks/use-video-download.md) - 下载 Hook
+- [下载队列系统](./queue.md) - 下载队列架构
+- [前端下载实现](../web/implementation.md) - 下载相关前端实现（含 Hooks/Stores）
 - [VideoListContainer](../components/video-list-container.md) - 视频列表容器
 
 ---

@@ -234,10 +234,10 @@ BACKLOG → PENDING → DOING → COMPLETED
 
 ## 相关文档
 
-- [技术栈详情](../../base/tech-stack.md)
-- [系统架构](../../architecture/system.md)
+- [技术栈详情](tech-stack.md)
+- [系统架构](../architecture/system.md)
 - [开发指南](../../AGENTS.md)
-- [API 文档](../../api/README.md)
+- [API 文档](../api/README.md)
 
 ---
 

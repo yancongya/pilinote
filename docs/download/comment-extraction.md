@@ -844,7 +844,7 @@ asyncio.run(main())
 - [本地视频库API](../api/library-api.md)
 - [NFO文件格式](../metadata/nfo-format.md)
 - [后端架构](../architecture/backend-architecture.md)
-- [下载服务](./download-service.md)
+- [下载服务](../components/download-service.md)
 
 ---
 
