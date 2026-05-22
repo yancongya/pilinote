@@ -1,4 +1,5 @@
 export {
+  SettingsActionItem,
   SettingsActionRow,
   SettingsEmptyState,
   SettingsField,

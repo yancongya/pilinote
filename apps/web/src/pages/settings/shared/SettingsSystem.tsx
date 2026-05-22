@@ -136,6 +136,40 @@ export function SettingsActionRow({ children, dangerZone = false }: SettingsActi
   )
 }
 
+type SettingsActionItemProps = {
+  icon?: ReactNode
+  title: ReactNode
+  right?: ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  ariaLabel?: string
+}
+
+export function SettingsActionItem({
+  icon,
+  title,
+  right,
+  onClick,
+  disabled = false,
+  ariaLabel,
+}: SettingsActionItemProps) {
+  return (
+    <button
+      type="button"
+      className="settings-action-item"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+    >
+      {icon ? <span className="settings-action-item-icon">{icon}</span> : null}
+      <span className="settings-action-item-title">{title}</span>
+      <span className="settings-action-item-right">
+        {right}
+      </span>
+    </button>
+  )
+}
+
 type SettingsStatusBadgeProps = {
   state: 'idle' | 'saving' | 'saved' | 'error' | 'warning'
   children: ReactNode
@@ -195,4 +229,3 @@ export function SettingsEmptyState({
     </div>
   )
 }
-
