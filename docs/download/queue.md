@@ -2,28 +2,39 @@
 
 ## 概述
 
-基于 Aria2c 的任务队列系统，采用四级队列架构进行任务管理。
+队列系统负责管理“任务（Task）”的创建、调度与执行，并通过 WebSocket 向前端推送实时状态。
+
+当前实现以 `Task.state`（整数枚举）作为**主状态**，以 `Task.status.stage`（字符串枚举）作为**下载阶段**。两者含义不同，避免混用。
 
 ## 任务状态
 
-| 状态 | 说明 |
-|------|------|
-| pending | 待处理 |
-| downloading | 下载中 |
-| completed | 完成 |
-| failed | 失败 |
-| paused | 暂停 |
-| cancelled | 取消 |
+后端存储/返回的 `state` 为 `TaskState`（`apps/api/src/models/task.py`），取值为整数：
+
+| TaskState | 值 | 说明 | 常见 UI 文案 |
+|---|---:|---|---|
+| BACKLOG | 0 | 已规划（已创建，但尚未进入执行调度） | 已规划/待办 |
+| PENDING | 1 | 待处理（等待调度/资源位） | 排队中 |
+| ACTIVE | 2 | 执行中 | 下载中 |
+| COMPLETED | 3 | 已完成 | 完成 |
+| PAUSED | 4 | 已暂停 | 暂停 |
+| FAILED | 5 | 失败 | 失败 |
+| CANCELLED | 6 | 已取消 | 取消/跳过 |
+
+注意：
+1. 文档中如果出现“跳过”，应理解为**没有进入下载执行**的结果（例如扫描到新视频但未自动加入队列，或任务被用户取消），它不是一个独立的 `TaskState`。
+2. 前端可能把整数 `state` 映射成字符串（如 `active/completed`）用于筛选或展示，但以整数枚举为准。
 
 ## 下载阶段
 
-| 阶段 | 说明 |
-|------|------|
-| preparing | 准备中 |
-| downloading | 下载中 |
-| moving | 文件移动中 |
-| post_processing | 后处理中 |
-| completed | 已完成 |
+`Task.status.stage` 使用 `DownloadStage`（`apps/api/src/models/task.py`），用于表达“正在做哪一步”：
+
+| stage | 说明 |
+|---|---|
+| preparing | 准备中（获取元数据/链接等） |
+| downloading | 下载视频/音频中 |
+| moving | 移动/整理文件中 |
+| post_processing | 后处理中（封面、字幕、NFO 等） |
+| completed | 阶段完成（通常与 `TaskState.COMPLETED` 同步出现） |
 
 ## 四级队列系统
 
@@ -42,6 +53,11 @@ BACKLOG → PENDING → DOING → COMPLETED
   ↓         ↓        ↓         ↓
 待处理   等待中    执行中    已完成
 ```
+
+在现实现里：
+1. `QueueType` 表示“任务在哪个队列里”，用于调度/执行排序。
+2. `TaskState` 表示“任务当前状态”，用于 UI 展示与控制。
+3. 常见对应关系：`QueueType.BACKLOG` ↔ `TaskState.BACKLOG`，`QueueType.DOING` ↔ `TaskState.ACTIVE`，但两者不是强绑定字段，应该分别理解。
 
 ### 并发控制
 
@@ -86,9 +102,7 @@ Body: {
 #### 控制任务
 
 ```
-POST /api/queue/tasks/{task_id}/start
 POST /api/queue/tasks/{task_id}/pause
-POST /api/queue/tasks/{task_id}/resume
 POST /api/queue/tasks/{task_id}/cancel
 POST /api/queue/tasks/{task_id}/retry
 ```
@@ -127,10 +141,12 @@ Body: {
 POST /api/queue/schedulers/{id}/start
 ```
 
-#### 停止调度器
+#### 暂停/恢复/取消调度器
 
 ```
-POST /api/queue/schedulers/{id}/stop
+POST /api/queue/schedulers/{id}/pause
+POST /api/queue/schedulers/{id}/resume
+POST /api/queue/schedulers/{id}/cancel
 ```
 
 #### 删除调度器
@@ -139,79 +155,49 @@ POST /api/queue/schedulers/{id}/stop
 DELETE /api/queue/schedulers/{id}
 ```
 
-### 下载列表管理
-
-#### 获取下载列表
-
-```
-GET /api/downloads?status=downloading
-```
-
-#### 批量开始下载
-
-```
-POST /api/downloads/batch/start
-Body: {
-    "download_ids": ["id1", "id2", "id3"]
-}
-```
-
-#### 删除下载记录
-
-```
-DELETE /api/downloads/{download_id}
-DELETE /api/downloads/by-bvid/{bvid}
-```
-
 ## WebSocket 实时更新
 
 ```
-ws://localhost:8000/ws/downloads
+ws://localhost:8000/ws/queue
 ```
 
 ### 事件类型
 
 | 事件类型 | 说明 |
 |----------|------|
-| `download_progress` | 下载进度更新 |
-| `download_status` | 下载状态更新 |
-| `download_stage` | 下载阶段更新 |
-| `download_bytes` | 下载字节数更新 |
-| `download_error` | 下载错误 |
+| `taskCreated` | 新任务创建 |
+| `taskUpdated` | 任务状态更新（`state`，可能为整数或字符串） |
+| `taskProgress` | 任务进度更新（`progress/speed/eta/stage/downloaded/total`） |
+| `progress` | 子任务/分片进度（历史兼容字段） |
+| `schedulerUpdated` | 调度器状态更新 |
+| `schedulerDeleted` | 调度器删除 |
+| `queueUpdated` | 队列更新（提示前端做全量刷新） |
 
 ### 事件示例
 
-#### 下载进度更新
+#### taskProgress
 
 ```json
 {
-  "type": "download_progress",
-  "download_id": "550e8400-e29b-41d4-a716-446655440000",
+  "type": "taskProgress",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
   "progress": 45.5,
   "speed": 1024000,
-  "eta": 120
+  "eta": 120,
+  "stage": "downloading",
+  "downloaded": 12345678,
+  "total": 34567890
 }
 ```
 
-#### 下载状态更新
+#### taskUpdated
 
 ```json
 {
-  "type": "download_status",
-  "download_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "downloading"
-}
-```
-
-#### 下载错误
-
-```json
-{
-  "type": "download_error",
-  "download_id": "550e8400-e29b-41d4-a716-446655440000",
-  "error": "网络连接失败",
-  "error_type": "network",
-  "error_code": "NETWORK_ERROR"
+  "type": "taskUpdated",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "2",
+  "cancelled": false
 }
 ```
 
@@ -251,7 +237,7 @@ interface DownloadState {
 ```typescript
 // 自动连接WebSocket
 connectWebSocket: () => {
-  const wsUrl = `ws://${window.location.hostname}:8000/ws/downloads`
+  const wsUrl = `ws://${window.location.hostname}:8000/ws/queue`
   const ws = new WebSocket(wsUrl)
   
   ws.onopen = () => {

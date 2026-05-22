@@ -630,7 +630,7 @@ const MobileMenuToggle = styled.button`
 
 - [主题系统设计](../web/theme-system.md) - 完整的主题系统设计文档
 - [设计令牌系统](../web/theme-system.md#设计令牌系统) - CSS 变量系统说明
-- [侧边栏组件](../components/sidebar.md) - 侧边栏导航组件
+- 侧边栏导航：当前侧边栏实现内聚在 `MainLayout` 及其样式/子组件中（仓库中无独立 `sidebar.md` 文档时以源码为准）
 
 ## 更新日志
 

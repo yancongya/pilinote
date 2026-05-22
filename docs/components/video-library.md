@@ -985,7 +985,7 @@ try {
 - [本地视频库API](../api/library-api.md)
 - [NFO文件格式](../download/nfo-format.md)
 - [VideoListControls组件](./video-list-controls.md)
-- [下载服务实现](../download/download-service.md)
+- [下载服务实现](./download-service.md) - 下载服务（后端侧服务入口）
 
 ## 相关文件
 

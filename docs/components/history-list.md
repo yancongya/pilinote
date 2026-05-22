@@ -672,18 +672,18 @@ HistoryContent 组件用于 `/history` 路由，提供完整的观看历史管�
 
 ### 相关 Hooks
 
-- [useVideoList](../../hooks/useVideoList.ts) - 视频列表管理
-- [useVideoDownload](../../hooks/useVideoDownload.ts) - 下载管理
+- [useVideoList](../../apps/web/src/hooks/useVideoList.ts) - 视频列表管理
+- [useVideoDownload](../../apps/web/src/hooks/useVideoDownload.ts) - 下载管理
 
 ### 相关服务
 
-- [apiService](../../services/api.ts) - API 服务
-- [videoLibraryService](../../services/videoLibraryService.ts) - 视频库服务
+- [apiService](../../apps/web/src/services/api.ts) - API 服务
+- [videoLibraryService](../../apps/web/src/services/videoLibraryService.ts) - 视频库服务
 
 ### 相关 Store
 
-- [useAuthStore](../../stores/auth.ts) - 认证状态
-- [useNewQueueStore](../../stores/newQueue.ts) - 新下载系统状态
+- [useAuthStore](../../apps/web/src/stores/auth.ts) - 认证状态
+- [useNewQueueStore](../../apps/web/src/stores/newQueue.ts) - 新下载系统状态
 
 ---
 

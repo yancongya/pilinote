@@ -239,7 +239,7 @@ function MyComponent() {
 
 ## 关联组件
 
-- [VideoListCard](video-list-card.md) - 视频卡片
+- VideoListCard：源码位于 `apps/web/src/pages/components/VideoListCard.tsx`（当前无独立 docs 条目时以源码为准）
 - [BatchActionsBar](batch-actions-bar.md) - 批量操作栏
 
 ---

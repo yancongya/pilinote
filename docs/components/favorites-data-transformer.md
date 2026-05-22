@@ -429,7 +429,7 @@ title=media.get('title', ''),
 
 ## 相关文档
 
-- [CardData 数据模型](../api/schemas.md) - 统一数据模型
+- CardData 数据模型：统一数据模型定义以 `apps/web/src/components/media-list/MediaListState.tsx` 与后端返回结构为准（当前无独立 docs 条目时以源码为准）
 - [收藏夹 API](../api/favorites-api.md) - API 文档
 - [稍后再看数据转换](./toview-data-transformer.md) - 稍后再看转换
 - [API 实现文档](../api/implementation.md) - 性能优化实现详情

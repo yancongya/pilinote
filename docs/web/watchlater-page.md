@@ -514,14 +514,14 @@ function WatchLaterPage() {
 
 ## 相关 Hooks
 
-- [useVideoList](../hooks/use-video-list.md) - 视频列表管理
-- [useVideoDownload](../hooks/use-video-download.md) - 下载管理
+- [useVideoList](../../apps/web/src/hooks/useVideoList.ts) - 视频列表管理（分页/缓存/去重等）
+- [useVideoDownload](../../apps/web/src/hooks/useVideoDownload.ts) - 下载管理（任务创建/状态同步等）
 
 ## 相关文档
 
 - [稍后再看 API](../api/watchlater-api.md) - API 文档
 - [稍后再看数据转换](../components/toview-data-transformer.md) - 数据转换
-- [稍后再看下载集成](../download/watchlater-download.md) - 下载集成
+- 稍后再看下载集成：当前实现位于前端页面与下载队列/服务侧联动（无独立 docs 条目时以源码为准）
 
 ---
 

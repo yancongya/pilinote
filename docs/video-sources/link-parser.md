@@ -2,13 +2,13 @@
 
 ## 概述
 
-首页链接解析功能允许用户通过输入 Bilibili 链接，直接解析视频信息并添加到下载队列。
+首页链接解析功能允许用户通过输入 Bilibili 链接，解析媒体类型与资源 ID，并据此创建下载任务（加入队列）。
 
 ## 功能位置
 
 - 前端页面：`apps/web/src/pages/components/HomeContent.tsx`
 - 前端API：`apps/web/src/services/api.ts` (`parseDownloadUrl`)
-- 后端API：`apps/api/src/routers/download.py` (`/api/download/parse`)
+- 后端API：`apps/api/src/routers/download.py` (`/api/download/parse`，标记为“已废弃”但仍保留用于兼容)
 - 链接解析工具：`apps/api/src/utils/bilibili_utils.py` (`LinkParser`)
 
 ## 智能解析
@@ -93,13 +93,13 @@ LinkParser.parse_id()
 │                         └──────┬───────┘                     │
 └────────────────────────────────┼──────────────────────────────┘
                                  │
-                    POST /api/queue/parse
+                    POST /api/download/parse
                                  │
 ┌────────────────────────────────▼──────────────────────────────┐
 │                        后端                                    │
 │                                                              │
 │  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐  │
-│  │ /queue/parse│────▶│ LinkParser  │────▶│ BilibiliAPI │  │
+││/download/parse│────▶│ LinkParser  │────▶│ BilibiliAPI │  │
 │  │   路由      │     │             │     │   获取详情   │  │
 │  └──────────────┘     └──────┬───────┘     └──────────────┘  │
 │                               │                                │

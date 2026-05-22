@@ -11,10 +11,10 @@ apps/web/src/
 │   ├── VideoDetailPage.tsx
 │   └── components/
 │       ├── HomeContent.tsx
-│       ├── FavoriteList.tsx
-│       ├── WatchLaterList.tsx
-│       ├── VideoListCard.tsx
-│       └── DownloadQueue.tsx
+│       ├── FavoritesContent.tsx
+│       ├── WatchLaterContent.tsx
+│       ├── HistoryContent.tsx
+│       └── SubscriptionsContent.tsx
 ├── stores/          # Zustand 状态管理
 ├── hooks/           # 自定义 Hooks
 └── services/       # API 服务
@@ -67,10 +67,14 @@ apps/web/src/
 
 | 组件 | 说明 |
 |------|------|
-| LoginPage | 登录页面（SESSDATA/二维码/手机验证码）|
-| SettingsPage | 设置页面（统一 settings 设计系统，含下载/存储/通用/自动下载/AI 笔记）|
-| VideoDetailPage | 视频详情页面（PC/手机统一单列流式布局，保留封面、作者信息、简介、评论、分P、下载和 AI 笔记入口） |
-| HomeContent | 首页内容 |
+| LoginPage | 登录页面 |
+| SettingsPage | 设置页面（统一 settings 设计系统，含下载/存储/通用/自动下载/AI 笔记等）|
+| VideoDetailPage | 视频/图文详情页（`/video/:videoId`、`/opus/:opusId`；含 AI 笔记子路由入口） |
+| HomeContent | 首页内容（挂载于 `MainLayout` 的 `/home`） |
+| FavoritesContent | 收藏夹页（列表与详情共用，依赖路由参数 `folderId`） |
+| WatchLaterContent | 稍后再看页 |
+| HistoryContent | 历史记录页 |
+| SubscriptionsContent | 订阅源页（支持 `sourceType/sourceId` 子路由） |
 
 ### 视频详情页
 
@@ -146,22 +150,24 @@ apps/web/src/
 
 | 组件 | 说明 |
 |------|------|
-| FavoriteList | 收藏夹列表 |
-| WatchLaterList | 稍后再看列表 |
-| VideoListCard | 视频卡片 |
+| FavoritesContent | 收藏夹列表/详情页 |
+| WatchLaterContent | 稍后再看列表 |
+| HistoryContent | 历史记录列表 |
+| VideoListCard | 视频卡片（用于列表项展示） |
 
 ## 状态管理 (Zustand)
 
 ### 认证状态
 
 ```typescript
-interface AuthStore {
+interface AuthState {
   user: User | null
   isAuthenticated: boolean
-  loading: boolean
-  login: (sessdata: string) => Promise<void>
-  logout: () => Promise<void>
-  checkStatus: () => Promise<void>
+  isLoading: boolean
+  setUser: (user: User | null) => void
+  logout: () => void
+  fetchUser: () => Promise<void>
+  setIsLoading: (loading: boolean) => void
 }
 ```
 
@@ -180,11 +186,15 @@ interface DownloadStore {
 ### 设置状态
 
 ```typescript
-interface SettingsStore {
+interface SettingsState {
   settings: Settings | null
   loading: boolean
-  updateSettings: (update: Partial<Settings>) => Promise<void>
+  error: string | null
   fetchSettings: () => Promise<void>
+  updateSettings: (updates: Partial<Settings>) => Promise<void>
+  resetSettings: (category?: string) => Promise<void>
+  exportSettings: () => Promise<string>
+  importSettings: (data: string) => Promise<void>
 }
 ```
 
@@ -212,42 +222,30 @@ updateSettings(settings: Partial<Settings>): Promise<Settings>
 ## 路由
 
 ```typescript
-const routes = [
-  { path: '/', element: <HomePage /> },
-  { path: '/login', element: <LoginPage /> },
-  { path: '/favorites', element: <FavoritesPage /> },
-  { path: '/watchlater', element: <WatchLaterPage /> },
-  { path: '/download', element: <DownloadPage /> },
-  { path: '/new-download', element: <NewDownload /> },  // 新下载页面（完全适配暗色模式）
-  { path: '/settings', element: <SettingsPage /> },
-  { path: '/video/:id', element: <VideoDetailPage /> },
-]
+<Routes>
+  <Route path="/" element={<Navigate to="/home" replace />} />
+  <Route path="/home" element={<MainLayout />} />
+  <Route path="/favorites" element={<MainLayout />} />
+  <Route path="/favorites/:folderId" element={<MainLayout />} />
+  <Route path="/watch-later" element={<MainLayout />} />
+  <Route path="/history" element={<MainLayout />} />
+  <Route path="/subscriptions" element={<MainLayout />} />
+  <Route path="/subscriptions/:sourceType/:sourceId" element={<MainLayout />} />
+  <Route path="/downloads" element={<MainLayout />} />
+  <Route path="/opus/:opusId" element={<VideoDetailPage type="opus" />} />
+  <Route path="/opus/:opusId/ai" element={<AiNotePanel />} />
+  <Route path="/video/:videoId" element={<VideoDetailPage />} />
+  <Route path="/video/:videoId/ai" element={<AiNotePanel />} />
+  <Route path="/settings" element={<SettingsPage />} />
+  <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+  <Route path="*" element={<Navigate to="/home" replace />} />
+</Routes>
 ```
 
-### NewDownload页面
-
-新下载管理页面，提供下载任务管理和视频库浏览功能。
-
-**主要功能**：
-- 下载列表显示和管理
-- 任务卡片（TaskCard）
-- 调度器卡片（SchedulerCard）
-- 视频库浏览（VideoLibrary）
-- 扫描结果显示（ScanResultContent）
-- 搜索和排序功能
-
-**暗色模式适配**：
-- ✅ 完全适配暗色模式
-- ✅ 所有颜色使用CSS变量
-- ✅ 支持100%主题切换
-- ✅ 249个硬编码颜色已修复
-
-**子组件**：
-- `DownloadsList.tsx` - 下载列表
-- `TaskCard.tsx` - 任务卡片
-- `SchedulerCard.tsx` - 调度器卡片
-- `VideoLibrary.tsx` - 视频库
-- `ScanResultContent.tsx` - 扫描结果
+说明：
+- `MainLayout` 是承载型路由组件：`/home`、`/favorites*`、`/watch-later`、`/history`、`/subscriptions*`、`/downloads` 都复用同一套布局与页面壳层。
+- 详情页有两类：视频（`/video/:videoId`）与图文（`/opus/:opusId`），并各自提供 AI 笔记子路由（`/ai`）。
+- `AiNotePanel` 既会作为详情页内的可复用面板（组件路径）出现，也被用于 `/video/:videoId/ai`、`/opus/:opusId/ai` 作为独立路由页面。
 
 ### SettingsPage 页面系统
 

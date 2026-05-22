@@ -159,7 +159,7 @@
 
 ### WebSocket连接
 
-**端点**: `ws://localhost:8000/ws/downloads`
+**端点**: `ws://localhost:8000/ws/queue`
 
 **事件类型**：
 - `download_progress` - 下载进度更新

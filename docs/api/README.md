@@ -61,7 +61,7 @@
 - 文件命名规范（cover.jpg、avatar.jpg/png）
 - 时间管理（文件夹创建时间）
 
-### 3. 后端服务组件
+### 7. 后端服务组件
 **文件**: [components/README.md](../components/README.md)
 
 内容：

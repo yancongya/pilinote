@@ -5,63 +5,52 @@
 ### Task 模型
 
 ```python
+class TaskState(int, enum.Enum):
+    BACKLOG = 0
+    PENDING = 1
+    ACTIVE = 2
+    COMPLETED = 3
+    PAUSED = 4
+    FAILED = 5
+    CANCELLED = 6
+
+class DownloadStage(str, enum.Enum):
+    PREPARING = "preparing"
+    DOWNLOADING = "downloading"
+    MOVING = "moving"
+    POST_PROCESSING = "post_processing"
+    COMPLETED = "completed"
+
 class Task(Base):
-    """任务模型（新系统）"""
     __tablename__ = "tasks"
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    media_type = Column(String(20))    # media_type
-    media_id = Column(String(50))     # 视频 ID
-    title = Column(String(500))        # 标题
-    quality = Column(Integer)         # 清晰度
-    state = Column(Integer, default=0)  # 队列状态: 0=BACKLOG, 1=PENDING, 2=DOING, 3=COMPLETE
-    status = Column(String(20))       # 状态: pending, downloading, completed, failed, paused, cancelled
-    progress = Column(Float, default=0.0)  # 进度 0-100
-    stage = Column(String(50))       # 下载阶段: preparing, downloading, moving, post_processing, completed
-    downloaded_bytes = Column(BigInteger, default=0)
-    total_bytes = Column(BigInteger, default=0)
-    retry_count = Column(Integer, default=0)
-    max_retries = Column(Integer, default=3)
-    error_message = Column(Text)
-    meta = Column(Text)  # JSON格式的元数据
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
-```
 
-### Download 模型
-
-```python
-class Download(Base):
-    """下载记录模型（新系统）"""
-    __tablename__ = "downloads"
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    bvid = Column(String(20), index=True)
+    id = Column(String(50), primary_key=True, default=lambda: str(uuid.uuid4()))
+    media_type = Column(String(20), nullable=False, index=True)
+    media_id = Column(String(50), nullable=False, index=True)
     title = Column(String(500))
-    status = Column(String(20), default="pending")  # pending, downloading, completed, failed, paused, cancelled
-    progress = Column(Float, default=0.0)
-    download_speed = Column(Float, default=0.0)
-    eta = Column(Integer, default=0)
-    stage = Column(String(50), default="preparing")
-    downloaded_bytes = Column(BigInteger, default=0)
-    total_bytes = Column(BigInteger, default=0)
-    retry_count = Column(Integer, default=0)
-    max_retries = Column(Integer, default=3)
-    error_message = Column(Text, nullable=True)
-    thumbnail_url = Column(String(500), nullable=True)
-    duration = Column(Integer, nullable=True)
-    uploader = Column(String(200), nullable=True)
-    file_path = Column(String(1000), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    aid = Column(Integer, nullable=True)
-    cid = Column(Integer, nullable=True)
-    quality = Column(Integer, nullable=True)
-    audio_bitrate = Column(Integer, nullable=True)
-    codec = Column(String(50), nullable=True)
+
+    meta = Column(JSON, nullable=False, default=lambda: {})
+    prepare = Column(JSON, nullable=False, default=lambda: {})
+    status = Column(JSON, nullable=False, default=lambda: {})
+    # status 结构（常用字段）:
+    # {
+    #   "progress": float,    # 0-100
+    #   "speed": float,       # bytes/s
+    #   "eta": float,         # seconds
+    #   "stage": str,         # DownloadStage
+    #   "downloaded": int,    # bytes
+    #   "total": int          # bytes
+    # }
+    state = Column(Integer, nullable=False, default=TaskState.BACKLOG, index=True)
+
+    scheduler_id = Column(String(50), nullable=True, index=True)
+    created_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
+    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
 ```
+
+说明：
+1. 当前主路径以 `Task` 为核心模型；历史文档中独立的 `Download` 记录模型不再作为主流程对外表达。
+2. UI 展示“下载中/后处理”等更细粒度信息，请看 `Task.status.stage` 与 `Task.status.progress`。
 
 ## 执行流程
 
@@ -70,19 +59,19 @@ class Download(Base):
 ```
 1. 任务创建
    ↓
-   BACKLOG (待处理队列)
+   BACKLOG (已规划/待办)
    ↓
 2. 任务调度
    ↓
-   PENDING (等待队列)
+   PENDING (待处理/排队中)
    ↓
 3. 任务执行
    ↓
-   DOING (执行队列)
+   ACTIVE (执行中)
    ↓
 4. 任务完成
    ↓
-   COMPLETE (完成队列)
+   COMPLETED (已完成)
 ```
 
 ### 下载阶段
@@ -212,7 +201,7 @@ class ErrorType(Enum):
 ```python
 async def process_with_retry(task: Task):
     """带重试的任务处理"""
-    max_retries = task.max_retries or 3
+    max_retries = 3
     retry_count = 0
     
     while retry_count < max_retries:
@@ -226,8 +215,8 @@ async def process_with_retry(task: Task):
             
             if retry_count >= max_retries:
                 # 标记为失败
-                task.status = "failed"
-                task.error_message = str(e)
+                task.state = TaskState.FAILED
+                task.error_detail = {"message": str(e)}
                 break
             
             # 等待后重试

@@ -3,7 +3,7 @@
 ## 基础信息
 
 - **Base URL**: `http://localhost:8000`
-- **WebSocket**: `ws://localhost:8000/ws`
+- **WebSocket**: `ws://localhost:8000/ws/queue`
 
 ## 认证接口
 
@@ -72,6 +72,10 @@
 |------|------|------|------|
 | GET | `/api/watch-later/list` | `?pn=1&ps=20` | 获取稍后再看列表（支持分页） |
 | GET | `/api/video/{id}` | - | 获取视频详情 |
+
+说明：
+
+- `/api/watch-later/*` 当前仅提供读取列表（只读）。添加/移除等写接口未实现，因此此处不列出。
 
 ### 字幕下载说明
 

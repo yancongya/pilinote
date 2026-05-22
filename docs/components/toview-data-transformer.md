@@ -458,7 +458,7 @@ title=video.get('title', ''),
 
 ## 相关文档
 
-- [CardData 数据模型](../api/schemas.md) - 统一数据模型
+- CardData 数据模型：统一数据模型定义以 `apps/web/src/components/media-list/MediaListState.tsx` 与后端返回结构为准（当前无独立 docs 条目时以源码为准）
 - [稍后再看 API](../api/watchlater-api.md) - API 文档
 - [收藏夹数据转换](./favorites-data-transformer.md) - 收藏夹转换
 - [稍后再看页前端实现](../web/watchlater-page.md) - 前端实现

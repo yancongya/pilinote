@@ -611,14 +611,14 @@ function FavoritesPage() {
 
 ## 相关 Hooks
 
-- [useVideoList](../hooks/use-video-list.md) - 视频列表管理
-- [useVideoDownload](../hooks/use-video-download.md) - 下载管理
+- [useVideoList](../../apps/web/src/hooks/useVideoList.ts) - 视频列表管理（分页/缓存/去重等）
+- [useVideoDownload](../../apps/web/src/hooks/useVideoDownload.ts) - 下载管理（任务创建/状态同步等）
 
 ## 相关文档
 
 - [收藏夹 API](../api/favorites-api.md) - API 文档
 - [收藏夹数据转换](../components/favorites-data-transformer.md) - 数据转换
-- [收藏夹下载集成](../download/favorites-download.md) - 下载集成
+- 收藏夹下载集成：当前实现位于前端页面与下载队列/服务侧联动（无独立 docs 条目时以源码为准）
 
 ---
 

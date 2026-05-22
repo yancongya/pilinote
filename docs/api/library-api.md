@@ -1431,7 +1431,7 @@ async def get_library_status(db: Session = Depends(get_db)):
 
 ### 相关文档
 
-- [前端VideoLibraryService](../components/video-library-service.md)
+- [视频库（组件/页面）](../components/video-library.md)
 - [视频库设置](../settings/video-library.md)
 - [视频库状态管理系统设计](../superpowers/specs/2026-04-16-video-library-status-management-design.md)
 
@@ -2256,10 +2256,10 @@ async def _process_completed_download(
 
 ## 相关文档
 
-- [下载服务实现](../download/download-service.md)
-- [下载完成处理](../download/completed-processing.md)
+- [下载系统（总览）](../download/README.md)
+- [下载服务（组件）](../components/download-service.md)
 - [NFO文件格式](../metadata/nfo-format.md)
-- [视频库前端实现](../web/video-library.md)
+- [本地视频库（组件/页面）](../components/video-library.md)
 - [API 端点索引](./endpoints.md)
 
 ---

@@ -70,7 +70,7 @@ function MyComponent() {
 ## 关联组件
 
 - [VideoListContainer](video-list-container.md) - 视频列表容器
-- [VideoListCard](video-list-card.md) - 视频卡片
+- VideoListCard：源码位于 `apps/web/src/pages/components/VideoListCard.tsx`（当前无独立 docs 条目时以源码为准）
 
 ---
 

@@ -6,30 +6,46 @@
 
 ## 调度器状态
 
-| 状态 | 说明 |
-|------|------|
-| idle | 空闲 |
-| running | 运行中 |
-| paused | 暂停 |
-| completed | 完成 |
-| failed | 失败 |
+后端存储/返回的 `state` 为 `SchedulerState`（`apps/api/src/models/scheduler.py`），取值为整数：
+
+| SchedulerState | 值 | 说明 | 常见 UI 文案 |
+|---|---:|---|---|
+| PENDING | 0 | 待处理 | 空闲/待启动 |
+| ACTIVE | 1 | 活跃 | 运行中 |
+| COMPLETED | 2 | 已完成 | 完成 |
+| PAUSED | 3 | 已暂停 | 暂停 |
+| FAILED | 4 | 失败 | 失败 |
+| CANCELLED | 5 | 已取消 | 取消 |
 
 ## 调度器模型
 
 ```python
+class SchedulerState(int, enum.Enum):
+    PENDING = 0
+    ACTIVE = 1
+    COMPLETED = 2
+    PAUSED = 3
+    FAILED = 4
+    CANCELLED = 5
+
+class QueueType(int, enum.Enum):
+    BACKLOG = 0
+    PENDING = 1
+    DOING = 2
+    COMPLETE = 3
+
 class Scheduler(Base):
-    """调度器模型"""
     __tablename__ = "schedulers"
-    
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    title = Column(String(200))  # 调度器标题
-    folder = Column(String(500))  # 输出文件夹
-    queue_type = Column(Integer, default=0)  # 队列类型: 0=BACKLOG, 1=PENDING, 2=DOING, 3=COMPLETE
-    state = Column(Integer, default=0)  # 状态: 0=idle, 1=running, 2=paused, 3=completed, 4=failed
-    list = Column(Text)  # 任务ID列表（JSON）
-    count = Column(Integer, default=0)  # 任务总数
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    id = Column(String(50), primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String(500), nullable=False)
+    list = Column(JSON, nullable=False, default=lambda: [])  # 任务ID列表
+    count = Column(Integer, nullable=False, default=0)
+    queue_type = Column(Integer, nullable=False, default=QueueType.PENDING)
+    state = Column(Integer, nullable=False, default=SchedulerState.PENDING, index=True)
+    folder = Column(String(500), nullable=False)
+    created_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
+    updated_at = Column(Integer, nullable=False, default=lambda: int(datetime.now().timestamp()))
 ```
 
 ## API
@@ -88,7 +104,13 @@ POST /api/queue/schedulers/{id}/pause
 ### 停止调度器
 
 ```
-POST /api/queue/schedulers/{id}/stop
+POST /api/queue/schedulers/{id}/resume
+```
+
+### 取消调度器
+
+```
+POST /api/queue/schedulers/{id}/cancel
 ```
 
 ### 删除调度器
@@ -104,19 +126,11 @@ DELETE /api/queue/schedulers/{id}
 ```
 1. 创建调度器
    ↓
-2. 扫描合集内容
+2. 启动调度器（initialize → prepare → dispatch）
    ↓
-3. 为每个分集创建任务
+3. dispatch 按顺序/策略推进任务执行，并更新 scheduler/task 状态
    ↓
-4. 将任务添加到调度器的任务列表
-   ↓
-5. 启动调度器
-   ↓
-6. 按顺序执行任务
-   ↓
-7. 所有任务完成
-   ↓
-8. 调度器状态更新为completed
+4. 所有任务完成 → 调度器状态更新为 COMPLETED（2）
 ```
 
 ### 收藏夹下载流程
@@ -136,7 +150,7 @@ DELETE /api/queue/schedulers/{id}
    ↓
 7. 所有任务完成
    ↓
-8. 调度器状态更新为completed
+4. 调度器状态更新为 COMPLETED（2）
 ```
 
 ### 稍后再看下载流程
@@ -156,7 +170,7 @@ DELETE /api/queue/schedulers/{id}
    ↓
 7. 所有任务完成
    ↓
-8. 调度器状态更新为completed
+4. 调度器状态更新为 COMPLETED（2）
 ```
 
 ## 使用场景
@@ -214,9 +228,9 @@ if (response.success) {
 
 ## 实现细节
 
-### 调度器管理器
+### 调度器服务
 
-**文件**: `apps/api/src/services/queue/scheduler_manager.py`
+**文件**: `apps/api/src/services/queue/scheduler.py`
 
 ```python
 class SchedulerManager:
@@ -262,56 +276,7 @@ class SchedulerManager:
         db.commit()
 ```
 
-### 调度器执行
-
-**文件**: `apps/api/src/services/queue/scheduler_executor.py`
-
-```python
-class SchedulerExecutor:
-    """调度器执行器"""
-    
-    async def execute(self, scheduler: Scheduler):
-        """执行调度器"""
-        try:
-            # 获取任务列表
-            task_ids = json.loads(scheduler.list)
-            
-            # 更新状态为running
-            scheduler.state = 1  # running
-            db.commit()
-            
-            # 按顺序执行任务
-            for task_id in task_ids:
-                try:
-                    # 获取任务
-                    task = db.query(Task).filter(Task.id == task_id).first()
-                    
-                    if task and task.state == 0:  # BACKLOG
-                        # 更新任务状态为DOING
-                        task.state = 2  # DOING
-                        db.commit()
-                        
-                        # 执行任务
-                        await handler.process(task)
-                        
-                        # 更新任务状态为COMPLETE
-                        task.state = 3  # COMPLETE
-                        db.commit()
-                except Exception as e:
-                    logger.error(f"任务 {task_id} 执行失败: {e}")
-                    continue
-            
-            # 更新状态为completed
-            scheduler.state = 3  # completed
-            db.commit()
-            
-        except Exception as e:
-            logger.error(f"调度器 {scheduler.id} 执行失败: {e}")
-            
-            # 更新状态为failed
-            scheduler.state = 4  # failed
-            db.commit()
-```
+（历史文档中出现的 `scheduler_manager.py` / `scheduler_executor.py` 已不再是当前主路径；以 `scheduler.py` 与 `routers/queue.py` 中的调用顺序为准。）
 
 ## 前端集成
 
@@ -381,20 +346,20 @@ export function SchedulerManager({ mediaType, mediaId, title }: SchedulerManager
 
 ```json
 {
-  "type": "scheduler_updated",
-  "scheduler_id": "770e8400-e29b-41d4-a716-446655440002",
-  "state": 1,
-  "message": "调度器正在运行"
+  "type": "schedulerUpdated",
+  "scheduler": {
+    "id": "770e8400-e29b-41d4-a716-446655440002",
+    "state": 1
+  }
 }
 ```
 
-### 调度器完成
+### 调度器删除
 
 ```json
 {
-  "type": "scheduler_completed",
-  "scheduler_id": "770e8400-e29b-41d4-a716-446655440002",
-  "message": "调度器已完成"
+  "type": "schedulerDeleted",
+  "id": "770e8400-e29b-41d4-a716-446655440002"
 }
 ```
 
@@ -402,8 +367,7 @@ export function SchedulerManager({ mediaType, mediaId, title }: SchedulerManager
 
 - **后端**:
   - `apps/api/src/models/scheduler.py` - 调度器模型
-  - `apps/api/src/services/queue/scheduler_manager.py` - 调度器管理器
-  - `apps/api/src/services/queue/scheduler_executor.py` - 调度器执行器
+  - `apps/api/src/services/queue/scheduler.py` - 调度器服务（initialize/prepare/dispatch/pause/resume/cancel）
   - `apps/api/src/routers/queue.py` - 调度器路由
 
 - **前端**:

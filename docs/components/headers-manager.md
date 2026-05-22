@@ -48,9 +48,9 @@ self.base_headers = {
 
 ### 依赖服务
 
-- [FingerprintManager](fingerprint-manager.md) - 设备指纹
+- FingerprintManager：当前仓库未提供独立文档条目（如后续引入指纹/设备伪装模块，建议在 `docs/components/` 补齐并统一命名）
 - [CookieManager](cookie-manager.md) - Cookie 存储
-- [GeetestService](geetest-service.md) - 极验验证
+- GeetestService：当前仓库未提供独立文档条目（如后续接入极验流程，建议补齐对应文档与入口说明）
 
 ## 单例模式
 

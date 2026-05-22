@@ -149,7 +149,7 @@ apps/web/src/
 
 | 路径 | 说明 |
 |------|------|
-| `ws://localhost:8000/ws/downloads` | 下载进度推送 |
+| `ws://localhost:8000/ws/queue` | 队列/任务/调度器实时推送 |
 
 ## 数据模型变更
 

@@ -429,10 +429,10 @@ cp pilinote.db.backup pilinote.db
 
 ## 相关文档
 
-- [项目概述](../01-overview/project-overview.md)
-- [前端架构](./frontend-architecture.md)
-- [后端架构](./backend-architecture.md)
-- [系统架构](./system.md)
+- [架构概览](../architecture/README.md)
+- [前端架构](../architecture/frontend-architecture.md)
+- [后端架构](../architecture/backend-architecture.md)
+- [系统架构](../architecture/system.md)
 
 ---
 

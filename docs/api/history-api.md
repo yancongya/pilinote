@@ -18,13 +18,6 @@
 
 **认证依赖**：`get_current_user_with_sessdata`
 
-```python
-# 从 Cookie 获取 SESSDATA
-user, sessdata = await get_current_user_with_sessdata(
-    db: Session = Depends(get_db)
-)
-```
-
 ### 基础 URL
 
 ```
@@ -68,7 +61,7 @@ http://127.0.0.1:8000
 | `pn` | int | 否 | 1 | 页码，从 1 开始 |
 | `ps` | int | 否 | 20 | 每页数量，最大 100 |
 | `keyword` | string | 否 | - | 搜索关键词，匹配视频标题 |
-| `order` | string | 否 | `default` | 排序方式：`default`（默认）、`view`（按播放量）、`pubtime`（按发布时间）、`view_time`（按观看时间） |
+| `order` | string | 否 | `default` | 排序方式：`default`（默认）、`view`（按播放量）、`pubtime`（按发布时间）、`view_at`（按观看时间） |
 | `sort_direction` | string | 否 | `desc` | 排序方向：`desc`（降序）、`asc`（升序） |
 
 #### 请求示例
@@ -96,7 +89,7 @@ curl -X GET "http://localhost:8000/api/history/list?order=pubtime&sort_direction
   -H "Cookie: SESSDATA=your_sessdata_here"
 
 # 按观看时间降序排列
-curl -X GET "http://localhost:8000/api/history/list?order=view_time&sort_direction=desc&pn=1&ps=20" \
+curl -X GET "http://localhost:8000/api/history/list?order=view_at&sort_direction=desc&pn=1&ps=20" \
   -H "Cookie: SESSDATA=your_sessdata_here"
 ```
 
@@ -506,8 +499,8 @@ const fetchHistory = async () => {
 
 ## 相关文档
 
-- [观看历史页面前端实现](../web/history-page.md)
-- [观看历史数据转换](../components/history-data-transformer.md)
+- [前端实现（总览）](../web/implementation.md)
+- [媒体/卡片数据转换](../components/media-data-transformer.md)
 - [BilibiliService](../components/bilibili-service.md)
 - [API 端点索引](./endpoints.md)
 - [历史记录组件](../components/history-list.md)
