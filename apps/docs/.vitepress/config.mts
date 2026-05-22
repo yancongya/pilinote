@@ -4,6 +4,10 @@ export default defineConfig({
   title: 'PiliNote',
   description: '视频下载与AI笔记',
   cleanUrls: true,
+  rewrites: {
+    'docs-dev/:rest*': 'dev/:rest*',
+    'docs-guide/:rest*': 'guide/:rest*'
+  },
   themeConfig: {
     nav: [
       { text: '落地页', link: '/' },
