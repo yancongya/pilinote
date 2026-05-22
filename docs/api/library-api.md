@@ -1433,7 +1433,7 @@ async def get_library_status(db: Session = Depends(get_db)):
 
 - [视频库（组件/页面）](../components/video-library.md)
 - [视频库设置](../settings/video-library.md)
-- [视频库状态管理系统设计](../superpowers/specs/2026-04-16-video-library-status-management-design.md)
+- （历史设计文档已移除）视频库状态管理系统设计
 
 ---
 

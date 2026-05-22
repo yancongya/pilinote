@@ -179,7 +179,7 @@ console.log(`添加 ${videosToDownload.length} 个新视频`);
 - [视频库API](../api/library-api.md)
 - [VideoLibrary组件](../components/video-library.md)
 - [下载服务组件](../components/download-service.md)
-- [视频库状态管理系统设计](../superpowers/specs/2026-04-16-video-library-status-management-design.md)
+- （历史设计文档已移除）视频库状态管理系统设计
 
 ---
 
