@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 function posixJoin(...parts: string[]) {
-  return parts.join('/').replace(/\\/+/g, '/')
+  return parts.join('/').replace(/\/+/g, '/')
 }
 
 function existsFile(p: string) {
