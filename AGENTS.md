@@ -329,7 +329,7 @@ pilinote/
 │       └── requirements.txt
 │
 ├── reference/                  # Reference projects
-├── docs/                       # Documentation
+├── apps/docs/                  # VitePress 文档站 + 文档源（docs-dev/docs-guide）
 └── todo/                       # Planning documents
 ```
 

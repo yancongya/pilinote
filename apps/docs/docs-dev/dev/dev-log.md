@@ -4,32 +4,32 @@
 
 ### 文档更新：认证复用与字幕下载联动
 
-- `docs/auth/cookies.md`: 补充“认证信息复用”和“字幕下载联动”的完整链路说明，明确登录态如何影响官方 AI 字幕下载
+- `apps/docs/docs-dev/auth/cookies.md`: 补充“认证信息复用”和“字幕下载联动”的完整链路说明，明确登录态如何影响官方 AI 字幕下载
 
 ## 2026.04.17
 
 ### 文档更新：字幕下载逻辑 API 说明
 
-- `docs/api/endpoints.md`: 新增字幕下载说明，补充双语规则、落盘命名和不可下载字幕的处理方式
-- `docs/api/implementation.md`: 补充字幕下载链路说明，明确与 `Pilipala` 同款的处理方式和调试建议
+- `apps/docs/docs-dev/api/endpoints.md`: 新增字幕下载说明，补充双语规则、落盘命名和不可下载字幕的处理方式
+- `apps/docs/docs-dev/api/implementation.md`: 补充字幕下载链路说明，明确与 `Pilipala` 同款的处理方式和调试建议
 
 ### 文档更新：设置与数据库说明
 
-- `docs/settings/download.md`: 补充字幕下载规则、AI 字幕处理和落盘命名
-- `docs/settings/README.md`: 增加字幕下载规则的索引说明
-- `docs/database/models.md`: 补充下载附属文件、字幕落盘和登录态复用说明
-- `docs/database/README.md`: 补充 settings 表里的字幕开关和认证信息保存说明
+- `apps/docs/docs-dev/settings/download.md`: 补充字幕下载规则、AI 字幕处理和落盘命名
+- `apps/docs/docs-dev/settings/README.md`: 增加字幕下载规则的索引说明
+- `apps/docs/docs-dev/database/models.md`: 补充下载附属文件、字幕落盘和登录态复用说明
+- `apps/docs/docs-dev/database/README.md`: 补充 settings 表里的字幕开关和认证信息保存说明
 
 ## 2026.04.17
 
 ### 文档更新：复用已有认证信息测试 API
 
 - `AGENTS.md`: 补充本地调试时如何复用 `apps/api/data/pilinote.db` 里的登录态来测试鉴权 API
-- `docs/auth/cookies.md`: 增加“使用已有认证信息测试 API”的完整说明，包含后端自动带 Cookie、curl 直测和脚本复用三种方式
-- `docs/auth/README.md`: 更新 Cookies 管理索引，明确包含鉴权 API 测试说明
-- `docs/api/implementation.md`: 补充本地鉴权测试说明，标注常用验证接口
-- `docs/api/endpoints.md`: 在认证接口入口增加复用现有登录态的说明
-- `docs/dev/README.md`: 增加开发文档入口，指向认证 API 测试说明
+- `apps/docs/docs-dev/auth/cookies.md`: 增加“使用已有认证信息测试 API”的完整说明，包含后端自动带 Cookie、curl 直测和脚本复用三种方式
+- `apps/docs/docs-dev/auth/README.md`: 更新 Cookies 管理索引，明确包含鉴权 API 测试说明
+- `apps/docs/docs-dev/api/implementation.md`: 补充本地鉴权测试说明，标注常用验证接口
+- `apps/docs/docs-dev/api/endpoints.md`: 在认证接口入口增加复用现有登录态的说明
+- `apps/docs/docs-dev/dev/README.md`: 增加开发文档入口，指向认证 API 测试说明
 
 ## 2026.04.12
 
@@ -45,8 +45,8 @@
 
 ### 文档更新
 
-- `docs/video-sources/link-parser.md`: 添加发布时间获取说明和 `pub_ts`/`pub_time` 字段文档
-- `docs/components/video-detail-page.md`: 补充前端数据映射说明
+- `apps/docs/docs-dev/video-sources/link-parser.md`: 添加发布时间获取说明和 `pub_ts`/`pub_time` 字段文档
+- `apps/docs/docs-dev/components/video-detail-page.md`: 补充前端数据映射说明
 
 ---
 
@@ -54,12 +54,12 @@
 
 ### 文档完善：技术栈和系统架构
 
-- 更新 `docs/base/tech-stack.md`：更新技术版本号（React 19.1.0, Zustand 5.0.12等）
-- 新建 `docs/architecture/system.md`：系统架构图、模块结构、数据流
-- 新建 `docs/web/implementation.md`：前端实现文档
-- 新建 `docs/api/implementation.md`：后端实现文档
-- 新建 `docs/settings/accounts.md`：账号设置文档
-- 更新 `docs/README.md`：添加使用指南
+- 更新 `apps/docs/docs-dev/base/tech-stack.md`：更新技术版本号（React 19.1.0, Zustand 5.0.12等）
+- 新建 `apps/docs/docs-dev/architecture/system.md`：系统架构图、模块结构、数据流
+- 新建 `apps/docs/docs-dev/web/implementation.md`：前端实现文档
+- 新建 `apps/docs/docs-dev/api/implementation.md`：后端实现文档
+- 新建 `apps/docs/docs-dev/settings/accounts.md`：账号设置文档
+- 更新 `apps/docs/docs-dev/README.md`：添加使用指南
 - 更新各目录 README 索引
 
 ### 代码审查 Skill
@@ -87,12 +87,12 @@
 ### 文档完善：设置模块
 
 - 更新 settings 模块文档结构，按 4 大类设置组织
-- 更新 `docs/settings/README.md`：索引 4 项设置（download/storage/general/auto_download）+ 完整配置结构
-- 更新 `docs/settings/storage.md`：增加存储设置配置项（路径、清理、sidecar、FTP）
-- 更新 `docs/settings/backup.md`：标注 WebDAV 未实现，仅支持 FTP
-- 新建 `docs/settings/download.md`：下载设置（视频质量、编码、并发、元数据）
-- 新建 `docs/settings/general.md`：通用设置（主题、语言、剪贴板监控）
-- 新建 `docs/settings/auto-download.md`：自动下载设置（扫描配置、收藏夹配置）
+- 更新 `apps/docs/docs-dev/settings/README.md`：索引 4 项设置（download/storage/general/auto_download）+ 完整配置结构
+- 更新 `apps/docs/docs-dev/settings/storage.md`：增加存储设置配置项（路径、清理、sidecar、FTP）
+- 更新 `apps/docs/docs-dev/settings/backup.md`：标注 WebDAV 未实现，仅支持 FTP
+- 新建 `apps/docs/docs-dev/settings/download.md`：下载设置（视频质量、编码、并发、元数据）
+- 新建 `apps/docs/docs-dev/settings/general.md`：通用设置（主题、语言、剪贴板监控）
+- 新建 `apps/docs/docs-dev/settings/auto-download.md`：自动下载设置（扫描配置、收藏夹配置）
 
 ### 文档规范
 

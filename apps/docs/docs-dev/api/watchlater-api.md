@@ -40,5 +40,5 @@ curl -X GET "http://localhost:8000/api/watch-later/list?pn=1&ps=20" \\
 
 ## 未实现 / 计划中
 
-“添加到稍后再看 / 从稍后再看移除”等写接口当前未在后端实现；如需补齐，建议先在 `docs/api/endpoints.md` 的总表中明确读写能力与鉴权方式，再补路由与前端调用。
+“添加到稍后再看 / 从稍后再看移除”等写接口当前未在后端实现；如需补齐，建议先在 `apps/docs/docs-dev/api/endpoints.md` 的总表中明确读写能力与鉴权方式，再补路由与前端调用。
 

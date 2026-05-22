@@ -137,7 +137,7 @@
 - **组件**: `apps/web/src/pages/VideoDetailPage.tsx`
 - **服务**: `apps/web/src/services/videoLibraryService.ts`
 - **Store**: `apps/web/src/stores/newQueue.ts`
-- **文档**: `docs/components/video-detail-page.md`
+- **文档**: `apps/docs/docs-dev/components/video-detail-page.md`
 
 ### 2026-04-17 - 观看历史功能上线
 
@@ -175,7 +175,7 @@
 - **错误处理测试**：验证无效参数和错误情况处理
 
 #### 文档完善
-- 新增观看历史 API 文档 (`docs/api/history-api.md`)
+- 新增观看历史 API 文档 (`apps/docs/docs-dev/api/history-api.md`)
 - 更新组件文档，添加 HistoryContent 组件说明
 - 更新主文档索引，添加观看历史功能引用
 - 更新 API 端点索引，添加观看历史 API
@@ -185,7 +185,7 @@
 - **前端**：`apps/web/src/pages/components/HistoryContent.tsx`
 - **数据转换**：`apps/api/src/services/media_data_transformer.py`
 - **测试**：`tests/history.spec.ts`
-- **文档**：`docs/api/history-api.md`
+- **文档**：`apps/docs/docs-dev/api/history-api.md`
 
 ### 2026-04-16 - 下载系统整合优化完成
 

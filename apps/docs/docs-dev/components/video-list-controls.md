@@ -195,5 +195,5 @@ const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   - `apps/web/src/pages/components/WatchLaterContent.tsx`
   - `apps/web/src/pages/components/FavoritesContent.tsx`
 - **API文档**: 
-  - `docs/api/watchlater-api.md`
-  - `docs/api/favorites-api.md`
+  - `apps/docs/docs-dev/api/watchlater-api.md`
+  - `apps/docs/docs-dev/api/favorites-api.md`

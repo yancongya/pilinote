@@ -50,7 +50,7 @@ with SessionLocal() as db:
 ## 关联服务
 
 - [DownloadService](download-service.md) - 下载服务
-- [存储设置文档](../settings/storage.md) - 存储设置（docs/settings）
+- [存储设置文档](../settings/storage.md) - 存储设置（dev/settings）
 
 ---
 

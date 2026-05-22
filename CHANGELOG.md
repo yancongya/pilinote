@@ -135,16 +135,16 @@ useEffect(() => {
 ### 📝 文档更新
 
 #### 新增文档
-- `docs/download/system-refactor.md` - 下载系统整合优化详细文档
+- `apps/docs/docs-dev/download/system-refactor.md` - 下载系统整合优化详细文档
 
 #### 更新文档
-- `docs/api/endpoints.md` - 更新API端点说明
-- `docs/architecture/backend-architecture.md` - 更新后端架构说明
-- `docs/download/queue.md` - 更新队列系统说明
-- `docs/download/tasks.md` - 更新任务系统说明
-- `docs/download/scheduler.md` - 更新调度器说明
-- `docs/download/README.md` - 更新下载系统文档索引
-- `docs/README.md` - 添加下载系统整合优化说明
+- `apps/docs/docs-dev/api/endpoints.md` - 更新API端点说明
+- `apps/docs/docs-dev/architecture/backend-architecture.md` - 更新后端架构说明
+- `apps/docs/docs-dev/download/queue.md` - 更新队列系统说明
+- `apps/docs/docs-dev/download/tasks.md` - 更新任务系统说明
+- `apps/docs/docs-dev/download/scheduler.md` - 更新调度器说明
+- `apps/docs/docs-dev/download/README.md` - 更新下载系统文档索引
+- `apps/docs/docs-dev/README.md` - 添加下载系统整合优化说明
 
 ### 🎨 前端状态管理
 
@@ -1509,17 +1509,17 @@ LIMIT 1;
 |------|---------|------|------|
 | apps/api/src/services/download_service.py | +150 | 150 | 0 |
 | apps/web/src/pages/components/WatchLaterContent.tsx | +5 | 5 | 0 |
-| docs/todo/download/06-image-download-fix.md | +300 | 300 | 0 |
+| apps/docs/docs-dev/todo/download/06-image-download-fix.md | +300 | 300 | 0 |
 | CHANGELOG.md | +50 | 50 | 0 |
 | **总计** | **+505** | **505** | 0 |
 
 ### 📝 文档更新
-- ✅ 创建详细的修复文档：`docs/todo/download/06-image-download-fix.md`
+- ✅ 创建详细的修复文档：`apps/docs/docs-dev/todo/download/06-image-download-fix.md`
 - ✅ 更新 CHANGELOG 记录修复过程
 - ✅ 记录根本原因、解决方案、技术细节
 
 ### 🔗 相关文档
-- 详见 `docs/todo/download/06-image-download-fix.md` 获取完整的技术细节
+- 详见 `apps/docs/docs-dev/todo/download/06-image-download-fix.md` 获取完整的技术细节
 
 ---
 
@@ -1708,7 +1708,7 @@ LIMIT 1;
 |------|---------|------|------|
 | apps/web/src/pages/components/WatchLaterContent.tsx | +30 | 25 | 5 |
 | apps/web/src/pages/components/FavoritesContent.tsx | +30 | 25 | 5 |
-| docs/dev/09-download-management.md | +20 | 20 | 0 |
+| apps/docs/docs-dev/dev/09-download-management.md | +20 | 20 | 0 |
 | CHANGELOG.md | +50 | 50 | 0 |
 | **总计** | **+130** | **120** | **10** |
 
@@ -1719,7 +1719,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
 ```
 
 ### 🔗 相关文档
-- 详见 `docs/dev/09-download-management.md` 更新日志部分
+- 详见 `apps/docs/docs-dev/dev/09-download-management.md` 更新日志部分
 
 ---
 
@@ -2489,7 +2489,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
 
 ### 文件变更
 - **修改文件**:
-  - `docs/dev/01-auth-solution.md` - 完全重写认证方案文档
+  - `apps/docs/docs-dev/dev/01-auth-solution.md` - 完全重写认证方案文档
   - `apps/web/src/pages/LoginPage.tsx` - 移除密码登录功能
   - `apps/web/src/services/api.ts` - 更新SmsLoginRequest接口
   - `apps/api/src/schemas/login.py` - 修复Pydantic字段冲突
@@ -2686,7 +2686,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
 - ✅ **HTML解析**: 所有视频详情获取使用HTML解析方法
 
 ### 文档更新
-- ✅ **HTML解析文档**: 创建[10-html-parsing-method.md](docs/dev/10-html-parsing-method.md)
+- ✅ **HTML解析文档**: 创建[10-html-parsing-method.md](apps/docs/docs-dev/dev/10-html-parsing-method.md)
 - ✅ **API列表更新**: 添加统计信息获取和HTML解析说明
 - ✅ **README更新**: 添加新文档索引
 
@@ -2764,7 +2764,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
    - bilibili-downloader (B站下载器)
    - bilibili-favlist-auto-downloader (收藏夹自动下载)
 
-3. 创建开发文档 `docs/dev/`：
+3. 创建开发文档 `apps/docs/docs-dev/dev/`：
    - 技术方案
    - 认证方案
    - API列表
@@ -3488,7 +3488,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
 - [x] 添加扩展性设计文档
 
 ### 完成工作
-1. 项目结构文档更新（docs/dev/06-project-structure.md）：
+1. 项目结构文档更新（apps/docs/docs-dev/dev/06-project-structure.md）：
    - 基于MVC架构重新组织项目结构
    - 添加详细的模块划分和职责说明
    - 添加数据模型定义（User, Video, Download, Settings）
@@ -3497,7 +3497,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
    - 添加技术栈详细说明
    - 添加数据流转和开发环境说明
 
-2. MVC架构设计文档（docs/dev/pilinote_mvc_architecture.md）：
+2. MVC架构设计文档（apps/docs/docs-dev/dev/pilinote_mvc_architecture.md）：
    - 创建完整的MVC架构文档
    - 包含详细的架构图和层次职责说明
    - 添加数据流向和设计原则
@@ -3505,7 +3505,7 @@ fix: 修复单P视频下载时cid、aid、duration字段缺失问题
    - 添加性能优化和安全考虑
    - 添加测试策略和技术选型理由
 
-3. 架构图更新（docs/dev/pilinote_architecture.drawio）：
+3. 架构图更新（apps/docs/docs-dev/dev/pilinote_architecture.drawio）：
    - 添加MVC架构可视化图表
    - 包含View层、Controller层、Service层、Model层
    - 显示各层的组件和职责
@@ -4113,8 +4113,8 @@ completed_at    # 完成时间
 #### 文档更新
 
 **更新的文件：**
-- `docs/dev/05-deployment.md` - 添加详细的开发环境配置和启动说明
-- `docs/dev/README.md` - 在快速开始中强调虚拟环境的重要性
+- `apps/docs/docs-dev/dev/05-deployment.md` - 添加详细的开发环境配置和启动说明
+- `apps/docs/docs-dev/dev/README.md` - 在快速开始中强调虚拟环境的重要性
 
 **新增内容：**
 1. 后端API服务器启动详细说明
@@ -4552,7 +4552,7 @@ e4a0027 fix: 改用title匹配来判断缺失的分P，避免cid字段缺失问�
 
 ### 文档更新
 
-- 更新 `docs/todo/download/04-testing-auto-cleanup.md` 添加实际测试结果
+- 更新 `apps/docs/docs-dev/todo/download/04-testing-auto-cleanup.md` 添加实际测试结果
 - 添加详细的测试步骤和测试数据
 - 记录发现的问题和解决方案
 - 提供测试覆盖率统计和后续改进建议

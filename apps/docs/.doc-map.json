@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "lastUpdated": "2026-05-22T14:42:46Z",
-  "root": "docs",
+  "lastUpdated": "2026-05-22T15:37:19Z",
+  "root": "apps/docs",
   "directories": {
     "ai-note": {
       "path": "ai-note",

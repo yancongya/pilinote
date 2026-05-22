@@ -13,7 +13,7 @@ const API_BASE = 'http://localhost:8000';
 test.describe('Link Parser - Documentation Validation', () => {
 
   // ==================== Documentation Analysis ====================
-  // Based on docs/video-sources/link-parser.md
+  // Based on apps/docs/docs-dev/video-sources/link-parser.md
 
   // Documented Link Types:
   // 1. BV号 (BV\w{10}) -> MediaType.VIDEO
