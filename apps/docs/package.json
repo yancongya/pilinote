@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@rollup/wasm-node": "^4.60.4",
+    "gsap": "^3.13.0",
     "vitepress": "^1.6.4"
   }
 }
