@@ -40,9 +40,8 @@ PiliNote 的字幕纠正流程现在采用“**NFO 上下文 + 全量分块分�
 
 ## 相关文件
 
-- [`apps/api/src/services/ai/subtitle_context.py`](/Users/tanyancong/工作/开发/pilinote/apps/api/src/services/ai/subtitle_context.py)
-- [`apps/api/src/services/ai/subtitle_analyzer.py`](/Users/tanyancong/工作/开发/pilinote/apps/api/src/services/ai/subtitle_analyzer.py)
-- [`apps/api/src/routers/ai_subtitle.py`](/Users/tanyancong/工作/开发/pilinote/apps/api/src/routers/ai_subtitle.py)
-- [`apps/web/src/pages/components/AiNotePanel/TranscriptTab.tsx`](/Users/tanyancong/工作/开发/pilinote/apps/web/src/pages/components/AiNotePanel/TranscriptTab.tsx)
-- [`apps/web/src/components/ai/SubtitleAnalysisModal.tsx`](/Users/tanyancong/工作/开发/pilinote/apps/web/src/components/ai/SubtitleAnalysisModal.tsx)
-
+- `apps/api/src/services/ai/subtitle_context.py`
+- `apps/api/src/services/ai/subtitle_analyzer.py`
+- `apps/api/src/routers/ai_subtitle.py`
+- `apps/web/src/pages/components/AiNotePanel/TranscriptTab.tsx`
+- `apps/web/src/components/ai/SubtitleAnalysisModal.tsx`

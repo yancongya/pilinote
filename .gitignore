@@ -135,3 +135,4 @@ apps/api/data/ai_runtime_state.json
 apps/api/data/ai_runtime_state.migration.json
 apps/api/data/llm_config.migration.json
 apps/api/data/asr_models/*
+/apps/docs/.tmp_screens

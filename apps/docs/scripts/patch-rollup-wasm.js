@@ -28,15 +28,25 @@ if (!nativeJs) {
 }
 
 const src = readFileSync(nativeJs, 'utf8')
-if (src.includes("require('@rollup/wasm-node')")) {
+if (src.includes("require('@rollup/wasm-node/dist/native.js')")) {
   console.log('[patch-rollup-wasm] already patched')
   process.exit(0)
 }
 
-const patched = src.replace(
-  /const \{ parse, parseAsync, xxhashBase64Url, xxhashBase36, xxhashBase16 \} = requireWithFriendlyError\([\s\S]*?\);/m,
-  "const { parse, parseAsync, xxhashBase64Url, xxhashBase36, xxhashBase16 } = require('@rollup/wasm-node');"
+let patched = src
+
+// Migrate older patch that pointed to package root (newer versions don't export parse/parseAsync there).
+patched = patched.replace(
+  "const { parse, parseAsync, xxhashBase64Url, xxhashBase36, xxhashBase16 } = require('@rollup/wasm-node');",
+  "const { parse, parseAsync, xxhashBase64Url, xxhashBase36, xxhashBase16 } = require('@rollup/wasm-node/dist/native.js');"
 )
+
+if (patched === src) {
+  patched = src.replace(
+    /const \{ parse, parseAsync, xxhashBase64Url, xxhashBase36, xxhashBase16 \} = requireWithFriendlyError\([\s\S]*?\);/m,
+    "const { parse, parseAsync, xxhashBase64Url, xxhashBase36, xxhashBase16 } = require('@rollup/wasm-node/dist/native.js');"
+  )
+}
 
 if (patched === src) {
   console.warn('[patch-rollup-wasm] failed to patch expected pattern')
