@@ -51,10 +51,11 @@ export type WorkflowStep = {
 }
 
 export const WORKFLOW: WorkflowStep[] = [
-  { title: '同步列表', desc: '收藏夹、稍后再看、历史和订阅文件夹增量扫描，新增内容进入队列。', meta: 'Sync' },
+  { title: '选择视频源', desc: '收藏夹、稍后再看、观看历史、订阅文件夹四类来源，也支持手动解析链接。', meta: 'Sources' },
+  { title: '添加到下载列表', desc: '手动添加、批量添加，或按 cron 设置自动扫描并加入下载列表。', meta: 'Cron + Manual' },
   { title: '下载落盘', desc: '队列按并发和速率策略处理，失败可重试，视频稳定保存到本地。', meta: 'Queue' },
   { title: '生成 sidecar', desc: '字幕、NFO、截图、缓存日志和笔记文件与媒体同级归档。', meta: 'Sidecars' },
-  { title: 'AI 分析', desc: '基于字幕和元数据生成章节、关键点、问题和结论。', meta: 'AI Notes' },
+  { title: 'AI 分析', desc: '基于字幕、简介和评论上下文构建 Prompt，生成章节、关键点和结论。', meta: 'AI Notes' },
   { title: '回跳复习', desc: '点击笔记时间戳回到视频片段，把待看内容变成可复习资料。', meta: 'Jump Back' },
 ]
 
