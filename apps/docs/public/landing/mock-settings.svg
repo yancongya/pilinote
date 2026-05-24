@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1020"/>
+      <stop offset="0.6" stop-color="#0b0d12"/>
+      <stop offset="1" stop-color="#07090d"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121826"/>
+      <stop offset="1" stop-color="#0c0f16"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f8cff"/>
+      <stop offset="1" stop-color="#2bd9ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="180" y="90" width="1240" height="720" rx="28" fill="url(#panel)" stroke="#ffffff" stroke-opacity="0.10"/>
+    <rect x="180" y="90" width="1240" height="52" rx="28" fill="#0f1320" stroke="#ffffff" stroke-opacity="0.08"/>
+    <circle cx="218" cy="116" r="7" fill="#ffffff" fill-opacity="0.20"/>
+    <circle cx="242" cy="116" r="7" fill="#ffffff" fill-opacity="0.20"/>
+    <circle cx="266" cy="116" r="7" fill="#ffffff" fill-opacity="0.20"/>
+    <text x="300" y="122" font-size="14" fill="#ffffff" fill-opacity="0.65" font-family="ui-sans-serif, system-ui">PiliNote · 设置（AI / 下载 / 数据）</text>
+
+    <!-- tab bar -->
+    <rect x="220" y="162" width="1160" height="44" rx="16" fill="#000" fill-opacity="0.16" stroke="#ffffff" stroke-opacity="0.08"/>
+    <g fill="#ffffff" fill-opacity="0.10">
+      <rect x="240" y="178" width="80" height="12" rx="6"/>
+      <rect x="340" y="178" width="80" height="12" rx="6"/>
+      <rect x="440" y="178" width="80" height="12" rx="6"/>
+      <rect x="540" y="178" width="80" height="12" rx="6"/>
+      <rect x="640" y="178" width="80" height="12" rx="6"/>
+      <rect x="740" y="178" width="80" height="12" rx="6"/>
+    </g>
+    <rect x="735" y="170" width="92" height="28" rx="12" fill="#4f8cff" fill-opacity="0.16" stroke="#4f8cff" stroke-opacity="0.22"/>
+
+    <!-- cards -->
+    <g>
+      <rect x="220" y="228" width="1160" height="566" rx="22" fill="#000" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.06"/>
+
+      <g transform="translate(250 260)">
+        <!-- section title -->
+        <rect x="0" y="0" width="220" height="14" rx="7" fill="#ffffff" fill-opacity="0.18"/>
+        <rect x="0" y="26" width="420" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+
+        <!-- field rows -->
+        <g transform="translate(0 64)">
+          <rect x="0" y="0" width="520" height="56" rx="16" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.08"/>
+          <rect x="18" y="18" width="220" height="10" rx="5" fill="#ffffff" fill-opacity="0.14"/>
+          <rect x="18" y="34" width="300" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="420" y="18" width="84" height="20" rx="10" fill="#4f8cff" fill-opacity="0.16" stroke="#4f8cff" stroke-opacity="0.22"/>
+
+          <rect x="0" y="74" width="520" height="56" rx="16" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.08"/>
+          <rect x="18" y="92" width="240" height="10" rx="5" fill="#ffffff" fill-opacity="0.14"/>
+          <rect x="18" y="108" width="280" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="420" y="92" width="84" height="20" rx="10" fill="#2bd9ff" fill-opacity="0.10" stroke="#2bd9ff" stroke-opacity="0.18"/>
+
+          <rect x="0" y="148" width="520" height="56" rx="16" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.08"/>
+          <rect x="18" y="166" width="210" height="10" rx="5" fill="#ffffff" fill-opacity="0.14"/>
+          <rect x="18" y="182" width="310" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="420" y="166" width="84" height="20" rx="10" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.12"/>
+        </g>
+
+        <!-- right side: prompt panel -->
+        <g transform="translate(560 64)">
+          <rect x="0" y="0" width="560" height="400" rx="18" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.08"/>
+          <rect x="18" y="18" width="180" height="10" rx="5" fill="#ffffff" fill-opacity="0.14"/>
+          <rect x="18" y="40" width="320" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="18" y="72" width="524" height="280" rx="14" fill="#000" fill-opacity="0.18" stroke="#ffffff" stroke-opacity="0.08"/>
+          <rect x="36" y="96" width="360" height="10" rx="5" fill="#ffffff" fill-opacity="0.12"/>
+          <rect x="36" y="118" width="420" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="36" y="140" width="380" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="36" y="162" width="410" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+          <rect x="36" y="184" width="260" height="10" rx="5" fill="#ffffff" fill-opacity="0.10"/>
+
+          <rect x="360" y="368" width="86" height="28" rx="14" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.12"/>
+          <rect x="458" y="368" width="84" height="28" rx="14" fill="#4f8cff" fill-opacity="0.16" stroke="#4f8cff" stroke-opacity="0.22"/>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <rect x="0" y="0" width="1600" height="6" fill="url(#accent)" opacity="0.75"/>
+</svg>
+

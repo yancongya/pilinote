@@ -1,0 +1,68 @@
+:root {
+  /* Light theme accent: Bilibili pink */
+  --pn-accent-rgb: 251 114 153;
+  --pn-accent2-rgb: 255 138 179;
+
+  /* Landing base surfaces (light) */
+  --pn-bg: #ffffff;
+  --pn-fg: rgba(13, 18, 28, 0.92);
+  --pn-muted: rgba(13, 18, 28, 0.68);
+  --pn-border: rgba(13, 18, 28, 0.12);
+  --pn-card: rgba(13, 18, 28, 0.03);
+  --pn-card-2: rgba(13, 18, 28, 0.05);
+  --pn-blue-rgb: 0 174 236;
+  --pn-success-rgb: 34 197 94;
+  --pn-warning-rgb: 245 158 11;
+  --pn-app-bg: #ffffff;
+  --pn-app-panel: #f7f9fc;
+  --pn-app-panel-2: #eef5ff;
+  --pn-app-shadow: 0 28px 90px rgba(15, 23, 42, 0.16);
+  --pn-soft-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
+
+  /* VitePress brand */
+  --vp-c-brand-1: rgb(var(--pn-accent-rgb));
+  --vp-c-brand-2: rgb(var(--pn-accent2-rgb));
+  --vp-c-brand-3: rgb(var(--pn-accent-rgb) / 0.8);
+  --vp-c-brand-soft: rgb(var(--pn-accent-rgb) / 0.16);
+
+  /* VitePress base (ensure light mode contrast stays readable) */
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f7f7f8;
+  --vp-c-bg-elv: #ffffff;
+  --vp-c-bg-soft: rgb(var(--pn-accent-rgb) / 0.04);
+
+  --vp-c-text-1: rgba(13, 18, 28, 0.92);
+  --vp-c-text-2: rgba(13, 18, 28, 0.72);
+  --vp-c-text-3: rgba(13, 18, 28, 0.54);
+}
+
+.dark {
+  /* Dark theme keeps current blue-cyan */
+  --pn-accent-rgb: 79 140 255;
+  --pn-accent2-rgb: 43 217 255;
+
+  --pn-bg: #0b0d12;
+  --pn-fg: rgba(255, 255, 255, 0.92);
+  --pn-muted: rgba(255, 255, 255, 0.72);
+  --pn-border: rgba(255, 255, 255, 0.1);
+  --pn-card: rgba(255, 255, 255, 0.03);
+  --pn-card-2: rgba(255, 255, 255, 0.05);
+  --pn-blue-rgb: 43 217 255;
+  --pn-success-rgb: 74 222 128;
+  --pn-warning-rgb: 251 191 36;
+  --pn-app-bg: #101522;
+  --pn-app-panel: #0d111b;
+  --pn-app-panel-2: #151d2d;
+  --pn-app-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+  --pn-soft-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+
+  /* VitePress base (dark) */
+  --vp-c-bg: #0b0d12;
+  --vp-c-bg-alt: #0f121a;
+  --vp-c-bg-elv: #0f121a;
+  --vp-c-bg-soft: rgb(var(--pn-accent-rgb) / 0.08);
+
+  --vp-c-text-1: rgba(255, 255, 255, 0.92);
+  --vp-c-text-2: rgba(255, 255, 255, 0.72);
+  --vp-c-text-3: rgba(255, 255, 255, 0.54);
+}
