@@ -137,3 +137,8 @@ apps/api/data/llm_config.migration.json
 apps/api/data/asr_models/*
 /apps/docs/.tmp_screens
 /.playwright-cli
+
+# Desktop build artifacts
+apps/desktop/web-dist/
+apps/desktop/dist/
+apps/api/pilinote-api-macos.spec
