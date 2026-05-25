@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { withBase } from 'vitepress'
+import { prefersReducedMotion } from '../../../lib/motion'
 
 type Tab = { id: string; label: string; asset: string; desc: string }
 
@@ -12,18 +13,105 @@ const tabs: Tab[] = [
 
 const active = ref<Tab['id']>('detail')
 const shotRef = ref<HTMLElement | null>(null)
+const mediaRef = ref<HTMLElement | null>(null)
+const addressRef = ref<HTMLElement | null>(null)
+let autoTimer: ReturnType<typeof setInterval> | undefined
+let resumeTimer: ReturnType<typeof setTimeout> | undefined
 
 const current = computed(() => tabs.find((t) => t.id === active.value) ?? tabs[0])
 const title = computed(() => current.value.label)
+const locationText = computed(() => `pilinote://${current.value.id}`)
+const animatedLocationText = ref(locationText.value)
+let typeTimer: ReturnType<typeof setInterval> | undefined
 
-watch(active, async () => {
+function clearAutoTimer() {
+  if (autoTimer) {
+    clearInterval(autoTimer)
+    autoTimer = undefined
+  }
+}
+
+function startAutoTimer() {
+  clearAutoTimer()
+  autoTimer = setInterval(() => {
+    const idx = tabs.findIndex((t) => t.id === active.value)
+    const next = (idx + 1) % tabs.length
+    active.value = tabs[next]?.id ?? tabs[0].id
+  }, 5400)
+}
+
+function clearTypeTimer() {
+  if (typeTimer) {
+    clearInterval(typeTimer)
+    typeTimer = undefined
+  }
+}
+
+function runTypewriter(nextText: string) {
+  clearTypeTimer()
+  animatedLocationText.value = ''
+  let cursor = 0
+  typeTimer = setInterval(() => {
+    cursor += 1
+    animatedLocationText.value = nextText.slice(0, cursor)
+    if (cursor >= nextText.length) {
+      clearTypeTimer()
+    }
+  }, 22)
+}
+
+function setActive(id: Tab['id']) {
+  if (id === active.value) return
+  active.value = id
+  clearAutoTimer()
+  if (resumeTimer) clearTimeout(resumeTimer)
+  resumeTimer = setTimeout(() => {
+    startAutoTimer()
+  }, 6000)
+}
+
+watch(
+  () => current.value.id,
+  async (nextId) => {
   if (!shotRef.value) return
+  const nextLocationText = `pilinote://${nextId}`
+  if (prefersReducedMotion()) {
+    animatedLocationText.value = nextLocationText
+  } else {
+    runTypewriter(nextLocationText)
+  }
   const { gsap } = await import('gsap')
-  gsap.fromTo(
-    shotRef.value,
-    { autoAlpha: 0.72, y: 8, scale: 0.992 },
-    { autoAlpha: 1, y: 0, scale: 1, duration: 0.28, ease: 'power2.out' }
-  )
+  const tl = gsap.timeline({ defaults: { ease: 'power2.inOut' } })
+  tl.fromTo(shotRef.value, { autoAlpha: 0.7 }, { autoAlpha: 1, duration: 0.44 }, 0)
+  if (mediaRef.value) {
+    tl.fromTo(mediaRef.value, { autoAlpha: 0.9 }, { autoAlpha: 1, duration: 0.42 }, 0.04)
+  }
+  if (addressRef.value) {
+    tl.fromTo(addressRef.value, { autoAlpha: 0.24, x: -10 }, { autoAlpha: 1, x: 0, duration: 0.42 }, 0.12)
+  }
+  },
+  { immediate: true }
+)
+
+watch(locationText, (next) => {
+  if (prefersReducedMotion()) {
+    animatedLocationText.value = next
+  }
+})
+
+onMounted(() => {
+  tabs.forEach((tab) => {
+    const img = new Image()
+    img.src = withBase(tab.asset)
+  })
+  animatedLocationText.value = locationText.value
+  startAutoTimer()
+})
+
+onBeforeUnmount(() => {
+  clearAutoTimer()
+  clearTypeTimer()
+  if (resumeTimer) clearTimeout(resumeTimer)
 })
 </script>
 
@@ -38,22 +126,6 @@ watch(active, async () => {
       </div>
 
       <div class="lp2-gallery2">
-        <div class="lp2-tabs" role="tablist" aria-label="Gallery tabs">
-          <button
-            v-for="t in tabs"
-            :key="t.id"
-            class="lp2-tab"
-            type="button"
-            role="tab"
-            :aria-selected="active === t.id"
-            :aria-controls="`gallery-panel-${t.id}`"
-            :class="{ 'is-active': active === t.id }"
-            @click="active = t.id"
-          >
-            {{ t.label }}
-          </button>
-        </div>
-
         <div
           :id="`gallery-panel-${current.id}`"
           ref="shotRef"
@@ -62,27 +134,35 @@ watch(active, async () => {
           :aria-label="title"
         >
           <div class="lp2-shot2-top">
-            <span class="dot" />
-            <span class="dot" />
-            <span class="dot" />
-            <span class="title">{{ title }}</span>
-          </div>
-
-          <div class="lp2-shot2-body">
-            <div class="lp2-shot-media">
-              <img class="lp2-shot-img" :src="withBase(current.asset)" :alt="`${title} 界面示意`" />
-              <div class="lp2-shot-overlay">
-                <div class="lp2-shot-label">{{ title }}</div>
-                <p>{{ current.desc }}</p>
-              </div>
+            <div class="lp2-shot2-tabs" role="tablist" aria-label="Gallery tabs">
+              <button
+                v-for="t in tabs"
+                :key="t.id"
+                class="lp2-tab"
+                type="button"
+                role="tab"
+                :aria-selected="active === t.id"
+                :aria-controls="`gallery-panel-${t.id}`"
+                :class="{ 'is-active': active === t.id }"
+                @click="setActive(t.id)"
+              >
+                {{ t.label }}
+              </button>
             </div>
+            <div class="lp2-shot-controls" aria-hidden="true">
+              <span class="dot dot-red" />
+              <span class="dot dot-yellow" />
+              <span class="dot dot-green" />
+            </div>
+            <div ref="addressRef" class="lp2-address">{{ animatedLocationText }}</div>
+            <div class="lp2-shot-inline-caption">{{ current.desc }}</div>
+          </div>
+
+          <div ref="mediaRef" class="lp2-shot-media">
+            <img class="lp2-shot-img" :src="withBase(current.asset)" :alt="`${title} 界面示意`" />
           </div>
         </div>
 
-        <div class="lp2-gallery-hint">
-          <span class="cap-dot" />
-          <span>默认聚焦“视频详情/AI 笔记”，突出从视频回到知识点的核心价值。</span>
-        </div>
       </div>
     </div>
   </section>
@@ -90,7 +170,7 @@ watch(active, async () => {
 
 <style scoped>
 .lp2-section {
-  padding: 64px 0;
+  padding: 46px 0;
 }
 
 .lp2-container {
@@ -100,43 +180,38 @@ watch(active, async () => {
 }
 
 .lp2-section-head {
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .lp2-h2 {
   margin: 0 0 6px 0;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.25;
 }
 
 .lp2-sub {
   margin: 0;
   color: var(--pn-muted);
-  line-height: 1.6;
-  font-size: 14px;
+  line-height: 1.5;
+  font-size: 13px;
   max-width: 70ch;
 }
 
 .lp2-gallery2 {
+  max-width: 1100px;
+  margin: 0 auto;
   border-radius: 18px;
-  border: 1px solid var(--pn-border);
-  background: var(--pn-card);
-  padding: 14px;
-}
-
-.lp2-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  border: 1px solid color-mix(in srgb, var(--pn-border) 86%, transparent);
+  background: transparent;
+  padding: 0;
 }
 
 .lp2-tab {
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 12px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 11px;
   border: 1px solid var(--pn-border);
-  background: var(--pn-card);
+  background: color-mix(in srgb, var(--pn-bg) 72%, transparent);
   color: var(--pn-muted);
   font-size: 13px;
   cursor: pointer;
@@ -148,7 +223,7 @@ watch(active, async () => {
   border-color: rgb(var(--pn-accent-rgb) / 0.28);
 }
 .lp2-tab.is-active {
-  background: rgb(var(--pn-accent-rgb) / 0.16);
+  background: linear-gradient(90deg, rgb(var(--pn-accent-rgb) / 0.18), rgb(var(--pn-blue-rgb) / 0.16));
   border-color: rgb(var(--pn-accent-rgb) / 0.26);
   color: var(--pn-fg);
 }
@@ -156,47 +231,93 @@ watch(active, async () => {
 .lp2-shot2 {
   border-radius: 16px;
   border: 1px solid var(--pn-border);
-  background: var(--pn-card);
+  background: color-mix(in srgb, var(--pn-bg) 82%, transparent);
   overflow: hidden;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  will-change: transform, opacity;
+  padding: 0 0 6px;
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  will-change: transform, opacity, box-shadow;
 }
 .lp2-shot2:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(1.002);
   border-color: rgb(var(--pn-accent-rgb) / 0.28);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
+  box-shadow: 0 22px 54px rgb(2 6 23 / 0.18);
 }
 
 .lp2-shot2-top {
-  height: 28px;
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--pn-border);
+  background:
+    radial-gradient(460px 120px at 8% 0%, rgb(var(--pn-accent-rgb) / 0.1), transparent 76%),
+    linear-gradient(180deg, color-mix(in srgb, var(--pn-card) 72%, transparent), color-mix(in srgb, var(--pn-bg) 84%, transparent));
+}
+
+.lp2-shot2-tabs {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lp2-shot-controls {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
-  padding: 0 10px;
-  border-bottom: 1px solid var(--pn-border);
-  background: color-mix(in srgb, var(--pn-bg) 60%, transparent);
+  flex: 0 0 auto;
 }
 
 .dot {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--pn-fg) 18%, transparent);
 }
 
-.title {
-  margin-left: 8px;
-  font-size: 12px;
+.dot-red {
+  background: #ff6057;
+}
+
+.dot-yellow {
+  background: #ffbd2e;
+}
+
+.dot-green {
+  background: #28c840;
+}
+
+.lp2-address {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid var(--pn-border);
+  background: color-mix(in srgb, var(--pn-bg) 76%, transparent);
   color: var(--pn-muted);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-.lp2-shot2-body {
-  padding: 12px;
-  display: grid;
-  gap: 10px;
+.lp2-shot-inline-caption {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pn-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lp2-shot-media {
@@ -205,64 +326,67 @@ watch(active, async () => {
   border-radius: 12px;
   border: 1px solid var(--pn-border);
   overflow: hidden;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 8.2;
   background: var(--pn-app-panel);
+  margin: 6px 8px 4px;
 }
 
 .lp2-shot-img {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
-}
-
-.lp2-shot-overlay {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(7, 10, 16, 0.68);
-  backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.88);
-  padding: 12px;
-}
-
-.lp2-shot-label {
-  font-weight: 780;
-  margin-bottom: 4px;
-}
-
-.lp2-shot-overlay p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.lp2-gallery-hint {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--pn-muted);
-  font-size: 13px;
-  line-height: 1.5;
-  margin-top: 12px;
-}
-
-.cap-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgb(var(--pn-accent-rgb));
-  box-shadow: 0 0 0 5px rgb(var(--pn-accent-rgb) / 0.12);
-  flex: 0 0 auto;
+  object-fit: contain;
+  background: var(--pn-app-panel);
 }
 
 @media (min-width: 860px) {
   .lp2-h2 {
-    font-size: 24px;
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 860px) {
+  .lp2-shot2-top {
+    min-height: 62px;
+  }
+  .lp2-shot2-tabs {
+    gap: 8px;
+  }
+  .lp2-tab {
+    height: 30px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 680px) {
+  .lp2-section {
+    padding: 36px 0;
+  }
+  .lp2-container {
+    padding: 0 12px;
+  }
+  .lp2-gallery2 {
+    padding: 0;
+  }
+  .lp2-shot2-top {
+    gap: 8px;
+    padding: 7px 8px;
+  }
+  .lp2-shot2-tabs {
+    gap: 6px;
+  }
+  .lp2-tab {
+    padding: 0 9px;
+  }
+  .lp2-address {
+    font-size: 11px;
+    padding: 0 10px;
+  }
+  .lp2-shot-inline-caption {
+    font-size: 10px;
+  }
+  .lp2-shot-media {
+    margin: 6px 6px 4px;
   }
 }
 </style>

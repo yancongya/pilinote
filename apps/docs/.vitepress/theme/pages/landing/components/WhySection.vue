@@ -68,7 +68,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section ref="rootRef" class="lp2-section lp2-why" data-reveal>
+  <section id="why" ref="rootRef" class="lp2-section lp2-why" data-reveal>
     <div class="lp2-container">
       <div class="lp2-section-head">
         <h2 class="lp2-h2">为什么需要 PiliNote</h2>

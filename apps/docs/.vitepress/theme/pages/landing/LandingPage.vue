@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { withBase } from 'vitepress'
-import { useReducedMotionGuard } from '../../lib/motion'
+import { prefersReducedMotion, useReducedMotionGuard } from '../../lib/motion'
 import LandingTopbar from './components/LandingTopbar.vue'
 import HeroSection from './components/HeroSection.vue'
 import DownloadSection from './components/DownloadSection.vue'
@@ -14,6 +14,8 @@ import LandingFooter from './components/LandingFooter.vue'
 
 const rootRef = ref<HTMLElement | null>(null)
 const active = ref<string>('product')
+const docCardRefs = ref<Array<HTMLElement | null>>([])
+let gsapCache: (typeof import('gsap'))['gsap'] | undefined
 
 function scrollToId(id: string) {
   const el = document.getElementById(id)
@@ -22,7 +24,7 @@ function scrollToId(id: string) {
 }
 
 function computeActive() {
-  const ids = ['product', 'download', 'workflow', 'features', 'gallery', 'faq', 'docs']
+  const ids = ['product', 'why', 'workflow', 'features', 'gallery', 'faq', 'docs', 'download']
   const top = window.scrollY
   const height = window.innerHeight
   const probe = top + Math.min(140, height * 0.2)
@@ -43,6 +45,47 @@ function computeActive() {
   }
 
   active.value = best
+}
+
+function setDocCardRef(el: Element | null, index: number) {
+  docCardRefs.value[index] = el as HTMLElement | null
+}
+
+async function getGsap() {
+  if (gsapCache) return gsapCache
+  const { gsap } = await import('gsap')
+  gsapCache = gsap
+  return gsap
+}
+
+async function onDocCardEnter(index: number) {
+  if (prefersReducedMotion()) return
+  const gsap = await getGsap()
+  docCardRefs.value.forEach((el, i) => {
+    if (!el) return
+    if (i === index) {
+      gsap.to(el, { y: -3, opacity: 1, duration: 0.2, ease: 'power2.out' })
+    } else {
+      gsap.to(el, { y: 0, opacity: 0.78, duration: 0.2, ease: 'power2.out' })
+    }
+  })
+}
+
+async function onDocCardLeave() {
+  if (prefersReducedMotion()) return
+  const gsap = await getGsap()
+  docCardRefs.value.forEach((el) => {
+    if (!el) return
+    gsap.to(el, { y: 0, opacity: 1, duration: 0.2, ease: 'power2.out' })
+  })
+}
+
+async function onDocCardPress(index: number, down: boolean) {
+  if (prefersReducedMotion()) return
+  const el = docCardRefs.value[index]
+  if (!el) return
+  const gsap = await getGsap()
+  gsap.to(el, { scale: down ? 0.988 : 1, duration: down ? 0.08 : 0.16, ease: 'power2.out' })
 }
 
 useReducedMotionGuard(async () => {
@@ -112,11 +155,27 @@ onUnmounted(() => {
           </div>
 
           <div class="lp2-docs-grid">
-            <a class="lp2-doc-card" :href="withBase('/dev/')">
+            <a
+              class="lp2-doc-card"
+              :href="withBase('/dev/')"
+              :ref="el => setDocCardRef(el, 0)"
+              @mouseenter="void onDocCardEnter(0)"
+              @mouseleave="void onDocCardLeave()"
+              @mousedown="void onDocCardPress(0, true)"
+              @mouseup="void onDocCardPress(0, false)"
+            >
               <div class="lp2-doc-title">开发文档</div>
               <div class="lp2-doc-desc">架构、模块、API、组件与实现细节</div>
             </a>
-            <a class="lp2-doc-card" :href="withBase('/guide/')">
+            <a
+              class="lp2-doc-card"
+              :href="withBase('/guide/')"
+              :ref="el => setDocCardRef(el, 1)"
+              @mouseenter="void onDocCardEnter(1)"
+              @mouseleave="void onDocCardLeave()"
+              @mousedown="void onDocCardPress(1, true)"
+              @mouseup="void onDocCardPress(1, false)"
+            >
               <div class="lp2-doc-title">使用指南</div>
               <div class="lp2-doc-desc">上手、常见问题与工作流说明</div>
             </a>
@@ -149,9 +208,13 @@ onUnmounted(() => {
   inset: 0;
   pointer-events: none;
   background:
+    linear-gradient(color-mix(in srgb, var(--pn-fg) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--pn-fg) 3%, transparent) 1px, transparent 1px),
     radial-gradient(1200px 700px at 20% -10%, rgb(var(--pn-accent-rgb) / 0.18), transparent 55%),
     radial-gradient(900px 520px at 90% 10%, rgb(var(--pn-accent2-rgb) / 0.12), transparent 55%),
     radial-gradient(700px 420px at 60% 110%, rgb(var(--pn-accent-rgb) / 0.06), transparent 55%);
+  background-size: 24px 24px, 24px 24px, auto, auto, auto;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
   opacity: 1;
   z-index: -1;
 }

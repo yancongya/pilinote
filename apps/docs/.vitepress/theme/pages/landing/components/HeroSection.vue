@@ -8,8 +8,8 @@
         </p>
 
         <div class="lp2-hero-cta" data-hero>
-          <a class="lp2-btn lp2-btn-primary" href="#download">立即开始</a>
-          <a class="lp2-btn" href="#workflow">查看工作流</a>
+          <a class="lp2-btn lp2-btn-primary" href="#docs">查看文档</a>
+          <a class="lp2-btn" href="#download">开始下载</a>
         </div>
       </div>
 

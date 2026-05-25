@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useData, withBase } from 'vitepress'
+import { prefersReducedMotion } from '../../../lib/motion'
 import { NAV } from '../content'
 
 const props = defineProps<{ active: { value: string } | string }>()
@@ -11,11 +12,43 @@ const activeId = computed(() => (typeof props.active === 'string' ? props.active
 const { isDark } = useData()
 
 function onToggleTheme(e: MouseEvent) {
-  // VitePress does not expose DefaultTheme's view-transition helper as a named export
-  // (it is wired internally). For landing we keep it simple: flip the reactive flag.
-  // This updates the `.dark` class and persists via VitePress appearance handling.
   e.preventDefault()
-  isDark.value = !isDark.value
+  if (prefersReducedMotion()) {
+    isDark.value = !isDark.value
+    return
+  }
+
+  const doc = document as Document & {
+    startViewTransition?: (updateCallback: () => void) => { ready: Promise<void> }
+  }
+
+  if (!doc.startViewTransition) {
+    isDark.value = !isDark.value
+    return
+  }
+
+  const x = e.clientX
+  const y = e.clientY
+  const maxX = Math.max(x, window.innerWidth - x)
+  const maxY = Math.max(y, window.innerHeight - y)
+  const endRadius = Math.hypot(maxX, maxY)
+
+  const toDark = !isDark.value
+  const transition = doc.startViewTransition(() => {
+    isDark.value = toDark
+  })
+
+  transition.ready.then(() => {
+    const keyframes = [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`]
+    document.documentElement.animate(
+      { clipPath: keyframes },
+      {
+        duration: 460,
+        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        pseudoElement: '::view-transition-new(root)',
+      }
+    )
+  })
 }
 </script>
 
@@ -44,12 +77,12 @@ function onToggleTheme(e: MouseEvent) {
 
       <div class="lp2-topbar-actions">
         <button
-          class="lp2-icon-btn"
+          class="lp2-mode-btn"
           type="button"
           :aria-label="isDark ? '切换到亮色主题' : '切换到暗色主题'"
           @click="onToggleTheme"
         >
-          <span class="lp2-icon" aria-hidden="true">{{ isDark ? '🌙' : '☀️' }}</span>
+          <span class="lp2-mode-icon" aria-hidden="true">{{ isDark ? '◐' : '◑' }}</span>
         </button>
         <a class="lp2-cta" :href="withBase('/guide/')">立即开始</a>
       </div>
@@ -58,6 +91,11 @@ function onToggleTheme(e: MouseEvent) {
 </template>
 
 <style scoped>
+:global(::view-transition-old(root)),
+:global(::view-transition-new(root)) {
+  animation: none;
+}
+
 .lp2-topbar {
   position: sticky;
   top: 0;
@@ -141,30 +179,30 @@ function onToggleTheme(e: MouseEvent) {
 .lp2-topbar-actions {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.lp2-icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+.lp2-mode-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   border: 1px solid var(--pn-border);
-  background: var(--pn-card);
-  color: var(--pn-fg);
+  background: color-mix(in srgb, var(--pn-bg) 74%, transparent);
+  color: var(--pn-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
-.lp2-icon-btn:hover {
-  background: var(--pn-card-2);
-  border-color: rgb(var(--pn-accent-rgb) / 0.28);
-  transform: translateY(-1px);
+.lp2-mode-btn:hover {
+  background: color-mix(in srgb, var(--pn-card-2) 86%, transparent);
+  border-color: rgb(var(--pn-accent-rgb) / 0.24);
+  color: var(--pn-fg);
 }
 
-.lp2-icon {
-  font-size: 14px;
+.lp2-mode-icon {
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -172,18 +210,20 @@ function onToggleTheme(e: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
+  height: 34px;
   padding: 0 12px;
-  border-radius: 12px;
-  background: var(--pn-card);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--pn-bg) 74%, transparent);
   border: 1px solid var(--pn-border);
   color: var(--pn-fg);
   text-decoration: none;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 620;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 .lp2-cta:hover {
-  background: var(--pn-card-2);
+  background: color-mix(in srgb, var(--pn-card-2) 86%, transparent);
+  border-color: rgb(var(--pn-accent-rgb) / 0.24);
 }
 
 @media (min-width: 860px) {

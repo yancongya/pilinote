@@ -2,12 +2,13 @@ export type NavItem = { id: string; label: string }
 
 export const NAV: NavItem[] = [
   { id: 'product', label: '产品' },
-  { id: 'download', label: '下载' },
+  { id: 'why', label: '为什么' },
   { id: 'workflow', label: '工作流' },
   { id: 'features', label: '能力' },
   { id: 'gallery', label: '截图' },
   { id: 'faq', label: 'FAQ' },
   { id: 'docs', label: '文档' },
+  { id: 'download', label: '下载' },
 ]
 
 export type Feature = {
@@ -59,7 +60,12 @@ export const WORKFLOW: WorkflowStep[] = [
   { title: '回跳复习', desc: '点击笔记时间戳回到视频片段，把待看内容变成可复习资料。', meta: 'Jump Back' },
 ]
 
-export type Faq = { q: string; a: string }
+export type FaqRef = {
+  label: string
+  url: string
+}
+
+export type Faq = { q: string; a: string; refs?: FaqRef[] }
 
 export const FAQS: Faq[] = [
   {
@@ -76,6 +82,12 @@ export const FAQS: Faq[] = [
   },
   {
     q: '参考了哪些项目？',
-    a: '本项目开发过程中参考了 BiliNote、bili-sync、BiliTools、PiliPala 等开源项目的思路与实现。',
+    a: '本项目开发过程中参考了以下开源项目的思路与实现：',
+    refs: [
+      { label: 'BiliNote', url: 'https://github.com/JefferyHcool/BiliNote' },
+      { label: 'bili-sync', url: 'https://github.com/amtoaer/bili-sync' },
+      { label: 'BiliTools', url: 'https://github.com/btjawa/BiliTools' },
+      { label: 'PiliPala', url: 'https://github.com/guozhigq/pilipala' },
+    ],
   },
 ]
