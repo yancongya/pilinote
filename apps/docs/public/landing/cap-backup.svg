@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 156" role="img" aria-label="NAS backup sync demo">
+  <style>
+    .grid{stroke:#e6edf5;stroke-width:1}.dev{fill:#fff;stroke:#dbe3ee}.sync{stroke:#16b8ee;stroke-width:3;fill:none;stroke-linecap:round;stroke-dasharray:20 12;animation:dash 3s linear infinite}.pink{stroke:#ff78ad}.bit{fill:#ff78ad}.txt{font:700 10px ui-monospace,Menlo,monospace;fill:#ff78ad}@keyframes dash{to{stroke-dashoffset:-96}}
+  </style>
+  <path class="grid" d="M0 30H420M0 60H420M0 90H420M0 120H420"/>
+  <rect class="dev" x="58" y="66" width="92" height="54" rx="16"/><rect class="dev" x="270" y="36" width="92" height="76" rx="18"/>
+  <path id="syncOut" class="sync" d="M150 92C202 42 224 42 270 74"/><path id="syncBack" class="sync pink" d="M270 88C218 136 192 132 150 102"/>
+  <circle class="bit" r="7">
+    <animateMotion dur="3s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="spline" keySplines=".22 1 .36 1;.64 0 .78 0">
+      <mpath href="#syncOut"/>
+    </animateMotion>
+  </circle>
+  <circle class="bit" r="6" opacity=".82">
+    <animateMotion dur="3s" begin=".35s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="spline" keySplines=".22 1 .36 1;.64 0 .78 0">
+      <mpath href="#syncBack"/>
+    </animateMotion>
+  </circle>
+  <text class="txt" x="86" y="98">LOCAL</text><text class="txt" x="296" y="78">NAS</text>
+</svg>

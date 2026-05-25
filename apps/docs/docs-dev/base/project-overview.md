@@ -236,7 +236,7 @@ BACKLOG → PENDING → DOING → COMPLETED
 
 - [技术栈详情](tech-stack.md)
 - [系统架构](../architecture/system.md)
-- [开发指南](../../AGENTS.md)
+- 开发指南：仓库根目录 `AGENTS.md`
 - [API 文档](../api/README.md)
 
 ---

@@ -14,22 +14,22 @@
 - [后端实现](api/implementation.md) - FastAPI路由、Services、数据模型
 
 ### 功能模块
-- [认证功能](auth/) - 登录、Cookies、刷新、多账号
-- [视频源](video-sources/) - 收藏夹、稍后再看、观看历史
-- [下载系统](download/) - 队列、任务、调度器
+- [认证功能](auth/README.md) - 登录、Cookies、刷新、多账号
+- [视频源](video-sources/README.md) - 收藏夹、稍后再看、观看历史
+- [下载系统](download/README.md) - 队列、任务、调度器
 - [评论数据提取](download/comment-extraction.md) - B站评论数据提取和NFO存储
 - [AI 字幕纠正](ai-subtitle-correction.md) - NFO 上下文、分块分析、手动应用修正
-- [设置管理](settings/) - 存储、备份
+- [设置管理](settings/README.md) - 存储、备份
 
 ### 数据层
-- [数据库设计](database/) - 数据模型、API Schema
-- [元数据系统](metadata/) - NFO文件格式、评分算法、标签系统
+- [数据库设计](database/README.md) - 数据模型、API Schema
+- [元数据系统](metadata/README.md) - NFO文件格式、评分算法、标签系统
 
 ### 接口文档
-- [API 端点](api/) - 后端接口列表
+- [API 端点](api/README.md) - 后端接口列表
 
 ### 组件文档
-- [组件](components/) - 前后端共用组件
+- [组件](components/README.md) - 前后端共用组件
 
 ### 开发笔记
 - [开发日志](dev/dev-log.md) - 开发记录

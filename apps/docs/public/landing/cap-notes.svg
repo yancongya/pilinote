@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 156" role="img" aria-label="AI note jumpback demo">
+  <style>
+    .grid{stroke:#e6edf5;stroke-width:1}.panel,.chip,.note{fill:#fff;stroke:#dbe3ee}.txt{font:700 10px ui-monospace,Menlo,monospace}.title{font:700 12px system-ui}.pink{fill:#ff78ad}.line{fill:none;stroke:#16b8ee;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:280;stroke-dashoffset:280;animation:draw 3s ease-in-out infinite}.ghost{fill:none;stroke:#ff78ad;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:10 10;opacity:.65;animation:move 4s linear infinite}.cursor{fill:#fff;stroke:#ff78ad;stroke-width:3}.note{animation:glow 3s ease-in-out infinite}@keyframes draw{45%,70%{stroke-dashoffset:0}100%{stroke-dashoffset:-280}}@keyframes move{to{stroke-dashoffset:-80}}@keyframes glow{50%{filter:drop-shadow(0 10px 18px rgba(255,120,173,.22))}}
+  </style>
+  <path class="grid" d="M0 30H420M0 60H420M0 90H420M0 120H420M70 0V156M140 0V156M210 0V156M280 0V156M350 0V156"/>
+  <rect class="panel" x="38" y="36" width="158" height="86" rx="18"/>
+  <rect class="chip" x="58" y="54" width="72" height="22" rx="11"/><text class="txt pink" x="72" y="69">03:24</text>
+  <text class="title" x="58" y="98" fill="#1f2937">关键点自动定位</text>
+  <rect class="note" x="234" y="34" width="142" height="88" rx="18"/>
+  <text class="txt pink" x="254" y="59">AI NOTE</text><text class="title" x="254" y="88" fill="#1f2937">时间戳回跳</text>
+  <path id="jumpPath" class="ghost" d="M112 98 C154 42, 208 118, 270 84"/>
+  <path class="line" d="M112 98 C154 42, 208 118, 270 84"/>
+  <circle class="cursor" r="9">
+    <animateMotion dur="3s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="spline" keySplines=".22 1 .36 1;.64 0 .78 0">
+      <mpath href="#jumpPath"/>
+    </animateMotion>
+  </circle>
+</svg>

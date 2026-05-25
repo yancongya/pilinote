@@ -403,7 +403,7 @@ interface Scheduler {
 - [项目概述](../base/project-overview.md)
 - [后端架构](./backend-architecture.md)
 - [数据库架构](../database/database-architecture.md)
-- [开发指南](../../AGENTS.md)
+- 开发指南：仓库根目录 `AGENTS.md`
 
 ---
 

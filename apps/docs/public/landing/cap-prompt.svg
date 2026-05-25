@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 156" role="img" aria-label="prompt builder demo">
+  <style>
+    .grid{stroke:#e6edf5;stroke-width:1}.box{fill:#fff;stroke:#dbe3ee}.out{fill:#fff;stroke:#ff78ad}.flow{stroke:#16b8ee;stroke-width:3;fill:none;stroke-linecap:round;stroke-dasharray:18 12;animation:dash 3.2s linear infinite}.chip{fill:#fff1f7;stroke:#ffd5e7}.txt{font:700 10px ui-monospace,Menlo,monospace;fill:#ff78ad}.out{animation:glow 2.6s ease-in-out infinite}@keyframes dash{to{stroke-dashoffset:-112}}@keyframes glow{50%{filter:drop-shadow(0 10px 18px rgba(255,120,173,.24))}}
+  </style>
+  <path class="grid" d="M0 30H420M0 60H420M0 90H420M0 120H420"/>
+  <rect class="box" x="36" y="34" width="82" height="24" rx="10"/><rect class="box" x="36" y="72" width="82" height="24" rx="10"/><rect class="box" x="36" y="110" width="82" height="24" rx="10"/>
+  <path class="flow" d="M118 46C160 46 166 78 204 78H252M118 84C160 84 166 78 204 78M118 122C160 122 166 78 204 78"/>
+  <rect class="chip" x="214" y="58" width="72" height="40" rx="13"/><rect class="out" x="322" y="48" width="72" height="60" rx="16"/>
+  <path class="flow" d="M286 78H322"/><text class="txt" x="56" y="50">字幕</text><text class="txt" x="56" y="88">简介</text><text class="txt" x="56" y="126">评论</text><text class="txt" x="336" y="82">Prompt</text>
+</svg>

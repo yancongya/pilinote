@@ -2,7 +2,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { computed } from 'vue'
 import { useData } from 'vitepress'
-import LandingPage from './pages/LandingPage.vue'
+import LandingPage from './pages/landing/LandingPage.vue'
 
 const { frontmatter, page } = useData()
 
@@ -16,4 +16,3 @@ const isLanding = computed(() => {
   <LandingPage v-if="isLanding" />
   <DefaultTheme.Layout v-else />
 </template>
-

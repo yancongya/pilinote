@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 156" role="img" aria-label="download progress demo">
+  <style>
+    .grid{stroke:#e6edf5;stroke-width:1}.panel{fill:#fff;stroke:#dbe3ee}.bar{fill:#edf3f8}.fill{fill:url(#g);animation:load 2.8s ease-in-out infinite}.seg{fill:#fff;stroke:#16b8ee;animation:fall 2.8s ease-in-out infinite}.seg:nth-of-type(2){animation-delay:.2s}.seg:nth-of-type(3){animation-delay:.4s}.arrow{stroke:#ff78ad;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;animation:bounce 1.4s ease-in-out infinite}.txt{font:700 11px ui-monospace,Menlo,monospace;fill:#1f2937}@keyframes load{0%,100%{width:76px}55%{width:244px}}@keyframes fall{50%{transform:translateY(16px)}}@keyframes bounce{50%{transform:translateY(8px)}}
+  </style>
+  <defs><linearGradient id="g"><stop stop-color="#ff78ad"/><stop offset="1" stop-color="#16b8ee"/></linearGradient></defs>
+  <path class="grid" d="M0 30H420M0 60H420M0 90H420M0 120H420"/>
+  <rect class="panel" x="46" y="36" width="328" height="90" rx="20"/>
+  <rect class="seg" x="98" y="48" width="54" height="28" rx="10"/><rect class="seg" x="184" y="48" width="54" height="28" rx="10"/><rect class="seg" x="270" y="48" width="54" height="28" rx="10"/>
+  <path class="arrow" d="M184 78l26 24 26-24"/>
+  <rect class="bar" x="78" y="106" width="264" height="12" rx="6"/><rect class="fill" x="78" y="106" width="90" height="12" rx="6"/>
+  <text class="txt" x="164" y="94">download queue</text>
+</svg>
