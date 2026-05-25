@@ -158,6 +158,22 @@ class ApiService {
     }
   }
 
+  async get<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...options, method: 'GET' })
+  }
+
+  async post<T>(endpoint: string, body?: unknown, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'POST',
+      body: body === undefined ? options.body : JSON.stringify(body),
+    })
+  }
+
+  async delete<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...options, method: 'DELETE' })
+  }
+
   async getQrcode(): Promise<ApiResponse<QrcodeData>> {
     return this.request<QrcodeData>('/api/auth/qrcode', { method: 'GET' });
   }

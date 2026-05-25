@@ -1414,7 +1414,7 @@ const handleDownloadCollection = async (e: React.MouseEvent) => {
     if (!settingsStore.settings) {
       await settingsStore.fetchSettings()
     }
-    const downloadPath = settingsStore.settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads'
+    const downloadPath = settingsStore.settings?.storage?.download_path || './downloads'
     const folderPath = `${downloadPath}/合集-${sanitizeFilename(collectionTitle)}`
 
     const schedulerResponse = await apiService.createScheduler({

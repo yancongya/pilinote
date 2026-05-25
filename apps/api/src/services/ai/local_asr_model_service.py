@@ -5,6 +5,7 @@ import logging
 import shutil
 import threading
 import tempfile
+import os
 from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -23,8 +24,8 @@ from src.schemas.local_asr_models import (
 
 logger = logging.getLogger(__name__)
 
-API_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = API_ROOT / "data"
+RUNTIME_ROOT = Path(os.getenv("PILINOTE_RUNTIME_DIR", Path(__file__).resolve().parents[3]))
+DATA_DIR = RUNTIME_ROOT / "data"
 CACHE_DIR = DATA_DIR / "asr_models"
 STATE_FILE = DATA_DIR / "local_asr_models.json"
 

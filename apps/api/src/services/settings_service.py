@@ -7,8 +7,10 @@ from typing import Optional, Dict, Any
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from src.models.setting import Setting
+from src.config import settings
 from src.schemas.settings import (
     Settings,
     DownloadSettings,
@@ -39,6 +41,15 @@ class SettingsService:
 
         initializer = ToolInitializer()
         return initializer.get_tool_path(tool_name)
+
+    def _resolve_storage_path(self, value: Optional[str], fallback: str) -> str:
+        path_value = str(value or "").strip()
+        if not path_value:
+            return fallback
+        candidate = Path(path_value).expanduser()
+        if candidate.is_absolute():
+            return str(candidate)
+        return str((Path(settings.runtime_dir) / candidate).resolve())
 
     def get_tool_status(self) -> Dict[str, Dict[str, Any]]:
         """获取工具状态（用于显示）"""
@@ -143,10 +154,10 @@ class SettingsService:
         # 提取storage设置
         storage_settings_dict = {
             "download_path": self._get_setting_value(
-                all_settings, "storage.download_path", "./downloads"
+                all_settings, "storage.download_path", settings.default_download_path
             ),
             "temp_path": self._get_setting_value(
-                all_settings, "storage.temp_path", "./temp"
+                all_settings, "storage.temp_path", settings.default_temp_path
             ),
             "auto_cleanup": self._get_setting_value(
                 all_settings, "storage.auto_cleanup", True
@@ -234,6 +245,12 @@ class SettingsService:
                     "aria2c": self.get_tool_path("aria2c"),
                 }
 
+        storage_settings_dict["download_path"] = self._resolve_storage_path(
+            storage_settings_dict.get("download_path"), settings.default_download_path
+        )
+        storage_settings_dict["temp_path"] = self._resolve_storage_path(
+            storage_settings_dict.get("temp_path"), settings.default_temp_path
+        )
         storage_settings = StorageSettings(**storage_settings_dict)
 
         # 提取general设置

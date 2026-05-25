@@ -6,9 +6,9 @@
 
 import React, { useEffect, useState } from 'react'
 import { useUnifiedDownloadStore, Task, TaskState } from '../../stores/unifiedDownload'
-import { formatFileSize, formatDuration, formatSpeed } from '../../utils/format'
+import { formatDuration, formatSpeed } from '../../utils/format'
 import { Button } from '../Button'
-import { Modal } from '../Modal'
+import Modal from '../Modal'
 
 interface UnifiedDownloadListProps {
   className?: string
@@ -32,7 +32,6 @@ export const UnifiedDownloadList: React.FC<UnifiedDownloadListProps> = ({
     retryTask,
     deleteTask,
     getTaskStats,
-    connectWebSocket,
     disconnectWebSocket
   } = useUnifiedDownloadStore()
 
@@ -103,14 +102,6 @@ export const UnifiedDownloadList: React.FC<UnifiedDownloadListProps> = ({
       newSelected.delete(taskId)
     }
     setSelectedTasks(newSelected)
-  }
-
-  const handleSelectAll = (selected: boolean) => {
-    if (selected) {
-      setSelectedTasks(new Set(taskIds))
-    } else {
-      setSelectedTasks(new Set())
-    }
   }
 
   // 获取状态显示文本

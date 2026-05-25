@@ -94,11 +94,9 @@ export default function HomeContent() {
         if (parsedId && video) {
           try {
             // 根据类型保存不同的历史记录
-            let historyType = 'video'
+            let historyType: 'video' | 'opus' = 'video'
             if (parsedId.type === 'opus') {
               historyType = 'opus'
-            } else if (parsedId.type === 'ugc_season' || parsedId.type === 'favorite_folder') {
-              historyType = parsedId.type
             }
             
             addToHistory({
@@ -189,7 +187,7 @@ export default function HomeContent() {
           },
           selectedPages: isMultiPart ? selectedPages : undefined,
           currentTasks: newQueueStore.tasks,
-          downloadPath: settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads',
+          downloadPath: settings?.storage?.download_path || './downloads',
           metadataOptions: {
             quality: defaultQuality,
             output_format: 'mp4',

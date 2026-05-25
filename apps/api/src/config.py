@@ -1,5 +1,27 @@
 from pydantic_settings import BaseSettings
 import os
+from pathlib import Path
+
+
+def _default_runtime_dir() -> str:
+    return os.getenv("PILINOTE_RUNTIME_DIR", os.getcwd())
+
+
+def _default_database_url() -> str:
+    env_database_url = os.getenv("DATABASE_URL")
+    if env_database_url:
+        return env_database_url
+    runtime_dir = Path(_default_runtime_dir())
+    return f"sqlite:///{(runtime_dir / 'data' / 'pilinote.db').as_posix()}"
+
+
+def _normalize_sqlite_url(database_url: str, runtime_dir: str) -> str:
+    if database_url.startswith("sqlite:///./"):
+        relative = database_url.removeprefix("sqlite:///./")
+        return f"sqlite:///{(Path(runtime_dir) / relative).as_posix()}"
+    if database_url == "sqlite:///./pilinote.db":
+        return f"sqlite:///{(Path(runtime_dir) / 'data' / 'pilinote.db').as_posix()}"
+    return database_url
 
 
 class Settings(BaseSettings):
@@ -9,8 +31,12 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
-    # 确保数据库路径指向data目录
-    database_url: str = "sqlite:///./data/pilinote.db"
+    runtime_dir: str = _default_runtime_dir()
+    log_dir: str = os.getenv("PILINOTE_LOG_DIR", str(Path(_default_runtime_dir()) / "logs"))
+    default_download_path: str = os.getenv("PILINOTE_DOWNLOAD_PATH", str(Path(_default_runtime_dir()) / "downloads"))
+    default_temp_path: str = os.getenv("PILINOTE_TEMP_PATH", str(Path(_default_runtime_dir()) / "temp"))
+
+    database_url: str = _default_database_url()
 
     secret_key: str = "pilinote-secret-key"
     algorithm: str = "HS256"
@@ -30,7 +56,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# 确保数据库URL指向data目录
-if settings.database_url == "sqlite:///./pilinote.db":
-    # 如果使用的是旧路径，自动更新为新路径
-    settings.database_url = "sqlite:///./data/pilinote.db"
+settings.database_url = _normalize_sqlite_url(settings.database_url, settings.runtime_dir)

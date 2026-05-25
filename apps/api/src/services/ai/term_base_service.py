@@ -3,6 +3,7 @@ import csv
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from src.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +15,13 @@ class TermBaseService:
         if term_bases_dir:
             self.term_bases_dir = Path(term_bases_dir)
         else:
-            project_root = Path("/Users/tanyancong/工作/开发/pilinote")
-            self.term_bases_dir = project_root / "term-bases"
+            env_term_bases_dir = os.getenv("PILINOTE_TERM_BASES_DIR")
+            if env_term_bases_dir:
+                self.term_bases_dir = Path(env_term_bases_dir)
+            else:
+                runtime_default = Path(app_settings.runtime_dir) / "term-bases"
+                repo_default = Path(__file__).resolve().parents[5] / "term-bases"
+                self.term_bases_dir = runtime_default if runtime_default.exists() else repo_default
 
         self._term_cache: Dict[str, Tuple[str, str]] = {}  # source -> (target, note)
         self._loaded = False

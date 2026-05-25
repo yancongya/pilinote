@@ -23,6 +23,7 @@ from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_
 from src.services.ai.nfo_reader import NFOReader
 from src.services.ai.task_control import task_control_registry
 from src.services.settings_service import SettingsService
+from src.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
 _ACTIVE_ASR_PROCESSES: Dict[str, int] = {}
@@ -2345,7 +2346,7 @@ class AiNoteService:
         """
         video_file = Path(video_path)
         start = video_file.parent if video_file.is_file() else video_file
-        downloads_root = Path("/Users/tanyancong/工作/开发/pilinote") / "downloads"
+        downloads_root = Path(app_settings.default_download_path)
         current = start
         best = start
         while True:

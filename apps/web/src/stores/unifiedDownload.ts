@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { apiService } from '../services/api'
+import { getWebSocketUrl } from '../config/api'
 
 // ========== 类型定义 ==========
 
@@ -267,7 +268,7 @@ export const useUnifiedDownloadStore = create<UnifiedDownloadState>()(
         try {
           set({ syncing: true })
           
-          const response = await apiService.get('/api/unified-queue/tasks')
+          const response = await apiService.get<any[]>('/api/unified-queue/tasks')
           
           if (response.success && response.data) {
             const tasks = response.data.map((taskData: any) => normalizeTask(taskData))
@@ -285,7 +286,7 @@ export const useUnifiedDownloadStore = create<UnifiedDownloadState>()(
       
       syncQueueStatus: async () => {
         try {
-          const response = await apiService.get('/api/unified-queue/status')
+          const response = await apiService.get<QueueStatus>('/api/unified-queue/status')
           
           if (response.success && response.data) {
             get().setQueueStatus(response.data)
@@ -300,7 +301,7 @@ export const useUnifiedDownloadStore = create<UnifiedDownloadState>()(
         try {
           set({ loading: true, error: null })
           
-          const response = await apiService.post('/api/unified-queue/tasks', taskData)
+          const response = await apiService.post<{ task_id: string }>('/api/unified-queue/tasks', taskData)
           
           if (response.success && response.data) {
             // 刷新任务列表
@@ -398,7 +399,7 @@ export const useUnifiedDownloadStore = create<UnifiedDownloadState>()(
         
         try {
           // 构建 WebSocket URL
-          const wsUrl = `ws://localhost:8000/ws/queue`
+          const wsUrl = getWebSocketUrl('/ws/queue')
           
           const ws = new WebSocket(wsUrl)
           

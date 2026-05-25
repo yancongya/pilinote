@@ -228,7 +228,7 @@ export const enqueueVideoDownload = async ({
   sessdata,
   selectedPages,
   currentTasks,
-  downloadPath = '/Users/tanyancong/工作/开发/pilinote/downloads',
+  downloadPath = './downloads',
   metadataOptions = {},
 }: EnqueueVideoDownloadParams): Promise<EnqueueVideoDownloadResult> => {
   const detailData: VideoDetail = detail ?? await apiService.getVideoDetail(video.bvid, sessdata).then(response => {
@@ -408,7 +408,7 @@ export function useVideoDownload() {
             if (!settingsStore.settings) {
               await settingsStore.fetchSettings()
             }
-            const downloadPath = settingsStore.settings?.storage?.download_path || '/Users/tanyancong/工作/开发/pilinote/downloads'
+            const downloadPath = settingsStore.settings?.storage?.download_path || './downloads'
             const result = await enqueueVideoDownload({
               video,
               sessdata: sessdata || undefined,

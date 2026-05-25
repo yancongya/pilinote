@@ -42,14 +42,15 @@ from src.services.tool_initializer import initialize_tools_on_startup, ToolIniti
 # 配置日志级别
 import os
 
-# 确保logs目录存在
-os.makedirs("logs", exist_ok=True)
+log_dir = Path(settings.log_dir)
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / "app.log"
 
 logging.basicConfig(
     level=logging.DEBUG,  # 设置为 DEBUG 级别
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("logs/app.log", encoding="utf-8"),
+        logging.FileHandler(str(log_file), encoding="utf-8"),
         logging.StreamHandler(),
     ],
 )
@@ -314,8 +315,10 @@ async def health():
 
 
 if __name__ == "__main__":
+    import sys
     import uvicorn
 
+    is_frozen = getattr(sys, "frozen", False)
     uvicorn.run(
-        "main:app", host=settings.host, port=settings.port, reload=settings.debug
+        app, host=settings.host, port=settings.port, reload=(settings.debug and not is_frozen)
     )

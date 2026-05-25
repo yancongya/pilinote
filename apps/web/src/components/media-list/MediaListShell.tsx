@@ -44,7 +44,6 @@ export default function MediaListShell({
   const topbarRef = useRef<HTMLDivElement>(null)
   const [portalReady, setPortalReady] = useState(false)
   const [topbarHeight, setTopbarHeight] = useState(0)
-  const [isMobile, setIsMobile] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
 
   // 桌面端强制样式修复
@@ -58,7 +57,6 @@ export default function MediaListShell({
       const rect = shellRef.current?.getBoundingClientRect()
       const isVisible = Boolean(rect && rect.width > 0 && rect.height > 0)
       const isMobileView = window.innerWidth <= 768
-      setIsMobile(isMobileView)
       setIsDesktop(!isMobileView)
       // 只在移动端启用 portal
       setPortalReady(isVisible && isMobileView)

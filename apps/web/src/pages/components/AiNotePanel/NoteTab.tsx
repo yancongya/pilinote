@@ -7,7 +7,6 @@ import {
   AI_NOTE_TRACE_STAGE_TEMPLATES,
   DEFAULT_FORMATS,
   DEFAULT_STYLE,
-  NOTE_FORMATS,
 } from '../../../services/aiNote';
 import type { AiNotePipelineMode } from '../../../services/aiNote';
 import { useAiRuntimeState } from '../../../hooks/useAiRuntimeState';

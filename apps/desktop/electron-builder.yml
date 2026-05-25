@@ -1,0 +1,29 @@
+appId: com.pilinote.desktop
+productName: PiliNote
+directories:
+  output: dist
+files:
+  - main.cjs
+  - preload.cjs
+  - package.json
+  - web-dist/**
+  - '!../docs/**'
+  - '!../reference/**'
+  - '!../apps/docs/**'
+  - '!**/node_modules/.cache/**'
+  - '!**/*.map'
+extraResources:
+  - from: resources/backend
+    to: backend
+    filter:
+      - '**/*'
+mac:
+  target:
+    - dmg
+  category: public.app-category.productivity
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

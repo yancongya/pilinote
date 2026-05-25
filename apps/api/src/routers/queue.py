@@ -12,6 +12,7 @@ from src.services.queue.manager import queue_manager
 from src.services.queue.scheduler import SchedulerService
 from src.models.task import Task
 from src.database import SessionLocal
+from src.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -332,8 +333,8 @@ async def _execute_single_task(task_id: str):
         try:
             settings_service = SettingsService(db)
             settings = settings_service.get_settings()
-            temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
-            download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
+            temp_path = settings.storage.temp_path or app_settings.default_temp_path
+            download_path = settings.storage.download_path or app_settings.default_download_path
         finally:
             db.close()
         
@@ -509,7 +510,7 @@ async def batch_delete_tasks(task_ids: List[str] = Body(...)):
                 try:
                     settings_service = SettingsService(db)
                     settings = settings_service.get_settings()
-                    temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
+                    temp_path = settings.storage.temp_path or app_settings.default_temp_path
                 finally:
                     db.close()
 
@@ -588,7 +589,7 @@ async def delete_task(task_id: str):
         try:
             settings_service = SettingsService(db)
             settings = settings_service.get_settings()
-            temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
+            temp_path = settings.storage.temp_path or app_settings.default_temp_path
         finally:
             db.close()
         

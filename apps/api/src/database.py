@@ -8,8 +8,9 @@ from src.config import settings
 
 # 确保数据库目录存在
 db_path = settings.database_url.replace("sqlite:///", "")
-if db_path.startswith("./"):
-    db_path = os.path.abspath(db_path)
+if db_path:
+    if db_path.startswith("./"):
+        db_path = os.path.abspath(db_path)
     db_dir = os.path.dirname(db_path)
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
@@ -135,19 +136,19 @@ def init_default_settings():
             # 存储设置
             {
                 "key": "storage.download_path",
-                "value": "./downloads",
+                "value": settings.default_download_path,
                 "type": "string",
                 "category": "storage",
                 "description": "下载路径",
-                "default_value": "./downloads",
+                "default_value": settings.default_download_path,
             },
             {
                 "key": "storage.temp_path",
-                "value": "./temp",
+                "value": settings.default_temp_path,
                 "type": "string",
                 "category": "storage",
                 "description": "临时文件路径",
-                "default_value": "./temp",
+                "default_value": settings.default_temp_path,
             },
             {
                 "key": "storage.auto_cleanup",

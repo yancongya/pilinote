@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 import os
 import logging
+from src.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,22 @@ def find_video_dir(video_id: str) -> Path:
     """根据video_id找到视频目录"""
     import os
 
-    # 硬编码项目根目录
-    project_root = Path("/Users/tanyancong/工作/开发/pilinote")
-    downloads = project_root / "downloads"
+    downloads = Path(app_settings.default_download_path)
+    try:
+        from src.database import SessionLocal
+        from src.services.settings_service import SettingsService
+
+        db = SessionLocal()
+        try:
+            current_settings = SettingsService(db).get_settings()
+            if current_settings.storage.download_path:
+                downloads = Path(current_settings.storage.download_path)
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.debug("find_video_dir: failed to load storage settings, fallback to default: %s", exc)
     logger.info(
-        f"find_video_dir: video_id={video_id}, project_root={project_root}, downloads={downloads}, exists={downloads.exists()}"
+        f"find_video_dir: video_id={video_id}, downloads={downloads}, exists={downloads.exists()}"
     )
 
     # 直接作为路径

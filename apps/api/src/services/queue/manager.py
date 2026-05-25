@@ -10,6 +10,7 @@ from src.schemas.task import TaskCreate, TaskResponse
 from src.schemas.scheduler import SchedulerCreate, SchedulerResponse
 from src.schemas.queue import QueueResponse
 from src.database import SessionLocal
+from src.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -503,8 +504,8 @@ class QueueManager:
             try:
                 settings_service = SettingsService(db)
                 settings = settings_service.get_settings()
-                temp_path = settings.storage.temp_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/temp"
-                download_path = settings.storage.download_path or "/Users/tanyancong/工作/开发/pilinote/apps/api/downloads"
+                temp_path = settings.storage.temp_path or app_settings.default_temp_path
+                download_path = settings.storage.download_path or app_settings.default_download_path
             finally:
                 db.close()
             
