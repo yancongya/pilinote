@@ -24,6 +24,21 @@ pnpm --dir apps/desktop pack:mac
 pnpm --dir apps/desktop pack:win
 ```
 
+## Frontend artifact policy (`web-dist`)
+
+- `apps/desktop/web-dist/` is a build artifact and is intentionally **not committed**.
+- Before packaging, always generate the latest frontend bundle from `apps/web`.
+
+Recommended sequence:
+
+```bash
+pnpm --dir apps/desktop build:web
+pnpm --dir apps/desktop sync:web
+pnpm --dir apps/desktop pack:mac
+```
+
+(`pack:*` already includes `build:desktop`, but these commands are useful for explicit preflight checks.)
+
 ## Backend binary expectations
 
 Before packaging, provide API executables:
