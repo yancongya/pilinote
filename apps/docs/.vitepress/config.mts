@@ -33,6 +33,7 @@ const DIR_TRANSLATION: Record<string, string> = {
   dev: '开发',
   download: '下载',
   metadata: '元数据',
+  packaging: '打包发布',
   settings: '设置',
   'video-sources': '视频源',
   web: 'Web',
@@ -142,6 +143,9 @@ const FILE_TRANSLATION: FileMap = mergeFileMaps([
   },
   {
     'nfo-format': 'NFO 格式',
+  },
+  {
+    'desktop-installers': '安装包打包与脚本说明',
   },
   {
     accounts: '账号设置',

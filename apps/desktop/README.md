@@ -52,3 +52,25 @@ Use helper commands:
 pnpm --dir apps/desktop build:api:mac
 pnpm --dir apps/desktop build:api:win
 ```
+
+## Docs launcher binary
+
+Build a standalone docs launcher binary (serves `apps/docs/.vitepress/dist`):
+
+```bash
+./build-docs-binary.command mac
+./build-docs-binary.command win
+./build-docs-binary.command linux
+```
+
+Output locations:
+
+- `apps/desktop/resources/docs/mac/`
+- `apps/desktop/resources/docs/win/`
+- `apps/desktop/resources/docs/linux/`
+
+One-click full packaging from repo root:
+
+```bash
+./pack-installers.command
+```
