@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 156" role="img" aria-label="queue intake demo">
+  <style>
+    .grid{stroke:#e6edf5;stroke-width:1}.slot,.source{fill:#fff;stroke:#dbe3ee}.source{animation:in 3.2s ease-in-out infinite}.source:nth-of-type(2){animation-delay:.18s}.source:nth-of-type(3){animation-delay:.36s}.rail{stroke:#16b8ee;stroke-width:3;stroke-linecap:round}.pulse{fill:#ff78ad;animation:pulse 1.4s ease-in-out infinite}.txt{font:700 10px ui-monospace,Menlo,monospace;fill:#ff78ad}.label{font:700 12px system-ui;fill:#1f2937}@keyframes in{0%,100%{transform:translateX(0);opacity:.65}50%{transform:translateX(20px);opacity:1}}@keyframes pulse{50%{opacity:.35;r:12}}
+  </style>
+  <path class="grid" d="M0 30H420M0 60H420M0 90H420M0 120H420"/>
+  <rect class="source" x="34" y="38" width="96" height="26" rx="13"/><rect class="source" x="34" y="70" width="96" height="26" rx="13"/><rect class="source" x="34" y="102" width="96" height="26" rx="13"/>
+  <text class="txt" x="58" y="55">收藏夹</text><text class="txt" x="58" y="87">稍后看</text><text class="txt" x="58" y="119">历史</text>
+  <path class="rail" d="M154 82H388"/>
+  <rect class="slot" x="172" y="52" width="58" height="60" rx="15"/><rect class="slot" x="250" y="52" width="58" height="60" rx="15"/><rect class="slot" x="328" y="52" width="58" height="60" rx="15"/>
+  <text class="label" x="186" y="86">队列</text><circle class="pulse" cx="154" cy="82" r="8"/>
+</svg>

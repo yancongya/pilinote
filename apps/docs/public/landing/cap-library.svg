@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 156" role="img" aria-label="local media library demo">
+  <style>
+    .grid{stroke:#e6edf5;stroke-width:1}.panel,.item{fill:#fff;stroke:#dbe3ee}.item{animation:focus 3s ease-in-out infinite}.item:nth-of-type(2){animation-delay:.35s}.item:nth-of-type(3){animation-delay:.7s}.scan{stroke:#ff78ad;stroke-width:3;stroke-linecap:round;animation:scan 2.8s ease-in-out infinite}.link{stroke:#16b8ee;stroke-width:3;fill:none;stroke-dasharray:10 8;animation:dash 3s linear infinite}.txt{font:700 10px ui-monospace,Menlo,monospace;fill:#ff78ad}@keyframes focus{50%{filter:drop-shadow(0 8px 14px rgba(22,184,238,.18));transform:translateY(-4px)}}@keyframes scan{50%{transform:translateX(210px)}}@keyframes dash{to{stroke-dashoffset:-72}}
+  </style>
+  <path class="grid" d="M0 30H420M0 60H420M0 90H420M0 120H420"/>
+  <rect class="panel" x="46" y="28" width="328" height="104" rx="20"/>
+  <rect class="item" x="66" y="50" width="82" height="58" rx="14"/><rect class="item" x="170" y="50" width="82" height="58" rx="14"/><rect class="item" x="274" y="50" width="82" height="58" rx="14"/>
+  <path class="link" d="M148 80H170M252 80H274"/><path class="scan" d="M82 118H128"/>
+  <text class="txt" x="84" y="82">NFO</text><text class="txt" x="188" y="82">SRT</text><text class="txt" x="292" y="82">NOTE</text>
+</svg>

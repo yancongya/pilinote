@@ -1,51 +1,254 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { prefersReducedMotion } from '../../../lib/motion'
 import { FEATURES } from '../content'
+
+type Capability = {
+  title: string
+  desc: string
+  bullets: string[]
+  signals: string[]
+  meta: string
+}
+
+type CapabilityVisual = {
+  kind: 'notes' | 'queue' | 'download' | 'library' | 'prompt' | 'local' | 'backup'
+  src: string
+}
+
+type CardBox = {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+const rootRef = ref<HTMLElement | null>(null)
+const activeIndex = ref(0)
+const collageLayoutIndex = ref(0)
+let autoTimer: ReturnType<typeof setInterval> | undefined
+let layoutTimer: ReturnType<typeof setInterval> | undefined
+let resumeTimer: ReturnType<typeof setTimeout> | undefined
+
+const capabilities: Capability[] = [
+  {
+    ...FEATURES[0],
+    signals: ['章节定位 03:24', '关键问题 8 条', '复习路径已生成'],
+    meta: 'AI Notes',
+  },
+  {
+    ...FEATURES[1],
+    signals: ['增量扫描 +12', '重复内容已跳过', '自动加入队列'],
+    meta: 'Queue',
+  },
+  {
+    ...FEATURES[2],
+    signals: ['并发 3 个任务', '失败自动重试', '分 P 顺序处理'],
+    meta: 'Download',
+  },
+  {
+    ...FEATURES[3],
+    signals: ['媒体索引可检索', '字幕联动预览', '本地路径可迁移'],
+    meta: 'Library',
+  },
+  {
+    ...FEATURES[4],
+    signals: ['Prompt 模板可切换', '模型策略可调整', '链路日志可检查'],
+    meta: 'Prompt',
+  },
+  {
+    title: '纯本地化知识处理',
+    desc: '视频、字幕、截图、NFO 和 AI 笔记都沉淀到本地目录，复习链路不依赖在线平台状态。',
+    bullets: ['本地目录可迁移', 'sidecar 同级归档', '离线复习更稳定'],
+    signals: ['离线仍可检索', '链接失效不影响复习', '知识资产在本地'],
+    meta: 'Local First',
+  },
+  {
+    title: 'FTP / NAS 备份',
+    desc: '把长期收藏的视频资产同步到 NAS 或远程存储，适合多设备访问和长期归档。',
+    bullets: ['目录结构稳定', '适合长期收藏', '远程备份可扩展'],
+    signals: ['NAS 同步待机', '多设备访问', '长期归档策略'],
+    meta: 'Backup',
+  },
+]
+
+const visuals: CapabilityVisual[] = [
+  { kind: 'notes', src: '/landing/cap-notes.svg' },
+  { kind: 'queue', src: '/landing/cap-queue.svg' },
+  { kind: 'download', src: '/landing/cap-download.svg' },
+  { kind: 'library', src: '/landing/cap-library.svg' },
+  { kind: 'prompt', src: '/landing/cap-prompt.svg' },
+  { kind: 'local', src: '/landing/cap-local.svg' },
+  { kind: 'backup', src: '/landing/cap-backup.svg' },
+]
+
+const activeCapability = computed(() => capabilities[activeIndex.value] ?? capabilities[0])
+const activeVisual = computed(() => visuals[activeIndex.value] ?? visuals[0])
+const collageLayouts: CardBox[][] = [
+  [
+    { x: 2, y: 3, w: 31, h: 27 },
+    { x: 35, y: 3, w: 35, h: 25 },
+    { x: 72, y: 3, w: 26, h: 28 },
+    { x: 2, y: 33, w: 42, h: 32 },
+    { x: 46, y: 31, w: 52, h: 30 },
+    { x: 2, y: 68, w: 48, h: 29 },
+    { x: 52, y: 64, w: 46, h: 33 },
+  ],
+  [
+    { x: 2, y: 3, w: 43, h: 31 },
+    { x: 47, y: 3, w: 24, h: 28 },
+    { x: 73, y: 3, w: 25, h: 31 },
+    { x: 2, y: 37, w: 30, h: 34 },
+    { x: 34, y: 34, w: 64, h: 35 },
+    { x: 2, y: 74, w: 40, h: 23 },
+    { x: 44, y: 72, w: 54, h: 25 },
+  ],
+  [
+    { x: 2, y: 4, w: 27, h: 39 },
+    { x: 31, y: 4, w: 42, h: 25 },
+    { x: 75, y: 4, w: 23, h: 39 },
+    { x: 31, y: 32, w: 34, h: 31 },
+    { x: 67, y: 46, w: 31, h: 23 },
+    { x: 2, y: 46, w: 27, h: 51 },
+    { x: 31, y: 66, w: 67, h: 31 },
+  ],
+  [
+    { x: 2, y: 3, w: 28, h: 26 },
+    { x: 32, y: 3, w: 30, h: 41 },
+    { x: 64, y: 3, w: 34, h: 26 },
+    { x: 2, y: 32, w: 28, h: 39 },
+    { x: 64, y: 32, w: 34, h: 39 },
+    { x: 2, y: 74, w: 60, h: 23 },
+    { x: 64, y: 74, w: 34, h: 23 },
+  ],
+]
+const activeCollageLayout = computed(() => collageLayouts[collageLayoutIndex.value] ?? collageLayouts[0])
+
+function clearAutoTimer() {
+  if (autoTimer) {
+    clearInterval(autoTimer)
+    autoTimer = undefined
+  }
+}
+
+function clearLayoutTimer() {
+  if (layoutTimer) {
+    clearInterval(layoutTimer)
+    layoutTimer = undefined
+  }
+}
+
+function startAutoTimer() {
+  clearAutoTimer()
+  autoTimer = setInterval(() => {
+    void setActive((activeIndex.value + 1) % capabilities.length, false)
+  }, 3600)
+}
+
+function cycleCollageLayout() {
+  let next = Math.floor(Math.random() * collageLayouts.length)
+  if (next === collageLayoutIndex.value) next = (next + 1) % collageLayouts.length
+  collageLayoutIndex.value = next
+}
+
+function startLayoutTimer() {
+  clearLayoutTimer()
+  layoutTimer = setInterval(() => {
+    cycleCollageLayout()
+  }, 2400)
+}
+
+async function setActive(index: number, shouldPause = true) {
+  if (index === activeIndex.value) return
+
+  if (shouldPause) {
+    clearAutoTimer()
+    if (resumeTimer) clearTimeout(resumeTimer)
+    resumeTimer = setTimeout(() => {
+      startAutoTimer()
+    }, 5200)
+  }
+
+  activeIndex.value = index
+}
+
+async function setupMotion() {
+  if (!rootRef.value || prefersReducedMotion()) return
+
+  startAutoTimer()
+  startLayoutTimer()
+}
+
+onMounted(() => {
+  void setupMotion()
+})
+
+onBeforeUnmount(() => {
+  clearAutoTimer()
+  clearLayoutTimer()
+  if (resumeTimer) clearTimeout(resumeTimer)
+})
 </script>
 
 <template>
-  <section id="features" class="lp2-section" data-reveal>
+  <section id="features" ref="rootRef" class="lp2-section" data-reveal>
     <div class="lp2-container">
       <div class="lp2-section-head">
         <h2 class="lp2-h2">核心能力</h2>
-        <p class="lp2-sub">每一项能力都对应可落盘的产物，让“下载 + 复习”变成稳定工作流。</p>
+        <p class="lp2-sub">能力不是静态清单，而是一组围绕“本地知识库”的处理模块：采集、落盘、分析、回跳、备份。</p>
       </div>
 
-      <div class="lp2-feature-split">
-        <div class="lp2-feature-left">
-          <div class="lp2-artifacts">
-            <div class="lp2-art-title">落盘产物（sidecar）</div>
-            <div class="lp2-art-desc">和媒体同级保存，目录结构稳定可迁移。</div>
-            <ul class="lp2-art-list">
-              <li><span class="k">.nfo</span> 元数据</li>
-              <li><span class="k">.srt/.vtt</span> 字幕</li>
-              <li><span class="k">.ai-note.md</span> AI 笔记</li>
-              <li><span class="k">.jpg</span> 原片截图</li>
-              <li><span class="k">.json</span> 链路日志/缓存</li>
-            </ul>
+      <div class="cap-stage">
+        <article class="cap-hero" data-cap-hero>
+          <div class="cap-hero-top">
+            <span>{{ activeCapability.meta }}</span>
+            <b>{{ String(activeIndex + 1).padStart(2, '0') }}</b>
+          </div>
+          <Transition name="cap-copy" mode="out-in">
+            <div :key="activeCapability.title" class="cap-copy">
+              <h3>{{ activeCapability.title }}</h3>
+              <p class="cap-desc">
+                <span>{{ activeCapability.desc }}</span>
+              </p>
+            </div>
+          </Transition>
+
+          <div class="cap-canvas" aria-hidden="true">
+            <Transition name="cap-art" mode="out-in">
+              <img :key="activeVisual.src" :src="activeVisual.src" alt="" />
+            </Transition>
           </div>
 
-          <div class="lp2-tree" aria-label="本地目录结构示意（占位）">
-            <div class="lp2-tree-title">本地目录结构（示意）</div>
-            <pre class="lp2-tree-pre">
-downloads/
-  BVxxxxxx/
-    video.mp4
-    video.nfo
-    subtitle.srt
-    note.ai-note.md
-    note.screenshot.000125.jpg
-            </pre>
+          <div class="cap-hero-bottom">
+            <Transition name="cap-copy" mode="out-in">
+              <ul :key="activeCapability.meta" class="cap-points">
+                <li v-for="point in activeCapability.bullets" :key="point">{{ point }}</li>
+              </ul>
+            </Transition>
           </div>
-        </div>
+        </article>
 
-        <div class="lp2-feature-right">
-          <article v-for="f in FEATURES" :key="f.title" class="lp2-feature-card">
-            <h3 class="lp2-h3">{{ f.title }}</h3>
-            <p class="lp2-p">{{ f.desc }}</p>
-            <ul class="lp2-ul">
-              <li v-for="b in f.bullets" :key="b">{{ b }}</li>
-            </ul>
-          </article>
+        <div class="cap-collage" aria-label="核心能力拼贴">
+          <button
+            v-for="(capability, index) in capabilities"
+            :key="capability.title"
+            data-cap-card
+            class="cap-card"
+            :class="{ 'is-active': activeIndex === index }"
+            :style="{
+              left: `${activeCollageLayout[index].x}%`,
+              top: `${activeCollageLayout[index].y}%`,
+              width: `${activeCollageLayout[index].w}%`,
+              height: `${activeCollageLayout[index].h}%`,
+            }"
+            type="button"
+            @click="setActive(index)"
+            @focus="setActive(index)"
+          >
+            <span class="cap-card-meta">{{ capability.meta }}</span>
+            <strong>{{ capability.title }}</strong>
+            <small>{{ capability.signals[0] }}</small>
+          </button>
         </div>
       </div>
     </div>
@@ -78,111 +281,369 @@ downloads/
   color: var(--pn-muted);
   line-height: 1.6;
   font-size: 14px;
-  max-width: 70ch;
+  max-width: 72ch;
 }
 
-.lp2-feature-split {
+.cap-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: stretch;
+  gap: 14px;
+  height: 430px;
+}
+
+.cap-hero,
+.cap-collage {
+  border: 1px solid var(--pn-border);
+  background:
+    radial-gradient(600px 220px at 12% 6%, rgb(var(--pn-accent-rgb) / 0.14), transparent 62%),
+    radial-gradient(640px 220px at 88% 18%, rgb(var(--pn-blue-rgb) / 0.12), transparent 60%),
+    var(--pn-card);
+}
+
+.cap-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: var(--pn-soft-shadow);
+}
+
+.cap-hero::after {
+  content: '';
+  position: absolute;
+  inset: auto 18px 18px auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--pn-blue-rgb) / 0.22);
+  background: radial-gradient(circle, rgb(var(--pn-blue-rgb) / 0.14), transparent 68%);
+  pointer-events: none;
+}
+
+.cap-hero-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.cap-hero-top span,
+.cap-hero-top b {
+  border-radius: 999px;
+  border: 1px solid var(--pn-border);
+  background: color-mix(in srgb, var(--pn-bg) 68%, transparent);
+  padding: 6px 10px;
+  color: var(--pn-muted);
+  font-size: 12px;
+}
+
+.cap-hero-top b {
+  color: rgb(var(--pn-accent-rgb));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.cap-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.cap-copy-enter-active,
+.cap-copy-leave-active {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.cap-copy-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.cap-copy-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.cap-art-enter-active,
+.cap-art-leave-active {
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+
+.cap-art-enter-from,
+.cap-art-leave-to {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.cap-hero h3 {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--pn-fg);
+  font-size: 28px;
+  line-height: 1.18;
+  letter-spacing: 0;
+}
+
+.cap-desc {
+  position: relative;
+  z-index: 1;
+  margin: 12px 0 0;
+  color: var(--pn-muted);
+  font-size: 14px;
+  line-height: 28px;
+  height: 28px;
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 86%, transparent);
+}
+
+.cap-desc span {
+  display: inline-block;
+  min-width: 100%;
+  padding-right: 36px;
+  animation: cap-marquee 10s linear infinite;
+}
+
+.cap-canvas {
+  position: relative;
+  z-index: 0;
+  margin: 14px -2px 10px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--pn-border) 78%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--pn-fg) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--pn-fg) 5%, transparent) 1px, transparent 1px),
+    color-mix(in srgb, var(--pn-bg) 56%, transparent);
+  background-size: 28px 28px;
+  overflow: hidden;
+}
+
+.cap-canvas img {
+  display: block;
+  width: 100%;
+  height: 108px;
+  object-fit: contain;
+}
+
+.cap-hero-bottom {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+  margin-top: auto;
 }
 
-.lp2-feature-left {
+.cap-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 12px;
+  gap: 6px;
 }
 
-.lp2-artifacts,
-.lp2-tree {
+.cap-points li {
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--pn-border) 82%, transparent);
+  background: color-mix(in srgb, var(--pn-bg) 70%, transparent);
+  color: var(--pn-muted);
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.cap-collage {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.cap-card {
+  position: absolute;
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   border-radius: 16px;
   border: 1px solid var(--pn-border);
-  background: var(--pn-card);
-  padding: 16px;
-}
-
-.lp2-art-title,
-.lp2-tree-title {
-  font-weight: 760;
-  margin-bottom: 6px;
-}
-
-.lp2-art-desc {
-  color: var(--pn-muted);
-  font-size: 13px;
-  line-height: 1.6;
-  margin-bottom: 10px;
-}
-
-.lp2-art-list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--pn-muted);
-  line-height: 1.75;
-  font-size: 13px;
-}
-
-.lp2-art-list .k {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  background: color-mix(in srgb, var(--pn-bg) 72%, transparent);
   color: var(--pn-fg);
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 14px 42px rgb(15 23 42 / 0.04);
+  transition:
+    left 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 760ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+  will-change: left, top, width, height;
 }
 
-.lp2-tree-pre {
-  margin: 0;
-  padding: 12px;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--pn-fg) 4%, transparent);
-  border: 1px solid var(--pn-border);
+.cap-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(180px 120px at 18% 8%, rgb(var(--pn-accent-rgb) / 0.16), transparent 64%),
+    radial-gradient(180px 120px at 90% 88%, rgb(var(--pn-blue-rgb) / 0.14), transparent 64%);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.cap-card.is-active {
+  border-color: rgb(var(--pn-accent-rgb) / 0.36);
+  background: color-mix(in srgb, var(--pn-card-2) 86%, transparent);
+  box-shadow: var(--pn-soft-shadow);
+}
+
+.cap-card:hover {
+  transform: translateY(-2px);
+}
+
+.cap-card:focus-visible {
+  outline: 2px solid rgb(var(--pn-blue-rgb) / 0.5);
+  outline-offset: 2px;
+}
+
+.cap-card.is-active::before,
+.cap-card:hover::before {
+  opacity: 1;
+}
+
+.cap-card-meta,
+.cap-card strong,
+.cap-card small {
+  position: relative;
+  z-index: 1;
+}
+
+.cap-card-meta {
+  flex: 0 0 auto;
+  max-width: 100%;
+  border-radius: 999px;
+  background: rgb(var(--pn-accent-rgb) / 0.1);
+  color: rgb(var(--pn-accent-rgb));
+  padding: 4px 8px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.cap-card strong {
+  flex: 0 1 auto;
+  display: -webkit-box;
+  color: var(--pn-fg);
+  font-size: 15px;
+  line-height: 1.3;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cap-card small {
+  flex: 0 0 auto;
+  margin-top: auto;
   color: var(--pn-muted);
   font-size: 12px;
-  line-height: 1.6;
-  overflow: auto;
+  overflow: hidden;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
-.lp2-feature-right {
-  display: grid;
-  gap: 12px;
-}
-
-.lp2-feature-card {
-  border-radius: 16px;
-  border: 1px solid var(--pn-border);
-  background: var(--pn-card);
-  padding: 16px;
-  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
-}
-.lp2-feature-card:hover {
-  transform: translateY(-2px);
-  background: var(--pn-card-2);
-  border-color: rgb(var(--pn-accent-rgb) / 0.22);
-}
-
-.lp2-h3 {
-  margin: 0 0 6px 0;
-  font-size: 15px;
-}
-
-.lp2-p {
-  margin: 0 0 10px 0;
-  color: var(--pn-muted);
-  line-height: 1.65;
-  font-size: 14px;
-}
-
-.lp2-ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--pn-muted);
-  line-height: 1.75;
-  font-size: 13px;
-}
-
-@media (min-width: 860px) {
-  .lp2-h2 {
-    font-size: 24px;
+@container (max-height: 118px) {
+  .cap-card {
+    gap: 6px;
+    padding: 10px;
   }
-  .lp2-feature-split {
-    grid-template-columns: 0.95fr 1.05fr;
-    gap: 14px;
+  .cap-card strong {
+    font-size: 14px;
+    -webkit-line-clamp: 1;
+  }
+  .cap-card small {
+    display: none;
+  }
+}
+
+@container (max-width: 150px) {
+  .cap-card {
+    padding: 10px;
+  }
+  .cap-card-meta {
+    max-width: 78%;
+  }
+  .cap-card strong {
+    font-size: 14px;
+  }
+}
+
+@keyframes cap-marquee {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  82%,
+  100% {
+    transform: translateX(-38%);
+  }
+}
+
+@media (max-width: 980px) {
+  .cap-stage {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .cap-hero,
+  .cap-collage {
+    height: auto;
+    min-height: auto;
+  }
+  .cap-collage {
+    height: 430px;
+  }
+}
+
+@media (max-width: 680px) {
+  .lp2-section {
+    padding: 44px 0;
+  }
+  .lp2-container {
+    padding: 0 12px;
+  }
+  .cap-hero {
+    padding: 14px;
+  }
+  .cap-hero h3 {
+    font-size: 22px;
+  }
+  .cap-canvas img {
+    height: 104px;
+  }
+  .cap-collage {
+    height: 520px;
   }
 }
 </style>
