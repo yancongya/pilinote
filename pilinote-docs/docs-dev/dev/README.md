@@ -27,14 +27,6 @@
 - 如何测试需要认证的 API
 - 如何在脚本里同步 cookies
 
-### 4. 打包脚本说明
-**建议参考**: [../packaging/desktop-installers.md](../packaging/desktop-installers.md)
-
-内容：
-- 根目录一键打包脚本
-- 文档二进制构建脚本
-- 三端安装包输出与验证方法
-
 ---
 
 ## 相关更新

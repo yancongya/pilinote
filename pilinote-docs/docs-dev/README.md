@@ -17,7 +17,6 @@
 - [认证功能](auth/README.md) - 登录、Cookies、刷新、多账号
 - [视频源](video-sources/README.md) - 收藏夹、稍后再看、观看历史
 - [下载系统](download/README.md) - 队列、任务、调度器
-- [打包发布](packaging/README.md) - 安装包构建与一键脚本
 - [评论数据提取](download/comment-extraction.md) - B站评论数据提取和NFO存储
 - [AI 字幕纠正](ai-subtitle-correction.md) - NFO 上下文、分块分析、手动应用修正
 - [设置管理](settings/README.md) - 存储、备份
