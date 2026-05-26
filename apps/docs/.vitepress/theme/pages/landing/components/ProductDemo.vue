@@ -25,26 +25,39 @@ const processSteps = [
 const currentProcess = ref(processSteps[0])
 const processBlockCount = ref(2)
 const processTick = ref(0)
+const activeNoteIndex = ref(1)
+const notesReady = ref(false)
+const isPlaying = ref(false)
+const playheadPercent = ref(0.32)
+let demoTl: import('gsap').GSAPTimeline | undefined
 
 async function setupMotion() {
   if (!rootRef.value || prefersReducedMotion()) return
 
   const { gsap } = await import('gsap')
   const root = rootRef.value
-  const playhead = root.querySelector('[data-playhead]')
-  const progress = root.querySelector('[data-progress]')
-  const activeNote = root.querySelector('[data-note-active]')
+  const playhead = root.querySelector('[data-playhead]') as HTMLElement | null
+  const progress = root.querySelector('[data-progress]') as HTMLElement | null
+  if (!playhead || !progress) return
   const replayTargets = Array.from(root.querySelectorAll<HTMLElement>('[data-replay-jump]'))
 
   gsap.set(root.querySelectorAll('[data-chip]'), { autoAlpha: 0, y: 10, scale: 0.96 })
   gsap.set(root.querySelectorAll('[data-note-line]'), { autoAlpha: 0, y: 8 })
-  gsap.set(playhead, { xPercent: -30 })
-  gsap.set(progress, { scaleX: 0.32, transformOrigin: 'left center' })
+  gsap.set(playhead, { left: '32%', xPercent: -50, x: 0 })
+  gsap.set(progress, { scaleX: playheadPercent.value, transformOrigin: 'left center' })
 
   const tl = gsap.timeline({
-    repeat: -1,
-    repeatDelay: 1.2,
+    paused: true,
     defaults: { duration: 0.48, ease: 'power2.out' },
+    onStart: () => {
+      isPlaying.value = true
+      notesReady.value = false
+    },
+    onComplete: () => {
+      isPlaying.value = false
+      notesReady.value = true
+      playheadPercent.value = 0.78
+    },
   })
 
   processSteps.forEach((step, index) => {
@@ -70,19 +83,30 @@ async function setupMotion() {
   tl
     .to(root.querySelectorAll('[data-chip]'), { autoAlpha: 1, y: 0, scale: 1, stagger: 0.1 }, '<0.12')
     .to(root.querySelectorAll('[data-note-line]'), { autoAlpha: 1, y: 0, stagger: 0.12 }, '-=0.08')
-    .to(activeNote, { scale: 1.018, borderColor: 'rgb(var(--pn-accent-rgb) / 0.45)', duration: 0.22 })
-    .to(activeNote, { scale: 1, duration: 0.22 })
-    .to(playhead, { xPercent: 42, duration: 0.78, ease: 'power3.inOut' }, '<0.02')
+    .to(playhead, { left: '78%', duration: 0.78, ease: 'power3.inOut' }, '<0.02')
     .to(progress, { scaleX: 0.78, duration: 0.78, ease: 'power3.inOut' }, '<')
     .call(() => {
-      currentProcess.value = processSteps[0]
-      processBlockCount.value = 2
-    }, undefined, '+=0.6')
-    .set(playhead, { xPercent: -30 })
-    .set(progress, { scaleX: 0.32 })
+      currentProcess.value = 'AI 笔记已生成'
+      processBlockCount.value = 12
+      activeNoteIndex.value = 1
+      playheadPercent.value = 0.78
+    })
 
-  const replay = () => tl.restart()
+  demoTl = tl
+  const replay = () => {
+    currentProcess.value = processSteps[0]
+    processBlockCount.value = 2
+    processTick.value += 1
+    activeNoteIndex.value = 1
+    playheadPercent.value = 0.32
+    gsap.set(playhead, { left: '32%', xPercent: -50, x: 0 })
+    gsap.set(progress, { scaleX: 0.32, transformOrigin: 'left center' })
+    tl.restart()
+  }
   replayTargets.forEach((target) => target.addEventListener('click', replay))
+
+  // autoplay only once on first mount
+  replay()
 
   cleanup = () => {
     replayTargets.forEach((target) => target.removeEventListener('click', replay))
@@ -90,11 +114,27 @@ async function setupMotion() {
   }
 }
 
+async function jumpToNote(index: number) {
+  if (!notesReady.value || isPlaying.value || !rootRef.value) return
+  const { gsap } = await import('gsap')
+  const playhead = rootRef.value.querySelector('[data-playhead]') as HTMLElement | null
+  const progress = rootRef.value.querySelector('[data-progress]') as HTMLElement | null
+  if (!playhead || !progress) return
+
+  const targets = [0.32, 0.55, 0.78]
+  const next = targets[index] ?? 0.32
+  activeNoteIndex.value = index
+  playheadPercent.value = next
+  gsap.to(progress, { scaleX: next, duration: 0.44, ease: 'power2.inOut', transformOrigin: 'left center' })
+  gsap.to(playhead, { left: `${Math.round(next * 100)}%`, duration: 0.44, ease: 'power2.inOut' })
+}
+
 onMounted(() => {
   void setupMotion()
 })
 
 onBeforeUnmount(() => {
+  demoTl?.kill()
   cleanup?.()
 })
 </script>
@@ -117,7 +157,7 @@ onBeforeUnmount(() => {
         <section class="demo-video">
           <div class="demo-video-art">
             <div class="demo-video-badge">Bilibili 收藏夹</div>
-            <div class="demo-play-button" aria-hidden="true" />
+            <button class="demo-play-button" type="button" aria-label="播放演示" data-replay-jump />
             <div class="demo-video-copy">
               <strong>LLM 笔记工作流实战</strong>
               <span>已下载到本地知识库</span>
@@ -156,11 +196,10 @@ onBeforeUnmount(() => {
             v-for="(note, index) in notes"
             :key="note.time"
             class="demo-note"
-            :class="{ 'is-primary': index === 1 }"
+            :class="{ 'is-primary': index === activeNoteIndex }"
             :data-note-line="true"
-            :data-note-active="index === 1 ? true : undefined"
-            :data-replay-jump="index === 1 ? true : undefined"
             type="button"
+            @click="void jumpToNote(index)"
           >
             <span>{{ note.time }}</span>
             <div>
@@ -273,6 +312,7 @@ onBeforeUnmount(() => {
     linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 34px 34px;
   mask-image: linear-gradient(to bottom, black, transparent 86%);
+  pointer-events: none;
 }
 
 .demo-video-badge {
@@ -299,6 +339,8 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.24);
   backdrop-filter: blur(10px);
+  z-index: 2;
+  cursor: pointer;
 }
 
 .demo-play-button::after {
