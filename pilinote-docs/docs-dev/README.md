@@ -1,5 +1,15 @@
 # PiliNote 文档中心
 
+## 用户使用文档（先看这里）
+
+- [用户指南](../docs-guide/README.md)
+- [快速开始（一键脚本）](../docs-guide/quickstart.md)
+- [登录与账号](../docs-guide/login.md)
+- [路径与存储](../docs-guide/paths.md)
+- [AI 配置（OpenAI-compatible，DeepSeek 已验证）](../docs-guide/ai.md)
+- [Cron 自动化](../docs-guide/cron.md)
+- [排错与FAQ](../docs-guide/troubleshooting.md)
+
 ## 文档索引
 
 ### 架构文档

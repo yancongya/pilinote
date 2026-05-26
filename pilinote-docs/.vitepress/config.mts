@@ -246,6 +246,29 @@ function listGuideSidebar() {
   const items: SidebarItem[] = []
   items.push({ text: '总览', link: '/guide/README' })
 
+  // Primary user-guide reading path (stable order).
+  const primaryFiles: Array<{ file: string; title: string }> = [
+    { file: 'quickstart.md', title: '快速开始' },
+    { file: 'login.md', title: '登录与账号' },
+    { file: 'paths.md', title: '路径与存储' },
+    { file: 'sources.md', title: '视频源与入队' },
+    { file: 'downloads.md', title: '下载与落盘' },
+    { file: 'ai.md', title: 'AI 配置' },
+    { file: 'cron.md', title: 'Cron 自动化' },
+    { file: 'library.md', title: '媒体库与复盘' },
+    { file: 'troubleshooting.md', title: '排错与FAQ' },
+  ]
+  const primarySet = new Set(primaryFiles.map((e) => e.file))
+  const primaryItems: SidebarItem[] = []
+  for (const entry of primaryFiles) {
+    const p = path.join(baseDir, entry.file)
+    if (!existsFile(p)) continue
+    primaryItems.push({ text: entry.title, link: posixJoin('/guide', fileTitleFromName(entry.file)) })
+  }
+  if (primaryItems.length) {
+    items.push({ text: '上手路径', items: primaryItems })
+  }
+
   const entries = fs
     .readdirSync(baseDir, { withFileTypes: true })
     .filter((e) => e.isDirectory())
@@ -270,15 +293,6 @@ function listGuideSidebar() {
     if (sectionItems.length) {
       items.push({ text: dir, items: sectionItems, collapsed: true })
     }
-  }
-
-  const rootMdFiles = listMarkdownFiles(baseDir)
-  if (rootMdFiles.length) {
-    items.push({
-      text: '其它',
-      collapsed: true,
-      items: rootMdFiles.map((f) => ({ text: fileTitleFromName(f), link: posixJoin('/guide', fileTitleFromName(f)) }))
-    })
   }
 
   return items

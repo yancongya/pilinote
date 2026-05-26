@@ -1,56 +1,54 @@
 {
   "version": "1.0",
-  "lastUpdated": "2026-05-22T15:37:19Z",
-  "root": "apps/docs",
+  "lastUpdated": "2026-05-26T17:33:29.404020+00:00",
+  "root": "docs-dev",
   "directories": {
     "ai-note": {
       "path": "ai-note",
       "description": "AI笔记模块 - AI视频分析和笔记生成",
       "readme": "ai-note/README.md",
       "documents": [
-        {
-          "name": "README.md",
-          "type": "index"
-        }
+        "ai-note/README.md"
       ],
-      "dependencies": [
-        "components",
-        "web"
-      ]
+      "dependencies": []
     },
     "api": {
       "path": "api",
       "description": "后端API接口文档",
       "readme": "api/README.md",
       "documents": [
-        {
-          "name": "implementation.md",
-          "type": "implementation"
-        },
-        {
-          "name": "endpoints.md",
-          "type": "api"
-        },
-        {
-          "name": "library-api.md",
-          "type": "api"
-        },
-        {
-          "name": "history-api.md",
-          "type": "api"
-        },
-        {
-          "name": "favorites-api.md",
-          "type": "api"
-        },
-        {
-          "name": "watchlater-api.md",
-          "type": "api"
-        }
+        "api/README.md",
+        "api/endpoints.md",
+        "api/favorites-api.md",
+        "api/history-api.md",
+        "api/implementation.md",
+        "api/library-api.md",
+        "api/watchlater-api.md"
       ],
       "dependencies": [
-        "auth",
-        "database"
+        "README.md",
+        "api/README.md",
+        "api/endpoints.md",
+        "api/favorites-api.md",
+        "api/history-api.md",
+        "api/implementation.md",
+        "api/library-api.md",
+        "api/watchlater-api.md",
+        "components/README.md",
+        "components/bilibili-service.md",
+        "components/download-service.md",
+        "components/favorites-data-transformer.md",
+        "components/history-list.md",
+        "components/media-data-transformer.md",
+        "components/video-cache-service.md",
+        "components/video-library.md",
+        "database/models.md",
+        "download/README.md",
+        "metadata/nfo-format.md",
+        "settings/video-library.md",
+        "video-sources/favorites.md",
+        "web/favorites-page.md",
+        "web/implementation.md"
       ]
     },
     "architecture": {
@@ -58,53 +56,43 @@
       "description": "系统架构文档 - 整体架构、技术栈、模块结构",
       "readme": "architecture/README.md",
       "documents": [
-        {
-          "name": "system.md",
-          "type": "overview"
-        },
-        {
-          "name": "frontend-architecture.md",
-          "type": "architecture"
-        },
-        {
-          "name": "backend-architecture.md",
-          "type": "architecture"
-        },
-        {
-          "name": "error-classification.md",
-          "type": "guide"
-        },
-        {
-          "name": "concurrency-control.md",
-          "type": "guide"
-        }
+        "architecture/README.md",
+        "architecture/backend-architecture.md",
+        "architecture/concurrency-control.md",
+        "architecture/error-classification.md",
+        "architecture/frontend-architecture.md",
+        "architecture/system.md"
       ],
-      "dependencies": []
+      "dependencies": [
+        "README.md",
+        "architecture/backend-architecture.md",
+        "architecture/frontend-architecture.md",
+        "architecture/system.md",
+        "base/project-overview.md",
+        "base/tech-stack.md",
+        "database/database-architecture.md",
+        "database/models.md"
+      ]
     },
     "auth": {
       "path": "auth",
       "description": "认证模块 - 登录、Cookies、刷新、多账号",
       "readme": "auth/README.md",
       "documents": [
-        {
-          "name": "login-flow.md",
-          "type": "flow"
-        },
-        {
-          "name": "cookies.md",
-          "type": "guide"
-        },
-        {
-          "name": "wbi-sign.md",
-          "type": "guide"
-        },
-        {
-          "name": "multi-account.md",
-          "type": "guide"
-        }
+        "auth/README.md",
+        "auth/cookies.md",
+        "auth/login-flow.md",
+        "auth/multi-account.md",
+        "auth/wbi-sign.md"
       ],
       "dependencies": [
-        "database"
+        "README.md",
+        "auth/README.md",
+        "auth/cookies.md",
+        "auth/login-flow.md",
+        "auth/multi-account.md",
+        "auth/wbi-sign.md",
+        "database/models.md"
       ]
     },
     "base": {
@@ -112,178 +100,114 @@
       "description": "基础文档 - 技术栈、参考项目",
       "readme": "base/README.md",
       "documents": [
-        {
-          "name": "tech-stack.md",
-          "type": "guide"
-        },
-        {
-          "name": "project-overview.md",
-          "type": "guide"
-        },
-        {
-          "name": "reference-projects.md",
-          "type": "guide"
-        }
+        "base/README.md",
+        "base/project-overview.md",
+        "base/reference-projects.md",
+        "base/tech-stack.md"
       ],
-      "dependencies": []
+      "dependencies": [
+        "README.md",
+        "api/README.md",
+        "architecture/system.md",
+        "base/README.md",
+        "base/reference-projects.md",
+        "base/tech-stack.md"
+      ]
     },
     "components": {
       "path": "components",
       "description": "组件文档 - 前后端共用组件和服务",
       "readme": "components/README.md",
       "documents": [
-        {
-          "name": "ai-note-model.md",
-          "type": "component"
-        },
-        {
-          "name": "llm-client.md",
-          "type": "component"
-        },
-        {
-          "name": "prompt-builder.md",
-          "type": "component"
-        },
-        {
-          "name": "ai-note-service.md",
-          "type": "component"
-        },
-        {
-          "name": "transcriber-service.md",
-          "type": "component"
-        },
-        {
-          "name": "screenshot-service.md",
-          "type": "component"
-        },
-        {
-          "name": "video-classifier.md",
-          "type": "component"
-        },
-        {
-          "name": "ai-note-panel.md",
-          "type": "component"
-        },
-        {
-          "name": "ai-note-modal.md",
-          "type": "component"
-        },
-        {
-          "name": "home-content.md",
-          "type": "component"
-        },
-        {
-          "name": "video-library.md",
-          "type": "component"
-        },
-        {
-          "name": "video-detail-page.md",
-          "type": "component"
-        },
-        {
-          "name": "history-list.md",
-          "type": "component"
-        },
-        {
-          "name": "download-service.md",
-          "type": "component"
-        },
-        {
-          "name": "new-download.md",
-          "type": "component"
-        },
-        {
-          "name": "main-layout.md",
-          "type": "component"
-        },
-        {
-          "name": "video-list-container.md",
-          "type": "component"
-        },
-        {
-          "name": "video-list-controls.md",
-          "type": "component"
-        },
-        {
-          "name": "media-list-shell.md",
-          "type": "component"
-        },
-        {
-          "name": "media-list-topbar.md",
-          "type": "component"
-        },
-        {
-          "name": "modal.md",
-          "type": "component"
-        },
-        {
-          "name": "alert-modal.md",
-          "type": "component"
-        },
-        {
-          "name": "confirm-modal.md",
-          "type": "component"
-        },
-        {
-          "name": "toast.md",
-          "type": "component"
-        },
-        {
-          "name": "bilibili-service.md",
-          "type": "component"
-        },
-        {
-          "name": "cookie-manager.md",
-          "type": "component"
-        },
-        {
-          "name": "headers-manager.md",
-          "type": "component"
-        },
-        {
-          "name": "download-manager.md",
-          "type": "component"
-        },
-        {
-          "name": "download-engine.md",
-          "type": "component"
-        },
-        {
-          "name": "settings-service.md",
-          "type": "component"
-        },
-        {
-          "name": "scan-service.md",
-          "type": "component"
-        },
-        {
-          "name": "media-processor.md",
-          "type": "component"
-        },
-        {
-          "name": "video-cache-service.md",
-          "type": "component"
-        },
-        {
-          "name": "favorites-data-transformer.md",
-          "type": "component"
-        },
-        {
-          "name": "media-data-transformer.md",
-          "type": "component"
-        },
-        {
-          "name": "toview-data-transformer.md",
-          "type": "component"
-        },
-        {
-          "name": "batch-actions-bar.md",
-          "type": "component"
-        }
+        "components/README.md",
+        "components/ai-note-modal.md",
+        "components/ai-note-model.md",
+        "components/ai-note-panel.md",
+        "components/ai-note-service.md",
+        "components/alert-modal.md",
+        "components/batch-actions-bar.md",
+        "components/bilibili-service.md",
+        "components/confirm-modal.md",
+        "components/cookie-manager.md",
+        "components/download-engine.md",
+        "components/download-manager.md",
+        "components/download-service.md",
+        "components/favorites-data-transformer.md",
+        "components/headers-manager.md",
+        "components/history-list.md",
+        "components/home-content.md",
+        "components/llm-client.md",
+        "components/main-layout.md",
+        "components/media-data-transformer.md",
+        "components/media-list-shell.md",
+        "components/media-list-topbar.md",
+        "components/media-processor.md",
+        "components/modal.md",
+        "components/new-download.md",
+        "components/prompt-builder.md",
+        "components/scan-service.md",
+        "components/screenshot-service.md",
+        "components/settings-service.md",
+        "components/toast.md",
+        "components/toview-data-transformer.md",
+        "components/transcriber-service.md",
+        "components/video-cache-service.md",
+        "components/video-classifier.md",
+        "components/video-detail-page.md",
+        "components/video-library.md",
+        "components/video-list-container.md",
+        "components/video-list-controls.md"
       ],
       "dependencies": [
-        "auth",
-        "download"
+        "README.md",
+        "api/favorites-api.md",
+        "api/implementation.md",
+        "api/library-api.md",
+        "api/watchlater-api.md",
+        "components/README.md",
+        "components/ai-note-modal.md",
+        "components/ai-note-model.md",
+        "components/ai-note-panel.md",
+        "components/ai-note-service.md",
+        "components/alert-modal.md",
+        "components/batch-actions-bar.md",
+        "components/bilibili-service.md",
+        "components/confirm-modal.md",
+        "components/cookie-manager.md",
+        "components/download-engine.md",
+        "components/download-manager.md",
+        "components/download-service.md",
+        "components/favorites-data-transformer.md",
+        "components/headers-manager.md",
+        "components/history-list.md",
+        "components/home-content.md",
+        "components/llm-client.md",
+        "components/main-layout.md",
+        "components/media-data-transformer.md",
+        "components/media-list-shell.md",
+        "components/media-list-topbar.md",
+        "components/media-processor.md",
+        "components/modal.md",
+        "components/new-download.md",
+        "components/prompt-builder.md",
+        "components/scan-service.md",
+        "components/screenshot-service.md",
+        "components/settings-service.md",
+        "components/toast.md",
+        "components/toview-data-transformer.md",
+        "components/transcriber-service.md",
+        "components/video-cache-service.md",
+        "components/video-classifier.md",
+        "components/video-detail-page.md",
+        "components/video-library.md",
+        "components/video-list-container.md",
+        "components/video-list-controls.md",
+        "download/handlers.md",
+        "download/nfo-format.md",
+        "settings/storage.md",
+        "web/implementation.md",
+        "web/theme-system.md",
+        "web/watchlater-page.md"
       ]
     },
     "database": {
@@ -291,95 +215,89 @@
       "description": "数据库设计 - 数据模型、API Schema",
       "readme": "database/README.md",
       "documents": [
-        {
-          "name": "models.md",
-          "type": "model"
-        },
-        {
-          "name": "schemas.md",
-          "type": "schema"
-        },
-        {
-          "name": "database-architecture.md",
-          "type": "architecture"
-        }
+        "database/README.md",
+        "database/database-architecture.md",
+        "database/models.md",
+        "database/schemas.md"
       ],
-      "dependencies": []
+      "dependencies": [
+        "README.md",
+        "architecture/README.md",
+        "architecture/backend-architecture.md",
+        "architecture/frontend-architecture.md",
+        "architecture/system.md",
+        "database/README.md",
+        "database/models.md",
+        "database/schemas.md"
+      ]
     },
     "dev": {
       "path": "dev",
       "description": "开发笔记 - 开发记录、完善指南",
       "readme": "dev/README.md",
       "documents": [
-        {
-          "name": "dev-log.md",
-          "type": "log"
-        },
-        {
-          "name": "roadmap.md",
-          "type": "roadmap"
-        }
+        "dev/README.md",
+        "dev/dev-log.md",
+        "dev/roadmap.md"
       ],
-      "dependencies": []
+      "dependencies": [
+        "README.md",
+        "auth/cookies.md",
+        "dev/README.md",
+        "dev/dev-log.md",
+        "dev/roadmap.md"
+      ]
     },
     "download": {
       "path": "download",
       "description": "下载系统 - 队列、任务、调度器、处理器",
       "readme": "download/README.md",
       "documents": [
-        {
-          "name": "system-refactor.md",
-          "type": "overview"
-        },
-        {
-          "name": "queue.md",
-          "type": "guide"
-        },
-        {
-          "name": "tasks.md",
-          "type": "guide"
-        },
-        {
-          "name": "scheduler.md",
-          "type": "guide"
-        },
-        {
-          "name": "handlers.md",
-          "type": "guide"
-        },
-        {
-          "name": "comment-extraction.md",
-          "type": "guide"
-        },
-        {
-          "name": "add-to-download-queue.md",
-          "type": "guide"
-        },
-        {
-          "name": "automation-features.md",
-          "type": "guide"
-        },
-        {
-          "name": "favorites-download.md",
-          "type": "guide"
-        },
-        {
-          "name": "watchlater-download.md",
-          "type": "guide"
-        },
-        {
-          "name": "media-type-support.md",
-          "type": "reference"
-        },
-        {
-          "name": "nfo-format.md",
-          "type": "reference"
-        }
+        "download/README.md",
+        "download/add-to-download-queue.md",
+        "download/automation-features.md",
+        "download/comment-extraction.md",
+        "download/favorites-download.md",
+        "download/handlers.md",
+        "download/media-type-support.md",
+        "download/nfo-format.md",
+        "download/queue.md",
+        "download/scheduler.md",
+        "download/system-refactor.md",
+        "download/tasks.md",
+        "download/watchlater-download.md"
       ],
       "dependencies": [
-        "auth",
-        "database",
-        "video-sources"
+        "README.md",
+        "api/endpoints.md",
+        "api/library-api.md",
+        "api/watchlater-api.md",
+        "architecture/backend-architecture.md",
+        "architecture/system.md",
+        "components/alert-modal.md",
+        "components/download-manager.md",
+        "components/download-service.md",
+        "components/video-library.md",
+        "components/video-list-container.md",
+        "download/README.md",
+        "download/add-to-download-queue.md",
+        "download/automation-features.md",
+        "download/comment-extraction.md",
+        "download/favorites-download.md",
+        "download/handlers.md",
+        "download/images/文件名.ext",
+        "download/media-type-support.md",
+        "download/nfo-format.md",
+        "download/queue.md",
+        "download/scheduler.md",
+        "download/system-refactor.md",
+        "download/tasks.md",
+        "download/watchlater-download.md",
+        "metadata/nfo-format.md",
+        "settings/auto-download.md",
+        "web/favorites-page.md",
+        "web/implementation.md",
+        "web/watchlater-page.md"
       ]
     },
     "metadata": {
@@ -387,80 +305,51 @@
       "description": "元数据系统 - NFO文件格式、评分算法、标签系统",
       "readme": "metadata/README.md",
       "documents": [
-        {
-          "name": "nfo-format.md",
-          "type": "reference"
-        }
+        "metadata/README.md",
+        "metadata/nfo-format.md"
       ],
       "dependencies": [
-        "download"
+        "api/endpoints.md",
+        "api/library-api.md",
+        "architecture/backend-architecture.md",
+        "components/download-service.md",
+        "components/video-detail-page.md",
+        "download/comment-extraction.md",
+        "metadata/nfo-format.md"
       ]
-    },
-    "misc": {
-      "path": ".",
-      "description": "其它文档 - 散落在 docs 根目录的补充说明",
-      "readme": "README.md",
-      "documents": [
-        {
-          "name": "ai-note-comparison.md",
-          "type": "note"
-        },
-        {
-          "name": "ai-subtitle-correction.md",
-          "type": "note"
-        },
-        {
-          "name": "cache-mechanism.md",
-          "type": "note"
-        },
-        {
-          "name": "design-system.md",
-          "type": "note"
-        },
-        {
-          "name": "interaction-feedback.md",
-          "type": "note"
-        }
-      ],
-      "dependencies": []
     },
     "settings": {
       "path": "settings",
       "description": "设置管理 - 存储、备份、账号",
       "readme": "settings/README.md",
       "documents": [
-        {
-          "name": "storage.md",
-          "type": "guide"
-        },
-        {
-          "name": "backup.md",
-          "type": "guide"
-        },
-        {
-          "name": "accounts.md",
-          "type": "guide"
-        },
-        {
-          "name": "download.md",
-          "type": "guide"
-        },
-        {
-          "name": "general.md",
-          "type": "guide"
-        },
-        {
-          "name": "auto-download.md",
-          "type": "guide"
-        },
-        {
-          "name": "video-library.md",
-          "type": "guide"
-        }
+        "settings/README.md",
+        "settings/accounts.md",
+        "settings/auto-download.md",
+        "settings/backup.md",
+        "settings/download.md",
+        "settings/general.md",
+        "settings/storage.md",
+        "settings/video-library.md"
       ],
       "dependencies": [
-        "auth",
-        "database"
+        "README.md",
+        "ai-note/README.md",
+        "api/endpoints.md",
+        "api/library-api.md",
+        "auth/cookies.md",
+        "auth/multi-account.md",
+        "components/download-service.md",
+        "components/video-library.md",
+        "settings/README.md",
+        "settings/accounts.md",
+        "settings/auto-download.md",
+        "settings/backup.md",
+        "settings/download.md",
+        "settings/general.md",
+        "settings/storage.md",
+        "settings/video-library.md",
+        "web/theme-system.md"
       ]
     },
     "video-sources": {
@@ -468,26 +357,31 @@
       "description": "视频源模块 - 收藏夹、稍后再看、观看历史",
       "readme": "video-sources/README.md",
       "documents": [
-        {
-          "name": "favorites.md",
-          "type": "guide"
-        },
-        {
-          "name": "watchlater.md",
-          "type": "guide"
-        },
-        {
-          "name": "history.md",
-          "type": "guide"
-        },
-        {
-          "name": "link-parser.md",
-          "type": "guide"
-        }
+        "video-sources/README.md",
+        "video-sources/favorites.md",
+        "video-sources/history.md",
+        "video-sources/link-parser.md",
+        "video-sources/watchlater.md"
       ],
       "dependencies": [
-        "auth",
-        "api"
+        "README.md",
+        "api/favorites-api.md",
+        "api/implementation.md",
+        "api/watchlater-api.md",
+        "components/bilibili-service.md",
+        "components/favorites-data-transformer.md",
+        "components/toview-data-transformer.md",
+        "download/favorites-download.md",
+        "download/queue.md",
+        "download/watchlater-download.md",
+        "settings/download.md",
+        "video-sources/README.md",
+        "video-sources/favorites.md",
+        "video-sources/history.md",
+        "video-sources/link-parser.md",
+        "video-sources/watchlater.md",
+        "web/favorites-page.md",
+        "web/watchlater-page.md"
       ]
     },
     "web": {
@@ -495,34 +389,34 @@
       "description": "前端实现 - React组件、状态管理、API服务",
       "readme": "web/README.md",
       "documents": [
-        {
-          "name": "implementation.md",
-          "type": "implementation"
-        },
-        {
-          "name": "theme-system.md",
-          "type": "guide"
-        },
-        {
-          "name": "recent-updates.md",
-          "type": "log"
-        },
-        {
-          "name": "downloads-list.md",
-          "type": "component"
-        },
-        {
-          "name": "watchlater-page.md",
-          "type": "component"
-        },
-        {
-          "name": "favorites-page.md",
-          "type": "component"
-        }
+        "web/README.md",
+        "web/downloads-list.md",
+        "web/favorites-page.md",
+        "web/implementation.md",
+        "web/recent-updates.md",
+        "web/theme-system.md",
+        "web/watchlater-page.md"
       ],
       "dependencies": [
-        "components",
-        "download"
+        "README.md",
+        "api/endpoints.md",
+        "api/favorites-api.md",
+        "api/implementation.md",
+        "api/library-api.md",
+        "api/watchlater-api.md",
+        "architecture/system.md",
+        "components/README.md",
+        "components/alert-modal.md",
+        "components/confirm-modal.md",
+        "components/favorites-data-transformer.md",
+        "components/toview-data-transformer.md",
+        "components/video-list-container.md",
+        "download/queue.md",
+        "settings/README.md",
+        "web/README.md",
+        "web/downloads-list.md",
+        "web/implementation.md",
+        "web/theme-system.md"
       ]
     }
   },
