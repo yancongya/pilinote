@@ -2,6 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { prefersReducedMotion } from '../../../lib/motion'
 import { FEATURES } from '../content'
+import CapNotesSvg from './cap-svg/CapNotesSvg.vue'
+import CapQueueSvg from './cap-svg/CapQueueSvg.vue'
+import CapDownloadSvg from './cap-svg/CapDownloadSvg.vue'
+import CapLibrarySvg from './cap-svg/CapLibrarySvg.vue'
+import CapPromptSvg from './cap-svg/CapPromptSvg.vue'
+import CapLocalSvg from './cap-svg/CapLocalSvg.vue'
+import CapBackupSvg from './cap-svg/CapBackupSvg.vue'
 
 type Capability = {
   title: string
@@ -13,7 +20,14 @@ type Capability = {
 
 type CapabilityVisual = {
   kind: 'notes' | 'queue' | 'download' | 'library' | 'prompt' | 'local' | 'backup'
-  src: string
+  component:
+    | typeof CapNotesSvg
+    | typeof CapQueueSvg
+    | typeof CapDownloadSvg
+    | typeof CapLibrarySvg
+    | typeof CapPromptSvg
+    | typeof CapLocalSvg
+    | typeof CapBackupSvg
 }
 
 type CardBox = {
@@ -24,11 +38,23 @@ type CardBox = {
 }
 
 const rootRef = ref<HTMLElement | null>(null)
+const tickerViewportRef = ref<HTMLElement | null>(null)
+const tickerTrackRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(0)
 const collageLayoutIndex = ref(0)
+const activeTickerIndex = ref(0)
 let autoTimer: ReturnType<typeof setInterval> | undefined
 let layoutTimer: ReturnType<typeof setInterval> | undefined
 let resumeTimer: ReturnType<typeof setTimeout> | undefined
+let tickerCycleTimer: ReturnType<typeof setInterval> | undefined
+type GsapLike = {
+  to: (...args: any[]) => any
+  fromTo: (...args: any[]) => any
+}
+let tickerTween: { kill: () => void; timeScale: (value: number) => void } | undefined
+let tickerPulseTween: { kill: () => void } | undefined
+let tickerEnterHandler: (() => void) | undefined
+let tickerLeaveHandler: (() => void) | undefined
 
 const capabilities: Capability[] = [
   {
@@ -73,17 +99,32 @@ const capabilities: Capability[] = [
 ]
 
 const visuals: CapabilityVisual[] = [
-  { kind: 'notes', src: '/landing/cap-notes.svg' },
-  { kind: 'queue', src: '/landing/cap-queue.svg' },
-  { kind: 'download', src: '/landing/cap-download.svg' },
-  { kind: 'library', src: '/landing/cap-library.svg' },
-  { kind: 'prompt', src: '/landing/cap-prompt.svg' },
-  { kind: 'local', src: '/landing/cap-local.svg' },
-  { kind: 'backup', src: '/landing/cap-backup.svg' },
+  { kind: 'notes', component: CapNotesSvg },
+  { kind: 'queue', component: CapQueueSvg },
+  { kind: 'download', component: CapDownloadSvg },
+  { kind: 'library', component: CapLibrarySvg },
+  { kind: 'prompt', component: CapPromptSvg },
+  { kind: 'local', component: CapLocalSvg },
+  { kind: 'backup', component: CapBackupSvg },
 ]
 
 const activeCapability = computed(() => capabilities[activeIndex.value] ?? capabilities[0])
 const activeVisual = computed(() => visuals[activeIndex.value] ?? visuals[0])
+type ExtraFeature = { title: string; detail: string }
+const extraFeatures: ExtraFeature[] = [
+  { title: '主页链接解析', detail: '在首页直接粘贴 B 站链接后解析视频元数据，支持批量追加到下载队列。' },
+  { title: '收藏夹/稍后再看自动入队', detail: '按 cron 周期增量扫描收藏夹与稍后再看，新增内容自动进入处理链路。' },
+  { title: 'AI 字幕下载', detail: '字幕可按语言策略自动拉取，并与视频本体同级归档，便于后续检索和复盘。' },
+  { title: '字幕 AI 纠正', detail: '对时间轴错位、口语误识别做二次纠偏，提升章节提取与问答召回质量。' },
+  { title: 'ASR 本地模型', detail: '支持本地 ASR 推理，弱网或离线场景也可完成转写与基础语义切分。' },
+  { title: '笔记导出文章', detail: '将章节摘要、关键问题与时间戳回跳整合为结构化文章，便于分享与归档。' },
+  { title: '章节自动切分', detail: '基于字幕语义和停顿特征生成章节边界，形成可回跳的学习路径。' },
+  { title: 'NFO 同级归档', detail: '下载后自动生成 NFO / sidecar，并与媒体文件保持同目录统一管理。' },
+  { title: '失败重试 + 并发调度', detail: '任务失败可重试并保留状态，队列按并发策略运行，减少人工干预成本。' },
+  { title: 'NAS / FTP 长期备份', detail: '本地资产可同步至 NAS 或 FTP，实现跨设备访问与长期冷备保存。' },
+]
+const tickerItems = computed(() => [...extraFeatures, ...extraFeatures])
+const activeTickerText = computed(() => extraFeatures[activeTickerIndex.value] ?? extraFeatures[0])
 const collageLayouts: CardBox[][] = [
   [
     { x: 2, y: 3, w: 31, h: 27 },
@@ -138,6 +179,13 @@ function clearLayoutTimer() {
   }
 }
 
+function clearTickerCycleTimer() {
+  if (tickerCycleTimer) {
+    clearInterval(tickerCycleTimer)
+    tickerCycleTimer = undefined
+  }
+}
+
 function startAutoTimer() {
   clearAutoTimer()
   autoTimer = setInterval(() => {
@@ -158,6 +206,46 @@ function startLayoutTimer() {
   }, 2400)
 }
 
+function startTickerCycle() {
+  clearTickerCycleTimer()
+  tickerCycleTimer = setInterval(() => {
+    activeTickerIndex.value = (activeTickerIndex.value + 1) % extraFeatures.length
+  }, 2600)
+}
+
+function setupTickerMotion(gsap: GsapLike) {
+  const viewport = tickerViewportRef.value
+  const track = tickerTrackRef.value
+  if (!viewport || !track || prefersReducedMotion()) return
+
+  tickerTween?.kill()
+  tickerPulseTween?.kill()
+
+  tickerTween = gsap.to(track, {
+    xPercent: -50,
+    duration: 28,
+    ease: 'none',
+    repeat: -1,
+  })
+
+  tickerPulseTween = gsap.to('[data-ticker-chip]', {
+    keyframes: [
+      { borderColor: 'rgb(var(--pn-accent-rgb) / 0.2)', duration: 0.2 },
+      { borderColor: 'rgb(var(--pn-accent-rgb) / 0.52)', duration: 0.42 },
+      { borderColor: 'rgb(var(--pn-accent-rgb) / 0.2)', duration: 0.35 },
+    ],
+    stagger: 0.12,
+    repeat: -1,
+    repeatDelay: 2.4,
+    ease: 'power2.inOut',
+  })
+
+  tickerEnterHandler = () => tickerTween?.timeScale(0.35)
+  tickerLeaveHandler = () => tickerTween?.timeScale(1)
+  viewport.addEventListener('mouseenter', tickerEnterHandler)
+  viewport.addEventListener('mouseleave', tickerLeaveHandler)
+}
+
 async function setActive(index: number, shouldPause = true) {
   if (index === activeIndex.value) return
 
@@ -174,9 +262,18 @@ async function setActive(index: number, shouldPause = true) {
 
 async function setupMotion() {
   if (!rootRef.value || prefersReducedMotion()) return
+  const { default: gsap } = await import('gsap')
 
   startAutoTimer()
   startLayoutTimer()
+  startTickerCycle()
+  setupTickerMotion(gsap)
+
+  gsap.fromTo(
+    rootRef.value.querySelector('[data-cap-ticker]'),
+    { autoAlpha: 0, y: 12 },
+    { autoAlpha: 1, y: 0, duration: 0.56, ease: 'power2.out', delay: 0.12 },
+  )
 }
 
 onMounted(() => {
@@ -186,6 +283,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
   clearAutoTimer()
   clearLayoutTimer()
+  clearTickerCycleTimer()
+  tickerTween?.kill()
+  tickerPulseTween?.kill()
+  if (tickerViewportRef.value && tickerEnterHandler && tickerLeaveHandler) {
+    tickerViewportRef.value.removeEventListener('mouseenter', tickerEnterHandler)
+    tickerViewportRef.value.removeEventListener('mouseleave', tickerLeaveHandler)
+  }
   if (resumeTimer) clearTimeout(resumeTimer)
 })
 </script>
@@ -215,7 +319,7 @@ onBeforeUnmount(() => {
 
           <div class="cap-canvas" aria-hidden="true">
             <Transition name="cap-art" mode="out-in">
-              <img :key="activeVisual.src" :src="activeVisual.src" alt="" />
+              <component :is="activeVisual.component" :key="activeVisual.kind" :active="true" />
             </Transition>
           </div>
 
@@ -249,6 +353,29 @@ onBeforeUnmount(() => {
             <strong>{{ capability.title }}</strong>
             <small>{{ capability.signals[0] }}</small>
           </button>
+        </div>
+      </div>
+
+      <div class="cap-ticker" data-cap-ticker>
+        <div class="cap-ticker-head">
+          <span>扩展能力</span>
+          <b>{{ activeTickerText.title }}</b>
+          <em>{{ activeTickerText.detail }}</em>
+        </div>
+        <div ref="tickerViewportRef" class="cap-ticker-viewport">
+          <div ref="tickerTrackRef" class="cap-ticker-track">
+            <button
+              v-for="(item, index) in tickerItems"
+              :key="`${item.title}-${index}`"
+              data-ticker-chip
+              class="cap-ticker-chip"
+              type="button"
+              :class="{ 'is-active': index % extraFeatures.length === activeTickerIndex }"
+              @click="activeTickerIndex = index % extraFeatures.length"
+            >
+              <span>{{ item.title }}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -290,6 +417,94 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 14px;
   height: 430px;
+}
+
+.cap-ticker {
+  margin-top: 12px;
+  border: 1px solid var(--pn-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(520px 120px at 10% 0%, rgb(var(--pn-accent-rgb) / 0.1), transparent 62%),
+    radial-gradient(520px 120px at 90% 0%, rgb(var(--pn-blue-rgb) / 0.1), transparent 62%),
+    color-mix(in srgb, var(--pn-bg) 72%, transparent);
+}
+
+.cap-ticker-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pn-border) 76%, transparent);
+  background: color-mix(in srgb, var(--pn-bg) 64%, transparent);
+}
+
+.cap-ticker-head span {
+  font-size: 11px;
+  color: var(--pn-muted);
+  border: 1px solid var(--pn-border);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.cap-ticker-head b {
+  color: color-mix(in srgb, var(--pn-fg) 94%, transparent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cap-ticker-head em {
+  color: var(--pn-muted);
+  font-size: 12px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cap-ticker-viewport {
+  overflow: hidden;
+  padding: 8px 0 10px;
+}
+
+.cap-ticker-track {
+  width: max-content;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+}
+
+.cap-ticker-chip {
+  border: 1px solid color-mix(in srgb, var(--pn-border) 82%, transparent);
+  background: color-mix(in srgb, var(--pn-bg) 66%, transparent);
+  color: var(--pn-muted);
+  border-radius: 999px;
+  height: 28px;
+  line-height: 1;
+  padding: 0 12px;
+  font-size: 12px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  transition: transform 180ms ease, border-color 180ms ease, color 180ms ease, background 180ms ease;
+}
+
+.cap-ticker-chip span {
+  color: color-mix(in srgb, var(--pn-fg) 90%, transparent);
+}
+
+.cap-ticker-chip:hover {
+  transform: translateY(-1px);
+  color: var(--pn-fg);
+}
+
+.cap-ticker-chip.is-active {
+  color: var(--pn-fg);
+  border-color: rgb(var(--pn-accent-rgb) / 0.52);
+  background: color-mix(in srgb, var(--pn-card) 72%, rgb(var(--pn-accent-rgb) / 0.1));
 }
 
 .cap-hero,
@@ -425,11 +640,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.cap-canvas img {
+.cap-canvas :deep(svg) {
   display: block;
   width: 100%;
-  height: 108px;
-  object-fit: contain;
+  height: 126px;
 }
 
 .cap-hero-bottom {
@@ -639,11 +853,23 @@ onBeforeUnmount(() => {
   .cap-hero h3 {
     font-size: 22px;
   }
-  .cap-canvas img {
-    height: 104px;
+  .cap-canvas :deep(svg) {
+    height: 120px;
   }
   .cap-collage {
     height: 520px;
+  }
+  .cap-ticker {
+    margin-top: 10px;
+  }
+  .cap-ticker-head {
+    padding: 7px 10px;
+  }
+  .cap-ticker-chip {
+    height: 26px;
+    line-height: 24px;
+    font-size: 11px;
+    padding: 0 10px;
   }
 }
 </style>

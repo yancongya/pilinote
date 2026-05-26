@@ -285,7 +285,7 @@ function listGuideSidebar() {
 }
 
 export default defineConfig({
-  title: 'PiliNote',
+  title: 'pilinote-把B站视频变为本地知识库',
   description: '视频下载与AI笔记',
   cleanUrls: true,
   rewrites: {
