@@ -7,11 +7,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$HOME/.zprofile" ] && source "$HOME/.zprofile" 2>/dev/null
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# 切换到 docs 目录
-cd "$SCRIPT_DIR/apps/docs" || exit 1
+# 切换到 docs 目录（优先根目录独立模块）
+if [ -d "$SCRIPT_DIR/pilinote-docs" ]; then
+  DOCS_DIR="$SCRIPT_DIR/pilinote-docs"
+elif [ -d "$SCRIPT_DIR/apps/docs" ]; then
+  DOCS_DIR="$SCRIPT_DIR/apps/docs"
+else
+  echo "[docs] error: docs directory not found (checked: pilinote-docs, apps/docs)"
+  exit 1
+fi
+
+cd "$DOCS_DIR" || exit 1
 
 echo "[docs] starting vitepress dev..."
-echo "[docs] dir: $SCRIPT_DIR/apps/docs"
+echo "[docs] dir: $DOCS_DIR"
 echo "[docs] url: http://127.0.0.1:5174"
 
 # 直接使用 package.json 的 dev 脚本，避免重复传参导致端口参数冲突
