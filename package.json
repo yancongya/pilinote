@@ -1,11 +1,4 @@
 {
-	"scripts": {
-		"desktop:install": "pnpm --dir apps/desktop install",
-		"desktop:dev": "pnpm --dir apps/desktop dev",
-		"desktop:build": "pnpm --dir apps/desktop build:desktop",
-		"desktop:pack:mac": "pnpm --dir apps/desktop pack:mac",
-		"desktop:pack:win": "pnpm --dir apps/desktop pack:win"
-	},
 	"devDependencies": {
 		"@playwright/test": "^1.59.1",
 		"playwright": "^1.59.1"

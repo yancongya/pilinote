@@ -138,7 +138,5 @@ apps/api/data/asr_models/*
 /apps/docs/.tmp_screens
 /.playwright-cli
 
-# Desktop build artifacts
-apps/desktop/web-dist/
-apps/desktop/dist/
+# API build artifacts
 apps/api/pilinote-api-macos.spec
