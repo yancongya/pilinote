@@ -300,19 +300,20 @@ async def websocket_queue(websocket: WebSocket):
         ws_manager.disconnect(websocket)
 
 
-@app.get("/")
-async def root():
-    return {
-        "name": settings.app_name,
-        "version": settings.app_version,
-        "status": "running",
-    }
-
-
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
 
+
+# Serve built frontend (only if directory exists, e.g., in Docker/production)
+frontend_dist = Path(__file__).parent / "frontend"
+if frontend_dist.exists():
+    logger.info("Mounting frontend static files from %s", frontend_dist)
+    app.mount(
+        "/",
+        StaticFiles(directory=str(frontend_dist), html=True),
+        name="frontend",
+    )
 
 if __name__ == "__main__":
     import sys
