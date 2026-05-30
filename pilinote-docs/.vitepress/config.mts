@@ -308,6 +308,9 @@ export default defineConfig({
   },
   themeConfig: {
     logo: '/brand/logo.png',
+    search: {
+      provider: 'local',
+    },
     nav: [
       { text: '落地页', link: '/' },
       { text: '开发文档', link: '/dev/' },

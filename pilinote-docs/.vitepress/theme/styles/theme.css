@@ -50,6 +50,9 @@
   --vp-c-text-1: rgba(13, 18, 28, 0.92);
   --vp-c-text-2: rgba(13, 18, 28, 0.72);
   --vp-c-text-3: rgba(13, 18, 28, 0.54);
+
+  /* Ensure fixed elements (sidebar) sit below the top nav. */
+  --vp-layout-top-height: var(--vp-nav-height);
 }
 
 .dark {
@@ -90,4 +93,119 @@
 .lp2 .lp2-h2,
 .lp2 .lp2-h3 {
   font-family: var(--pn-title-font-family);
+}
+
+/* Reuse landing topbar styles on docs pages (Layout.vue uses the same classnames). */
+.lp2-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: saturate(120%) blur(10px);
+  background: color-mix(in srgb, var(--pn-bg) 72%, transparent);
+  border-bottom: 1px solid var(--pn-border);
+}
+
+.lp2-topbar-inner {
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  max-width: 1200px;
+  padding: 0 18px;
+  margin: 0 auto;
+}
+
+.lp2-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--vp-c-text-1);
+}
+
+.lp2-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--pn-accent-rgb) / 0.12);
+  border: 1px solid rgb(var(--pn-accent-rgb) / 0.18);
+}
+
+.lp2-logo-img {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.lp2-brand-text {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.lp2-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lp2-topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lp2-mode-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--pn-accent-rgb) / 0.18);
+  background: rgb(var(--pn-accent-rgb) / 0.08);
+  color: var(--vp-c-text-1);
+  cursor: pointer;
+}
+
+.lp2-mode-btn:hover {
+  background: rgb(var(--pn-accent-rgb) / 0.12);
+}
+
+.lp2-mode-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* VitePress sidebar scrollbar: keep subtle and avoid overlapping the title area */
+.VPSidebar {
+  scrollbar-gutter: stable;
+}
+
+.VPSidebar .VPSidebarNav {
+  padding-right: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--pn-accent-rgb) / 0.22) transparent;
+}
+
+.VPSidebar .VPSidebarNav::-webkit-scrollbar {
+  width: 8px;
+}
+
+.VPSidebar .VPSidebarNav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.VPSidebar .VPSidebarNav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  background-color: rgb(var(--pn-accent-rgb) / 0.18);
+}
+
+.VPSidebar .VPSidebarNav:hover::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--pn-accent-rgb) / 0.3);
 }
