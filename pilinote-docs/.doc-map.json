@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "lastUpdated": "2026-05-26T17:33:29.404020+00:00",
+  "lastUpdated": "2026-05-31T00:00:00.000000+00:00",
   "root": "docs-dev",
   "directories": {
     "ai-note": {
@@ -230,6 +230,15 @@
         "database/models.md",
         "database/schemas.md"
       ]
+    },
+    "deploy": {
+      "path": "deploy",
+      "description": "部署运维 - Docker 打包、生产部署",
+      "readme": null,
+      "documents": [
+        "deploy/docker.md"
+      ],
+      "dependencies": []
     },
     "dev": {
       "path": "dev",
