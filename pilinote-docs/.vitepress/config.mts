@@ -30,6 +30,7 @@ const DIR_TRANSLATION: Record<string, string> = {
   base: '基础',
   components: '组件',
   database: '数据库',
+  deploy: '部署',
   dev: '开发',
   download: '下载',
   metadata: '元数据',
@@ -50,6 +51,7 @@ const FILE_TRANSLATION_ROOT: FileMap = {
   'ai-subtitle-correction': 'AI 字幕校正',
   'cache-mechanism': '缓存机制',
   'design-system': '设计系统',
+  docker: 'Docker 部署',
   index: '索引',
   'interaction-feedback': '交互反馈',
 }
@@ -255,6 +257,7 @@ function listGuideSidebar() {
     { file: 'downloads.md', title: '下载与落盘' },
     { file: 'ai.md', title: 'AI 配置' },
     { file: 'cron.md', title: 'Cron 自动化' },
+    { file: 'docker-deploy.md', title: 'Docker 部署' },
     { file: 'library.md', title: '媒体库与复盘' },
     { file: 'troubleshooting.md', title: '排错与FAQ' },
   ]
