@@ -1,0 +1,43 @@
+services:
+  api:
+    image: python:3.11-slim
+    working_dir: /workspace/apps/api
+    command: >
+      sh -c "apt-get update &&
+             apt-get install -y --no-install-recommends ffmpeg aria2 &&
+             rm -rf /var/lib/apt/lists/* &&
+             pip install -r requirements.txt &&
+             python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /workspace/apps/api"
+    environment:
+      PILINOTE_RUNTIME_DIR: /runtime
+      PILINOTE_LOG_DIR: /runtime/logs
+      PILINOTE_DOWNLOAD_PATH: /runtime/downloads
+      PILINOTE_TEMP_PATH: /runtime/temp
+      DATABASE_URL: sqlite:////runtime/data/pilinote.db
+    volumes:
+      - .:/workspace
+      - ${NAS_RUNTIME_DIR:-./runtime}/data:/runtime/data
+      - ${NAS_RUNTIME_DIR:-./runtime}/downloads:/runtime/downloads
+      - ${NAS_RUNTIME_DIR:-./runtime}/logs:/runtime/logs
+      - ${NAS_RUNTIME_DIR:-./runtime}/temp:/runtime/temp
+    ports:
+      - "8000:8000"
+
+  web:
+    image: node:22-slim
+    working_dir: /workspace/apps/web
+    command: >
+      sh -c "corepack enable &&
+             corepack prepare pnpm@10 --activate &&
+             pnpm install &&
+             pnpm dev --host 0.0.0.0 --port 5173"
+    environment:
+      CI: "true"
+      VITE_API_BASE_URL: ${NAS_API_BASE_URL:-http://127.0.0.1:8000}
+      VITE_WS_BASE_URL: ${NAS_WS_BASE_URL:-ws://127.0.0.1:8000}
+    volumes:
+      - .:/workspace
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api

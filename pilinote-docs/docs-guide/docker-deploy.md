@@ -83,3 +83,61 @@ Docker 调试数据保存在 named volume `pilinote_runtime`，容器内路径�
 | 临时文件 | `/workspace/runtime/temp/` |
 
 此方式用于开发调试，不再包含 `docker build` 或生产镜像部署步骤。
+
+## NAS 远程调试
+
+如果希望在 NAS 上运行 Docker，同时本地编辑后自动同步到 NAS：
+
+1. 复制配置模板：
+
+```bash
+cp .env.nas.example .env.nas
+```
+
+2. 编辑 `.env.nas`，填写 NAS 的 SSH 和目录信息：
+
+```bash
+NAS_HOST=192.168.1.100
+NAS_USER=admin
+NAS_SSH_PORT=22
+NAS_PROJECT_DIR=/volume1/docker/pilinote/app
+NAS_RUNTIME_DIR=/volume1/docker/pilinote/runtime
+NAS_WEB_ORIGIN=http://192.168.1.100:5173
+NAS_API_BASE_URL=http://192.168.1.100:8000
+NAS_WS_BASE_URL=ws://192.168.1.100:8000
+```
+
+3. 首次同步并启动 NAS Docker：
+
+```bash
+scripts/nas-sync-once.sh
+scripts/nas-up.sh
+```
+
+4. 开启本地实时同步：
+
+```bash
+scripts/nas-watch-sync.sh
+```
+
+访问：
+
+| 地址 | 说明 |
+|---|---|
+| `http://NAS_HOST:5173` | NAS 上的前端开发服务 |
+| `http://NAS_HOST:8000/health` | NAS 上的后端健康检查 |
+
+常用命令：
+
+```bash
+# 查看 NAS 远程日志
+scripts/nas-logs.sh
+
+# 只看后端日志
+scripts/nas-logs.sh api
+
+# 只看前端日志
+scripts/nas-logs.sh web
+```
+
+NAS 同步不会包含 `pilinote-docs/`、`reference/`、`node_modules/`、本地下载目录、运行时目录、数据库、日志和构建产物。下载文件、数据库和日志保存在 NAS 的 `NAS_RUNTIME_DIR`。

@@ -106,3 +106,64 @@ docker compose -f docker-compose.dev.yml down -v
 - 后端启动时会安装 `ffmpeg` 和 `aria2`，用于视频处理和下载调试。
 - 前端容器使用 Node 22，并通过 Corepack 固定激活 `pnpm@10`；`CI=true` 用于避免非交互安装时卡在确认提示。
 - 如果新增系统依赖，需要更新 `docker-compose.dev.yml` 的启动命令或改为维护专门的开发镜像。
+
+## NAS 远程热更新
+
+NAS 调试链路使用 `rsync over SSH` 同步源码，并在 NAS 上运行 `docker-compose.nas.yml`：
+
+```
+本地编辑
+  → fswatch 监听文件变化
+  → rsync 增量同步到 NAS 项目目录
+  → NAS Docker Compose bind mount 源码
+  → Uvicorn / Vite 自动热更新
+```
+
+前置条件：
+
+- 本机安装 `fswatch`：`brew install fswatch`
+- 本机可 SSH 免密登录 NAS
+- NAS 已安装 Docker 和 Docker Compose plugin
+- NAS 用户有目标目录写权限和 Docker 执行权限
+
+配置步骤：
+
+```bash
+cp .env.nas.example .env.nas
+```
+
+编辑 `.env.nas`：
+
+| 变量 | 说明 |
+|---|---|
+| `NAS_HOST` | NAS 内网 IP 或主机名 |
+| `NAS_USER` | SSH 用户 |
+| `NAS_SSH_PORT` | SSH 端口，默认 `22` |
+| `NAS_PROJECT_DIR` | NAS 上的项目代码目录，如 `/volume1/docker/pilinote/app` |
+| `NAS_RUNTIME_DIR` | NAS 上的运行时数据目录，如 `/volume1/docker/pilinote/runtime` |
+| `NAS_WEB_ORIGIN` | 前端访问地址，如 `http://192.168.1.100:5173` |
+| `NAS_API_BASE_URL` | 后端 API 地址，如 `http://192.168.1.100:8000` |
+| `NAS_WS_BASE_URL` | WebSocket 地址，如 `ws://192.168.1.100:8000` |
+
+首次启动：
+
+```bash
+scripts/nas-sync-once.sh
+scripts/nas-up.sh
+```
+
+持续同步：
+
+```bash
+scripts/nas-watch-sync.sh
+```
+
+查看远程日志：
+
+```bash
+scripts/nas-logs.sh
+scripts/nas-logs.sh api
+scripts/nas-logs.sh web
+```
+
+同步规则由 `.nas-syncignore` 控制。它会排除 `pilinote-docs/`、`reference/`、`node_modules/`、本地下载目录、运行时目录、数据库、日志、缓存和构建产物。NAS 运行时数据不会从本地同步，统一保存在 `NAS_RUNTIME_DIR`。
