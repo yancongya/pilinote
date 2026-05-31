@@ -19,7 +19,20 @@ docker compose -f docker-compose.dev.yml up
 | 地址 | 说明 |
 |---|---|
 | `http://localhost:5173` | PiliNote 前端开发页 |
-| `http://localhost:8000/api/health` | 后端健康检查 |
+| `http://localhost:8000/health` | 后端健康检查 |
+
+如果 `8000` 或 `5173` 已被占用，可以使用备用端口：
+
+```bash
+docker compose -f docker-compose.dev.yml -f docker-compose.local.yml up
+```
+
+备用地址：
+
+| 地址 | 说明 |
+|---|---|
+| `http://localhost:5175` | PiliNote 前端开发页 |
+| `http://localhost:8001/health` | 后端健康检查 |
 
 ## 工作方式
 
@@ -27,8 +40,8 @@ docker compose -f docker-compose.dev.yml up
 
 | 服务 | 端口 | 热更新方式 |
 |---|---|---|
-| `api` | `8000` | `uvicorn --reload` |
-| `web` | `5173` | Vite HMR |
+| `api` | `8000` | `uvicorn --reload`，并安装 `ffmpeg`/`aria2` |
+| `web` | `5173` | Vite HMR，Node 22 + `pnpm@10` |
 
 项目源码会挂载到容器的 `/workspace`。修改本地文件后，容器内服务会直接读取最新代码。
 
@@ -44,6 +57,9 @@ pnpm dev
 ```bash
 # 后台启动
 docker compose -f docker-compose.dev.yml up -d
+
+# 后台启动，使用备用端口
+docker compose -f docker-compose.dev.yml -f docker-compose.local.yml up -d
 
 # 查看日志
 docker compose -f docker-compose.dev.yml logs -f
