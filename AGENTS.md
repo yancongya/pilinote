@@ -5,6 +5,7 @@
 PiliNote is a Bilibili video download manager with a monorepo structure:
 - **Frontend**: React + TypeScript + Vite (`apps/web/`)
 - **Backend**: FastAPI + Python (`apps/api/`)
+- **Documentation**: VitePress site (`pilinote-docs/`)
 - **Reference**: Cloned reference projects (`reference/`)
 
 ## Build Commands
@@ -39,7 +40,7 @@ pip install -r requirements.txt
 pip install -e .
 
 # Development server
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # Database migrations (if using Alembic)
 alembic upgrade head
@@ -47,12 +48,23 @@ alembic upgrade head
 
 ## Testing
 
-**Current Status**: No formal test framework is configured.
+The frontend has Vitest and Playwright configuration. The backend uses pytest with
+tests under `apps/api/tests/`; the repository-level Playwright tests are under
+`tests/`.
 
-To test manually:
+Run each command from the repository root after installing the corresponding
+dependencies. Integration tests may require running services and authentication.
 ```bash
-# Frontend - no test script available, use browser testing
-# Backend - test API endpoints manually
+# Frontend unit tests
+(cd apps/web && pnpm test:run)
+
+# Repository-level Playwright tests (requires the frontend server)
+pnpm exec playwright test --config tests/playwright.config.ts
+
+# Backend tests (requires the backend virtual environment)
+(cd apps/api && source venv/bin/activate && python -m pytest)
+
+# API endpoints can also be checked manually
 curl http://localhost:8000/api/health
 ```
 
@@ -81,7 +93,7 @@ curl -H 'Cookie: SESSDATA=...; bili_jct=...' http://localhost:8000/api/auth/stat
 To check TypeScript:
 ```bash
 cd apps/web
-npx tsc --noEmit          # Type check without emitting
+pnpm exec tsc --noEmit    # Type check without emitting
 ```
 
 ### Backend
@@ -329,7 +341,7 @@ pilinote/
 │       └── requirements.txt
 │
 ├── reference/                  # Reference projects
-├── apps/docs/                  # VitePress 文档站 + 文档源（docs-dev/docs-guide）
+├── pilinote-docs/              # VitePress 文档站 + 文档源（docs-dev/docs-guide）
 └── todo/                       # Planning documents
 ```
 
@@ -389,7 +401,7 @@ class DownloadService:
 2. **Backend requires virtual environment** - activate before running Python commands
 3. **API runs on port 8000**, frontend dev server on port 5173
 4. **TypeScript strict mode** is enabled - fix all type errors before building
-5. **No formal testing** - manual testing via API endpoints and browser
+5. **Testing** - Vitest, Playwright and pytest are configured; use targeted tests before integration checks
 6. **Mobile-first design** - always consider mobile responsiveness
 7. **Bilibili API rate limits** - implement proper error handling and retries
 8. **SESSDATA authentication** - handle cookie refresh and expiry

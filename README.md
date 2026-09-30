@@ -75,7 +75,7 @@ PiliNote 是一个围绕 B 站内容的本地知识化工具链：
 
 - Node.js 20+（建议 22/24）
 - pnpm 10+
-- Python 3.10+（建议用 venv）
+- Python 3.11+（建议用 venv）
 
 ### 2) 启动前后端
 
@@ -120,6 +120,27 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # 启动 VitePress 文档站（落地页在这里）
 ./start-docs.command
+```
+
+### 测试与类型检查
+
+```bash
+# 前端类型检查与构建
+cd apps/web
+pnpm exec tsc --noEmit
+pnpm build
+
+# 前端单元测试
+pnpm test:run
+
+# 后端测试
+cd ../api
+source venv/bin/activate
+python -m pytest
+
+# 根目录 Playwright 测试（需先启动前端）
+cd ../..
+pnpm exec playwright test --config tests/playwright.config.ts
 ```
 
 ### 建议开发顺序
