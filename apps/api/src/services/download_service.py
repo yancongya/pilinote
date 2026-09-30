@@ -12,6 +12,7 @@ from pathlib import Path
 from src.database import SessionLocal
 from src.models.download import Download
 from src.services.download_engine import DownloadEngine
+from src.services import subtitle_utils
 from src.utils.error_handler import ErrorHandler, handle_error
 
 logger = logging.getLogger(__name__)
@@ -1335,107 +1336,23 @@ class DownloadService:
             str: SRT格式字幕
         """
 
-        def get_time(seconds: float) -> str:
-            """
-            将秒数转换为SRT时间格式
-
-            Args:
-                seconds: 秒数
-
-            Returns:
-                str: SRT时间格式 (00:00:00,000)
-            """
-            from datetime import timedelta
-
-            # 转换为时间差
-            td = timedelta(seconds=seconds)
-            # 获取总秒数
-            total_seconds = int(td.total_seconds())
-            # 计算时、分、秒、毫秒
-            hours = total_seconds // 3600
-            minutes = (total_seconds % 3600) // 60
-            seconds = total_seconds % 60
-            milliseconds = int((td.total_seconds() - total_seconds) * 1000)
-            # 格式化为SRT时间格式
-            return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
-
-        # 获取字幕body
-        body = subtitle_data.get("body", [])
-        if not body:
-            return ""
-
-        # 转换为SRT格式
-        srt_lines = []
-        for index, line in enumerate(body, start=1):
-            start_time = get_time(line.get("from", 0))
-            end_time = get_time(line.get("to", 0))
-            content = line.get("content", "").strip()
-
-            srt_lines.append(f"{index}")
-            srt_lines.append(f"{start_time} --> {end_time}")
-            srt_lines.append(content)
-            srt_lines.append("")  # 空行分隔
-
-        return "\n".join(srt_lines)
+        return subtitle_utils.convert_bilibili_subtitle_to_srt(subtitle_data)
 
     def _classify_subtitle_source(self, subtitle: dict) -> str:
         """归一化字幕来源类型：user / ai / unknown"""
-        lan = (subtitle.get("lan") or "").lower()
-        lan_doc = (subtitle.get("lan_doc") or "").lower()
-        subtitle_url = (self._extract_subtitle_url(subtitle) or "").lower()
-        ai_type = subtitle.get("ai_type")
-        type_value = subtitle.get("type")
-        is_lock = subtitle.get("is_lock")
-
-        if "aisubtitle.hdslb.com" in subtitle_url:
-            return "ai"
-        if (
-            lan.startswith("ai-")
-            or "自动生成" in lan_doc
-            or ai_type is not None
-            or type_value == 1
-        ):
-            return "ai"
-        if is_lock is False:
-            return "user"
-        if is_lock is True:
-            return "user"
-        return "unknown"
+        return subtitle_utils.classify_subtitle_source(subtitle)
 
     def _subtitle_source_priority(self, subtitle: dict) -> int:
         """字幕来源优先级：用户字幕优先，其次 AI，最后 unknown"""
-        source = self._classify_subtitle_source(subtitle)
-        if source == "user":
-            return 0
-        if source == "ai":
-            return 1
-        return 2
+        return subtitle_utils.subtitle_source_priority(subtitle)
 
     def _extract_subtitle_url(self, subtitle: dict) -> str:
         """提取字幕下载地址，兼容不同字段命名。"""
-        for key in ("subtitle_url", "subtitleUrl", "url", "subtitleURL"):
-            value = subtitle.get(key)
-            if value:
-                return value
-        return ""
+        return subtitle_utils.extract_subtitle_url(subtitle)
 
     def _normalize_subtitle_language(self, subtitle: dict) -> str:
         """归一化字幕语言，用于目标语言匹配和文件命名"""
-        lan = subtitle.get("lan") or ""
-        lan_lower = lan.lower()
-        if lan_lower in {"ai-zh", "ai-hans", "ai-zh-cn", "ai-zh-hans"}:
-            return "zh-CN"
-        if lan_lower in {"ai-en", "ai-en-us", "ai-en-gb"}:
-            return "en-US"
-        if lan_lower in {"zh", "zh-cn", "zh-hans", "zh-hant", "zh-sg", "zh-tw"}:
-            return (
-                "zh-CN"
-                if "hant" not in lan_lower and "tw" not in lan_lower
-                else "zh-TW"
-            )
-        if lan_lower in {"en", "en-us", "en-gb", "en-au"}:
-            return "en-US"
-        return lan or "unknown"
+        return subtitle_utils.normalize_subtitle_language(subtitle)
 
     def _get_subtitle_candidates(
         self, subtitles: list, target_languages: list[str]
@@ -1443,41 +1360,7 @@ class DownloadService:
         """
         选择目标语言的字幕候选，按“用户字幕优先，其次 AI”返回每种语言 1 条。
         """
-        normalized_targets = []
-        for language in target_languages:
-            fake_subtitle = {"lan": language}
-            normalized = self._normalize_subtitle_language(fake_subtitle)
-            if normalized not in normalized_targets:
-                normalized_targets.append(normalized)
-
-        chosen: dict[str, dict] = {}
-        for subtitle in subtitles:
-            if not self._extract_subtitle_url(subtitle):
-                continue
-
-            language = self._normalize_subtitle_language(subtitle)
-            if language not in normalized_targets:
-                continue
-
-            source = self._classify_subtitle_source(subtitle)
-            candidate = {
-                "raw": subtitle,
-                "language": language,
-                "source": source,
-            }
-            existing = chosen.get(language)
-            if existing is None:
-                chosen[language] = candidate
-                continue
-
-            if self._subtitle_source_priority(
-                subtitle
-            ) < self._subtitle_source_priority(existing["raw"]):
-                chosen[language] = candidate
-
-        return [
-            chosen[language] for language in normalized_targets if language in chosen
-        ]
+        return subtitle_utils.get_subtitle_candidates(subtitles, target_languages)
 
     def _build_subtitle_filename(
         self, output_dir: Path, subtitle: dict, subtitle_index: int = 0
@@ -1702,34 +1585,11 @@ class DownloadService:
 
     def _convert_json3_to_srt(self, content: str) -> str:
         """将 json3 格式转换为 SRT"""
-        import json
-
-        try:
-            data = json.loads(content)
-        except:
-            return content
-
-        body = data.get("body", [])
-        if not body:
-            return content
-
-        lines = []
-        for i, item in enumerate(body, 1):
-            start = self._ms_to_srt_time(item.get("from", 0))
-            end = self._ms_to_srt_time(item.get("to", 0))
-            text = item.get("content", "").strip()
-            lines.append(f"{i}\n{start} --> {end}\n{text}\n")
-
-        return "\n".join(lines)
+        return subtitle_utils.convert_json3_to_srt(content)
 
     def _ms_to_srt_time(self, ms: float) -> str:
         """毫秒转SRT时间格式"""
-        seconds = ms / 1000
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        millis = int((seconds - int(seconds)) * 1000)
-        return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+        return subtitle_utils.ms_to_srt_time(ms)
 
 
 
