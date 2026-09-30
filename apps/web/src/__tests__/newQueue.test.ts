@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeScheduler, normalizeTask, normalizeTaskState, normalizeTaskStatus } from '../stores/newQueue'
+import { normalizeScheduler, normalizeSchedulerState, normalizeTask, normalizeTaskState, normalizeTaskStatus } from '../stores/newQueue'
 
 describe('newQueue normalization', () => {
+  it('preserves the scheduler state normalization export', () => {
+    expect(normalizeSchedulerState('SchedulerState.RUNNING')).toBe('running')
+    expect(normalizeSchedulerState('2')).toBe('completed')
+    expect(normalizeSchedulerState('unknown')).toBe('idle')
+  })
+
   it('fills missing task status and nested defaults', () => {
     const task = normalizeTask({
       id: 'task-1',
