@@ -21,6 +21,7 @@ from src.models.download import Download
 from src.llm import LLMProvider, LLMClientFactory, LLMMessage
 from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS
 from src.services.ai.nfo_reader import NFOReader
+from src.services.ai import note_pipeline
 from src.services.ai.task_control import task_control_registry
 from src.services.settings_service import SettingsService
 from src.config import settings as app_settings
@@ -28,32 +29,8 @@ from src.config import settings as app_settings
 logger = logging.getLogger(__name__)
 _ACTIVE_ASR_PROCESSES: Dict[str, int] = {}
 _ACTIVE_ASR_PROCESS_LOCK = threading.RLock()
-_PIPELINE_STAGES = {
-    "video": (
-        "AUDIO.FETCH",
-        "SUBTITLE.GENERATE",
-        "NFO.READ",
-        "PROMPT.BUILD",
-        "LLM.ANALYZE",
-        "CONTENT.GENERATE",
-    ),
-    "series": (
-        "AUDIO.FETCH",
-        "SUBTITLE.GENERATE",
-        "NFO.READ",
-        "PROMPT.BUILD",
-        "LLM.ANALYZE",
-        "CONTENT.GENERATE",
-    ),
-    "image_text": (
-        "DOC.READ",
-        "NFO.READ",
-        "PROMPT.BUILD",
-        "LLM.ANALYZE",
-        "CONTENT.GENERATE",
-    ),
-}
-_SEMANTIC_STAGES = _PIPELINE_STAGES["video"]
+_PIPELINE_STAGES = note_pipeline.PIPELINE_STAGES
+_SEMANTIC_STAGES = note_pipeline.SEMANTIC_STAGES
 _SUPPORTED_NOTE_FORMATS = {item["value"] for item in NOTE_FORMATS}
 
 _SCREENSHOT_MARKER_PATTERN = re.compile(
@@ -411,24 +388,12 @@ class AiNoteService:
                     _ACTIVE_ASR_PROCESSES.pop(note_id, None)
 
     def _normalize_pipeline_mode(self, pipeline_mode: Optional[str]) -> str:
-        mode = (pipeline_mode or "").strip().lower()
-        if mode in {"series", "image_text", "video"}:
-            return mode
-        return "video"
+        return note_pipeline.normalize_pipeline_mode(pipeline_mode)
 
     def _infer_pipeline_mode(
         self, video_id: str, download: Optional[Download] = None
     ) -> str:
-        media_type = (getattr(download, "media_type", None) or "").strip().lower()
-        source_type = (getattr(download, "source_type", None) or "").strip().lower()
-
-        if media_type in {"opus", "opus_list", "user_opus"} or source_type == "opus":
-            return "image_text"
-        if media_type in {"bangumi", "lesson", "music_list"}:
-            return "series"
-        if video_id.startswith("cv"):
-            return "image_text"
-        return "video"
+        return note_pipeline.infer_pipeline_mode(video_id, download)
 
     def _resolve_note_pipeline_mode(
         self, note: AiNote, download: Optional[Download] = None
@@ -488,30 +453,16 @@ class AiNoteService:
         return updated
 
     def _trace_stage(self, pipeline_mode: str, stage: str) -> str:
-        return f"{pipeline_mode}.{stage}"
+        return note_pipeline.trace_stage(pipeline_mode, stage)
 
     def _get_pipeline_stages(self, pipeline_mode: str) -> tuple:
-        return _PIPELINE_STAGES.get(pipeline_mode, _SEMANTIC_STAGES)
+        return note_pipeline.get_pipeline_stages(pipeline_mode)
 
     def _stage_key(self, stage: str) -> str:
-        normalized = (stage or "").strip().upper()
-        if not normalized:
-            raise ValueError("resume_from_stage 不能为空")
-        all_stages = {stage for stages in _PIPELINE_STAGES.values() for stage in stages}
-        if "." in normalized:
-            suffix = normalized.split(".", 1)[-1]
-            if suffix in all_stages:
-                return suffix
-        if normalized in all_stages:
-            return normalized
-        raise ValueError(f"未知阶段: {stage}")
+        return note_pipeline.stage_key(stage)
 
     def _stage_index(self, stage: str) -> int:
-        key = self._stage_key(stage)
-        for stages in _PIPELINE_STAGES.values():
-            if key in stages:
-                return stages.index(key)
-        raise ValueError(f"未知阶段: {stage}")
+        return note_pipeline.stage_index(stage)
 
     def _analysis_artifacts(self, note: AiNote) -> Dict[str, Any]:
         meta = note.meta if isinstance(note.meta, dict) else {}
