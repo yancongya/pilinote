@@ -112,6 +112,15 @@ apps/web/src/
 - 过期或损坏的存储条目会尝试删除；本次职责提取保留原有异常与时间戳判断，不额外改变缓存策略。
 - 针对性回归见 `apps/web/src/__tests__/videoDetailCache.test.ts`；页面媒体、图文解析和播放逻辑继续由各自的详情测试覆盖。
 
+#### 本地播放控制器
+
+- `apps/web/src/hooks/useLocalVideoPlayback.ts` 管理 video 元素 ref、待跳转秒数、播放状态、钉固状态和有效媒体时长。
+- 详情页仍决定是否允许播放、初始条目和分 P 切换，仍负责本地播放映射请求；控制器不依赖路由、API 或下载队列。
+- poster 模式的清理 effect 保留在页面原位置，调用稳定的 `resetForPoster` 清空播放、钉固和待跳转状态。
+- 封面模式先记录待跳转秒数，再启动本地播放；`loadedmetadata` 消费一次待跳转。已挂载的播放器直接跳转并尝试 `play()`，播放拒绝不会中断页面。
+- 结束事件只更新播放状态，不自动切下一 P；无效时长不会覆盖已记录时长，poster 清理也保留原有时长。
+- 控制器测试位于 `apps/web/src/hooks/__tests__/useLocalVideoPlayback.test.tsx`。浏览器真实自动播放策略与跨路由异步请求另需集成验证。
+
 #### 评论区样式
 
 - 评论区标题只保留主标题，不再显示右上角数量
