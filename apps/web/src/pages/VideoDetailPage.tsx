@@ -24,6 +24,7 @@ import {
 } from './videoDetailPlayback'
 import { buildDetailTaskPayload, normalizeOpusMediaId } from './videoDetailMedia'
 import { parseLocalOpusMarkdown, type LocalOpusContent, type OpusBlock } from './videoDetailOpus'
+import { useLocalVideoPlayback } from '../hooks/useLocalVideoPlayback'
 import {
   buildDetailCacheKey,
   readDetailCache,
@@ -71,17 +72,12 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   const [switchingLayout, setSwitchingLayout] = useState(false)
   const [selectedVideo, setSelectedVideo] = useState<any>(null)
   const [localOpusContent, setLocalOpusContent] = useState<LocalOpusContent | null>(null)
-  const videoElementRef = useRef<HTMLVideoElement | null>(null)
-  const pendingSeekSecondsRef = useRef<number | null>(null)
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false)
-  const [isVideoPinned, setIsVideoPinned] = useState(false)
   const [mobileDetailTab, setMobileDetailTab] = useState<'intro' | 'ai'>('intro')
   const [aiNoteMarkdown, setAiNoteMarkdown] = useState('')
   const [aiNoteFolderPath, setAiNoteFolderPath] = useState<string | null>(null)
   const [aiNoteLoading, setAiNoteLoading] = useState(false)
   const [aiNoteError, setAiNoteError] = useState<string | null>(null)
   const [aiNoteRevision, setAiNoteRevision] = useState(0)
-  const [localVideoDurationSeconds, setLocalVideoDurationSeconds] = useState<number | null>(null)
   const submissionListRef = useRef<HTMLDivElement | null>(null)
   const episodeCardRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
   const [alertModal, setAlertModal] = useState<{
@@ -100,6 +96,21 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   })
   const { user } = useAuthStore()
   const sessdata = user?.sessdata
+  const {
+    videoElementRef,
+    isVideoPlaying,
+    isVideoPinned,
+    localVideoDurationSeconds,
+    queueSeek,
+    playAt,
+    toggleVideoPinned,
+    handlePlay,
+    handlePause,
+    handleEnded,
+    handleLoadedMetadata,
+    handleDurationChange,
+    resetForPoster,
+  } = useLocalVideoPlayback()
 
   // 响应式布局状态
   const [isMobile, setIsMobile] = useState(false)
@@ -261,9 +272,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
 
   useEffect(() => {
     if (mediaMode === 'poster') {
-      setIsVideoPlaying(false)
-      setIsVideoPinned(false)
-      pendingSeekSecondsRef.current = null
+      resetForPoster()
     }
   }, [mediaMode])
 
@@ -1048,24 +1057,13 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     if (!video || video.isOpus || !hasLocalPlayback) return
 
     if (mediaMode !== 'local-video') {
-      pendingSeekSecondsRef.current = seconds
+      queueSeek(seconds)
       handleCoverPlay()
       return
     }
 
-    const el = videoElementRef.current
-    if (!el) return
-
-    try {
-      el.currentTime = seconds
-      const maybePromise = el.play()
-      if (maybePromise && typeof (maybePromise as any).catch === 'function') {
-        ;(maybePromise as any).catch(() => {})
-      }
-    } catch {
-      // ignore
-    }
-  }, [handleCoverPlay, hasLocalPlayback, mediaMode, video])
+    playAt(seconds)
+  }, [handleCoverPlay, hasLocalPlayback, mediaMode, playAt, queueSeek, video])
 
   const isCollectionItemCompleted = (part: DownloadPart): boolean => {
     const tasks = Object.values(newQueueStore.tasks)
@@ -1873,28 +1871,11 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                 autoPlay
                 playsInline
                 poster={video.cover ? getProxyImageUrl(video.cover) : undefined}
-                onPlay={() => setIsVideoPlaying(true)}
-                onPause={() => setIsVideoPlaying(false)}
-                onEnded={() => setIsVideoPlaying(false)}
-                onLoadedMetadata={() => {
-                  const pending = pendingSeekSecondsRef.current
-                  if (pending === null) return
-                  pendingSeekSecondsRef.current = null
-                  if (!videoElementRef.current) return
-                  try {
-                    videoElementRef.current.currentTime = pending
-                  } catch {
-                    // ignore
-                  }
-                }}
-                onDurationChange={() => {
-                  const el = videoElementRef.current
-                  if (!el) return
-                  const duration = Number(el.duration)
-                  if (Number.isFinite(duration) && duration > 0) {
-                    setLocalVideoDurationSeconds(duration)
-                  }
-                }}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onEnded={handleEnded}
+                onLoadedMetadata={handleLoadedMetadata}
+                onDurationChange={handleDurationChange}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -1992,7 +1973,7 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation()
-                  setIsVideoPinned((prev) => !prev)
+                  toggleVideoPinned()
                 }}
                 aria-label={isVideoPinned ? '取消钉固' : '钉固播放器'}
                 title={isVideoPinned ? '取消钉固' : '钉固播放器'}
