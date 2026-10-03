@@ -114,12 +114,21 @@ apps/web/src/
 
 #### 本地播放控制器
 
+- 详情请求按媒体路由与认证变化创建独立生命周期；清理后旧成功、失败和 finally 不再写页面或缓存，本地图文旧请求也不再启动远端回退。
+- 播放映射同时核验路由身份和刷新序号，旧路由、A-B-A 返回以及先发后到的刷新不能覆盖最新映射。有效缓存仍继续刷新，失败仍回退缓存。
+
 - `apps/web/src/hooks/useLocalVideoPlayback.ts` 管理 video 元素 ref、待跳转秒数、播放状态、钉固状态和有效媒体时长。
 - 详情页仍决定是否允许播放、初始条目和分 P 切换，仍负责本地播放映射请求；控制器不依赖路由、API 或下载队列。
 - poster 模式的清理 effect 保留在页面原位置，调用稳定的 `resetForPoster` 清空播放、钉固和待跳转状态。
 - 封面模式先记录待跳转秒数，再启动本地播放；`loadedmetadata` 消费一次待跳转。已挂载的播放器直接跳转并尝试 `play()`，播放拒绝不会中断页面。
 - 结束事件只更新播放状态，不自动切下一 P；无效时长不会覆盖已记录时长，poster 清理也保留原有时长。
-- 控制器测试位于 `apps/web/src/hooks/__tests__/useLocalVideoPlayback.test.tsx`。浏览器真实自动播放策略与跨路由异步请求另需集成验证。
+- 控制器测试位于 `apps/web/src/hooks/__tests__/useLocalVideoPlayback.test.tsx`；页面受控异步请求测试位于 `apps/web/src/pages/__tests__/VideoDetailPage.requests.test.tsx`。隔离浏览器只验证模拟响应，不证明真实媒体自动播放策略或后端下载。
+
+#### 展示与下载参数边界
+
+- `pages/components/VideoDetailPresenters.tsx` 承载骨架、评论和 AI 笔记预览展示，沿用原 DOM、样式及页面传入的交互回调。
+- `pages/videoDetailDownloadPayloads.ts` 构造合集任务、调度器、图文任务和分 P／重下载选项，不发请求、不操作队列。缺失封面仍保留原 undefined 序列化语义。
+- 页面保留提交顺序、重复下载确认、合集过滤和队列刷新；参数与展示测试不能替代整页交互。
 
 #### AI 笔记关键点解析
 
