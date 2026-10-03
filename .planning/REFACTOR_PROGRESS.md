@@ -92,3 +92,38 @@ GPT-5.6 Terra / low 实现，GPT-5.6 Luna / low 只读盘点，GPT-6 Sol / low �
 - 差异检查通过；没有运行真实浏览器媒体播放、跨路由异步切换或分 P 交互集成测试，不将控制器单测等同于这些验证。
 
 既有详情/播放映射请求的跨路由竞态本轮没有更改，后续若调整需专门验收。下一轮候选为 AI 笔记时间戳关键点解析的纯逻辑提取。
+
+## 完整整理里程碑（2026-10-03）
+
+用户要求设置 goal、多个代理持续执行、全部 low、不使用 Astra，并沿用分阶段 commit。当前子代理工具不提供 Terra / 5.6 Luna，本轮明确改用 GPT-6 Luna 和 GPT-5.6 Sol 执行，GPT-6 Sol 独立审查；没有自动提高推理强度。范围及验收见 `REFACTOR_COMPLETION_PLAN.md`，不将本轮完成冒充所有产品技术债解决。
+
+### 交付与阶段提交
+
+- `357064d`：定义可检验的 A–E 阶段、范围和检查点。
+- `6452d20`：Vitest 只发现 src 下单测，修正误收集 Playwright e2e 导致的两个套件错误。
+- `e5bdf79`：提取 `note_context.py` 的语言、格式、timecode 和 prompt extras 纯规则，保留旧私有 wrapper；新增阈值、完整文本和 AST 委托测试。
+- `cdb686b`：提取 `videoDetailKeypoints.ts`，保留章节优先/fallback、按秒去重、排序前 18 项及原宽松时间码行为；补充 9 项纯解析测试。
+- `165a762`：下载 hook 新增 mock 回归，验证选中分 P、选项 payload、重复/已完成及强制重下载，恢复保留原三个完整字段断言；生产 hook 和队列实现不变。
+- `95d257b`：新增标准库直接依赖/常见 IO 检查及 7 项回归，覆盖所列 3 个 Python 和 3 个 TypeScript 纯模块。脚本可从 /tmp 运行；缺模块、读取失败及非法依赖非通过。
+- 收尾文档提交同步模块地图、测试运行说明、Web/AI/队列职责及本阶段证据。未推送远端。
+
+### 实际验证
+
+- 最终受控 API 基址 `VITE_API_BASE_URL=http://localhost:8000 ./node_modules/.bin/vitest run`：23 个文件、124 项通过；包括原有队列、AI 面板等单测，不只新模块。
+- 最终默认基址重跑：120 项通过、4 项旧 URL 断言失败，分布于图文解析、MarkdownPreview 和 MarkdownEditor；这些源文件、默认 API 配置和原断言本轮未改，不把受控环境通过宣称为默认环境全绿。
+- 详情相邻回归：6 个文件、37 项通过。最终 `./node_modules/.bin/tsc -b --pretty false` 通过，Vite production build 通过。
+- 既有 CSS `.data-tip]`、动态/静态混合 import、大 bundle 和 Browserslist 过期警告保留；没有声称零告警。
+- 建立 Git 忽略的 `apps/api/venv`（Python 3.13），按原 requirements.txt / requirements-test.txt 安装；`python -m pip check` 通过，依赖清单和 lockfile 不变。
+- API 目录激活虚拟环境，以 `DATABASE_URL=sqlite:///:memory: python -m pytest -p no:postgresql -o addopts= -q tests/test_note_pipeline.py tests/test_subtitle_utils.py tests/test_note_context.py tests/test_note_service_boundaries.py tests/test_refactor_boundaries.py` 运行：28 项通过。
+- 后端相邻安全回归：orchestrator 的 execution_plan/priority_configuration/execution_summary/dependency_configuration 选择 9 项通过；UnifiedQueueManager 的 event_manager 选择 4 项通过；字幕 handler 的 SRT/time conversion 选择 2 项通过。
+- `test_queue_manager_execution.py`：6 项通过、1 项旧失败。失败为 `test_scheduler_writes_series_nfo` 同步调用 async `_write_series_nfo`，未 await，产生 RuntimeWarning 且 tvshow.nfo 不存在；测试和 scheduler 本轮无 diff，未顺手改动。
+- PostgreSQL 自动插件缺 libpq，默认 pytest 在收集前失败；纯规则/SQLite 检查显式禁用该插件，不代表 PostgreSQL 可用。pytest.ini 当前段名 `[tool:pytest]` 不被 pytest 作为 `[pytest]` 配置加载，其文本中的 80% coverage 门槛没有全库验收。
+- 最终 Playwright `--list` 发现 19 文件、263 用例；没有实际执行完整 E2E，也没有验证真实下载、播放、账号、ASR/LLM、生产库或部署。
+
+### 审查、保留与完成边界
+
+GPT-6 Sol / low 独立审查无 P1/P2 阻塞；补齐语言阈值/采样、完整 policy/extras、等秒时间码、CRLF、章节结束和 fallback 测试。协调复核发现下载回归替换了原测试，要求恢复完整断言后重新验证。
+
+服务委托测试使用 AST，只能证明调用结构，不能证明服务初始化/事务/worker 运行。下载 hook mock 不能覆盖详情页独立合集、剩余分 P 或跨路由时序，已在模块地图中明确保留后续验收。边界脚本只检查直接静态/动态依赖与常见模式，不是全仓安全证明。
+
+每次按显式文件清单提交，原 staged 二进制快照复核一致；原迁移、删除、未跟踪测试及其他用户工作不纳入本轮提交。所有本里程碑新增代码、测试和文档均按主题提交，不自动推送。当前 A–E 整理里程碑完成，已记录的历史失败和范围外集成/架构工作仍未解决。

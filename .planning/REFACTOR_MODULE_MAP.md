@@ -10,7 +10,7 @@
 | 超时、ASR 进程与取消 | 顶部 worker 和 `_run_process_with_timeout_and_cancel` | 涉及进程和注册表，需专门测试后再拆 |
 | 记录及控制状态 | 创建、暂停、恢复、取消、meta 和分析产物持久化 | 保留事务边界，先补生命周期覆盖 |
 | 主流水线 | `_run_analysis` | 先梳理输入输出与阶段状态，不按行数机械拆分 |
-| 分析上下文 | `_prepare_analysis_context`、NFO/字幕读取、Prompt 构建 | 后续候选，避免把 IO 隐藏进纯规则模块 |
+| 分析上下文 | `note_context.py` 承载语言、格式、timecode 和 Prompt extras 纯规则；NFO/字幕 IO 留在服务 | 已提取安全转换；上下文读取和编排不能以纯单测代替集成验收 |
 | 输出文件 | Markdown、截图、索引、系列记忆 | 需临时目录回归测试，避免读写真实媒体库 |
 
 规则兼容约束：阶段索引当前按所有模式的遍历顺序取得首个匹配值，不是按当前模式计算。例如 `image_text.NFO.READ` 仍取 video 模式中的索引 2。本轮保留此语义；若调整须独立分析恢复流程。
@@ -25,13 +25,25 @@
 | --- | --- | --- |
 | 详情缓存 | `videoDetailCache.ts`，内存 Map、sessionStorage、5 分钟 TTL | 已提取并覆盖过期、坏 JSON、存储不可用及缓存键隔离 |
 | 本地播放 | 已有播放匹配模块及 `useLocalVideoPlayback` 控制器，页面保留 entry 和映射请求 | 控制器已提取；后续请求生命周期需独立验证 |
-| 下载交互 | `handleAddToDownload`、合集/分 P 下载、重下载确认 | 先保证队列 payload 兼容，再拆控制逻辑 |
+| 下载交互 | `handleAddToDownload`、合集/分 P 下载、重下载确认 | hook mock 回归核验兼容；页面独立合集/剩余分 P 流程仍需整页验收 |
 | 媒体展示 | 视频/图文、封面、UP 主、评论及 AI 面板入口 | 按独立 UI 区块拆组件，避免增加跨组件状态耦合 |
 
-详情缓存与播放控制器试点已完成。播放控制器管理 ref、待跳转、播放/钉固/时长和媒体事件；页面保留请求及 poster effect 位置、entry 选择和分 P 导航。下一轮可独立提取 AI 笔记时间戳关键点解析，先覆盖文本输入输出，再考虑拆分请求与页面生命周期。
+详情缓存、播放控制器和 AI 关键点解析已提取。`videoDetailKeypoints.ts` 管理 Markdown 时间戳与关键点，页面保留请求/状态与播放跳转。后续跨路由请求与页面生命周期需独立计划，不能机械搬进 hook。
+
+## 下载队列
+
+- `apps/web/src/utils/newQueueNormalization.ts`：纯归一化；`stores/newQueue.ts` 保留公开 re-export、持久化和请求。
+- `useVideoDownload`：选中分 P 与重复/已完成/重下载控制。mock 测试不代表真实下载或详情整页流程通过。
+- `apps/api/src/services/queue/` 与 `unified_queue_manager.py`：保留不同入口，不进行架构合并。
+- 当前 `test_queue_manager_execution.py` 有一个旧测试以同步方式调用 async `_write_series_nfo`，导致产物不存在；本轮没有改该测试或 scheduler 实现。
+
+## 边界检查
+
+`scripts/check_refactor_boundaries.py` 检查所列 Python/TypeScript 纯模块的直接依赖及常见 IO，不加载业务服务。缓存、Opus、请求 hook 和完整服务不属于纯模块白名单，也不被此检查证明无副作用。
 
 ## 验证边界
 
-- 根 Playwright：验证迁移后可发现 263 个测试；未执行有登录、队列变更或网络副作用的测试。
-- 前端：本轮文档中的 `tsc --noEmit` 命令通过。
-- 后端：无项目虚拟环境；纯规则断言和原实现比较不能替代服务集成测试。
+- 根 Playwright：本轮重新发现 263 个测试；未执行有登录、队列变更或网络副作用的完整套件。
+- 前端：全单测需区别默认 API 基址的 4 项旧断言失败与显式 localhost 基址的通过结果；类型和生产构建单独记录。
+- 后端：本轮建立了被忽略的 `apps/api/venv` 并按原依赖清单安装；SQLite/纯模块 pytest 禁用缺 libpq 的 PostgreSQL 插件。服务委托 AST 测试不是运行时集成验证。
+- 具体计数、命令、审查及提交以 `REFACTOR_PROGRESS.md` 当前里程碑记录为准。

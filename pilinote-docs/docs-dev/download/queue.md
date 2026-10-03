@@ -6,6 +6,14 @@
 
 当前实现以 `Task.state`（整数枚举）作为**主状态**，以 `Task.status.stage`（字符串枚举）作为**下载阶段**。两者含义不同，避免混用。
 
+## 前后端整理边界
+
+- 前端 `apps/web/src/utils/newQueueNormalization.ts` 负责队列数据归一化；`stores/newQueue.ts` 保留原公开 re-export 和状态管理入口。
+- `useVideoDownload` 的 mock 回归验证选中分 P、下载选项、重复任务、已完成任务及强制重下载，不发送真实下载请求。
+- 详情页另有合集和剩余分 P 处理，hook 测试不能替代完整页面流程验证。
+- 后端 `services/queue/` 与 `UnifiedQueueManager` 仍是不同入口，本轮不合并架构、改变队列协议或迁移数据。
+- 纯模块直接依赖边界通过仓库 `scripts/check_refactor_boundaries.py` 检查；它不验证队列并发或跨服务运行行为。
+
 ## 任务状态
 
 后端存储/返回的 `state` 为 `TaskState`（`apps/api/src/models/task.py`），取值为整数：

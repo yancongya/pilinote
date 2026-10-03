@@ -8,6 +8,15 @@
 
 `apps/api/src/services/ai/note_service.py`
 
+## 渐进整理后的职责边界
+
+- `note_pipeline.py`：模式、阶段键和阶段索引纯规则。阶段索引保留跨模式遍历首个匹配的原语义。
+- `note_context.py`：笔记格式过滤、timecode 需求、字幕语言判断、语言策略与系列记忆/用户补充文本拼装。
+- `note_service.py`：保留原私有委托入口、上下文文件读取、数据库事务、主流水线、worker、ASR/LLM 调用和输出落盘。
+- 语言识别仍最多采样 20,000 字符；少于 50 个中英文字母判为 unknown，中文或英文比例达到 75% 时判为对应语言。
+- `test_note_context.py` 验纯转换；`test_note_service_boundaries.py` 通过 AST 核验委托与参数结构，不是服务初始化或运行时集成测试。
+- 不将这些提取描述为完整 AI 服务解耦；真实模型、暂停/恢复/取消和产物持久化仍需独立验收。
+
 ## 主要方法
 
 ### analyze_video()
