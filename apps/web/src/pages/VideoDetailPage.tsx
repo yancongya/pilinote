@@ -22,7 +22,7 @@ import {
   type LocalPlaybackEntry,
   type LocalPlaybackMap
 } from './videoDetailPlayback'
-import { buildDetailTaskPayload, normalizeOpusMediaId } from './videoDetailMedia'
+import { normalizeOpusMediaId } from './videoDetailMedia'
 import { parseLocalOpusMarkdown, type LocalOpusContent, type OpusBlock } from './videoDetailOpus'
 import { useLocalVideoPlayback } from '../hooks/useLocalVideoPlayback'
 import {
@@ -31,8 +31,14 @@ import {
   writeDetailCache,
   type VideoDetailData,
 } from './videoDetailCache'
-import { MarkdownPreview } from '../components/ai/MarkdownPreview'
 import { parseAiNoteKeypoints } from './videoDetailKeypoints'
+import { VideoDetailAiNotePanel, VideoDetailComments, VideoDetailSkeleton } from './components/VideoDetailPresenters'
+import {
+  buildCollectionTaskPayload,
+  buildDetailDownloadOptions,
+  buildOpusTaskPayload,
+  buildSchedulerPayload,
+} from './videoDetailDownloadPayloads'
 
 interface VideoDetailPageProps {
   type?: 'video' | 'opus'
@@ -97,6 +103,10 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   })
   const { user } = useAuthStore()
   const sessdata = user?.sessdata
+  const requestIdentity = useMemo(() => ({}), [mediaId, type, sessdata])
+  const activeRequestIdentity = useRef<object | null>(null)
+  const playbackRequestVersion = useRef(0)
+  const [loadedRequestIdentity, setLoadedRequestIdentity] = useState<object | null>(null)
   const {
     videoElementRef,
     isVideoPlaying,
@@ -269,7 +279,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     return () => {
       cancelled = true
     }
-  }, [aiNoteEffectiveFileId, aiNoteRevision, type, videoId])
+  }, [aiNoteEffectiveFileId, aiNoteRevision, type, videoId, requestIdentity])
 
   useEffect(() => {
     if (mediaMode === 'poster') {
@@ -301,6 +311,20 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }
 
   useEffect(() => {
+    let cancelled = false
+    activeRequestIdentity.current = requestIdentity
+    playbackRequestVersion.current += 1
+    setVideo(null)
+    setLocalOpusContent(null)
+    setLoadedRequestIdentity(null)
+    setLocalPlayback(null)
+    setActivePlaybackEntry(null)
+    setMediaMode('poster')
+    setAiNoteMarkdown('')
+    setAiNoteFolderPath(null)
+    setSelectedVideo(null)
+    setAlertModal(previous => ({ ...previous, show: false }))
+
     async function fetchMediaDetail() {
       if (!mediaId) return
 
@@ -313,6 +337,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
       if (cachedEntry) {
         setVideo(cachedEntry.video)
         setLocalOpusContent(cachedEntry.localOpusContent)
+        setLoadedRequestIdentity(requestIdentity)
       }
       
       try {
@@ -325,6 +350,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
           } catch (localOpusError) {
             // 本地图文未命中时回退远端详情，属于正常路径，不额外打日志
           }
+          if (cancelled) return
         }
         
         if (type === 'opus') {
@@ -365,6 +391,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               localOpus: localData
             }
             setVideo(nextVideo)
+            setLoadedRequestIdentity(requestIdentity)
             writeDetailCache(cacheKey, {
               video: nextVideo,
               localOpusContent: localData,
@@ -378,6 +405,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
         } else {
           response = await apiService.getVideoDetail(mediaId, sessdata || undefined)
         }
+        if (cancelled) return
         
         if (response.success && response.data) {
           const data = response.data
@@ -423,6 +451,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               localOpus: null
             }
             setVideo(nextVideo)
+            setLoadedRequestIdentity(requestIdentity)
             writeDetailCache(cacheKey, {
               video: nextVideo,
               localOpusContent: null,
@@ -484,6 +513,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
               comments: data.comments || []
             }
             setVideo(nextVideo)
+            setLoadedRequestIdentity(requestIdentity)
             writeDetailCache(cacheKey, {
               video: nextVideo,
               localOpusContent: null,
@@ -498,16 +528,21 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
           }
         }
       } catch (err) {
-        if (!cachedEntry) {
+        if (!cancelled && !cachedEntry) {
           setError('网络请求失败')
         }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchMediaDetail()
-  }, [mediaId, sessdata, type])
+    return () => {
+      cancelled = true
+      activeRequestIdentity.current = null
+      playbackRequestVersion.current += 1
+    }
+  }, [mediaId, sessdata, type, requestIdentity])
 
   useEffect(() => {
     if (!video?.ugcSeason) {
@@ -526,23 +561,28 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
   }, [video?.bvid, video?.pages])
 
   const refreshLocalPlayback = useCallback(async () => {
+    if (activeRequestIdentity.current !== requestIdentity) return
+    const requestVersion = ++playbackRequestVersion.current
     setLocalPlayback(null)
     setActivePlaybackEntry(null)
     setMediaMode('poster')
 
-    if (!video || video.isOpus || !video.bvid) {
+    if (loadedRequestIdentity !== requestIdentity || !video || video.isOpus || !video.bvid) {
       return
     }
 
     try {
       const response = await apiService.getLocalPlaybackMap(video.bvid)
+      if (activeRequestIdentity.current !== requestIdentity || playbackRequestVersion.current !== requestVersion) return
       if (response.success && response.data) {
         setLocalPlayback(response.data)
       }
     } catch (playbackError) {
-      console.error('[VideoDetail] 获取本地播放映射失败:', playbackError)
+      if (activeRequestIdentity.current === requestIdentity && playbackRequestVersion.current === requestVersion) {
+        console.error('[VideoDetail] 获取本地播放映射失败:', playbackError)
+      }
     }
-  }, [video?.bvid, video?.isOpus])
+  }, [video?.bvid, video?.isOpus, loadedRequestIdentity, requestIdentity])
 
   useEffect(() => {
     refreshLocalPlayback()
@@ -1213,22 +1253,14 @@ const handleDownloadCollection = async (e: React.MouseEvent) => {
             continue
           }
 
-          const response = await apiService.submitTask({
-            title: part.title,
-            media_type: 'video',
-            media_id: part.bvid,
-            cover: part.cover || episode.cover,
-            desc: `合集：${collectionTitle}`,
-            meta: {
-              cid: part.cid,
-              page: part.page,
-              part_title: part.title,
-              collection_bvid: video.bvid,
-              collection_title: collectionTitle,
-              collection_episode_title: episode.title,
-              output_subdir: `P${String(episode.page).padStart(2, '0')} - ${episode.title}`
-            }
-          })
+          const response = await apiService.submitTask(buildCollectionTaskPayload({
+            part,
+            episodeTitle: episode.title,
+            collectionTitle,
+            collectionBvid: video.bvid,
+            episodePage: episode.page,
+            episodeCover: episode.cover,
+          }))
 
           if (response.success && response.data) {
             taskIds.push(response.data.id)
@@ -1261,11 +1293,9 @@ const handleDownloadCollection = async (e: React.MouseEvent) => {
     const downloadPath = settingsStore.settings?.storage?.download_path || './downloads'
     const folderPath = `${downloadPath}/合集-${sanitizeFilename(collectionTitle)}`
 
-    const schedulerResponse = await apiService.createScheduler({
-      title: collectionTitle,
-      task_ids: taskIds,
-      folder: folderPath
-    })
+    const schedulerResponse = await apiService.createScheduler(
+      buildSchedulerPayload(collectionTitle, taskIds, folderPath)
+    )
 
     if (!schedulerResponse.success || !schedulerResponse.data) {
       throw new Error(schedulerResponse.message || '创建合集调度器失败')
@@ -1308,10 +1338,11 @@ const performDownload = async (video: any, e: React.MouseEvent, options?: { forc
         }
       }
 
-      const result = await toggleDownload(video as any, e, {
-        selectedPages,
-        forceRedownload: options?.forceRedownload
-      })
+      const result = await toggleDownload(
+        video as any,
+        e,
+        buildDetailDownloadOptions(selectedPages, options?.forceRedownload)
+      )
 
       if (result.success) {
         if (result.shouldNavigateToLibrary) {
@@ -1343,12 +1374,10 @@ const performDownload = async (video: any, e: React.MouseEvent, options?: { forc
       return
     }
 
-    const taskPayload = buildDetailTaskPayload({
-      type,
-      mediaId: type === 'opus' ? normalizeOpusMediaId(String(mediaId || video.aid || '')) : video.bvid,
+    const taskPayload = buildOpusTaskPayload({
+      mediaId: normalizeOpusMediaId(String(mediaId || video.aid || '')),
       title: video.title,
       cover: video.cover,
-      cid: undefined
     })
 
     const response = await apiService.submitTask(taskPayload)
@@ -1481,34 +1510,6 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
     navigate(aiPanelPath)
   }
 
-  const renderSkeleton = () => (
-    <div className="video-detail-page">
-      <header className="video-detail-header">
-        <div className="video-detail-header-inner">
-          <div className="video-detail-skeleton-header-action" aria-hidden="true" />
-          <div className="video-detail-skeleton-header-title" aria-hidden="true" />
-          <div className="video-detail-skeleton-header-action video-detail-skeleton-header-action--right" aria-hidden="true" />
-        </div>
-      </header>
-
-      <main className="video-detail-content">
-        <div className="video-detail-skeleton" aria-hidden="true">
-          <div className="video-detail-skeleton-media" />
-          <div className="video-detail-skeleton-card">
-            <div className="video-detail-skeleton-line video-detail-skeleton-line--short" />
-            <div className="video-detail-skeleton-line" />
-            <div className="video-detail-skeleton-line video-detail-skeleton-line--mid" />
-          </div>
-          <div className="video-detail-skeleton-card">
-            <div className="video-detail-skeleton-line video-detail-skeleton-line--short" />
-            <div className="video-detail-skeleton-comment" />
-            <div className="video-detail-skeleton-comment" />
-          </div>
-        </div>
-      </main>
-    </div>
-  )
-
   if (loading || !video) {
     if (!loading && !video && error) {
       return (
@@ -1524,213 +1525,7 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
         </div>
       )
     }
-    return renderSkeleton()
-  }
-
-  const renderCommentsSection = () => {
-    if (!video.comments || video.comments.length === 0) {
-      return null
-    }
-
-    return (
-      <section className="video-detail-comments">
-        <div className="video-detail-card-header">
-          <h3 className="video-detail-card-title">热门评论</h3>
-        </div>
-        <div className="video-detail-comment-list">
-          {video.comments.slice(0, 3).map((comment, index) => {
-            const isTop = comment.type === 'top'
-            return (
-              <article
-                key={index}
-                className={`video-detail-comment-item${isTop ? ' is-top' : ''}`}
-              >
-                <div className="video-detail-comment-avatar" aria-hidden="true">
-                  <img src={getCommentAvatarImage(comment.author, index)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                </div>
-                <div className="video-detail-comment-body">
-                  <div className="video-detail-comment-topline">
-                    <div className="video-detail-comment-author-row">
-                      <span className="video-detail-comment-author">{comment.author}</span>
-                      {isTop && (
-                        <span className="video-detail-comment-badge">置顶</span>
-                      )}
-                    </div>
-                    <span className="video-detail-comment-time">{formatTime(comment.time)}</span>
-                  </div>
-                  <p className="video-detail-comment-content">
-                    {comment.content}
-                  </p>
-                  <div className="video-detail-comment-actions">
-                    <span className="video-detail-comment-action">
-                      <ThumbsUp size={13} />
-                      {comment.like}
-                    </span>
-                    {comment.reply > 0 && (
-                      <span className="video-detail-comment-action">
-                        <MessageCircle size={13} />
-                        {comment.reply}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </article>
-            )
-          })}
-        </div>
-      </section>
-    )
-  }
-
-  const renderAiNotePanel = () => {
-    if (video.isOpus) {
-      return null
-    }
-
-    return (
-      <section
-        aria-label="AI 笔记"
-        style={{
-          padding: cardPadding,
-          background: 'var(--color-bg-tertiary)',
-          borderRadius: cardRadius,
-          border: '1px solid var(--color-border)',
-          overflow: 'hidden'
-        }}
-      >
-        <div style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: aiNoteKeypoints.length > 0 ? '12px' : '10px'
-        }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{
-              fontSize: responsiveStyle.fontSize.small,
-              fontWeight: 700,
-              color: 'var(--color-text-primary)',
-              lineHeight: '1.2'
-            }}>
-              AI 笔记
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-              点击时间戳即可跳转播放进度
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => setAiNoteRevision((v) => v + 1)}
-              disabled={aiNoteLoading}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '999px',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                cursor: aiNoteLoading ? 'not-allowed' : 'pointer',
-                fontSize: '12px',
-                fontWeight: 650
-              }}
-            >
-              刷新
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                navigate(`${aiPanelPath}#note`, {
-                  state: {
-                    initialFileId: aiNoteEffectiveFileId || undefined,
-                  }
-                })
-              }}
-              style={{
-                padding: '7px 10px',
-                borderRadius: '999px',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg-primary)',
-                color: 'var(--color-text-primary)',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 650
-              }}
-            >
-              打开面板
-            </button>
-          </div>
-        </div>
-
-        {aiNoteKeypoints.length > 0 && keypointBarDurationSeconds > 0 && (
-          <div
-            className="video-detail-keypoint-bar-wrap"
-            style={{ marginBottom: '12px' }}
-          >
-            <div className="video-detail-keypoint-bar" role="list" aria-label="关键点时间轴">
-              {aiNoteKeypoints.map((item, index) => {
-                const next = aiNoteKeypoints[index + 1]
-                const start = item.seconds
-                const end = next ? next.seconds : keypointBarDurationSeconds
-                const safeStart = Math.max(0, Math.min(start, keypointBarDurationSeconds))
-                const safeEnd = Math.max(safeStart, Math.min(end, keypointBarDurationSeconds))
-                const left = (safeStart / keypointBarDurationSeconds) * 100
-                const width = ((safeEnd - safeStart) / keypointBarDurationSeconds) * 100
-                const hue = Math.round((index / Math.max(1, aiNoteKeypoints.length)) * 220)
-
-                return (
-                  <button
-                    key={`${item.seconds}-${item.timestamp}`}
-                    type="button"
-                    role="listitem"
-                    className="video-detail-keypoint-segment"
-                    onClick={() => handleSeekToSeconds(item.seconds)}
-                    title={`${item.timestamp}  ${item.title}`}
-                    style={{
-                      left: `${left}%`,
-                      width: `${Math.max(1.5, width)}%`,
-                      background: `linear-gradient(90deg, hsla(${hue}, 85%, 62%, 0.75), hsla(${hue}, 85%, 62%, 0.55))`,
-                      borderColor: `hsla(${hue}, 85%, 72%, 0.55)`,
-                    }}
-                    aria-label={`${item.timestamp} ${item.title}`}
-                  >
-                    <span className="sr-only">{`${item.timestamp} ${item.title}`}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {aiNoteLoading && (
-          <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-            加载中...
-          </div>
-        )}
-
-        {!aiNoteLoading && aiNoteError && (
-          <div style={{ fontSize: '12px', color: 'var(--color-error-600)' }}>
-            {aiNoteError}
-          </div>
-        )}
-
-        {!aiNoteLoading && !aiNoteError && !aiNoteMarkdown.trim() && (
-          <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-            当前分P暂无笔记
-          </div>
-        )}
-
-        {!aiNoteLoading && !aiNoteError && aiNoteMarkdown.trim() && (
-          <div style={{ marginTop: '10px' }}>
-            <MarkdownPreview
-              content={aiNoteMarkdown}
-              sourceFolderPath={aiNoteFolderPath}
-              onSeekToSeconds={handleSeekToSeconds}
-              className="video-detail-ai-markdown"
-            />
-          </div>
-        )}
-      </section>
-    )
+    return <VideoDetailSkeleton />
   }
 
   return (
@@ -2756,7 +2551,11 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
             </div>
           )}
 
-        {renderCommentsSection()}
+        <VideoDetailComments
+          comments={video.comments}
+          getAvatarImage={getCommentAvatarImage}
+          formatTime={formatTime}
+        />
 
       </div>
       </div>
@@ -2947,7 +2746,23 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
             )}
           </div>
 
-          {renderAiNotePanel()}
+          <VideoDetailAiNotePanel
+            isOpus={video.isOpus}
+            cardPadding={cardPadding}
+            cardRadius={cardRadius}
+            smallFontSize={responsiveStyle.fontSize.small}
+            keypoints={aiNoteKeypoints}
+            durationSeconds={keypointBarDurationSeconds}
+            loading={aiNoteLoading}
+            error={aiNoteError}
+            markdown={aiNoteMarkdown}
+            folderPath={aiNoteFolderPath}
+            onRefresh={() => setAiNoteRevision((revision) => revision + 1)}
+            onOpenPanel={() => navigate(`${aiPanelPath}#note`, {
+              state: { initialFileId: aiNoteEffectiveFileId || undefined },
+            })}
+            onSeekToSeconds={handleSeekToSeconds}
+          />
         </div>
       )}
 
@@ -3096,7 +2911,23 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
       </div>
       {!isCompactLayout && !video.isOpus && (
         <div className="video-detail-right">
-          {renderAiNotePanel()}
+          <VideoDetailAiNotePanel
+            isOpus={video.isOpus}
+            cardPadding={cardPadding}
+            cardRadius={cardRadius}
+            smallFontSize={responsiveStyle.fontSize.small}
+            keypoints={aiNoteKeypoints}
+            durationSeconds={keypointBarDurationSeconds}
+            loading={aiNoteLoading}
+            error={aiNoteError}
+            markdown={aiNoteMarkdown}
+            folderPath={aiNoteFolderPath}
+            onRefresh={() => setAiNoteRevision((revision) => revision + 1)}
+            onOpenPanel={() => navigate(`${aiPanelPath}#note`, {
+              state: { initialFileId: aiNoteEffectiveFileId || undefined },
+            })}
+            onSeekToSeconds={handleSeekToSeconds}
+          />
         </div>
       )}
       </div>
