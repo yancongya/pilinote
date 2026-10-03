@@ -8,6 +8,12 @@
 
 ## 测试位置与运行方式
 
+### 重构安全冒烟
+
+`bash scripts/smoke-refactor.sh` 执行定向前端单测、类型、纯模块边界及临时运行目录/内存 DB 后端回归；`--build` 可选构建。退出时核验真实状态和已有暂存内容不变，不安装依赖。详见 [refactor-smoke.md](./refactor-smoke.md)。
+
+真实浏览器的受控 API 流程单独执行，覆盖桌面/移动详情、分 P、合集、重下载、AI 面板和请求乱序，详见 [pilinote-browser-regression.md](./pilinote-browser-regression.md)。不能把本地冒烟通过或 `--list` 视为真实账号、下载、模型及完整后端验收。
+
 ### 根目录 Playwright：`tests/*.spec.ts`
 
 这些测试覆盖页面与部分 API 流程；其中若干用例需要已启动的前端/后端，或会访问
