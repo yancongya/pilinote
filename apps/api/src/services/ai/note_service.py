@@ -21,6 +21,7 @@ from src.models.download import Download
 from src.llm import LLMProvider, LLMClientFactory, LLMMessage
 from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS
 from src.services.ai.nfo_reader import NFOReader
+from src.services.ai import note_context
 from src.services.ai import note_pipeline
 from src.services.ai.task_control import task_control_registry
 from src.services.settings_service import SettingsService
@@ -71,65 +72,19 @@ def _compact_markdown_for_memory(markdown: str) -> str:
 
 
 def _detect_transcript_language(text: str) -> str:
-    """Heuristic language detection for subtitles/transcripts.
-
-    Returns: 'zh' | 'en' | 'mixed' | 'unknown'
-    """
-    if not text:
-        return "unknown"
-    sample = text[:20000]
-    cjk = sum(1 for ch in sample if "\u4e00" <= ch <= "\u9fff")
-    latin = sum(1 for ch in sample if ("a" <= ch.lower() <= "z"))
-    total_letters = cjk + latin
-    if total_letters < 50:
-        return "unknown"
-    cjk_ratio = cjk / max(1, total_letters)
-    latin_ratio = latin / max(1, total_letters)
-    if cjk_ratio >= 0.75:
-        return "zh"
-    if latin_ratio >= 0.75:
-        return "en"
-    return "mixed"
+    return note_context.detect_transcript_language(text)
 
 
 def _build_language_policy_block(lang: str) -> str:
-    if lang == "zh":
-        return (
-            "## 语言与术语策略\n"
-            "- 检测到字幕主要为中文（zh）。\n"
-            "- 笔记必须输出中文；专业名词/品牌/快捷键等可保留英文原文。\n"
-            "- 遇到英文术语：保留英文 + 给出简短中文解释（同一术语全文保持一致）。"
-        )
-    if lang == "en":
-        return (
-            "## 语言与术语策略\n"
-            "- 检测到字幕主要为英文（en）。\n"
-            "- 笔记必须输出中文为主，但要保留关键英文术语原文。\n"
-            "- 处理顺序：\n"
-            "  1) 先在正文最前生成 `## 术语对照表`（8-20 条）：`- English term: 中文解释`（必要时补充缩写全称）。\n"
-            "  2) 再用中文按章节整理内容；术语首次出现时沿用对照表的翻译与写法。\n"
-            "- 不要让整篇笔记在中英文之间摇摆。"
-        )
-    if lang == "mixed":
-        return (
-            "## 语言与术语策略\n"
-            "- 检测到字幕为中英混合（mixed）。\n"
-            "- 笔记以中文为主，英文术语保留原文；首次出现时给出中文解释。\n"
-            "- 先生成 `## 术语对照表`（8-20 条），统一关键术语的中文翻译。\n"
-            "- 对同一术语/概念保持全篇一致的翻译与写法。"
-        )
-    return (
-        "## 语言与术语策略\n"
-        "- 无法可靠判断字幕语言（unknown）。\n"
-        "- 笔记仍必须输出中文为主；英文术语可保留并附中文解释。"
-    )
+    return note_context.build_language_policy_block(lang)
 
 
 def _normalize_note_formats(formats: Optional[List[str]]) -> List[str]:
-    if not formats:
-        return list(DEFAULT_FORMATS)
-    normalized = [format_name for format_name in formats if format_name in _SUPPORTED_NOTE_FORMATS]
-    return normalized or list(DEFAULT_FORMATS)
+    return note_context.normalize_note_formats(
+        formats,
+        supported_formats=_SUPPORTED_NOTE_FORMATS,
+        default_formats=DEFAULT_FORMATS,
+    )
 
 
 def _resume_analysis_worker(
@@ -598,8 +553,8 @@ class AiNoteService:
         # prefer feeding the LLM an SRT transcript when available, because it
         # includes subtitle timecodes the model can reference.
         normalized_formats = _normalize_note_formats(formats)
-        wants_timecoded_transcript = any(
-            format_name in {"screenshot", "timestamps"} for format_name in normalized_formats
+        wants_timecoded_transcript = note_context.wants_timecoded_transcript(
+            normalized_formats
         )
         if wants_timecoded_transcript:
             video_file = Path(video_path)
@@ -1240,13 +1195,11 @@ class AiNoteService:
             series_memory = ""
             if pipeline_mode == "series":
                 series_memory = self._read_series_memory(actual_file_path)
-            merged_extras = extras
-            if series_memory:
-                merged_extras = f"## 系列记忆（来自历史分析，请遵循）\n{series_memory}\n\n{extras or ''}".strip()
-
-            transcript_lang = _detect_transcript_language(str(context.get("transcript") or ""))
-            lang_block = _build_language_policy_block(transcript_lang)
-            merged_extras = f"{lang_block}\n\n{merged_extras or ''}".strip()
+            transcript_lang, merged_extras = note_context.prepare_prompt_extras(
+                transcript=str(context.get("transcript") or ""),
+                extras=extras,
+                series_memory=series_memory,
+            )
 
             prompt = self._build_prompt_from_context(
                 context=context,
@@ -1635,8 +1588,8 @@ class AiNoteService:
             raise
 
         normalized_formats = _normalize_note_formats(formats)
-        wants_timecoded_transcript = any(
-            format_name in {"screenshot", "timestamps"} for format_name in normalized_formats
+        wants_timecoded_transcript = note_context.wants_timecoded_transcript(
+            normalized_formats
         )
         if wants_timecoded_transcript:
             srt_path = str(video_file.with_suffix(".srt"))
