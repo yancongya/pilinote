@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { MarkdownEditor } from '../MarkdownEditor'
+import { getApiBaseUrl } from '../../../config/api'
 
 describe('MarkdownEditor', () => {
   it('renders edit mode with a textarea and mode buttons', () => {
@@ -43,7 +44,7 @@ describe('MarkdownEditor', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: '标题' })).toBeTruthy()
     expect(screen.getByRole('img', { name: '截图' }).getAttribute('src')).toBe(
-      'http://localhost:8000/api/library/image?file_path=%2Fdownloads%2Fvideo%2Fimages%2Fframe.png',
+      `${getApiBaseUrl()}/api/library/image?file_path=%2Fdownloads%2Fvideo%2Fimages%2Fframe.png`,
     )
     expect(screen.queryByRole('textbox')).toBeNull()
   })

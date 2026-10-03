@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, beforeEach } from 'vitest'
 
 import { MarkdownPreview } from '../MarkdownPreview'
+import { getApiBaseUrl } from '../../../config/api'
 import {
   createHeadingIdGenerator,
   extractMarkdownText,
@@ -15,7 +16,7 @@ describe('markdownPreviewUtils', () => {
 
   it('resolves local image paths against the source folder', () => {
     expect(resolveMarkdownImageUrl('images/frame.png', '/downloads/video')).toBe(
-      'http://localhost:8000/api/library/image?file_path=%2Fdownloads%2Fvideo%2Fimages%2Fframe.png',
+      `${getApiBaseUrl()}/api/library/image?file_path=%2Fdownloads%2Fvideo%2Fimages%2Fframe.png`,
     )
   })
 
@@ -64,7 +65,7 @@ const answer = 42;
     expect(screen.getByText('引用文本')).not.toBeNull()
     expect(screen.getByRole('link', { name: '外链' }).getAttribute('href')).toBe('https://example.com')
     expect(screen.getByRole('img', { name: '截图' }).getAttribute('src')).toBe(
-      'http://localhost:8000/api/library/image?file_path=%2Fdownloads%2Fvideo%2Fimages%2Fframe.png',
+      `${getApiBaseUrl()}/api/library/image?file_path=%2Fdownloads%2Fvideo%2Fimages%2Fframe.png`,
     )
     expect(screen.getByText('const answer = 42;')).not.toBeNull()
   })

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getApiBaseUrl } from '../config/api'
 
 import {
   parseLocalOpusMarkdown,
@@ -24,7 +25,7 @@ describe('videoDetailOpus', () => {
       {
         type: 'image',
         alt: '图文图片 1',
-        src: 'http://localhost:8000/api/library/image?file_path=%2Fdownloads%2F%E7%A4%BA%E4%BE%8B%E5%9B%BE%E6%96%87%2Fimages%2Fa.png',
+        src: `${getApiBaseUrl()}/api/library/image?file_path=%2Fdownloads%2F%E7%A4%BA%E4%BE%8B%E5%9B%BE%E6%96%87%2Fimages%2Fa.png`,
       },
     ])
   })
