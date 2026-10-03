@@ -39,6 +39,7 @@ PYTHON_FORBIDDEN_NAMES = {
 }
 TS_MODULES = (
     Path("apps/web/src/pages/videoDetailKeypoints.ts"),
+    Path("apps/web/src/pages/videoDetailDownloadPayloads.ts"),
     Path("apps/web/src/pages/videoDetailPlayback.ts"),
     Path("apps/web/src/utils/newQueueNormalization.ts"),
 )
