@@ -1,5 +1,8 @@
 import ast
+import importlib.util
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "src" / "services" / "ai" / "note_service.py"
@@ -97,3 +100,99 @@ def test_main_flow_passes_complete_prompt_inputs_to_pure_preparation():
         "transcript_lang",
         "merged_extras",
     ]
+
+
+def load_bound_output_wrappers(tmp_path):
+    output_path = MODULE_PATH.with_name("note_outputs.py")
+    spec = importlib.util.spec_from_file_location("isolated_note_outputs", output_path)
+    assert spec is not None and spec.loader is not None
+    note_outputs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(note_outputs)
+
+    method_names = (
+        "_resolve_index_path",
+        "_read_note_index_output",
+        "_write_note_index_output",
+        "_resolve_series_root",
+        "_read_series_memory",
+        "_update_series_memory",
+    )
+    class_node = ast.ClassDef(
+        name="BoundOutputWrappers",
+        bases=[],
+        keywords=[],
+        body=[find_method("AiNoteService", name) for name in method_names],
+        decorator_list=[],
+    )
+    module = ast.fix_missing_locations(
+        ast.Module(
+            body=[
+                ast.ImportFrom(
+                    module="__future__",
+                    names=[ast.alias(name="annotations")],
+                    level=0,
+                ),
+                class_node,
+            ],
+            type_ignores=[],
+        )
+    )
+    namespace = {
+        "note_outputs": note_outputs,
+        "app_settings": SimpleNamespace(default_download_path=tmp_path / "downloads"),
+        "_safe_read_json": note_outputs.safe_read_json,
+        "_compact_markdown_for_memory": note_outputs.compact_markdown_for_memory,
+        "Path": Path,
+    }
+    exec(compile(module, str(MODULE_PATH), "exec"), namespace)
+    return namespace["BoundOutputWrappers"], namespace, note_outputs
+
+
+def test_index_wrappers_honor_overridden_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    base_class, _, _ = load_bound_output_wrappers(tmp_path)
+    custom_path = tmp_path / "custom.index.json"
+    custom_path.write_text('{"legacy": true}', encoding="utf-8")
+
+    class CustomService(base_class):
+        def _resolve_index_path(self, source_path, note_id):
+            return custom_path
+
+    service = CustomService()
+    assert service._read_note_index_output("missing.mp4", "note-1") == {"legacy": True}
+    written_path = service._write_note_index_output(
+        "missing.mp4",
+        "note-1",
+        markdown_path="note.md",
+        input_fingerprint="input",
+        cache_fingerprint="cache",
+        pipeline_mode="single",
+        style="default",
+        formats=["summary"],
+        model_provider="provider",
+        model_name="model",
+    )
+
+    assert written_path == str(custom_path)
+    assert json.loads(custom_path.read_text(encoding="utf-8"))["note_id"] == "note-1"
+    assert not (tmp_path / "missing.ai-note.index.json").exists()
+
+
+def test_series_wrappers_honor_overridden_root_and_compactor(tmp_path):
+    base_class, namespace, note_outputs = load_bound_output_wrappers(tmp_path)
+    custom_root = tmp_path / "custom-series"
+    custom_root.mkdir()
+    memory_path = custom_root / note_outputs.SERIES_MEMORY_FILENAME
+    memory_path.write_text('{"memory_text": "旧记忆"}', encoding="utf-8")
+
+    class CustomService(base_class):
+        def _resolve_series_root(self, video_path):
+            return custom_root
+
+    namespace["_compact_markdown_for_memory"] = lambda markdown: "覆盖后的摘要"
+    service = CustomService()
+    assert service._read_series_memory("missing.mp4") == "旧记忆"
+    assert service._update_series_memory("missing.mp4", "note-1", "# 原文") == str(memory_path)
+    payload = json.loads(memory_path.read_text(encoding="utf-8"))
+    assert payload["memory_text"] == "旧记忆\n\n覆盖后的摘要"
+    assert payload["series_root"] == str(custom_root)

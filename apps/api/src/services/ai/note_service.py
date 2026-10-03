@@ -1,6 +1,5 @@
 import os
 import re
-import json
 import logging
 import time
 import multiprocessing
@@ -22,6 +21,7 @@ from src.llm import LLMProvider, LLMClientFactory, LLMMessage
 from src.llm.prompts import PromptBuilder, DEFAULT_STYLE, DEFAULT_FORMATS, NOTE_FORMATS
 from src.services.ai.nfo_reader import NFOReader
 from src.services.ai import note_context
+from src.services.ai import note_outputs
 from src.services.ai import note_pipeline
 from src.services.ai.task_control import task_control_registry
 from src.services.settings_service import SettingsService
@@ -38,37 +38,15 @@ _SCREENSHOT_MARKER_PATTERN = re.compile(
     r"\*?Screenshot-\[((?:\d{1,2}:)?\d{2}:\d{2})\]\*?"
 )
 
-_SERIES_MEMORY_FILENAME = "series.ai-note.memory.json"
+_SERIES_MEMORY_FILENAME = note_outputs.SERIES_MEMORY_FILENAME
 
 
 def _safe_read_json(path: Path) -> Dict[str, Any]:
-    try:
-        if not path.exists():
-            return {}
-        raw = path.read_text(encoding="utf-8")
-        if not raw.strip():
-            return {}
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    return note_outputs.safe_read_json(path)
 
 
 def _compact_markdown_for_memory(markdown: str) -> str:
-    """Compact markdown into short reusable memory (no LLM)."""
-    if not markdown:
-        return ""
-    lines = [line.rstrip() for line in markdown.splitlines()]
-    picked: List[str] = []
-    for line in lines:
-        if line.startswith("#"):
-            picked.append(line)
-        elif line.lstrip().startswith(("-", "*")) and len(picked) < 40:
-            picked.append(line)
-        if len(picked) >= 50:
-            break
-    compact = "\n".join(picked).strip()
-    return compact[:4000]
+    return note_outputs.compact_markdown_for_memory(markdown)
 
 
 def _detect_transcript_language(text: str) -> str:
@@ -2162,31 +2140,15 @@ class AiNoteService:
     def _write_markdown_output(
         self, source_path: str, note_id: str, markdown: str
     ) -> str:
-        source_file = Path(source_path)
-        output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
-        output_dir.mkdir(parents=True, exist_ok=True)
-        base_name = source_file.stem
-        if base_name.endswith(".ai-note"):
-            base_name = base_name[: -len(".ai-note")]
-        if not base_name or source_file.name.startswith("."):
-            base_name = source_file.parent.name or note_id
-        output_path = output_dir / f"{base_name}.ai-note.md"
-        output_path.write_text(markdown, encoding="utf-8")
-        return str(output_path)
+        return note_outputs.write_markdown_output(source_path, note_id, markdown)
 
     def _resolve_index_path(self, source_path: str, note_id: str) -> Path:
-        source_file = Path(source_path)
-        output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
-        output_dir.mkdir(parents=True, exist_ok=True)
-        base_name = source_file.stem
-        if base_name.endswith(".ai-note"):
-            base_name = base_name[: -len(".ai-note")]
-        if not base_name or source_file.name.startswith("."):
-            base_name = source_file.parent.name or note_id
-        return output_dir / f"{base_name}.ai-note.index.json"
+        return note_outputs.resolve_index_path(source_path, note_id)
 
     def _read_note_index_output(self, source_path: str, note_id: str) -> Dict[str, Any]:
-        return _safe_read_json(self._resolve_index_path(source_path, note_id))
+        return note_outputs.read_note_index_output(
+            self._resolve_index_path(source_path, note_id), _safe_read_json
+        )
 
     def _write_note_index_output(
         self,
@@ -2209,36 +2171,23 @@ class AiNoteService:
         This index allows stable cache hits even when the DB is missing, and it
         moves together with the episode folder when the series layout changes.
         """
-        source_file = Path(source_path)
-        output_dir = source_file.parent if source_file.parent.exists() else Path.cwd()
-        output_dir.mkdir(parents=True, exist_ok=True)
-        base_name = source_file.stem
-        if base_name.endswith(".ai-note"):
-            base_name = base_name[: -len(".ai-note")]
-        if not base_name or source_file.name.startswith("."):
-            base_name = source_file.parent.name or note_id
-
-        index_path = output_dir / f"{base_name}.ai-note.index.json"
-        payload = {
-            "schema": 1,
-            "note_id": note_id,
-            "source_path": str(source_path),
-            "markdown_path": str(markdown_path),
-            "input_fingerprint": input_fingerprint,
-            "cache_fingerprint": cache_fingerprint,
-            "pipeline_mode": pipeline_mode,
-            "style": style,
-            "formats": list(formats or []),
-            "model_provider": model_provider,
-            "model_name": model_name,
-            "extras": extras or "",
-            "transcript_language": transcript_language or "",
-            "updated_at": datetime.utcnow().isoformat() + "Z",
-        }
-        index_path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        return note_outputs.write_note_index_output(
+            self._resolve_index_path(source_path, note_id),
+            source_path,
+            note_id,
+            {
+                "markdown_path": str(markdown_path),
+                "input_fingerprint": input_fingerprint,
+                "cache_fingerprint": cache_fingerprint,
+                "pipeline_mode": pipeline_mode,
+                "style": style,
+                "formats": list(formats or []),
+                "model_provider": model_provider,
+                "model_name": model_name,
+                "extras": extras or "",
+                "transcript_language": transcript_language or "",
+            },
         )
-        return str(index_path)
 
     def _resolve_series_root(self, video_path: str) -> Path:
         """Resolve a stable-ish series root folder for both layouts.
@@ -2248,50 +2197,23 @@ class AiNoteService:
           looks like a series root: contains tvshow.nfo OR name starts with '系列-'.
         - Fallback to the immediate parent.
         """
-        video_file = Path(video_path)
-        start = video_file.parent if video_file.is_file() else video_file
-        downloads_root = Path(app_settings.default_download_path)
-        current = start
-        best = start
-        while True:
-            if current.name.startswith("系列-") or (current / "tvshow.nfo").exists():
-                best = current
-            if current == downloads_root or current.parent == current:
-                break
-            if downloads_root in current.parents:
-                current = current.parent
-                continue
-            break
-        return best
+        return note_outputs.resolve_series_root(
+            video_path, str(app_settings.default_download_path)
+        )
 
     def _read_series_memory(self, video_path: str) -> str:
-        root = self._resolve_series_root(video_path)
-        payload = _safe_read_json(root / _SERIES_MEMORY_FILENAME)
-        memory = payload.get("memory_text") if isinstance(payload, dict) else ""
-        return str(memory or "").strip()
+        return note_outputs.read_series_memory(
+            self._resolve_series_root(video_path), _safe_read_json
+        )
 
     def _update_series_memory(self, video_path: str, note_id: str, markdown: str) -> str:
-        root = self._resolve_series_root(video_path)
-        memory_path = root / _SERIES_MEMORY_FILENAME
-        payload = _safe_read_json(memory_path)
-        prev = str(payload.get("memory_text") or "").strip()
-        delta = _compact_markdown_for_memory(markdown)
-        if not delta:
-            return str(memory_path)
-        merged = (prev + "\n\n" + delta).strip() if prev else delta
-        merged = merged[:6000]
-        out = {
-            "schema": 1,
-            "series_root": str(root),
-            "updated_at": datetime.utcnow().isoformat() + "Z",
-            "updated_by_note_id": note_id,
-            "memory_text": merged,
-        }
-        try:
-            memory_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception as exc:
-            logger.warning("Failed to write series memory: %s", exc)
-        return str(memory_path)
+        return note_outputs.update_series_memory(
+            self._resolve_series_root(video_path),
+            note_id,
+            markdown,
+            _safe_read_json,
+            _compact_markdown_for_memory,
+        )
 
     def get_note(self, note_id: str) -> Optional[AiNote]:
         note = self.db.query(AiNote).filter(AiNote.id == note_id).first()
