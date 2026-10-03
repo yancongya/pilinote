@@ -32,6 +32,7 @@ import {
   type VideoDetailData,
 } from './videoDetailCache'
 import { MarkdownPreview } from '../components/ai/MarkdownPreview'
+import { parseAiNoteKeypoints } from './videoDetailKeypoints'
 
 interface VideoDetailPageProps {
   type?: 'video' | 'opus'
@@ -978,69 +979,7 @@ export default function VideoDetailPage({ type = 'video' }: VideoDetailPageProps
     })
   }
 
-  const parseTimestampToSeconds = (timestamp: unknown): number | null => {
-    if (typeof timestamp !== 'string') return null
-    const trimmed = timestamp.trim()
-    const match = trimmed.match(/^(\d{1,2}:)?\d{2}:\d{2}$/)
-    if (!match) return null
-    const parts = trimmed.split(':').map(Number)
-    if (parts.some(p => !Number.isFinite(p))) return null
-    if (parts.length === 2) {
-      const [mm, ss] = parts
-      return mm * 60 + ss
-    }
-    if (parts.length === 3) {
-      const [hh, mm, ss] = parts
-      return hh * 3600 + mm * 60 + ss
-    }
-    return null
-  }
-
-  type AiNoteKeypoint = { timestamp: string; seconds: number; title: string }
-
-  const aiNoteKeypoints = useMemo<AiNoteKeypoint[]>(() => {
-    if (!aiNoteMarkdown.trim()) return []
-    const lines = aiNoteMarkdown.split(/\r?\n/)
-
-    const results: AiNoteKeypoint[] = []
-    const seen = new Set<number>()
-
-    const pushPoint = (timestamp: unknown, title: unknown) => {
-      const seconds = parseTimestampToSeconds(timestamp)
-      if (seconds === null) return
-      if (seconds < 0) return
-      if (seen.has(seconds)) return
-      seen.add(seconds)
-      const ts = typeof timestamp === 'string' ? timestamp.trim() : ''
-      const tt = typeof title === 'string' ? title.trim() : ''
-      if (!ts) return
-      results.push({ timestamp: ts, seconds, title: tt })
-    }
-
-    // Prefer the explicit "## 时间戳" section.
-    const tsHeadingIndex = lines.findIndex(line => /^\s*##\s*时间戳\s*$/.test(line))
-    if (tsHeadingIndex >= 0) {
-      for (let i = tsHeadingIndex + 1; i < lines.length; i++) {
-        const line = lines[i]
-        if (/^\s*#{1,6}\s+/.test(line)) break
-        const itemMatch = line.match(/^\s*-\s*((?:[0-9]{1,2}:)?[0-9]{2}:[0-9]{2})\s+(.+)\s*$/)
-        if (!itemMatch) continue
-        pushPoint(itemMatch[1], itemMatch[2])
-      }
-    }
-
-    // Fallback: scan headings with timestamps.
-    if (results.length === 0) {
-      for (const line of lines) {
-        const headingMatch = line.match(/^\s*#{2,6}\s*(([0-9]{1,2}:)?[0-9]{2}:[0-9]{2})\s+(.+)\s*$/)
-        if (!headingMatch) continue
-        pushPoint(headingMatch[1], headingMatch[3])
-      }
-    }
-
-    results.sort((a, b) => a.seconds - b.seconds)
-    return results.slice(0, 18)
-  }, [aiNoteMarkdown])
+  const aiNoteKeypoints = useMemo(() => parseAiNoteKeypoints(aiNoteMarkdown), [aiNoteMarkdown])
 
   const keypointBarDurationSeconds = useMemo(() => {
     const fallback = typeof video?.duration === 'number' ? video.duration : Number(video?.duration || 0)
