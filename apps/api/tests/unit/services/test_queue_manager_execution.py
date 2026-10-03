@@ -1,3 +1,5 @@
+import sys
+import types
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,8 +16,17 @@ from src.services.queue.scheduler import SchedulerService
 from src.services.queue.task import TaskService
 
 
+@pytest.fixture
+def mock_settings_service_module(monkeypatch):
+    module = types.ModuleType("src.services.settings_service")
+    monkeypatch.setitem(sys.modules, "src.services.settings_service", module)
+    return module
+
+
 @pytest.mark.asyncio
-async def test_queue_manager_executes_task_with_temp_and_output_dirs(tmp_path):
+async def test_queue_manager_executes_task_with_temp_and_output_dirs(
+    tmp_path, mock_settings_service_module
+):
     task_id = str(uuid.uuid4())
     task = Task(
         id=task_id,
@@ -62,9 +73,9 @@ async def test_queue_manager_executes_task_with_temp_and_output_dirs(tmp_path):
     manager = QueueManager()
     manager.tasks[task_id] = task
     manager._complete_task = AsyncMock()
+    mock_settings_service_module.SettingsService = FakeSettingsService
 
     with patch("src.services.queue.task.TaskService", FakeTaskService), \
-         patch("src.services.settings_service.SettingsService", FakeSettingsService), \
          patch("src.services.queue.manager.SessionLocal", return_value=MagicMock()):
         await manager._execute_task(task_id)
 
@@ -176,7 +187,8 @@ def test_scheduler_subtasks_use_episode_filenames_and_include_avatar():
     assert any(subtask["type"] == "AVATAR" for subtask in subtasks)
 
 
-def test_scheduler_writes_series_nfo(tmp_path):
+@pytest.mark.asyncio
+async def test_scheduler_writes_series_nfo(tmp_path):
     scheduler = MagicMock()
     scheduler.title = "合集标题"
     scheduler.folder = str(tmp_path / "series")
@@ -198,8 +210,9 @@ def test_scheduler_writes_series_nfo(tmp_path):
     )
     service = SchedulerService(scheduler)
     service.tasks = {task.id: task}
+    service._ensure_series_artwork = AsyncMock()
 
-    service._write_series_nfo()
+    await service._write_series_nfo()
 
     nfo_path = tmp_path / "series" / "tvshow.nfo"
     assert nfo_path.exists()
@@ -209,7 +222,9 @@ def test_scheduler_writes_series_nfo(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_scheduler_runs_episode_tasks_in_shared_series_folder(tmp_path):
+async def test_scheduler_runs_episode_tasks_in_shared_series_folder(
+    tmp_path, mock_settings_service_module
+):
     scheduler = MagicMock()
     scheduler.folder = str(tmp_path / "series")
     task = Task(
@@ -253,9 +268,9 @@ async def test_scheduler_runs_episode_tasks_in_shared_series_folder(tmp_path):
     service.concurrency_control = MagicMock()
     service.concurrency_control.acquire = AsyncMock(return_value=True)
     service.concurrency_control.release = AsyncMock()
+    mock_settings_service_module.SettingsService = FakeSettingsService
 
-    with patch("src.services.settings_service.SettingsService", FakeSettingsService), \
-         patch("src.services.queue.task.TaskService", FakeTaskService), \
+    with patch("src.services.queue.task.TaskService", FakeTaskService), \
          patch("src.services.queue.scheduler.SessionLocal", return_value=MagicMock()):
         await service._run_task(task)
 
@@ -266,7 +281,9 @@ async def test_scheduler_runs_episode_tasks_in_shared_series_folder(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_scheduler_runs_collection_tasks_in_episode_subfolder(tmp_path):
+async def test_scheduler_runs_collection_tasks_in_episode_subfolder(
+    tmp_path, mock_settings_service_module
+):
     scheduler = MagicMock()
     scheduler.folder = str(tmp_path / "collection")
     task = Task(
@@ -310,9 +327,9 @@ async def test_scheduler_runs_collection_tasks_in_episode_subfolder(tmp_path):
     service.concurrency_control = MagicMock()
     service.concurrency_control.acquire = AsyncMock(return_value=True)
     service.concurrency_control.release = AsyncMock()
+    mock_settings_service_module.SettingsService = FakeSettingsService
 
-    with patch("src.services.settings_service.SettingsService", FakeSettingsService), \
-         patch("src.services.queue.task.TaskService", FakeTaskService), \
+    with patch("src.services.queue.task.TaskService", FakeTaskService), \
          patch("src.services.queue.scheduler.SessionLocal", return_value=MagicMock()):
         await service._run_task(task)
 
