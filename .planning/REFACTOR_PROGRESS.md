@@ -127,3 +127,31 @@ GPT-6 Sol / low 独立审查无 P1/P2 阻塞；补齐语言阈值/采样、完�
 服务委托测试使用 AST，只能证明调用结构，不能证明服务初始化/事务/worker 运行。下载 hook mock 不能覆盖详情页独立合集、剩余分 P 或跨路由时序，已在模块地图中明确保留后续验收。边界脚本只检查直接静态/动态依赖与常见模式，不是全仓安全证明。
 
 每次按显式文件清单提交，原 staged 二进制快照复核一致；原迁移、删除、未跟踪测试及其他用户工作不纳入本轮提交。所有本里程碑新增代码、测试和文档均按主题提交，不自动推送。当前 A–E 整理里程碑完成，已记录的历史失败和范围外集成/架构工作仍未解决。
+
+## 后续阶段：默认测试基线修复（2026-10-03）
+
+用户授权继续，本阶段将上一里程碑的四项 URL 断言与一项 NFO 测试失败作为独立任务修复，而非顺带改变生产行为。沿用 6 Luna、5.6 Sol 执行及 6 Sol 审查，全部 low、无 Astra。
+
+### 分阶段提交
+
+- `580f4df`：定义测试修复范围和验收，见 REFACTOR_TEST_BASELINE_PLAN.md。
+- `5905928`：四处图片 URL 断言使用实际基址，独立保留 endpoint、编码 query、alt/heading/内容断言；新增八项 API 配置规则测试，固定 runtime/env/默认优先级、开发 loopback/LAN、生产相对路径、图片编码和 WebSocket 契约，测试后恢复环境与全局对象。
+- `0d24889`：NFO 测试变为 async 并显式 await，mock artwork，仍断言 tmp_path 下文件内容；三处队列测试通过 sys.modules 模块替身获取 FakeSettingsService，避免 mock 导入真实服务时初始化 ASR singleton。
+- 收尾文档同步实际通过结果及测试隔离边界。生产 API 配置、scheduler、页面、hook 和服务实现没有改动。
+
+### 当前验证
+
+- 默认 API 环境：全前端 24 文件、132 项通过，不再需要 localhost 覆盖才能通过旧断言。
+- 显式 localhost 环境：全前端 24 文件、132 项通过。
+- 非本地基址 https://api.example.test/pilinote///：四个配置/图文/Markdown 文件、19 项通过，不发网络请求；执行代理另在默认、localhost 和非本地基址分别验证三文件 11 项。
+- TypeScript project build 和 Vite production build 通过；原 CSS、bundle、混合导入及 Browserslist 警告保留。
+- 后端在启动 pytest 前设置临时 PILINOTE_RUNTIME_DIR 和内存 DATABASE_URL，激活已有 venv，禁用缺 libpq 的 PostgreSQL 插件，以 -W error::RuntimeWarning、-o addopts= 和 30 秒测试超时运行上一轮五个定向文件及 test_queue_manager_execution.py：35 项通过，12 项既有 Pydantic/SQLAlchemy 弃用警告。七项队列测试全部通过，原 NFO 失败及未 await 警告消失。
+- 标准库边界脚本通过。未运行全库 coverage、真实账号/下载/模型或完整浏览器 E2E；本轮不声称这些已验收。
+
+### 隔离审计与保留
+
+审查发现原 patch SettingsService 会先导入真实模块，经 AI 包初始化刷新 ASR registry。执行代理首次测试前记录该 JSON 已为 Git M，但没有内容快照，无法判断差异来源；因此没有用 HEAD 覆盖这份状态缓存，也未将它提交。
+
+模块替身 fixture 会恢复 sys.modules，但只在测试执行阶段有效，不能防止其他文件收集时导入真实服务。临时运行目录是当前定向回归的额外保护；ai_runtime_state_service 的路径不受该变量隔离。本轮对 ASR registry、AI runtime 缓存和生产数据库做运行前后 SHA-256 比对，最终隔离回归三份内容均不变；执行代理另确认 registry mtime 不变。哈希是检测，不是全仓写入防护。
+
+6 Sol / low 对最终 fixture、完整断言及环境恢复独立审查无 P1/P2。原 staged 二进制快照保持一致，其他已有迁移/删除/缓存差异保留，未 push。上一里程碑的五项测试失败已在此阶段解决，历史记录中的通过/失败计数仍保留当时事实。

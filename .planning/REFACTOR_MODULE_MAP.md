@@ -35,7 +35,7 @@
 - `apps/web/src/utils/newQueueNormalization.ts`：纯归一化；`stores/newQueue.ts` 保留公开 re-export、持久化和请求。
 - `useVideoDownload`：选中分 P 与重复/已完成/重下载控制。mock 测试不代表真实下载或详情整页流程通过。
 - `apps/api/src/services/queue/` 与 `unified_queue_manager.py`：保留不同入口，不进行架构合并。
-- 当前 `test_queue_manager_execution.py` 有一个旧测试以同步方式调用 async `_write_series_nfo`，导致产物不存在；本轮没有改该测试或 scheduler 实现。
+- 后续基线修复已让 NFO 测试显式 await `_write_series_nfo`，并 mock artwork；设置服务采用模块替身，避免导入真实 ASR singleton。七项队列执行测试通过，scheduler 生产实现未改。
 
 ## 边界检查
 
@@ -44,6 +44,6 @@
 ## 验证边界
 
 - 根 Playwright：本轮重新发现 263 个测试；未执行有登录、队列变更或网络副作用的完整套件。
-- 前端：全单测需区别默认 API 基址的 4 项旧断言失败与显式 localhost 基址的通过结果；类型和生产构建单独记录。
+- 前端：四项旧 URL 断言已跟随实际基址并保留独立路径/query 断言；新增八项基址契约测试。默认环境全单测已通过；类型和生产构建单独记录。
 - 后端：本轮建立了被忽略的 `apps/api/venv` 并按原依赖清单安装；SQLite/纯模块 pytest 禁用缺 libpq 的 PostgreSQL 插件。服务委托 AST 测试不是运行时集成验证。
 - 具体计数、命令、审查及提交以 `REFACTOR_PROGRESS.md` 当前里程碑记录为准。

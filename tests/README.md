@@ -32,14 +32,15 @@ Vite 的单测发现限制为 `src/` 下的 `*.test.ts(x)` / `*.spec.ts(x)`，�
 pnpm --dir apps/web test:run
 ```
 
-部分既有图文/Markdown 测试固定断言 `http://localhost:8000`，但默认 API 配置使用
-`127.0.0.1`。本轮默认环境仍有 4 项旧断言失败；受控基址下的完整单测命令为：
+图文/Markdown 测试的预期基址已改为当前配置，仍独立断言完整 API 路径与编码 query。
+默认环境不再需要显式 localhost 才能通过；也可验证环境覆盖：
 
 ```bash
 VITE_API_BASE_URL=http://localhost:8000 pnpm --dir apps/web test:run
 ```
 
-这是测试环境差异，不代表已修复默认配置或验证真实后端。
+`apiConfig.test.ts` 另以固定预期测试 runtime/env/默认基址优先级、生产相对路径、
+localhost/IPv6/LAN、图片路径编码与 WebSocket 配置；这些单测不请求真实后端。
 
 可针对单个文件执行：
 
@@ -91,6 +92,14 @@ python ../../scripts/check_refactor_boundaries.py
 ```
 
 边界检查使用标准库，不加载后端服务；检查所列纯模块的直接依赖和常见 IO，不是全仓依赖分析或安全证明。
+
+队列执行测试将设置服务模块替换为 fixture，避免 `patch()` 导入真实 AI/ASR singleton
+刷新本地运行态。涉及服务导入的回归仍建议在启动 pytest 前设置临时 `PILINOTE_RUNTIME_DIR`
+和 `DATABASE_URL=sqlite:///:memory:`；仅在测试函数开始后设置环境可能晚于模块初始化。
+NFO 测试显式 await 异步生成，并 mock 封面/头像步骤，产物仅落在 pytest 临时目录。
+`ai_runtime_state_service.py` 的缓存路径仍固定在项目内，不受运行目录变量隔离；本轮依靠
+模块替身避免导入，再用运行前后内容哈希核验未改动。哈希核验是改动检测，不是写入防护，
+不能把这个受控测试文件的结果推广为所有后端测试均已隔离。
 
 ## 生成文件
 
