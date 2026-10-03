@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   readDetailCache: vi.fn(),
   writeDetailCache: vi.fn(),
   checkBeforeAdd: vi.fn(),
+  toggleDownload: vi.fn(),
   queueStore: {
     tasks: {},
     forceClearCache: vi.fn(),
@@ -63,7 +64,7 @@ vi.mock('../../stores/newQueue', () => ({
 }))
 
 vi.mock('../../hooks/useVideoDownload', () => ({
-  useVideoDownload: () => ({ toggleDownload: vi.fn() }),
+  useVideoDownload: () => ({ toggleDownload: mocks.toggleDownload }),
   getCollectionParts: () => [],
   getDownloadParts: (_summary: unknown, detail: { pages?: unknown[] }) =>
     detail.pages || [],
@@ -86,7 +87,18 @@ vi.mock('../../config/api', () => ({
 }))
 
 vi.mock('../../components/AlertModal', () => ({
-  default: () => null,
+  default: ({ isOpen, title, message, onConfirm }: {
+    isOpen: boolean
+    title: string
+    message: string
+    onConfirm?: () => void
+  }) => isOpen ? (
+    <div role="dialog">
+      <h2>{title}</h2>
+      <p>{message}</p>
+      {onConfirm && <button onClick={onConfirm}>确认重下载</button>}
+    </div>
+  ) : null,
 }))
 
 vi.mock('../components/VideoDetailPresenters', () => ({
@@ -113,13 +125,6 @@ vi.mock('../videoDetailOpus', async importOriginal => {
     parseLocalOpusMarkdown: () => [],
   }
 })
-
-vi.mock('../videoDetailDownloadPayloads', () => ({
-  buildCollectionTaskPayload: () => ({}),
-  buildDetailDownloadOptions: () => ({}),
-  buildOpusTaskPayload: () => ({}),
-  buildSchedulerPayload: () => ({}),
-}))
 
 import VideoDetailPage from '../VideoDetailPage'
 import { buildDetailCacheKey } from '../videoDetailCache'
@@ -287,6 +292,29 @@ describe('VideoDetailPage route request ownership', () => {
     mocks.parseDownloadUrl.mockResolvedValue({ success: false, message: 'missing' })
     mocks.getLocalFile.mockResolvedValue({ success: false, error: 'missing' })
     mocks.checkBeforeAdd.mockResolvedValue({ success: true })
+    mocks.toggleDownload.mockResolvedValue({ success: true, message: 'mock submitted' })
+  })
+
+  it.each(['success', 'failure', 'throw'] as const)('keeps confirmed download outcome truthful: %s', async outcome => {
+    mocks.getVideoDetail.mockResolvedValue(videoResponse('A1'))
+    mocks.checkBeforeAdd.mockResolvedValue({ action: 'show_confirm' })
+    if (outcome === 'throw') {
+      mocks.toggleDownload.mockRejectedValue(new Error('mock submission failed'))
+    } else {
+      mocks.toggleDownload.mockResolvedValue({ success: outcome === 'success', message: 'mock result' })
+    }
+    renderRoutes()
+    await screen.findByRole('heading', { name: 'Video A1' })
+    fireEvent.click(screen.getByRole('button', { name: '添加到列表' }))
+    fireEvent.click(await screen.findByRole('button', { name: '确认重下载' }))
+
+    expect(await screen.findByRole('heading', { name: outcome === 'success' ? '操作成功' : '操作失败' })).toBeTruthy()
+    expect(mocks.toggleDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ bvid: 'A1' }),
+      null,
+      expect.objectContaining({ forceRedownload: true })
+    )
+    if (outcome !== 'success') expect(screen.queryByText('已重新添加到下载列表')).toBeNull()
   })
 
   it('ignores an old successful detail response after a newer route succeeds', async () => {

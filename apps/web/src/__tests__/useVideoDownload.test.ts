@@ -190,6 +190,49 @@ describe('useVideoDownload.toggleDownload', () => {
     createScheduler.mockResolvedValue({ success: true, data: { id: 'scheduler-1' } })
   })
 
+  it('supports a confirmed download without a DOM mouse event', async () => {
+    getVideoDetail.mockResolvedValue({ success: true, data: { cid: 101 } })
+    const { result } = renderHook(() => useVideoDownload())
+
+    const response = await act(async () =>
+      result.current.toggleDownload(video, null, { forceRedownload: true })
+    )
+
+    expect(response.success).toBe(true)
+    expect(submitTask).toHaveBeenCalledWith(expect.objectContaining({ media_id: video.bvid }))
+  })
+
+  it('does not cancel an active task when confirming a re-download', async () => {
+    const controlTask = vi.fn()
+    useNewQueueStore.setState({
+      tasks: { active: createQueueTask('active', 'pending') },
+      controlTask,
+    } as never)
+    const { result } = renderHook(() => useVideoDownload())
+
+    const response = await act(async () =>
+      result.current.toggleDownload(video, null, { forceRedownload: true })
+    )
+
+    expect(response.success).toBe(false)
+    expect(response.message).toContain('已在下载列表中')
+    expect(controlTask).not.toHaveBeenCalled()
+    expect(submitTask).not.toHaveBeenCalled()
+    expect(deleteTask).not.toHaveBeenCalled()
+  })
+
+  it('reports failed submission for a confirmation without a mouse event', async () => {
+    getVideoDetail.mockResolvedValue({ success: true, data: { cid: 101 } })
+    submitTask.mockResolvedValue({ success: false, message: 'mock submission rejected' })
+    const { result } = renderHook(() => useVideoDownload())
+
+    const response = await act(async () =>
+      result.current.toggleDownload(video, null, { forceRedownload: true })
+    )
+
+    expect(response.success).toBe(false)
+  })
+
   it('blocks a completed whole-video task unless forceRedownload is set', async () => {
     useNewQueueStore.setState({ tasks: { completed: createQueueTask('completed', 'completed') } } as never)
     const { result } = renderHook(() => useVideoDownload())

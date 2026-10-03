@@ -324,14 +324,14 @@ export function useVideoDownload() {
    */
   const toggleDownload = useCallback(async (
     video: VideoInfo,
-    e: React.MouseEvent,
+    e: React.MouseEvent | null,
     options: ToggleDownloadOptions = {}
   ): Promise<{success: boolean, message: string, shouldNavigateToLibrary?: boolean}> => {
     // 阻止事件冒泡，避免触发父元素的事件
-    e.stopPropagation()
+    e?.stopPropagation()
 
     // 防止重复点击
-    const button = e.currentTarget as HTMLButtonElement | null
+    const button = e?.currentTarget as HTMLButtonElement | null | undefined
     if (button && button.disabled) {
       return {success: false, message: '操作进行中'}
     }
@@ -361,6 +361,11 @@ export function useVideoDownload() {
         const shouldBlockCompleted = !options.selectedPages || options.selectedPages.size === 0
         const isDownloaded = shouldBlockCompleted && relatedTasks.some(task => task.state === 'completed')
         const completedTasks = relatedTasks.filter(task => task.state === 'completed')
+
+        if (options.forceRedownload && isInNewQueue) {
+          resetButton()
+          return { success: false, message: '视频已在下载列表中，无需重新添加' }
+        }
 
         if (isInNewQueue) {
           // 从新下载系统移除（标记为取消）

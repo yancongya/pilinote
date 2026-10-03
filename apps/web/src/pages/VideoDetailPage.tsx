@@ -1322,7 +1322,7 @@ const handleDownloadCollection = async (e: React.MouseEvent) => {
   }
 }
 
-const performDownload = async (video: any, e: React.MouseEvent, options?: { forceRedownload?: boolean }) => {
+const performDownload = async (video: any, e: React.MouseEvent | null, options?: { forceRedownload?: boolean }) => {
   setDownloading(true)
   try {
     if (type !== 'opus') {
@@ -1371,7 +1371,7 @@ const performDownload = async (video: any, e: React.MouseEvent, options?: { forc
           type: 'error'
         })
       }
-      return
+      return result.success
     }
 
     const taskPayload = buildOpusTaskPayload({
@@ -1390,6 +1390,7 @@ const performDownload = async (video: any, e: React.MouseEvent, options?: { forc
         message: '已添加到下载队列',
         type: 'success'
       })
+      return true
     } else {
       setAlertModal({
         show: true,
@@ -1397,6 +1398,7 @@ const performDownload = async (video: any, e: React.MouseEvent, options?: { forc
         message: response.message || '添加下载失败',
         type: 'error'
       })
+      return false
     }
   } catch (error) {
     console.error('操作失败:', error)
@@ -1406,6 +1408,7 @@ const performDownload = async (video: any, e: React.MouseEvent, options?: { forc
       message: '添加下载失败',
       type: 'error'
     })
+    return false
   } finally {
     setDownloading(false)
   }
@@ -1451,7 +1454,8 @@ const handleReDownloadConfirm = async (targetVideo = selectedVideo) => {
   if (!targetVideo) return
   
   try {
-    await performDownload(targetVideo, {} as React.MouseEvent, { forceRedownload: true })
+    const succeeded = await performDownload(targetVideo, null, { forceRedownload: true })
+    if (!succeeded) return
     setSelectedVideo(null)
     setAlertModal({
       show: true,
