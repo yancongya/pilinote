@@ -1,0 +1,28 @@
+FROM python:3.11-slim AS dependencies
+WORKDIR /build
+COPY apps/api/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg aria2 tini ca-certificates && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 1000 --create-home app
+COPY --from=dependencies /install /usr/local
+WORKDIR /app
+COPY apps/api/main.py ./
+COPY deploy/entrypoint.py ./entrypoint.py
+COPY apps/api/src ./src
+COPY term-bases ./term-bases
+COPY apps/api/data/ai_prompt_templates.default.json ./data/
+COPY apps/api/tools/README.md apps/api/tools/setup_tools.py ./tools/
+COPY agent-harness /opt/pilinote-cli
+RUN chmod -R a+rX /app /opt/pilinote-cli && mkdir -p /app/tools/linux && ln -s /usr/bin/ffmpeg /app/tools/linux/ffmpeg && ln -s /usr/bin/aria2c /app/tools/linux/aria2c
+RUN pip install --no-cache-dir --no-build-isolation /opt/pilinote-cli && mkdir -p /runtime/data /runtime/downloads /runtime/logs /runtime/temp && chown -R app:app /runtime
+ENV PILINOTE_RUNTIME_DIR=/runtime PILINOTE_LOG_DIR=/runtime/logs PILINOTE_DOWNLOAD_PATH=/runtime/downloads PILINOTE_TEMP_PATH=/runtime/temp DATABASE_URL=sqlite:////runtime/data/pilinote.db PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app PILINOTE_TERM_BASES_DIR=/runtime/term-bases
+WORKDIR /runtime
+USER app
+VOLUME ["/runtime"]
+EXPOSE 8000
+ENTRYPOINT ["/usr/bin/tini", "--", "python", "/app/entrypoint.py"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=4 CMD ["pilinote", "--json", "health"]

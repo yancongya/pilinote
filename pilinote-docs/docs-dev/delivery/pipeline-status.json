@@ -1,0 +1,490 @@
+{
+  "schema": "myworkforce-skills-run/v1",
+  "runId": "f9a4ad63-e79f-4619-88f6-9a9882f71768",
+  "project": "/Users/tanyancong/工作/开发/pilinote",
+  "analysis": {
+    "schema": "myworkforce-analysis/v1",
+    "project": "pilinote",
+    "independentRepository": true,
+    "head": "b2c782b4c73cded65d2232f4c4be0b082384a66e",
+    "dirty": true,
+    "markers": [
+      "package.json",
+      "AGENTS.md"
+    ],
+    "evidenceLevel": "static-inventory-only"
+  },
+  "skills": {
+    "cli-anything": {
+      "id": "7c1b315a-fa03-421a-98b9-efb3dbf8260a",
+      "path": "/Users/tanyancong/.skillshub/cli-anything/SKILL.md",
+      "sha256": "b1b4364904463d01c314098da19068ddaea717ed31ba63b0b8cbbb69a9525e07"
+    },
+    "doc-workflow": {
+      "id": "78306d62-412e-4ae5-8bcf-f29f17c2dab9",
+      "path": "/Users/tanyancong/.skillshub/doc-workflow/SKILL.md",
+      "sha256": "00ee9f03df59d9ef9209dfa128bbb272a0fa271cbd109eae7a3aa586c5c9a69a"
+    },
+    "dockerize-project": {
+      "id": "015a21ed-d1db-4e25-acbb-4e708e092e68",
+      "path": "/Users/tanyancong/.skillshub/dockerize-project/SKILL.md",
+      "sha256": "4d333d9161686642b30ef649151cef97c5a79e9f2cdcd98dcf5b081231bda62d"
+    },
+    "gen-feature-docs": {
+      "id": "e81462b1-b40c-48c1-8a15-befaca9b20ee",
+      "path": "/Users/tanyancong/.skillshub/gen-feature-docs/SKILL.md",
+      "sha256": "9e6236b2de3f27231c933b0ea6646185a87e43c33cf041215a2686b19945caf8"
+    },
+    "infra-ops": {
+      "id": "b1898aca-7310-434d-b218-db3a80b2cb62",
+      "path": "/Users/tanyancong/.skillshub/infra-ops/SKILL.md",
+      "sha256": "bd85fe6e3d5cc07df91a8bc3415ecad4c6d4139dca41ba1aa6aed491b2597412"
+    },
+    "skill-creator": {
+      "id": "3da552a0-22eb-49b0-95f3-06664f7774a5",
+      "path": "/Users/tanyancong/.skillshub/skill-creator/SKILL.md",
+      "sha256": "dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf"
+    }
+  },
+  "routes": {
+    "analyze": [
+      "cli-anything"
+    ],
+    "cli": [
+      "cli-anything"
+    ],
+    "cli-test": [
+      "cli-anything"
+    ],
+    "docker": [
+      "dockerize-project"
+    ],
+    "docker-test": [
+      "dockerize-project"
+    ],
+    "nas-deploy": [
+      "dockerize-project",
+      "infra-ops"
+    ],
+    "remote-test": [
+      "infra-ops",
+      "dockerize-project"
+    ],
+    "skill": [
+      "skill-creator",
+      "cli-anything"
+    ],
+    "skill-test": [
+      "skill-creator"
+    ],
+    "docs": [
+      "doc-workflow",
+      "gen-feature-docs"
+    ],
+    "full-test": []
+  },
+  "stages": [
+    {
+      "stage": "analyze",
+      "status": "passed",
+      "invocationId": "8df91187ea5b3e0175c770618aac4051648f28e332bca354b3f79a43800777a7",
+      "readSkills": {
+        "cli-anything": "b1b4364904463d01c314098da19068ddaea717ed31ba63b0b8cbbb69a9525e07"
+      },
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/analysis.md",
+          "sha256": "d191a984c8876acab66caf7bd1795c5eed5b1957c11c7fccf2535fc8643bbc88"
+        }
+      ],
+      "evidenceLevel": "static",
+      "checkCount": 3
+    },
+    {
+      "stage": "cli",
+      "status": "passed",
+      "invocationId": "e412dc4afdf095a04eb149e7e822a99534975abbed39dcf3b6534a8134c9cb2c",
+      "readSkills": {
+        "cli-anything": "b1b4364904463d01c314098da19068ddaea717ed31ba63b0b8cbbb69a9525e07"
+      },
+      "artifacts": [
+        {
+          "path": "agent-harness/pilinote_cli/cli.py",
+          "sha256": "e1fb75360d19196d3dcbd45a21b1073b7af596d9ab142a094d93d2ab41380c76"
+        }
+      ],
+      "evidenceLevel": "local-runtime",
+      "checkCount": 2
+    },
+    {
+      "stage": "cli-test",
+      "status": "passed",
+      "invocationId": "fefcda9ed34d51f5348121c387af7a26c44aabe0616ee60ad23fc76950f4e345",
+      "readSkills": {
+        "cli-anything": "b1b4364904463d01c314098da19068ddaea717ed31ba63b0b8cbbb69a9525e07"
+      },
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/cli-acceptance.json",
+          "sha256": "194de4f74472473cea0656e016278630e77d58228ef565a191a98a451514fd06"
+        }
+      ],
+      "evidenceLevel": "local-runtime",
+      "checkCount": 3
+    },
+    {
+      "stage": "docker",
+      "status": "passed",
+      "invocationId": "84fb2627fd6796c17d7921782c4ddf84463aa789eb73506de5e0bd5663284243",
+      "readSkills": {
+        "dockerize-project": "4d333d9161686642b30ef649151cef97c5a79e9f2cdcd98dcf5b081231bda62d"
+      },
+      "artifacts": [
+        {
+          "path": "compose.production.yaml",
+          "sha256": "030ad1fec7bb0d74fc3bcd4890a6e8247afe639a3c91038f4b7c6ce9a4ee4189"
+        }
+      ],
+      "evidenceLevel": "static",
+      "checkCount": 3
+    },
+    {
+      "stage": "docker-test",
+      "status": "passed",
+      "invocationId": "859dc261c683889b8315a215c2d861b0c693cd22a8966e8d07245d3ed51336b1",
+      "readSkills": {
+        "dockerize-project": "4d333d9161686642b30ef649151cef97c5a79e9f2cdcd98dcf5b081231bda62d"
+      },
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-local-container-acceptance.json",
+          "sha256": "72fc42fcb36e0d1e03ed7c800c8e90ead01ffac10fea3049b3ea2a4fed768ec2"
+        }
+      ],
+      "evidenceLevel": "container-runtime",
+      "checkCount": 6
+    },
+    {
+      "stage": "nas-deploy",
+      "status": "passed",
+      "invocationId": "f3e167f0cae5a3a24addcd00b1ee8ca228754492d08c1d4bc2f1c1e12b2622dd",
+      "readSkills": {
+        "dockerize-project": "4d333d9161686642b30ef649151cef97c5a79e9f2cdcd98dcf5b081231bda62d",
+        "infra-ops": "bd85fe6e3d5cc07df91a8bc3415ecad4c6d4139dca41ba1aa6aed491b2597412"
+      },
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas-deployment.json",
+          "sha256": "01c6afa8dcaac8ee83ab645f0faa65d311a27cad8aae8bda1bd7bdafdcd9f5cd"
+        }
+      ],
+      "evidenceLevel": "remote-runtime",
+      "checkCount": 3
+    },
+    {
+      "stage": "remote-test",
+      "status": "passed",
+      "invocationId": "2a01d29e64ae90889a56fccc0e7d66048cfbca7bf390ea40f3ec95512e52263a",
+      "readSkills": {
+        "infra-ops": "bd85fe6e3d5cc07df91a8bc3415ecad4c6d4139dca41ba1aa6aed491b2597412",
+        "dockerize-project": "4d333d9161686642b30ef649151cef97c5a79e9f2cdcd98dcf5b081231bda62d"
+      },
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/remote-acceptance.json",
+          "sha256": "8b5c987215932971a9fa621ade59826cdfcb688ddb4e72c8849662993adbc970"
+        }
+      ],
+      "evidenceLevel": "remote-runtime",
+      "checkCount": 3
+    },
+    {
+      "stage": "skill",
+      "status": "passed",
+      "invocationId": "ac1a373e292c190752502d163b259dc085c919b082bf062fafe94ad9fa8481e0",
+      "readSkills": {
+        "skill-creator": "dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf",
+        "cli-anything": "b1b4364904463d01c314098da19068ddaea717ed31ba63b0b8cbbb69a9525e07"
+      },
+      "artifacts": [
+        {
+          "path": "skills/pilinote-cli/SKILL.md",
+          "sha256": "cd6f4c7a3c7d674e41e6a172a5810ea9ac00af96e2250f883a1268aa7cfc4585"
+        }
+      ],
+      "evidenceLevel": "static",
+      "checkCount": 3
+    },
+    {
+      "stage": "skill-test",
+      "status": "passed",
+      "invocationId": "a4f3dabf9c2b580a63b0f64e8db6fad361ea7db80e4cbe78a68d2e01fc0a7503",
+      "readSkills": {
+        "skill-creator": "dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf"
+      },
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-skill-acceptance.json",
+          "sha256": "6f0b6b632e9d7a5bb87f5873ce25bf0780bd3fd3539957d2438fd5334cb8642c"
+        }
+      ],
+      "evidenceLevel": "local-runtime",
+      "checkCount": 3
+    },
+    {
+      "stage": "docs",
+      "status": "passed",
+      "invocationId": "1c5d2bae622de3c82dae92a7a6785549fad00e461d49ea1ad6ce310a876994c7",
+      "readSkills": {
+        "doc-workflow": "00ee9f03df59d9ef9209dfa128bbb272a0fa271cbd109eae7a3aa586c5c9a69a",
+        "gen-feature-docs": "9e6236b2de3f27231c933b0ea6646185a87e43c33cf041215a2686b19945caf8"
+      },
+      "artifacts": [
+        {
+          "path": ".dockerignore",
+          "sha256": "d7f9fbdc4954d81e1de9a3787c6e49f6031ce0b7b6596e3a5e41dfa11808b5b1"
+        },
+        {
+          "path": ".gitignore",
+          "sha256": "7b75aa32c38bd26389b466b352ce609f4309dbdc85580c00d75fc3842d0c4c4a"
+        },
+        {
+          "path": "Dockerfile.api",
+          "sha256": "5e27fd9c6f84f847c1d0e6275572e44ea9c96ee826ecda55bb5d5ac75f6a569f"
+        },
+        {
+          "path": "Dockerfile.web",
+          "sha256": "545dad3460445628c0d38c702175e8997a5bd2a4dcd8beb71362f9af665120f3"
+        },
+        {
+          "path": "README.md",
+          "sha256": "a992b341dde04f69ec4c09115e9c8730b6020e24b25cf4eae4fd0abfaf2054b5"
+        },
+        {
+          "path": "agent-harness/README.md",
+          "sha256": "3f0759e622799d6b1772238a05cb1feef59f76f6bf7cbd613ade53565228f5fe"
+        },
+        {
+          "path": "agent-harness/TEST.md",
+          "sha256": "607296da960a7f71499c57b0c8c04e6c563d9834e27626dedc6cc72655470fb1"
+        },
+        {
+          "path": "agent-harness/pilinote_cli/__init__.py",
+          "sha256": "9d0f28e14d17e6ab542f16fd111f8397d25b4f1f1a2c78acfbcbfefab427ba31"
+        },
+        {
+          "path": "agent-harness/pilinote_cli/cli.py",
+          "sha256": "e1fb75360d19196d3dcbd45a21b1073b7af596d9ab142a094d93d2ab41380c76"
+        },
+        {
+          "path": "agent-harness/pyproject.toml",
+          "sha256": "e5ccc42cd98651a74a3f2726e7562c2f8dc174b4c799bdf215b03640420bf474"
+        },
+        {
+          "path": "agent-harness/tests/test_cli.py",
+          "sha256": "2eba0929c4f686baaca7274e311fa14587f7ad3c53d10517dc9ef3c0c171a176"
+        },
+        {
+          "path": "apps/api/main.py",
+          "sha256": "a10f0ea5ab91e735673433a06c3428f9e828c4b7a8cba160850f0616477626e3"
+        },
+        {
+          "path": "apps/api/src/services/ai/prompt_template_service.py",
+          "sha256": "7beadc8f6e429bbd1d3f3de41308af55151a6c635775c1f06ee560c338b4ec09"
+        },
+        {
+          "path": "apps/api/src/services/ai/term_base_service.py",
+          "sha256": "9c10a318f035f9c4084dc5a1ff7b184517ab89307fa263060282e774394ed9b6"
+        },
+        {
+          "path": "apps/api/src/services/cache/video_cache.py",
+          "sha256": "c3ee569d3acb62c85783989aed7b9fe6af79d84310ad3fb9f97b7167c7946fa0"
+        },
+        {
+          "path": "apps/api/src/services/prompt_template_service.py",
+          "sha256": "5eef5ffbf3c087815f508a7dfcc9893baea0b7b107981988409684e95b7c064d"
+        },
+        {
+          "path": "apps/api/tests/test_runtime_storage_delivery.py",
+          "sha256": "df01d96e29ac48be2a2144edcc10e7c4e5d163ca6a9f50128ff1d0c489584ed3"
+        },
+        {
+          "path": "apps/web/src/__tests__/apiConfig.test.ts",
+          "sha256": "8fea4aad67e57a95766070284dbfdcc6d5a970be954ea5de6926cbe8d228a87e"
+        },
+        {
+          "path": "apps/web/src/config/api.ts",
+          "sha256": "a0cefaa424eb349ea673f5aae6c108ec44b2b88568b917c3228596553b4a2ab5"
+        },
+        {
+          "path": "apps/web/src/stores/download.ts",
+          "sha256": "2e953e0090e978d9e0dac445ad9430a6cc52f694d11534fa50719956a1fd3720"
+        },
+        {
+          "path": "apps/web/src/stores/newQueue.ts",
+          "sha256": "c98d8482873e7bea2cf12f5eea1c62337bcac23db8f1f7e448adf79c6f5fc94c"
+        },
+        {
+          "path": "apps/web/src/stores/queue.ts",
+          "sha256": "208cd0a2704d3635859a7b5959f0a2bf4b5edf71f45d8be2ae17b2da487852d4"
+        },
+        {
+          "path": "compose.production.yaml",
+          "sha256": "030ad1fec7bb0d74fc3bcd4890a6e8247afe639a3c91038f4b7c6ce9a4ee4189"
+        },
+        {
+          "path": "deploy/entrypoint.py",
+          "sha256": "ec94e89d2846ac2af22d93687c4945b63b96d83a7088c473f66f456c4e74d857"
+        },
+        {
+          "path": "deploy/nginx.conf",
+          "sha256": "f9a738b75e89de691ee4f3848649ed9ead4321f38f9b55684b58a22d48bc08c2"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/README.md",
+          "sha256": "5607f58cbeae6e643ecd257e1af992d248300bfdf33d0e80ec899662399b5cdf"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/analysis.md",
+          "sha256": "35e1d6f173018114512c64cb33cff7626892070206d5aa371cd1dd6b705220a9"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/browser-acceptance.json",
+          "sha256": "c155bbfd6471d7770d010e1ac1581508e9058eb60385bd24d8946b0ea1e7396a"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/cli-acceptance.json",
+          "sha256": "194de4f74472473cea0656e016278630e77d58228ef565a191a98a451514fd06"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/container-acceptance.json",
+          "sha256": "77796955d32f0d0d8347cb0d27210386844c497e418aeb3ed08c8d19caec347f"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/docs-acceptance.json",
+          "sha256": "88a37109df112585f182215887c5ba27a230db0fbfc9e249b2aec34ce0cb6a86"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-local-container-acceptance.json",
+          "sha256": "fba5598fe4ed043c1eddf1f5bdf8fe87f3200636c03bd61c11fc4badaf2350bc"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-skill-acceptance.json",
+          "sha256": "6f0b6b632e9d7a5bb87f5873ce25bf0780bd3fd3539957d2438fd5334cb8642c"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/historical-cli-acceptance.json",
+          "sha256": "f2da76ec646391422c10856cc8dafa3287812bc4c943f3f4b5b5080a8c10ff58"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/local-acceptance.json",
+          "sha256": "d18e02b2ea0f45e4ec66280e1b6093940a6fe2e2e09c0f8f83ad05625613ec18"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/model-skill-evaluation.json",
+          "sha256": "b4a3d647f4aa3ce4242f34a7b5a1f1713b5d070a1e17ecbc665d57a7192758ad"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas-build-strategy.json",
+          "sha256": "6351c01d667e044f85abb644d70640c0b3f782832ffb33800c26f9e05c9ee0e0"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas-data-migration.json",
+          "sha256": "2212d507d1a8687ef317b828731c55a00c98a637fc4184fb1c066348ff85e477"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas-deployment.json",
+          "sha256": "00784b0cdca2097dc9dc0c27c19de3e2f1f11e536ea97d81d96099ec587aef2e"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas-source-identity.json",
+          "sha256": "cf6cdddb05f543e78ed5f8fe5380b4cd61426000b3baf2484dabbc0c19fa45c1"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas.md",
+          "sha256": "fef6e903dc16beea3891445616813051b59ee7df09794dd0393749eede6c1b3f"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/remote-acceptance.json",
+          "sha256": "8b5c987215932971a9fa621ade59826cdfcb688ddb4e72c8849662993adbc970"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/skill-acceptance.json",
+          "sha256": "9358b35343b8beff70d5e19637bb10a62ddc7649f95241946d95a4b4654526ae"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/index.md",
+          "sha256": "e7c1d8e03d508fb8c02d889529358edfe1d26fecb8e05e1758bd66dc36ba24cf"
+        },
+        {
+          "path": "scripts/deploy_production.py",
+          "sha256": "050dcdd8de9d06ca786e5ec6c5ef162c2359889dceca58e3d4e06d871f7e739e"
+        },
+        {
+          "path": "scripts/test_delivery_containers.py",
+          "sha256": "f9534eb8bbf2ac8c3eb90a422c3b847d643f918a21008c740dfba5586847dc43"
+        },
+        {
+          "path": "scripts/test_remote_delivery.py",
+          "sha256": "15deacb6551e7ba06c3d2ce013df9df9c64c731756d6f6605bba2d98d4eb2e98"
+        },
+        {
+          "path": "skills/pilinote-cli/SKILL.md",
+          "sha256": "cd6f4c7a3c7d674e41e6a172a5810ea9ac00af96e2250f883a1268aa7cfc4585"
+        },
+        {
+          "path": "skills/pilinote-cli/evals/evals.json",
+          "sha256": "f714ffadb3d168a3894969e13704ac0626f94d1f8d37f60f59e53a67a878778f"
+        }
+      ],
+      "evidenceLevel": "static",
+      "checkCount": 3
+    },
+    {
+      "stage": "full-test",
+      "status": "passed",
+      "invocationId": "440f61fbe3782797335de03930ed56cda143019babbccca24a03c77def026f47",
+      "readSkills": {},
+      "artifacts": [
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-chain-acceptance.json",
+          "sha256": "43aab214e732b1e64d3a779c418bfc6913a1acfb5c21d51585c4d13c8b7d3d85"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-chain-remote-check.json",
+          "sha256": "3b6dc3960151dd7820e4a299babc08032ae1c86769bd80bd490c7a9a476537c6"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/nas-source-identity.json",
+          "sha256": "cf6cdddb05f543e78ed5f8fe5380b4cd61426000b3baf2484dabbc0c19fa45c1"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/full-skill-acceptance.json",
+          "sha256": "6f0b6b632e9d7a5bb87f5873ce25bf0780bd3fd3539957d2438fd5334cb8642c"
+        },
+        {
+          "path": "pilinote-docs/docs-dev/delivery/browser-acceptance.json",
+          "sha256": "c155bbfd6471d7770d010e1ac1581508e9058eb60385bd24d8946b0ea1e7396a"
+        }
+      ],
+      "evidenceLevel": "remote-runtime",
+      "checkCount": 5
+    }
+  ],
+  "completeChain": true,
+  "attempts": [
+    {
+      "stage": "nas-deploy",
+      "status": "failed",
+      "invocationId": "f3e167f0cae5a3a24addcd00b1ee8ca228754492d08c1d4bc2f1c1e12b2622dd",
+      "readSkills": {
+        "dockerize-project": "4d333d9161686642b30ef649151cef97c5a79e9f2cdcd98dcf5b081231bda62d",
+        "infra-ops": "bd85fe6e3d5cc07df91a8bc3415ecad4c6d4139dca41ba1aa6aed491b2597412"
+      },
+      "reason": "首次 NAS native 构建从 docker.ketches.cn 获取 nginx 基础镜像时返回 502；尚未切换服务。已送入 amd64 基础镜像，使用 legacy 模式重试同阶段。"
+    }
+  ],
+  "artifactDrift": [],
+  "nextStage": null,
+  "verificationBoundary": "代理提交证据与文件摘要已核对；总控不独立证明代理确实读取 Skill 或执行外部检查。"
+}

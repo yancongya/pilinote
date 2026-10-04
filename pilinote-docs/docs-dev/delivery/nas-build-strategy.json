@@ -1,0 +1,13 @@
+{
+  "release": "workforce-20261004-4",
+  "webBuild": "local docker build --platform linux/amd64 -f Dockerfile.web .",
+  "webImageId": "sha256:f7e4542c73dcb2ee0443041d67a7a2c372dd947cbb3d171d09a00d14ba9dba86",
+  "webArchitecture": "amd64",
+  "backendBuild": "NAS native legacy builder; reused dependency layers",
+  "reason": "NAS mirror 502 and very slow dependency-layer commit",
+  "buildLogs": "local temporary logs; no secret inputs",
+  "globalDockerConfigChanged": false,
+  "webSourceRelease": "workforce-20261004-4 (rebuilt after actual browser WebSocket defect)",
+  "nasPermissionFix": "Dockerfile explicitly makes packaged source directories and files readable/traversable for nonroot; private host/runtime permissions retained",
+  "backendImageReusedFrom": "workforce-20261004-3 (unchanged backend source; release identity supplied by Compose)"
+}

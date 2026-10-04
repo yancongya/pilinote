@@ -1,0 +1,62 @@
+{
+  "release": "workforce-20261004-4",
+  "criticalSourceMatchesLocal": true,
+  "allUploadedFilesMatch": true,
+  "fileCount": 374,
+  "files": {
+    "Dockerfile.api": "5e27fd9c6f84f847c1d0e6275572e44ea9c96ee826ecda55bb5d5ac75f6a569f",
+    "deploy/entrypoint.py": "ec94e89d2846ac2af22d93687c4945b63b96d83a7088c473f66f456c4e74d857",
+    "apps/api/src/services/ai/term_base_service.py": "9c10a318f035f9c4084dc5a1ff7b184517ab89307fa263060282e774394ed9b6",
+    "apps/api/main.py": "a10f0ea5ab91e735673433a06c3428f9e828c4b7a8cba160850f0616477626e3",
+    "agent-harness/pilinote_cli/cli.py": "e1fb75360d19196d3dcbd45a21b1073b7af596d9ab142a094d93d2ab41380c76",
+    "apps/web/src/config/api.ts": "a0cefaa424eb349ea673f5aae6c108ec44b2b88568b917c3228596553b4a2ab5",
+    "apps/web/src/stores/newQueue.ts": "c98d8482873e7bea2cf12f5eea1c62337bcac23db8f1f7e448adf79c6f5fc94c",
+    "apps/web/src/stores/queue.ts": "208cd0a2704d3635859a7b5959f0a2bf4b5edf71f45d8be2ae17b2da487852d4",
+    "apps/web/src/stores/download.ts": "2e953e0090e978d9e0dac445ad9430a6cc52f694d11534fa50719956a1fd3720",
+    "deploy/nginx.conf": "f9a738b75e89de691ee4f3848649ed9ead4321f38f9b55684b58a22d48bc08c2"
+  },
+  "otherExistingServicesUnchanged": [
+    {
+      "name": "/workforce-reference",
+      "id": "7c34964c12b7a552df5fefebc460aae7b7b1a36a004f1aa4618305162ae3a03b",
+      "image": "sha256:a07c7032311351e95e39bb2f6a43dd4073f37c3d2b3ff4de5cac152b9809e21f",
+      "status": "running"
+    },
+    {
+      "name": "/hotnode-library",
+      "id": "061ccde390aef6809ecedd67871dbfe73bb855640e3ba91557c2183b57dbf77d",
+      "image": "sha256:293b1dd829499b217978de48615598f01f9f4fdaacb5f5ca205eb4ee59269ce6",
+      "status": "running"
+    },
+    {
+      "name": "/bwvault",
+      "id": "971f9848a088bc4069c56f923e3e07388ac4f421ce54ff012f4cc80260005477",
+      "image": "sha256:48c69bd15099f80b1e8272c1b87ed23c63e0939e409b6fdb95d8d491a697abae",
+      "status": "running"
+    },
+    {
+      "name": "/badnews",
+      "id": "c7bb6fcef5200fccc7850cb6974261d57bf3c8b2cd2ea097a9547b425560dbba",
+      "image": "sha256:6037819a82fdbb5fd0162f67f199f0343494c27b7e7db58a1923565db329d595",
+      "status": "running"
+    },
+    {
+      "name": "/hotnode-obsidian",
+      "id": "d0e3c827e5638fd08b5add7a57148e1ad0b102239fd2f2d83ce7930f22beed7e",
+      "image": "sha256:48126f2e19fcecd19ec9500ca3d41b37a95e3b6d13fdb5b53c68e2693a1a3754",
+      "status": "running"
+    },
+    {
+      "name": "/beecount-cloud",
+      "id": "3e0398bd98cf69c68aa45c6f320aa95b06626dfbb8f0c33a9a034ec4e4265a60",
+      "image": "sha256:b80e51c244bc1ea6b8cb949cf66c790ca6e4f197d663e1bca2ca6784cc0e0088",
+      "status": "running"
+    },
+    {
+      "name": "/openlist",
+      "id": "3a164663aa1316b85203ab25dbdefe53dc1c057e54dc35316ec69c6f9aceb6bc",
+      "image": "sha256:db771057fcc081f437e7e87609c93a9e0841108327f076f81b3032eae841d1e3",
+      "status": "running"
+    }
+  ]
+}

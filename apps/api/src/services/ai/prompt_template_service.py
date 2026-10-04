@@ -1,4 +1,5 @@
 import json
+import os
 import logging
 from copy import deepcopy
 from pathlib import Path
@@ -18,7 +19,7 @@ class PromptTemplateService:
 
     BASE_DIR = Path(__file__).resolve().parents[3] / "data"
     DEFAULT_PATH = BASE_DIR / "ai_prompt_templates.default.json"
-    OVERRIDE_PATH = BASE_DIR / "ai_prompt_templates.json"
+    OVERRIDE_PATH = Path(os.getenv("PILINOTE_RUNTIME_DIR", str(BASE_DIR.parent))) / "data" / "ai_prompt_templates.json"
 
     def get_templates(self) -> Dict[str, Any]:
         default_templates = self._read_json(self.DEFAULT_PATH)

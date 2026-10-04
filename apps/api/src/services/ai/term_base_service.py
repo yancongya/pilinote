@@ -97,8 +97,15 @@ class TermBaseService:
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
         file_exists = filepath.exists()
+        needs_separator = False
+        if file_exists and filepath.stat().st_size:
+            with filepath.open('rb') as existing:
+                existing.seek(-1, os.SEEK_END)
+                needs_separator = existing.read(1) not in (b'\n', b'\r')
 
         with open(filepath, "a", encoding="utf-8", newline="") as f:
+            if needs_separator:
+                f.write('\n')
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow(["原术语", "替换术语", "备注"])

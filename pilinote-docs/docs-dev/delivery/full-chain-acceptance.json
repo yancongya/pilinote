@@ -1,0 +1,81 @@
+{
+  "success": true,
+  "scope": "complete standard upgrade delivery pipeline; bounded business smoke",
+  "release": "workforce-20261004-4",
+  "nasUrl": "http://192.168.31.110:8080",
+  "baselineCommit": "b2c782b4c73cded65d2232f4c4be0b082384a66e",
+  "independentProject": true,
+  "noRuntimeDependencyOnMyworkforce": true,
+  "frontendTests": 74,
+  "backendSmokeTests": 50,
+  "backendExcluded": 1,
+  "cliProtocolTests": 10,
+  "runtimeStorageTests": 3,
+  "localContainerChecks": 18,
+  "finalRemoteChecks": 22,
+  "remoteRestartChecks": 24,
+  "realNasSkillChecks": 6,
+  "independentSkillModelRuns": 4,
+  "browserAfterRestart": true,
+  "docsBuild": true,
+  "originalLocalDataHashesUnchanged": {
+    "apps/api/data/pilinote.db": "da151d586932cd1d2fad0d4625372073de0ff1b6039183e5bcea6cec83005406",
+    "apps/api/data/ai_runtime_state.json": "41c25107001e34c76b4ea349578ed4104f43d3321308e3e17db3fdaa6f49541d",
+    "apps/api/data/local_asr_models.json": "e2d02bfec7205db316245ec466b9f400e61fdf38a2ef5804551f9c9a3a11dd75"
+  },
+  "otherNasServicesUnchanged": 7,
+  "databaseCounts": {
+    "users": 1,
+    "cookies": 5,
+    "tasks": 49,
+    "schedulers": 32
+  },
+  "nasImages": [
+    {
+      "id": "sha256:bae81d2cb97bb8f74a0548f9132c8807a64924948b94b76eefaa85b7ba72aa29",
+      "architecture": "amd64"
+    },
+    {
+      "id": "sha256:f7e4542c73dcb2ee0443041d67a7a2c372dd947cbb3d171d09a00d14ba9dba86",
+      "architecture": "amd64"
+    }
+  ],
+  "localImages": [
+    {
+      "id": "sha256:5e5c10e55e1bec22f3e421aef2cca63012915d441f8dc67bb89eddc0f403efc5",
+      "architecture": "arm64",
+      "os": "linux"
+    },
+    {
+      "id": "sha256:d35941bf778a01bff41bdb2ffadcdc0c75cd8b233b2dbadc26c81be5b7bf79ee",
+      "architecture": "arm64",
+      "os": "linux"
+    }
+  ],
+  "preservedHistoricalDownloadFiles": 25,
+  "pipelineRunId": "f9a4ad63-e79f-4619-88f6-9a9882f71768",
+  "globalSkillInstalled": false,
+  "upgradeChangesCommitted": false,
+  "pushed": false,
+  "notVerified": [
+    "actual Bilibili download",
+    "AI inference / paid provider",
+    "playback of every historical absolute media path",
+    "complete product business workflow"
+  ],
+  "evidence": {
+    "nas-deployment.json": "00784b0cdca2097dc9dc0c27c19de3e2f1f11e536ea97d81d96099ec587aef2e",
+    "nas-source-identity.json": "cf6cdddb05f543e78ed5f8fe5380b4cd61426000b3baf2484dabbc0c19fa45c1",
+    "remote-acceptance.json": "8b5c987215932971a9fa621ade59826cdfcb688ddb4e72c8849662993adbc970",
+    "full-chain-remote-check.json": "3b6dc3960151dd7820e4a299babc08032ae1c86769bd80bd490c7a9a476537c6",
+    "full-skill-acceptance.json": "6f0b6b632e9d7a5bb87f5873ce25bf0780bd3fd3539957d2438fd5334cb8642c",
+    "browser-acceptance.json": "c155bbfd6471d7770d010e1ac1581508e9058eb60385bd24d8946b0ea1e7396a",
+    "full-local-container-acceptance.json": "fba5598fe4ed043c1eddf1f5bdf8fe87f3200636c03bd61c11fc4badaf2350bc",
+    "docs-acceptance.json": "88a37109df112585f182215887c5ba27a230db0fbfc9e249b2aec34ce0cb6a86"
+  },
+  "testLogDigests": {
+    "pilinote-final-cli-tests.log": "e48ee16b662ca7976eab05a578d40affd68f199041a8b57eb72051967673061c",
+    "pilinote-final-runtime-tests.log": "e29583202aeca76366e3fdf7747cd8656b4d35e05d6b904ee8db1c9128063962",
+    "pilinote-browser-fix-smoke.log": "ecbc4a6615fce2ad33f31b716811ac5ecef05a50c2e58c624d59aa39fff79434"
+  }
+}

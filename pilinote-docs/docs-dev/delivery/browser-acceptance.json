@@ -1,0 +1,26 @@
+{
+  "url": "http://192.168.31.110:8080/downloads#downloads",
+  "title": "PiliNote - B站视频下载管理",
+  "release": "workforce-20261004-4",
+  "healthy": true,
+  "downloadsVisible": true,
+  "mp4": true,
+  "errors": [],
+  "failedRequests": [],
+  "badResponses": [],
+  "sockets": [
+    {
+      "url": "ws://192.168.31.110:8080/ws/queue",
+      "frames": 1
+    },
+    {
+      "url": "ws://192.168.31.110:8080/ws/queue",
+      "frames": 1
+    }
+  ],
+  "success": true,
+  "scope": "real rendered NAS home -> downloads interaction after final API restart; no mutation",
+  "verifiedAfterRestart": true,
+  "screenshot": "output/playwright/pilinote-nas-downloads.png",
+  "actualDownloadAndAIInferenceTested": false
+}

@@ -1,0 +1,31 @@
+{
+  "source": "local current SQLite consistent backup",
+  "target": "/vol1/1000/services/data/pilinote",
+  "localOriginalUnmodified": true,
+  "countsPreserved": [
+    "users",
+    "cookies",
+    "tasks",
+    "schedulers"
+  ],
+  "pathRemapping": [
+    "storage.download_path -> /runtime/downloads",
+    "storage.temp_path -> /runtime/temp"
+  ],
+  "seedDatabaseSha256": "7e3d0ca7688ccd42d100e1cbf0f42295d1b2eefd7191916b19cc8f1796379fc7",
+  "historicalArchiveUnmodified": "/vol1/1000/pilinote",
+  "noActiveTasks": true,
+  "autoDownloadDisabled": true,
+  "downloadFilesCopied": 25,
+  "downloadBytesCopied": 2410988830,
+  "allSourceFilesPresentWithSameSize": true,
+  "sampleContentDigestMatched": true,
+  "databaseCountsBeforeStartup": {
+    "users": 1,
+    "cookies": 5,
+    "tasks": 49,
+    "schedulers": 32
+  },
+  "nasDatabaseBackup": "/vol1/1000/services/pilinote/backups/workforce-20261004-1/pilinote.db",
+  "nasBackupMatchesSeed": true
+}

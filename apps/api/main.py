@@ -219,7 +219,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-static_dir = Path(__file__).parent / "static"
+static_dir = Path(os.environ["PILINOTE_RUNTIME_DIR"]) / "static" if os.getenv("PILINOTE_RUNTIME_DIR") else Path(__file__).parent / "static"
 static_dir.mkdir(parents=True, exist_ok=True)
 screenshot_dir = static_dir / "screenshots"
 screenshot_dir.mkdir(parents=True, exist_ok=True)
@@ -302,7 +302,7 @@ async def websocket_queue(websocket: WebSocket):
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "release": os.getenv("PILINOTE_RELEASE", "development")}
 
 
 # Serve built frontend (only if directory exists, e.g., in Docker/production)

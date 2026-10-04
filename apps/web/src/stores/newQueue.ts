@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { getApiUrl } from '../config/api'
+import { getApiUrl, getWebSocketUrl } from '../config/api'
 import { videoLibraryService } from '../services/videoLibraryService'
 import {
   getCompletedTaskIdentity,
@@ -82,7 +82,7 @@ export const useNewQueueStore = create<NewQueueState>()(
         const { ws } = get()
         if (ws && ws.readyState === WebSocket.OPEN) return
 
-        const wsUrl = `ws://${window.location.hostname}:8000/ws/queue`
+        const wsUrl = getWebSocketUrl('/ws/queue')
         const newWs = new WebSocket(wsUrl)
 
         newWs.onopen = () => {

@@ -1,0 +1,23 @@
+{
+  "scope": "single-agent command scenario regression, not independent model evaluation",
+  "skill": "skills/pilinote-cli/SKILL.md",
+  "checks": [
+    {
+      "name": "health and release",
+      "passed": true
+    },
+    {
+      "name": "task list",
+      "passed": true
+    },
+    {
+      "name": "queue status",
+      "passed": true
+    },
+    {
+      "name": "cancel preview",
+      "passed": true
+    }
+  ],
+  "success": true
+}

@@ -196,3 +196,7 @@ PiliNote 的目标，是让你的硬盘比你的收藏夹更懂你。
 ## Star 趋势
 
 [![Star History Chart](https://api.star-history.com/svg?repos=yancongya/pilinote&type=Date)](https://www.star-history.com/#yancongya/pilinote&Date)
+
+## CLI 与生产容器
+
+新增独立 CLI、非 root 生产镜像和隔离容器验收。安装、迁移和验收范围见 [交付文档](pilinote-docs/docs-dev/delivery/README.md)。项目 Skill 位于 `skills/pilinote-cli/SKILL.md`，运行不依赖主编排仓库。

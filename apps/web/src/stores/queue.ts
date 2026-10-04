@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { apiService } from '../services/api'
+import { getWebSocketUrl } from '../config/api'
 import { useDownloadHistoryStore } from './downloadHistory'
 import {
   ErrorClassifier,
@@ -1428,7 +1429,7 @@ export const useQueueStore = create<QueueState>()(
         const { ws, wsConnected } = get()
         if (ws && wsConnected) return
 
-        const wsUrl = `ws://${window.location.hostname}:8000/ws/queue`
+        const wsUrl = getWebSocketUrl('/ws/queue')
         const newWs = new WebSocket(wsUrl)
 
         newWs.onopen = () => {

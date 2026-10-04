@@ -92,6 +92,11 @@ export const getWebSocketUrl = (path: string = '/ws/queue'): string => {
     return `${trimTrailingSlash(envWsBaseUrl)}${path}`
   }
 
+  if (import.meta.env.PROD) {
+    const scheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${scheme}//${window.location.host}${path}`
+  }
+
   const hostname = window.location.hostname === 'localhost' || window.location.hostname === '::1'
     ? '127.0.0.1'
     : window.location.hostname

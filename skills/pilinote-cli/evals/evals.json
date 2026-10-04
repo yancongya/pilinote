@@ -1,0 +1,17 @@
+{
+  "skill_name": "pilinote-cli",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "使用已安装的 PiliNote CLI 检查 API_ORIGIN 的健康、发布标识与历史任务数量，并只预览取消其中一条任务，不实际修改。",
+      "expected_output": "真实健康、release、49 条任务与 dryRun 预览，数据不变。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "使用已安装的 PiliNote CLI 检查 API_ORIGIN 的队列和下载格式，查询不存在任务 workforce-missing-task；解释错误，不发写请求，不泄露秘密。",
+      "expected_output": "队列读取、MP4 格式与稳定失败退出码，数据不变。",
+      "files": []
+    }
+  ]
+}

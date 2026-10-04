@@ -1,0 +1,58 @@
+{
+  "success": true,
+  "scope": "installed CLI create/read/state-guard/delete on real isolated FastAPI and SQLite; lifespan off; no external download or AI",
+  "checks": [
+    {
+      "name": "real isolated API healthy",
+      "passed": true
+    },
+    {
+      "name": "create backlog task through actual backend",
+      "passed": true
+    },
+    {
+      "name": "create backlog task through actual backend",
+      "passed": true
+    },
+    {
+      "name": "created task readable through unified DB API",
+      "passed": true
+    },
+    {
+      "name": "control reaches same task registry and obeys backlog state guard",
+      "passed": true
+    },
+    {
+      "name": "reserved bulk-delete ID rejected all",
+      "passed": true
+    },
+    {
+      "name": "reserved bulk-delete ID rejected batch",
+      "passed": true
+    },
+    {
+      "name": "actual single-task delete",
+      "passed": true
+    },
+    {
+      "name": "deleted task absent from persistent DB",
+      "passed": true
+    },
+    {
+      "name": "single deletion preserves unrelated sentinel task",
+      "passed": true
+    },
+    {
+      "name": "owned sentinel cleanup",
+      "passed": true
+    },
+    {
+      "name": "isolated DB empty after cleanup",
+      "passed": true
+    },
+    {
+      "name": "no bulk delete request reached API",
+      "passed": true
+    }
+  ]
+}

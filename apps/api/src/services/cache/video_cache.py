@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from typing import Dict, List, Optional, Any
 from pathlib import Path
@@ -41,7 +42,7 @@ class VideoCacheService:
         }
 
         # 数据库路径
-        self.db_path = Path("data/video_cache.db")
+        self.db_path = Path(os.getenv("PILINOTE_RUNTIME_DIR", ".")) / "data" / "video_cache.db"
         self._init_db()
 
     def _init_db(self):

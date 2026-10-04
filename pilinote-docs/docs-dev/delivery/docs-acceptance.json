@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "docsBuild": true,
+  "linkAndFrontmatterUpdated": true,
+  "logSha256": "53cc1b619a1f866d769122bb86c8c400623bdd3915803cb3cd129f753b4c10a7",
+  "finalRelease": "workforce-20261004-4",
+  "gitDiffCheckPassed": true
+}

@@ -141,3 +141,9 @@ apps/api/data/asr_models/*
 
 # API build artifacts
 apps/api/pilinote-api-macos.spec
+
+# Local pipeline and browser evidence
+.workforce/
+/output/
+
+/skills/pilinote-cli-workspace/

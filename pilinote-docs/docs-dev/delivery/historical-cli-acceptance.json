@@ -1,0 +1,10 @@
+{
+  "health": true,
+  "formatsContainMP4": true,
+  "actualHistoricalTaskCount": 49,
+  "actualTaskRetrieval": true,
+  "installedCLIFromUnrelatedDirectory": true,
+  "realFastAPI": true,
+  "lifespan": "off for isolated read-only API acceptance; background download/AI jobs not tested",
+  "productionStateUnchanged": true
+}

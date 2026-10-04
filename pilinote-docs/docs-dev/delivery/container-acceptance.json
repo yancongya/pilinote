@@ -1,0 +1,84 @@
+{
+  "scope": "isolated-local-compose",
+  "project": "pilinote-workforce-2206641078",
+  "release": "workforce-local",
+  "checks": [
+    {
+      "name": "two running containers",
+      "passed": true
+    },
+    {
+      "name": "same-origin API release",
+      "passed": true
+    },
+    {
+      "name": "built frontend HTML",
+      "passed": true
+    },
+    {
+      "name": "WebSocket proxy upgrade",
+      "passed": true
+    },
+    {
+      "name": "persistent screenshot proxy",
+      "passed": true
+    },
+    {
+      "name": "actual isolated task API",
+      "passed": true
+    },
+    {
+      "name": "actual formats through proxy",
+      "passed": true
+    },
+    {
+      "name": "installed CLI inside image",
+      "passed": true
+    },
+    {
+      "name": "SQLite persistence across restart",
+      "passed": true
+    },
+    {
+      "name": "readonly CLI mutation preview",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: health and release",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: task list",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: queue status",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: cancel preview",
+      "passed": true
+    },
+    {
+      "name": "nonroot 344541db05d1f73ac07fe2d361f58f7915d966d66af292ce3b62db659af612e2",
+      "passed": true
+    },
+    {
+      "name": "nonroot 1597557005a72d9074d02e240fcfcde46c622cbfab72110bf941d63f9d3bf721",
+      "passed": true
+    }
+  ],
+  "images": [
+    {
+      "id": "sha256:56b251d5a742d0871881c762bc54b4d1d2e59b8bd7dddf6daba03d6cb3c79328",
+      "architecture": "arm64",
+      "os": "linux"
+    },
+    {
+      "id": "sha256:4b09fec54fa1f97a41269979ed81c4b0794b0cf8eca79f89595fec2b300025f2",
+      "architecture": "arm64",
+      "os": "linux"
+    }
+  ],
+  "success": true
+}

@@ -1,0 +1,93 @@
+{
+  "success": true,
+  "scope": "installed CLI from unrelated cwd against final real NAS; no apply",
+  "release": "workforce-20261004-4",
+  "checks": [
+    {
+      "name": "health and final NAS release",
+      "passed": true
+    },
+    {
+      "name": "49 historical tasks",
+      "passed": true
+    },
+    {
+      "name": "cancel preview only",
+      "passed": true
+    },
+    {
+      "name": "MP4 formats",
+      "passed": true
+    },
+    {
+      "name": "actual queue",
+      "passed": true
+    },
+    {
+      "name": "missing task stable failure",
+      "passed": true
+    }
+  ],
+  "taskCount": 49,
+  "coldModelEvaluation": {
+    "scope": "four independent model executions on isolated real API; lifespan disabled",
+    "cases": 2,
+    "withSkillPassed": 2,
+    "withoutSkillPassed": 2,
+    "assertionsPerRun": 4,
+    "allAssertionsPassed": true,
+    "skillImprovementEstablished": false,
+    "timingAndTokensAvailable": false,
+    "benchmarkZeroTimingIsMissingPlaceholder": true,
+    "review": "skills/pilinote-cli-workspace/iteration-1/review.html",
+    "sourceSkillSha256": "cd6f4c7a3c7d674e41e6a172a5810ea9ac00af96e2250f883a1268aa7cfc4585",
+    "runs": [
+      {
+        "case": 1,
+        "configuration": "with_skill",
+        "grading": {
+          "passed": 4,
+          "failed": 0,
+          "total": 4,
+          "pass_rate": 1.0
+        },
+        "summarySha256": "46ff09ef5e56d1149a2dbec33993365c0200a5d51b240ace7333288c42c5229c"
+      },
+      {
+        "case": 1,
+        "configuration": "without_skill",
+        "grading": {
+          "passed": 4,
+          "failed": 0,
+          "total": 4,
+          "pass_rate": 1.0
+        },
+        "summarySha256": "cdcea5d268bc3dcf2c29833096289f04205e3b594fbbbf59cc3346e94b7117ab"
+      },
+      {
+        "case": 2,
+        "configuration": "with_skill",
+        "grading": {
+          "passed": 4,
+          "failed": 0,
+          "total": 4,
+          "pass_rate": 1.0
+        },
+        "summarySha256": "f3a3b8b1c972f169dc27865cb5138ff2d56ce14b5b32bb4aee65ab3179e73a6a"
+      },
+      {
+        "case": 2,
+        "configuration": "without_skill",
+        "grading": {
+          "passed": 4,
+          "failed": 0,
+          "total": 4,
+          "pass_rate": 1.0
+        },
+        "summarySha256": "b66ba934734c5d195b7410aac2b36e20ed09691232a19293798f832bc74bbf1a"
+      }
+    ],
+    "serverLogContainsNoWriteRequests": true
+  },
+  "globalSkillInstalled": false
+}

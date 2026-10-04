@@ -1,0 +1,31 @@
+services:
+  api:
+    image: pilinote-api:${PILINOTE_RELEASE:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      PILINOTE_RELEASE: ${PILINOTE_RELEASE:-local}
+    volumes:
+      - ${PILINOTE_RUNTIME_DIR:-./runtime}:/runtime
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+  web:
+    image: pilinote-web:${PILINOTE_RELEASE:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "${PILINOTE_WEB_BIND:-127.0.0.1}:${PILINOTE_WEB_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      api:
+        condition: service_healthy

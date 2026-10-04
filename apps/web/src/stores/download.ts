@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { apiService } from '../services/api'
+import { getWebSocketUrl } from '../config/api'
 import { useDownloadHistoryStore } from './downloadHistory'
 
 // 下载状态枚举
@@ -911,7 +912,7 @@ export const useDownloadStore = create<DownloadState>()(
         const { ws, wsConnected } = get()
         if (ws && wsConnected) return
         
-        const wsUrl = `ws://${window.location.hostname}:8000/ws/downloads`
+        const wsUrl = getWebSocketUrl('/ws/downloads')
         const newWs = new WebSocket(wsUrl)
         
         newWs.onopen = () => {

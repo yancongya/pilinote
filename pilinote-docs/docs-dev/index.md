@@ -9,3 +9,5 @@ description: PiliNote 开发文档入口
 
 - 从这里开始阅读：[`README`](./README.md)
 
+
+- [独立 CLI 与生产容器交付](./delivery/README.md)

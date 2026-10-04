@@ -70,4 +70,12 @@ describe('API base configuration', () => {
     })
     expect(getWebSocketUrl('/ws/test')).toBe('wss://runtime.example.test/ws/test')
   })
+  it('uses the same production origin and port for WebSocket', () => {
+    vi.stubEnv('PROD', true)
+    vi.stubGlobal('window', { location: { hostname: 'nas.example', host: 'nas.example:8080', protocol: 'http:' } })
+    expect(getWebSocketUrl()).toBe('ws://nas.example:8080/ws/queue')
+    vi.stubGlobal('window', { location: { hostname: 'nas.example', host: 'nas.example', protocol: 'https:' } })
+    expect(getWebSocketUrl()).toBe('wss://nas.example/ws/queue')
+  })
+
 })

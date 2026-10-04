@@ -1,0 +1,9 @@
+{
+  "health": true,
+  "formatsContainMP4": true,
+  "isolatedTasksEmpty": true,
+  "installedCLIFromUnrelatedDirectory": true,
+  "realFastAPI": true,
+  "lifespan": "off for isolated read-only API acceptance; background download/AI jobs not tested",
+  "productionStateUnchanged": true
+}

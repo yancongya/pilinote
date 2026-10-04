@@ -1,0 +1,30 @@
+{
+  "baselineCommit": "b2c782b4c73cded65d2232f4c4be0b082384a66e",
+  "scope": "local upgrade only",
+  "frontendTests": 74,
+  "backendSmokeTests": 50,
+  "backendExcluded": 1,
+  "cliProtocolTests": 10,
+  "runtimeStorageTests": 1,
+  "containerChecks": 16,
+  "skillCommandScenarios": 4,
+  "frontendBuild": true,
+  "typeCheck": true,
+  "docsBuild": true,
+  "productionStateUnchanged": [
+    "database",
+    "ASR registry",
+    "AI runtime state"
+  ],
+  "nasDeployment": false,
+  "remoteAcceptance": false,
+  "fullRemoteChain": false,
+  "notVerified": [
+    "actual Bilibili download",
+    "AI inference",
+    "complete browser workflow"
+  ],
+  "globalSkillInstalled": false,
+  "upgradeChangesCommitted": false,
+  "pushed": false
+}

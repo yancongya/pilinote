@@ -1,0 +1,92 @@
+{
+  "scope": "isolated-local-compose",
+  "project": "pilinote-workforce-7d04d64ffa",
+  "release": "workforce-local",
+  "checks": [
+    {
+      "name": "two running containers",
+      "passed": true
+    },
+    {
+      "name": "same-origin API release",
+      "passed": true
+    },
+    {
+      "name": "built frontend HTML",
+      "passed": true
+    },
+    {
+      "name": "WebSocket proxy upgrade",
+      "passed": true
+    },
+    {
+      "name": "persistent screenshot proxy",
+      "passed": true
+    },
+    {
+      "name": "actual isolated task API",
+      "passed": true
+    },
+    {
+      "name": "actual formats through proxy",
+      "passed": true
+    },
+    {
+      "name": "installed CLI inside image",
+      "passed": true
+    },
+    {
+      "name": "mutable term defaults and save",
+      "passed": true
+    },
+    {
+      "name": "SQLite persistence across restart",
+      "passed": true
+    },
+    {
+      "name": "custom terms persist across restart",
+      "passed": true
+    },
+    {
+      "name": "readonly CLI mutation preview",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: health and release",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: task list",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: queue status",
+      "passed": true
+    },
+    {
+      "name": "Skill scenario: cancel preview",
+      "passed": true
+    },
+    {
+      "name": "nonroot 0350a03b2f88fa981faf20546d9bafa1641b97342c6d39c94911ecc80d7d9aff",
+      "passed": true
+    },
+    {
+      "name": "nonroot 4732789e36af795b9a0e9f8f090f56b6ae770715d9d597ec47b900190818fed8",
+      "passed": true
+    }
+  ],
+  "images": [
+    {
+      "id": "sha256:5e5c10e55e1bec22f3e421aef2cca63012915d441f8dc67bb89eddc0f403efc5",
+      "architecture": "arm64",
+      "os": "linux"
+    },
+    {
+      "id": "sha256:d35941bf778a01bff41bdb2ffadcdc0c75cd8b233b2dbadc26c81be5b7bf79ee",
+      "architecture": "arm64",
+      "os": "linux"
+    }
+  ],
+  "success": true
+}
