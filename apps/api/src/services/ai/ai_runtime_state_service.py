@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 API_ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = API_ROOT / "data"
+DATA_DIR = Path(os.getenv("PILINOTE_RUNTIME_DIR", str(API_ROOT))) / "data"
 RUNTIME_STATE_FILE = DATA_DIR / "ai_runtime_state.json"
 RUNTIME_STATE_VERSION = 1
 
