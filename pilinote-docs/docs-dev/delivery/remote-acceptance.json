@@ -1,7 +1,7 @@
 {
   "scope": "real NAS HTTP + SSH + installed CLI",
   "url": "http://192.168.31.110:8080",
-  "release": "workforce-20261004-4",
+  "release": "workforce-20261004-5",
   "checks": [
     {
       "name": "NAS release through frontend proxy",
@@ -102,7 +102,7 @@
   ],
   "images": [
     {
-      "id": "sha256:bae81d2cb97bb8f74a0548f9132c8807a64924948b94b76eefaa85b7ba72aa29",
+      "id": "sha256:f1dcd74bdb3779a819b743a75d0d128fee4ddbfefce9db82f19d2607cca14430",
       "architecture": "amd64"
     },
     {
