@@ -12,11 +12,11 @@
       "error": "Cannot send a request, as the client has been closed."
     },
     "base": {
-      "download_state": "ready",
-      "progress": 100.0,
+      "download_state": "not_downloaded",
+      "progress": 0.0,
       "downloaded_bytes": 148897792,
       "total_bytes": 148897792,
-      "ready": true,
+      "ready": false,
       "active": true,
       "updated_at": "2026-04-18T22:30:53.489295",
       "error": null
