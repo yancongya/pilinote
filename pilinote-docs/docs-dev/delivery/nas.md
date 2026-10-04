@@ -39,7 +39,7 @@ NAS 首次保存网页依赖层非常慢，最终网页镜像改为本机构建 
 
 ## 回滚
 
-本轮为 NAS 首次上线 PiliNote，上线前没有旧运行容器。`workforce-20261004-1` 是失败构建目录，未上线，不是完整回滚版本；`workforce-20261004-2` 启动因源码目录权限失败，同样不是可用回滚版本。`workforce-20261004-3` 的 API 验收通过，但浏览器发现旧队列 WebSocket 端口问题。最终验收版本是 `workforce-20261004-4`。如需恢复到上线前无服务状态，可在 current 目录按相同环境运行 `docker compose -p pilinote -f compose.production.yaml down`，保留所有运行数据和历史归档；不要带 --volumes 或删除运行目录。
+本轮为 NAS 首次上线 PiliNote，上线前没有旧运行容器。`workforce-20261004-1` 是失败构建目录，未上线，不是完整回滚版本；`workforce-20261004-2` 启动因源码目录权限失败，同样不是可用回滚版本。`workforce-20261004-3` 的 API 验收通过，但浏览器发现旧队列 WebSocket 端口问题。`workforce-20261004-4` 的浏览器验收通过；最终包含 CLI 控制面修复的版本是 `workforce-20261004-5`。如需恢复到上线前无服务状态，可在 current 目录按相同环境运行 `docker compose -p pilinote -f compose.production.yaml down`，保留所有运行数据和历史归档；不要带 --volumes 或删除运行目录。
 
 后续升级保留之前镜像标签和 releases，previous-release.txt 指向切换前版本。回滚前先停服务和备份当前数据库，再用旧 release 标签、同一 runtime 路径执行 Compose up --no-build --wait。若存在不兼容数据库迁移，须恢复与旧版本匹配的备份，不能只换镜像。
 

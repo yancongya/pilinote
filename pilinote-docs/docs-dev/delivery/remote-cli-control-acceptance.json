@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "release": "workforce-20261004-5",
+  "scope": "read-only remote CLI safety checks",
+  "checks": [
+    {"name": "reserved all ID rejected before HTTP", "passed": true},
+    {"name": "reserved batch ID rejected before HTTP", "passed": true},
+    {"name": "historical task count preserved", "passed": true, "count": 49},
+    {"name": "restart persistence preserved users cookies tasks schedulers", "passed": true, "counts": {"users": 1, "cookies": 5, "tasks": 49, "schedulers": 32}}
+  ],
+  "businessTaskMutation": false,
+  "externalDownloadOrAIInference": false
+}
