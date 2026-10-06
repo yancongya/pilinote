@@ -40,6 +40,13 @@ class CLITests(unittest.TestCase):
         return subprocess.run([CLI,'--json','--api-url',f'http://127.0.0.1:{self.server.server_port}',*args],input=input,cwd='/',text=True,capture_output=True)
     def test_installed_help_unrelated_directory(self):
         self.assertEqual(self.call('--help').returncode,0)
+    def test_capabilities_is_local_and_lists_api_domains(self):
+        n=len(Handler.calls); r=self.call('capabilities'); self.assertEqual(r.returncode,0)
+        data=json.loads(r.stdout); self.assertIn('favorites', data['data']['domains']); self.assertEqual(len(Handler.calls),n)
+    def test_generic_api_write_is_preview_and_path_is_restricted(self):
+        r=self.call('api','post','/api/favorites/folders','--input','-',input='{}')
+        self.assertEqual(r.returncode,0); self.assertTrue(json.loads(r.stdout)['dryRun'])
+        self.assertEqual(self.call('api','get','/etc/passwd').returncode,2)
     def test_actual_http_json_redacted(self):
         r=self.call('health');self.assertEqual(r.returncode,0);data=json.loads(r.stdout)
         self.assertEqual(data['data']['status'],'healthy');self.assertNotIn('secret-canary',r.stdout)

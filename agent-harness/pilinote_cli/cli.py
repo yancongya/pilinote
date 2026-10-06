@@ -117,7 +117,6 @@ def operation(args):
     if args.group == 'health': return 'GET', '/health', body
     if args.group == 'formats': return 'GET', '/api/download/format/options', body
     if args.group == 'queue-status': return 'GET', '/api/unified-queue/status', body
-    if args.group == 'capabilities': return 'GET', '/api/pilinote-cli/capabilities', body
     if args.group == 'api':
         if args.api_action == 'get': return 'GET', args.path, body
         if args.input == '-':
