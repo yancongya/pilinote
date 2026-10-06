@@ -10,6 +10,11 @@ pilinote --json formats
 pilinote --json tasks list
 pilinote --json tasks get TASK_ID
 pilinote --json queue-status
+pilinote --json capabilities
+pilinote --json api get /api/favorites/folders
+# 任意已授权 API 写操作默认预览，执行必须显式 --apply
+pilinote --json api post /api/history/list --input - < payload.json
+pilinote --json api post /api/history/list --input - --apply < payload.json
 pilinote --json notes status NOTE_ID
 pilinote --json notes get NOTE_ID
 pilinote --json tasks cancel TASK_ID
@@ -28,7 +33,7 @@ pilinote --json tasks create --input - --apply < task.json
 
 退出码：0 成功/预览，1 网络/HTTP/业务/输入失败，2 参数用法错误。JSON 字段 schema/success/dryRun/data，预览仅显示 method/path。拒绝 URL 内嵌凭据、重定向、超大响应和路径 ID 注入。
 
-测试：安装后设置 `PILINOTE_CLI=/absolute/path/to/pilinote`，运行 `python -m unittest discover -s agent-harness/tests -v`；再运行 `python3 scripts/test_cli_lifecycle.py --cli "$PILINOTE_CLI" --output pilinote-docs/docs-dev/delivery/cli-lifecycle-acceptance.json`，验证真实隔离 FastAPI 上的创建、读取、状态保护、删除和清理。协议测试使用临时 HTTP 服务；真实 API 与容器检查见项目 delivery 验收记录。第一版未覆盖账户管理、配置导入导出、全部媒体/AI 业务和 REPL，不声称替代全部 Web 功能。
+测试：安装后设置 `PILINOTE_CLI=/absolute/path/to/pilinote`，运行 `python -m unittest discover -s agent-harness/tests -v`；再运行 `python3 scripts/test_cli_lifecycle.py --cli "$PILINOTE_CLI" --output pilinote-docs/docs-dev/delivery/cli-lifecycle-acceptance.json`，验证真实隔离 FastAPI 上的创建、读取、状态保护、删除和清理。协议测试使用临时 HTTP 服务；真实 API 与容器检查见项目 delivery 验收记录。`capabilities` 与受限 `api` 适配层覆盖认证、收藏、稍后再看、历史、视频、媒体、下载、队列、订阅、自动下载、媒体库、笔记、AI/ASR、设置、缓存和指标等 API 域。
 
 ## Agent 能力边界
 

@@ -12,6 +12,7 @@ description: 使用 PiliNote 原生 CLI 作为 Agent 控制面检查服务、任
 3. 控制任务用 `tasks pause|cancel|retry|delete TASK_ID`，笔记用 `notes pause|resume|cancel NOTE_ID`。默认预览不发请求。用户明确授权实际改变后追加 `--apply`。
 4. 创建任务用 `tasks create --input -`，stdin JSON 至少含 media_id、media_type；先预览，实际提交再 --apply。不要把 Cookie 或 Token 放命令行。
 5. 核对退出码、success 和业务字段；预览 dryRun=true 不等于实际操作完成。失败不要从未知正文泄露凭据，不自动重试删除或创建，先核对实际状态。CLI 是控制面，不在 CLI 内实现 ASR、识图或模型 SDK。
+6. 先运行 `pilinote --json capabilities` 发现完整能力域。对于尚未形成专用子命令的接口，使用 `api get PATH` 或 `api post|put|patch|delete PATH --input -`；路径必须属于 CLI 白名单，写请求继续要求 `--apply`。可用域包含 auth、favorites、watch-later、history、video、media、download、queue、subscriptions、auto-download、library、video-library、note、local、ai、settings、cache、metrics。
 
 全局 --json/--api-url/--timeout 放在子命令之前。可用 PILINOTE_API_URL 指定服务 origin；令牌仅由授权环境或 bwvault 提供。复用服务既有登录态，不要求重新登录，不访问生产数据库文件。HTTP 入口是否对外有鉴权取决于服务部署，CLI 不是服务器访问控制层。
 

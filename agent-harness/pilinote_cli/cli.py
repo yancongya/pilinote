@@ -9,6 +9,11 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 
 SENSITIVE = re.compile(r'password|secret|token|cookie|authorization|sessdata|bili_jct|api.?key|credential', re.I)
 LIMIT = 8 * 1024 * 1024
+API_PREFIXES = ('/api/auth', '/api/favorites', '/api/watch-later', '/api/history',
+                '/api/video', '/api/media', '/api/download', '/api/queue',
+                '/api/unified-queue', '/api/subscriptions', '/api/auto-download',
+                '/api/library', '/api/video-library', '/api/note', '/api/local',
+                '/api/ai', '/api/settings', '/api/cache', '/api/metrics', '/health')
 
 
 def redact(value):
@@ -40,6 +45,12 @@ def positive_timeout(value):
     if not 0 < timeout <= 120:
         raise argparse.ArgumentTypeError('Timeout must be between 0 and 120 seconds')
     return timeout
+
+
+def api_path(value):
+    if not value.startswith('/') or '..' in value or not any(value == p or value.startswith(p + '/') or value.startswith(p + '?') for p in API_PREFIXES):
+        raise argparse.ArgumentTypeError('Path must be an allowed PiliNote API path')
+    return value
 
 
 def request(base, method, path, body, timeout):
@@ -91,6 +102,13 @@ def parser():
         cmd = notes.add_parser(name); cmd.add_argument('id', type=identifier)
         if name in ('pause', 'resume', 'cancel'): cmd.add_argument('--apply', action='store_true')
     groups.add_parser('queue-status')
+    groups.add_parser('capabilities')
+    api = groups.add_parser('api', help='调用已授权的 PiliNote API；写请求默认预览')
+    api_groups = api.add_subparsers(dest='api_action', required=True)
+    get = api_groups.add_parser('get'); get.add_argument('path', type=api_path)
+    for method in ('post', 'put', 'patch', 'delete'):
+        cmd = api_groups.add_parser(method); cmd.add_argument('path', type=api_path)
+        cmd.add_argument('--input', choices=['-']); cmd.add_argument('--apply', action='store_true')
     return p
 
 
@@ -99,6 +117,14 @@ def operation(args):
     if args.group == 'health': return 'GET', '/health', body
     if args.group == 'formats': return 'GET', '/api/download/format/options', body
     if args.group == 'queue-status': return 'GET', '/api/unified-queue/status', body
+    if args.group == 'capabilities': return 'GET', '/api/pilinote-cli/capabilities', body
+    if args.group == 'api':
+        if args.api_action == 'get': return 'GET', args.path, body
+        if args.input == '-':
+            raw = sys.stdin.read(LIMIT + 1)
+            if len(raw) > LIMIT: raise ValueError('Input exceeds size limit')
+            body = json.loads(raw)
+        return args.api_action.upper(), args.path, body
     if args.group == 'tasks':
         if args.action == 'list': return 'GET', '/api/unified-queue/tasks', body
         if args.action == 'create':
@@ -121,6 +147,14 @@ def operation(args):
 def main():
     args = parser().parse_args()
     try:
+        if args.group == 'capabilities':
+            result = {'schema': 'pilinote-cli/v1', 'success': True, 'dryRun': False, 'data': {
+                'transport': 'http-api', 'read': ['health', 'formats', 'queue-status', 'tasks', 'notes', 'api get PATH'],
+                'write': ['tasks', 'notes', 'api post|put|patch|delete PATH --input - --apply'],
+                'domains': ['auth', 'favorites', 'watch-later', 'history', 'video', 'media', 'download', 'queue', 'subscriptions', 'auto-download', 'library', 'video-library', 'note', 'local', 'ai', 'settings', 'cache', 'metrics'],
+                'write_requires': '--apply', 'allowed_api_prefixes': list(API_PREFIXES)}}
+            print(json.dumps(result, ensure_ascii=False, indent=None if args.json else 2))
+            return 0
         method, path, body = operation(args)
         if method != 'GET' and not args.apply:
             result = {'schema': 'pilinote-cli/v1', 'success': True, 'dryRun': True, 'method': method, 'path': path}
