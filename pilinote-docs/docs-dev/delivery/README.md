@@ -35,7 +35,7 @@ pilinote --json --api-url http://127.0.0.1:8080 tasks list
 pilinote --json tasks cancel TASK_ID
 ```
 
-最后一条默认仅预览，不访问 API；实际操作必须添加 `--apply`。第一版覆盖健康检查、格式、队列、任务和笔记读取/控制，任务创建通过 stdin JSON。CLI 是 Agent 控制面，账户、全部配置、媒体和 AI 功能不塞进 CLI；ASR、识图和模型调用由 Agents 通过稳定 CLI/API 编排。
+最后一条默认仅预览，不访问 API；实际操作必须添加 `--apply`。CLI 通过专用子命令和受限通用 `api` 入口覆盖认证、收藏、稍后再看、历史、媒体、下载、队列、订阅、媒体库、笔记、AI/ASR 配置、设置和指标等 API 域；任务创建通过 stdin JSON。CLI 是 Agent 控制面，ASR、识图和模型推理由 Agents 执行，再通过 CLI/API 写回结构化结果。
 
 ## 生产容器
 
@@ -69,7 +69,7 @@ CLI 协议检查、真实隔离 API、容器健康、同源 API/WebSocket、容�
 
 独立部署入口 `scripts/deploy_production.py` 默认预览；远程验收入口 `scripts/test_remote_delivery.py` 默认只读，追加 `--restart` 验证重启持久化。两者只用 Python 标准库及 SSH/Docker，不导入主编排仓库。
 
-项目 Skill 位于 `skills/pilinote-cli/SKILL.md`。全局发布时由 SkillDo 保存唯一来源并链接到各工具，不复制多份。此轮只在项目内生成与测试，不声称完成全局安装或发布。
+项目 Skill 位于 `skills/pilinote-cli/SKILL.md`。全局唯一副本已由 SkillDo 登记在 `~/.skillshub/pilinote-cli`，各工具使用软连接；项目内文件仍随独立仓库交付。
 
 PiliNote 的边界是 Agent 控制面：Agent 通过 CLI 读取任务、获取文件引用、执行 ASR/识图/模型推理，再写回结构化结果。PiliNote 不把这些重型 SDK 固化进核心程序；这样每个项目仍可独立运行，Agent 也可以替换模型和工具链。
 

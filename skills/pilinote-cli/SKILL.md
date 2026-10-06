@@ -18,4 +18,4 @@ description: 使用 PiliNote 原生 CLI 作为 Agent 控制面检查服务、任
 
 代表性只读任务：检查健康和 release；列出任务并检查返回数量/状态；读取给定笔记状态；预览取消操作并确认 dryRun=true。格式选项用 `pilinote --json formats`（兼容 API，非新功能覆盖）。
 
-当前 CLI 不覆盖完整账户/配置管理、真实 AI 生成及所有下载业务。Agent 应通过 CLI 获取任务/文件引用，再在自己的工具链执行 ASR、识图或模型推理，并把结构化结果写回 PiliNote。无授权不连接未知服务，不启动下载、AI 计费或删除现有数据。生成 Skill 的全局安装仅交 SkillDo，不复制到各工具目录。
+CLI 已覆盖主要 API 域；未提供专用子命令的端点通过受限 `api` 入口调用。真实 AI 生成、ASR、识图和模型推理由 Agent 自己执行，再把结构化结果写回 PiliNote。无授权不连接未知服务，不启动下载、AI 计费或删除现有数据。生成 Skill 的全局安装仅交 SkillDo，不复制到各工具目录。
