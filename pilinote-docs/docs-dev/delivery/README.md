@@ -2,6 +2,7 @@
 关联文档:
   - ./nas.md
   - ./analysis.md
+  - ./optimization-audit.md
 涉及文件:
   - agent-harness/pilinote_cli/cli.py
   - compose.production.yaml
@@ -37,6 +38,8 @@ pilinote --json tasks cancel TASK_ID
 
 最后一条默认仅预览，不访问 API；实际操作必须添加 `--apply`。CLI 通过专用子命令和受限通用 `api` 入口覆盖认证、收藏、稍后再看、历史、媒体、下载、队列、订阅、媒体库、笔记、AI/ASR 配置、设置和指标等 API 域；任务创建通过 stdin JSON。CLI 是 Agent 控制面，ASR、识图和模型推理由 Agents 执行，再通过 CLI/API 写回结构化结果。
 
+`capabilities` 提供能力域与安全规则的机器可读目录；它不代表每个路由都有专用命令，也不自动承诺每条业务路径都经过端到端验收。未提供专用命令的操作仅能通过白名单通用 API 入口调用，仍需遵守端点输入、登录态和写操作 `--apply` 规则。当前能力以 `pilinote --json capabilities` 和仓库 `agent-harness/README.md` 为准；[初始流水线分析](./analysis.md) 是历史快照。
+
 ## 生产容器
 
 ```sh
@@ -69,10 +72,10 @@ CLI 协议检查、真实隔离 API、容器健康、同源 API/WebSocket、容�
 
 独立部署入口 `scripts/deploy_production.py` 默认预览；远程验收入口 `scripts/test_remote_delivery.py` 默认只读，追加 `--restart` 验证重启持久化。两者只用 Python 标准库及 SSH/Docker，不导入主编排仓库。
 
-项目 Skill 位于 `skills/pilinote-cli/SKILL.md`。全局唯一副本已由 SkillDo 登记在 `~/.skillshub/pilinote-cli`，各工具使用软连接；项目内文件仍随独立仓库交付。
+项目 Skill 源文件位于 `skills/pilinote-cli/SKILL.md`，随 PiliNote 独立仓库交付，因此项目不依赖 SkillDo 才能运行。SkillDo 管理全局唯一 Skill 副本（中央目录 `~/.skillshub/pilinote-cli`），工具目录使用软连接；更新后通过 SkillDo 同步，不在各工具目录复制维护。仓库中的 Skill 文件是项目交付源，不是第二份全局副本。
 
-PiliNote 的边界是 Agent 控制面：Agent 通过 CLI 读取任务、获取文件引用、执行 ASR/识图/模型推理，再写回结构化结果。PiliNote 不把这些重型 SDK 固化进核心程序；这样每个项目仍可独立运行，Agent 也可以替换模型和工具链。
+通用代码精简审查由 SkillDo 管理的 `ponytail` Skill 提供；`myworkforce` 可以编排审计，但不是运行时依赖。Ponytail 用于提出 YAGNI、重复实现和复杂度改进候选；涉及认证、任务状态、数据库、持久化卷、NAS 数据或回滚行为的改动，必须结合调用关系和对应验证证据审查。SkillDo/ponytail 只影响开发工作流，不进入 PiliNote 镜像和运行依赖。
 
-Agent 能力边界见仓库 `agent-harness/README.md`：Agent 负责 ASR、识图、模型和工作流，PiliNote 负责任务、文件、状态和持久化结果。
+PiliNote 的边界是 Agent 控制面：Agent 通过 CLI 读取任务、获取文件引用、执行 ASR/识图/模型推理，再写回结构化结果。PiliNote 不把这些重型 SDK 固化进核心程序；项目独立运行，Agent 可以替换模型和工具链。完整边界见仓库 `agent-harness/README.md`。
 
 本地阶段、NAS 部署和远程全链路各自记录实际证据，最终状态见 pipeline-status.json。旧的本地阶段报告只代表当时检查范围，不能替代最终全链路报告。
