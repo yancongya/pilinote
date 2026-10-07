@@ -3,6 +3,19 @@ import json
 from src.services.ai.prompt_template_service import PromptTemplateService
 
 
+def test_prompt_template_import_paths_share_one_service():
+    from src.services.prompt_template_service import (
+        PromptTemplateService as CanonicalPromptTemplateService,
+        get_prompt_template_service as get_canonical_service,
+    )
+    from src.services.ai.prompt_template_service import (
+        get_prompt_template_service as get_ai_service,
+    )
+
+    assert PromptTemplateService is CanonicalPromptTemplateService
+    assert get_ai_service() is get_canonical_service()
+
+
 def test_prompt_template_service_merges_default_and_override(tmp_path, monkeypatch):
     default_path = tmp_path / "ai_prompt_templates.default.json"
     override_path = tmp_path / "ai_prompt_templates.json"
