@@ -305,7 +305,7 @@ Body: {
 
 | 文件 | 说明 |
 |------|------|
-| `apps/web/src/components/MainLayout.tsx` | 主题切换、剪贴板监控 |
+| `apps/web/src/components/MainLayout.tsx` | 应用布局和主题切换 |
 | `apps/web/src/pages/settings/AccountsSettings.tsx` | 通用设置页面 |
 | `apps/web/src/stores/settings.ts` | 状态管理 |
 | `apps/web/src/index.css` | 主题 CSS 变量 |

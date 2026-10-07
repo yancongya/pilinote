@@ -1,20 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth'
 import { useNewQueueStore } from '../stores/newQueue'
-import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun } from 'lucide-react'
+import { Home, Heart, Clock, Download, User, Wifi, WifiOff, Moon, Sun, LogIn, Menu, X, ArrowLeftToLine, ArrowRightToLine, GripVertical, History, Rss } from 'lucide-react'
 import { getAvatarProxyUrl } from '../config/api'
 import { apiService } from '../services/api'
+import { useTheme } from '../theme/context/ThemeContext'
 import HomeContent from '../pages/components/HomeContent'
 import FavoritesContent from '../pages/components/FavoritesContent'
 import WatchLaterContent from '../pages/components/WatchLaterContent'
+import HistoryContent from '../pages/components/HistoryContent'
+import SubscriptionsContent from '../pages/components/SubscriptionsContent'
 import NewDownloadContent from '../components/NewDownload'
-import { LogIn } from 'lucide-react'
+import * as S from './styles/MainLayout.styles'
 
 const navItems = [
   { id: 'home', label: '首页', path: '/home', icon: Home },
   { id: 'favorites', label: '收藏', path: '/favorites', icon: Heart },
   { id: 'watch-later', label: '稍后再看', path: '/watch-later', icon: Clock },
+  { id: 'history', label: '观看历史', path: '/history', icon: History },
+  { id: 'subscriptions', label: '订阅', path: '/subscriptions', icon: Rss },
   { id: 'downloads', label: '下载', path: '/downloads', icon: Download },
 ]
 
@@ -23,56 +28,74 @@ function MainLayout() {
   const navigate = useNavigate()
   const { user, logout, isAuthenticated } = useAuthStore()
   const { connected } = useNewQueueStore()
+  const { mode, toggleTheme } = useTheme()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [authStatus, setAuthStatus] = useState<'initialized' | 'pending' | 'error'>('pending')
-  const [darkMode, setDarkMode] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(240)
+  const [isDragging, setIsDragging] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const dragRef = useRef<HTMLDivElement>(null)
 
+  // 检测移动端状态
   useEffect(() => {
-  }, [user])
-
-  // 初始化暗色模式
-  useEffect(() => {
-    const savedMode = localStorage.getItem('darkMode')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const initialDarkMode = savedMode ? savedMode === 'true' : prefersDark
-    setDarkMode(initialDarkMode)
-    
-    // 明确设置dark class的状态
-    if (initialDarkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
     }
-    
-    // 调试：检查当前主题状态
-    console.log('Initial dark mode:', initialDarkMode)
-    console.log('Current dark class:', document.documentElement.classList.contains('dark'))
-    console.log('CSS variables test:', {
-      bgPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary'),
-      textPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary')
-    })
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // 切换暗色模式
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode
-    setDarkMode(newDarkMode)
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('darkMode', 'true')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('darkMode', 'false')
+  // 拖拽调整侧边栏宽度
+  useEffect(() => {
+    const dragHandle = dragRef.current
+    if (!dragHandle) return
+
+    let isCurrentlyDragging = false
+
+    const handleMouseDown = (e: MouseEvent) => {
+      e.preventDefault()
+      isCurrentlyDragging = true
+      setIsDragging(true)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
     }
-    
-    // 调试：检查切换后的主题状态
-    console.log('Toggle dark mode:', newDarkMode)
-    console.log('Current dark class:', document.documentElement.classList.contains('dark'))
-    console.log('CSS variables after toggle:', {
-      bgPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary'),
-      textPrimary: getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary')
-    })
-  }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isCurrentlyDragging) return
+
+      // 计算新宽度（鼠标位置减去拖拽手柄在Sidebar内的偏移）
+      const newWidth = e.clientX
+      const minWidth = 180
+      const maxWidth = 400
+
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth)
+        setSidebarCollapsed(newWidth < 200)
+      }
+    }
+
+    const handleMouseUp = () => {
+      isCurrentlyDragging = false
+      setIsDragging(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    dragHandle.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      dragHandle.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -112,6 +135,8 @@ function MainLayout() {
     const path = location.pathname
     if (path === '/favorites' || path.startsWith('/favorites/')) return 'favorites'
     if (path === '/watch-later') return 'watch-later'
+    if (path === '/history') return 'history'
+    if (path === '/subscriptions' || path.startsWith('/subscriptions/')) return 'subscriptions'
     if (path === '/downloads') return 'downloads'
     return 'home'
   }
@@ -140,157 +165,205 @@ function MainLayout() {
     navigate('/settings')
   }
 
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(prev => !prev)
+    if (sidebarCollapsed) {
+      setSidebarWidth(240)
+    } else {
+      setSidebarWidth(70)
+    }
+  }
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen)
+  }
+
   return (
-    <div className={`home-container ${activeTab === 'home' ? 'has-tabs' : ''}`}>
-      {/* 主题切换测试元素 */}
-      <div 
-        style={{
-          position: 'fixed',
-          top: '80px',
-          right: '20px',
-          padding: '16px',
-          background: 'var(--color-bg-secondary)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '8px',
-          zIndex: 10000,
-          color: 'var(--color-text-primary)'
-        }}
-      >
-        <div>主题测试</div>
-        <div>当前模式: {darkMode ? '暗色' : '亮色'}</div>
-        <div>Dark类: {document.documentElement.classList.contains('dark') ? '存在' : '不存在'}</div>
-        <div style={{ marginTop: '8px' }}>
-          <span style={{ display: 'inline-block', padding: '8px', background: 'var(--color-primary-600)', color: 'white', borderRadius: '4px' }}>
-            主要色测试
-          </span>
-        </div>
-      </div>
-      
-      <header className="home-header">
-        <div className="header-left">
-          <h1 className="app-logo">
-            <img src="/brand/logo.png" alt="PiliNote" className="app-logo-icon" />
-            <span className="app-logo-text">PiliNote</span>
-          </h1>
-        </div>
-        <div className="header-right">
+    <S.MainContainer $activeTab={activeTab}>
+      <S.Header>
+        <S.HeaderLeft>
+          <S.MobileMenuToggle
+            onClick={toggleMobileMenu}
+            title="菜单"
+            aria-label="菜单"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </S.MobileMenuToggle>
+          <S.Logo>
+            <img src="/brand/logo.png" alt="PiliNote" />
+            <span>PiliNote</span>
+          </S.Logo>
+        </S.HeaderLeft>
+        <S.HeaderRight>
           {user ? (
             <>
-              <button
-                onClick={toggleDarkMode}
-                className="dark-mode-toggle"
-                title={darkMode ? '切换到浅色模式' : '切换到暗色模式'}
-                aria-label={darkMode ? '切换到浅色模式' : '切换到暗色模式'}
+              <S.DarkModeToggle
+                onClick={toggleTheme}
+                title={mode === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
+                aria-label={mode === 'dark' ? '切换到浅色模式' : '切换到暗色模式'}
               >
-                {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
-              <div
-                className={`ws-status-icon ${connected ? 'ws-connected' : 'ws-disconnected'}`}
+                {mode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              </S.DarkModeToggle>
+              <S.WsStatusIcon
+                $connected={connected}
                 title={connected ? 'WebSocket 已连接' : 'WebSocket 连接断开，正在重连...'}
               >
                 {connected ? <Wifi size={18} /> : <WifiOff size={18} />}
-              </div>
-              <div className="user-info" onClick={handleAvatarClick}>
-                <img
+              </S.WsStatusIcon>
+              <S.UserInfo onClick={handleAvatarClick}>
+                <S.UserAvatar
                   src={getAvatarUrl(user.avatar || '')}
                   alt={user.username}
-                  className="user-avatar"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
                     target.src = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect fill='%235CB67B' width='40' height='40'/><text x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='white' font-size='20'>${user.username?.[0]?.toUpperCase() || 'U'}</text></svg>`
                   }}
                 />
-                <span className="user-name">{user.username}</span>
-                <div
-                  className={`auth-status ${authStatus}`}
+                <S.UserName>{user.username}</S.UserName>
+                <S.AuthStatus
+                  $status={authStatus}
                   title={`认证系统状态: ${authStatus === 'initialized' ? '已启用' : authStatus === 'error' ? '异常' : '初始化中...'}`}
                 >
                   {authStatus === 'initialized' && <span>✓</span>}
                   {authStatus === 'error' && <span>!</span>}
-                </div>
-              </div>
+                </S.AuthStatus>
+              </S.UserInfo>
               {showLogoutConfirm && (
-                <div className="logout-confirm-overlay" onClick={() => setShowLogoutConfirm(false)}>
-                  <div className="logout-confirm-panel" onClick={(e) => e.stopPropagation()}>
-                    <p>确定要退出登录吗？</p>
-                    <div className="logout-confirm-buttons">
-                      <button onClick={cancelLogout}>取消</button>
-                      <button onClick={confirmLogout}>确定</button>
-                    </div>
-                  </div>
-                </div>
+                <S.LogoutOverlay onClick={() => setShowLogoutConfirm(false)}>
+                  <S.LogoutPanel onClick={(e) => e.stopPropagation()}>
+                    <S.LogoutMessage>确定要退出登录吗？</S.LogoutMessage>
+                    <S.LogoutButtons>
+                      <S.SecondaryButton onClick={cancelLogout}>取消</S.SecondaryButton>
+                      <S.PrimaryButton onClick={confirmLogout}>确定</S.PrimaryButton>
+                    </S.LogoutButtons>
+                  </S.LogoutPanel>
+                </S.LogoutOverlay>
               )}
             </>
           ) : (
-            <div className="user-info guest-info" onClick={handleAvatarClick}>
-              <div className="user-avatar guest-avatar">
-                <User className="guest-avatar-icon" />
-              </div>
-              <span className="user-name">游客</span>
-            </div>
+            <S.UserInfo onClick={handleAvatarClick}>
+              <S.GuestAvatar>
+                <User size={20} />
+              </S.GuestAvatar>
+              <S.UserName>游客</S.UserName>
+            </S.UserInfo>
           )}
-        </div>
-      </header>
+        </S.HeaderRight>
+      </S.Header>
 
-      <aside className="home-sidebar">
-        <nav className="sidebar-nav" role="tablist" aria-label="功能导航">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              role="tab"
-              aria-selected={activeTab === item.id}
-              aria-controls={`${item.id}-panel`}
-              className={`sidebar-tab ${activeTab === item.id ? 'active' : ''}`}
-              onClick={() => handleTabChange(item.path)}
-              tabIndex={activeTab === item.id ? 0 : -1}
-            >
-              <item.icon className="sidebar-icon" />
-              <span className="sidebar-label">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <S.MainContent>
+        {/* 移动端侧边栏遮罩 */}
+        {mobileMenuOpen && (
+          <S.MobileSidebarOverlay onClick={() => setMobileMenuOpen(false)} />
+        )}
 
-      <main className="home-content">
-        <div className="content-wrapper">
-          <div className={activeTab === 'home' ? 'block' : 'hidden'}>
-            <HomeContent />
-          </div>
-          <div className={activeTab === 'favorites' ? 'block' : 'hidden'}>
-            {isAuthenticated ? (
-              <FavoritesContent />
-            ) : (
-              <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
-            )}
-          </div>
-          <div className={activeTab === 'watch-later' ? 'block' : 'hidden'}>
-            {isAuthenticated ? (
-              <WatchLaterContent />
-            ) : (
-              <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
-            )}
-          </div>
-          <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
-            <NewDownloadContent />
-          </div>
-        </div>
-      </main>
-
-      <nav className="bottom-nav" role="navigation" aria-label="底部导航">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            className={`nav-item ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => handleTabChange(item.path)}
-            aria-label={item.label}
-            aria-current={activeTab === item.id ? 'page' : undefined}
+        {/* 桌面端侧边栏或移动端侧边栏 */}
+        {!isMobile && (
+          <S.Sidebar
+            $width={sidebarWidth}
+            $collapsed={sidebarCollapsed}
           >
-            <item.icon className="nav-icon" />
-            <span className="nav-label">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-    </div>
+            <S.SidebarNav role="tablist" aria-label="功能导航">
+              {navItems.map((item) => (
+                <S.SidebarTab
+                  key={item.id}
+                  role="tab"
+                  aria-selected={activeTab === item.id}
+                  aria-controls={`${item.id}-panel`}
+                  $active={activeTab === item.id}
+                  $collapsed={sidebarCollapsed}
+                  onClick={() => {
+                    handleTabChange(item.path)
+                  }}
+                  tabIndex={activeTab === item.id ? 0 : -1}
+                >
+                  <item.icon className="sidebar-icon" />
+                  <span className="sidebar-label">{item.label}</span>
+                </S.SidebarTab>
+              ))}
+            </S.SidebarNav>
+
+            {/* 侧边栏折叠按钮 */}
+            <S.SidebarCollapseButton
+              onClick={toggleSidebarCollapsed}
+              title={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+              aria-label={sidebarCollapsed ? '展开侧边栏' : '收缩侧边栏'}
+            >
+              {sidebarCollapsed ? <ArrowRightToLine size={16} /> : <ArrowLeftToLine size={16} />}
+            </S.SidebarCollapseButton>
+
+            {/* 拖拽手柄 */}
+            <S.SidebarDragHandle
+              ref={dragRef}
+              $isDragging={isDragging}
+              title="拖拽调整侧边栏宽度"
+            >
+              <GripVertical size={16} />
+            </S.SidebarDragHandle>
+          </S.Sidebar>
+        )}
+
+        <S.ContentArea>
+          <S.ContentWrapper>
+            <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+              <HomeContent />
+            </div>
+            <div className={activeTab === 'favorites' ? 'block' : 'hidden'}>
+              {isAuthenticated ? (
+                <FavoritesContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看和管理您的收藏夹" />
+              )}
+            </div>
+            <div className={activeTab === 'watch-later' ? 'block' : 'hidden'}>
+              {isAuthenticated ? (
+                <WatchLaterContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看和管理您的稍后再看列表" />
+              )}
+            </div>
+            <div className={activeTab === 'history' ? 'block' : 'hidden'}>
+              {isAuthenticated ? (
+                <HistoryContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看和管理您的观看历史" />
+              )}
+            </div>
+            <div className={activeTab === 'subscriptions' ? 'block' : 'hidden'}>
+              {isAuthenticated ? (
+                <SubscriptionsContent />
+              ) : (
+                <LoginPrompt message="登录后可以查看您的订阅收藏夹和订阅合集" />
+              )}
+            </div>
+            <div className={activeTab === 'downloads' ? 'block' : 'hidden'}>
+              <NewDownloadContent />
+            </div>
+          </S.ContentWrapper>
+        </S.ContentArea>
+      </S.MainContent>
+
+      {/* 底部导航栏 - 仅移动端显示 */}
+      {isMobile && (
+        <S.BottomNav
+          role="navigation"
+          aria-label="底部导航"
+        >
+          {navItems.map((item) => (
+            <S.NavItem
+              key={item.id}
+              $active={activeTab === item.id}
+              onClick={() => handleTabChange(item.path)}
+              aria-label={item.label}
+              aria-current={activeTab === item.id ? 'page' : undefined}
+            >
+              <item.icon className="nav-icon" />
+              <S.NavLabel $active={activeTab === item.id}>{item.label}</S.NavLabel>
+            </S.NavItem>
+          ))}
+        </S.BottomNav>
+      )}
+    </S.MainContainer>
   )
 }
 
@@ -298,21 +371,14 @@ function LoginPrompt({ message }: { message: string }) {
   const navigate = useNavigate()
 
   return (
-    <section className="content-section text-center py-20 px-5">
-      <LogIn className="empty-state-icon w-16 h-16 mb-5" style={{ color: 'var(--color-text-secondary)' }} />
-      <h3 className="dark:text-secondary-100 text-xl font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>请先登录</h3>
-      <p className="dark:text-secondary-400 text-base mb-6" style={{ color: 'var(--color-text-secondary)' }}>{message}</p>
-      <button
-        onClick={() => navigate('/login')}
-        className="px-6 py-3 rounded-lg text-base font-medium cursor-pointer transition-colors hover:opacity-90"
-        style={{
-          background: 'var(--color-primary-600)',
-          color: 'var(--color-white)',
-        }}
-      >
+    <S.LoginPromptContainer>
+      <S.EmptyStateIcon as={LogIn} />
+      <S.LoginPromptTitle>请先登录</S.LoginPromptTitle>
+      <S.LoginPromptMessage>{message}</S.LoginPromptMessage>
+      <S.LoginButton onClick={() => navigate('/login')}>
         去登录
-      </button>
-    </section>
+      </S.LoginButton>
+    </S.LoginPromptContainer>
   )
 }
 
@@ -322,21 +388,14 @@ function AuthGuardWrapper({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return (
-      <section className="content-section text-center py-20 px-5">
-        <LogIn className="empty-state-icon w-16 h-16 mb-5" style={{ color: 'var(--color-text-secondary)' }} />
-        <h3 className="dark:text-secondary-100 text-xl font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>请先登录</h3>
-        <p className="dark:text-secondary-400 text-base mb-6" style={{ color: 'var(--color-text-secondary)' }}>登录后可以查看和管理您的内容</p>
-        <button
-          onClick={() => navigate('/login')}
-          className="px-6 py-3 rounded-lg text-base font-medium cursor-pointer transition-colors hover:opacity-90"
-          style={{
-            background: 'var(--color-primary-600)',
-            color: 'var(--color-white)',
-          }}
-        >
+      <S.LoginPromptContainer>
+        <S.EmptyStateIcon as={LogIn} />
+        <S.LoginPromptTitle>请先登录</S.LoginPromptTitle>
+        <S.LoginPromptMessage>登录后可以查看和管理您的内容</S.LoginPromptMessage>
+        <S.LoginButton onClick={() => navigate('/login')}>
           去登录
-        </button>
-      </section>
+        </S.LoginButton>
+      </S.LoginPromptContainer>
     )
   }
 
@@ -359,6 +418,14 @@ export function WatchLaterPage() {
   return (
     <AuthGuardWrapper>
       <WatchLaterContent />
+    </AuthGuardWrapper>
+  )
+}
+
+export function SubscriptionsPage() {
+  return (
+    <AuthGuardWrapper>
+      <SubscriptionsContent />
     </AuthGuardWrapper>
   )
 }

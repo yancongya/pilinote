@@ -82,7 +82,7 @@
 - 下载完成后自动刷新（5秒延迟）
 
 ### 6. 智能响应式侧边栏系统
-**组件位置**: `apps/web/src/components/MainLayout.refactored.tsx`
+**组件位置**: `apps/web/src/components/MainLayout.tsx`
 
 内容：
 - 自动响应式切换（基于屏幕尺寸）

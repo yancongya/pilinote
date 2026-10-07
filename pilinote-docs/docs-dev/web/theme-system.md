@@ -248,27 +248,16 @@ colors: {
 
 ### 实现位置
 
-**组件**: `apps/web/src/components/MainLayout.tsx`
+**组件**: `apps/web/src/components/MainLayout.tsx`（按钮调用 `useTheme().toggleTheme`）
 
 ```typescript
-const [darkMode, setDarkMode] = useState(false)
-
-const toggleDarkMode = () => {
-  setDarkMode(!darkMode)
-  if (!darkMode) {
-    document.documentElement.classList.add('dark')
-    localStorage.setItem('darkMode', 'true')
-  } else {
-    document.documentElement.classList.remove('dark')
-    localStorage.setItem('darkMode', 'false')
-  }
-}
+const { mode, toggleTheme } = useTheme()
 ```
 
 ### 持久化
 
-- 使用 `localStorage` 保存用户偏好
-- 自动检测系统偏好设置
+- `ThemeProvider` 使用 `localStorage.theme` 保存 `light` 或 `dark`
+- 没有保存的偏好时读取系统主题
 - 页面刷新后保持选择
 
 ### 切换按钮

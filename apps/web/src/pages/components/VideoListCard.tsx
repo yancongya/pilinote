@@ -1,8 +1,43 @@
+/**
+ * 视频列表卡片组件（重构版）
+ * Video List Card Component (Refactored)
+ *
+ * 使用styled-components重构的视频卡片组件
+ * 支持多种显示模式和主题切换
+ */
+
 import { useNavigate } from 'react-router-dom'
 import { Film, Eye, MessageSquare, ThumbsUp, Coins, Star, MessageCircle, Share2, Download, Plus, Play, Trash2, RefreshCw, Users, Check } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { apiService } from '../../services/api'
 import { getAvatarProxyUrl } from '../../config/api'
+import {
+  VideoCard,
+  VideoCardCover,
+  VideoCardThumbnail,
+  CoverImage,
+  ThumbnailPlaceholder,
+  VideoDurationOverlay,
+  VideoSeriesCountOverlay,
+  VideoProgressOverlay,
+  VideoProgressBar,
+  VideoCardInfo,
+  VideoTitle,
+  VideoDownloadProgress,
+  VideoCardMeta,
+  VideoUploader,
+  VideoTime,
+  VideoWatched,
+  VideoFileSize,
+  VideoCardActionsInline,
+  ActionIconButton,
+  VideoCardStats,
+  VideoCardDownloadBtn,
+  VideoCardCheckboxBtn,
+  VideoDownloadSpeed,
+  VideoProgressText,
+  VideoETA
+} from '../styles/VideoListCard.styles'
 
 interface VideoCardProps {
   id: string
@@ -22,8 +57,8 @@ interface VideoCardProps {
   shares?: string
   progress?: number
   watched?: string
-  fileSize?: number  // 新增：文件大小（字节）
-  seriesCount?: number // 新增：系列集数
+  fileSize?: number
+  seriesCount?: number
   // 下载进度字段
   downloaded_bytes?: number
   total_bytes?: number
@@ -50,10 +85,9 @@ interface VideoCardProps {
   canPause?: boolean
   // 批量选择相关
   batchMode?: boolean
-  // 是否显示下载进度（仅下载列表使用）
-  showDownloadProgress?: boolean
   selected?: boolean
   onToggleSelect?: () => void
+  showDownloadProgress?: boolean
 }
 
 // Bilibili风格：格式化文件大小
@@ -126,13 +160,13 @@ export default function VideoListCard({
   onToggleSelect,
 }: VideoCardProps) {
   const navigate = useNavigate()
-  
+
   // 批量模式下卡片始终可点击（用于选中），否则默认可点击除非明确设置为false
   const isClickable = batchMode || clickable !== false
-  
+
   // 状态管理
   const [fetchedCoverUrl, setFetchedCoverUrl] = useState<string>('')
-  
+
   // 从bvid获取封面URL
   const getCoverUrl = (): string => {
     if (cover && cover.trim()) {
@@ -140,7 +174,7 @@ export default function VideoListCard({
     }
     return fetchedCoverUrl
   }
-  
+
   // 当没有封面且有bvid时，从B站API获取封面
   useEffect(() => {
     if (!cover || !cover.trim()) {
@@ -149,7 +183,7 @@ export default function VideoListCard({
       }
     }
   }, [bvid, cover])
-  
+
   const fetchVideoCover = async () => {
     try {
       const response = await apiService.getVideoDetail(bvid)
@@ -168,7 +202,6 @@ export default function VideoListCard({
 
   const handleVideoClick = () => {
     if (!isClickable) {
-      // 不可点击，不执行任何操作
       return
     }
 
@@ -177,19 +210,16 @@ export default function VideoListCard({
       onToggleSelect()
       return
     }
-    
+
     if (onVideoClick) {
-      // 如果有自定义的点击处理，执行它并阻止默认行为
       onVideoClick({ id, bvid, title, cover, duration, uploader, views, comments, time })
       return
     }
-    
+
     // 默认导航逻辑
     if (isSeries) {
-      // 系列视频跳转到下载详情页
       navigate(`/downloads/${bvid}`)
     } else {
-      // 单个视频跳转到视频详情页
       navigate(`/video/${bvid}`)
     }
   }
@@ -199,25 +229,24 @@ export default function VideoListCard({
   const hasCover = coverUrl && coverUrl.trim()
 
   return (
-    <article 
-      className={`video-card ${batchMode ? 'batch-mode' : ''} ${selected ? 'selected' : ''}`}
+    <VideoCard
+      $batchMode={batchMode}
+      $selected={selected}
+      $clickable={isClickable}
       onClick={isClickable ? handleVideoClick : undefined}
-      style={{ cursor: isClickable ? 'pointer' : 'default' }}
     >
-      <div className="video-card-cover">
-        <div className="video-card-thumbnail">
+      <VideoCardCover>
+        <VideoCardThumbnail>
           {!hasCover ? (
-                <div className="thumbnail-placeholder">
+                <ThumbnailPlaceholder>
                   <Film size={48} className="film-icon" />
-                </div>
+                </ThumbnailPlaceholder>
               ) : (
                 <>
-                  <img
+                  <CoverImage
                     src={getProxyImageUrl(coverUrl)}
                     alt={title}
-                    className="w-full h-full object-cover"
                     onError={(e) => {
-                      // 图片加载失败时显示占位符
                       e.currentTarget.style.display = 'none'
                       const placeholder = e.currentTarget.parentElement?.querySelector('.thumbnail-placeholder')
                       if (placeholder) {
@@ -225,35 +254,31 @@ export default function VideoListCard({
                       }
                     }}
                   />
-                  <div className="thumbnail-placeholder hidden">
+                  <ThumbnailPlaceholder className="hidden">
                     <Film size={48} className="film-icon" />
-                  </div>
+                  </ThumbnailPlaceholder>
                 </>
               )}
-          {/* Bilibili风格：所有视频都显示时长（右下角） */}
-          {duration && <div className="video-duration-overlay">{duration}</div>}
-          {/* Bilibili风格：系列视频额外显示集数（左下角） */}
+          {duration && <VideoDurationOverlay>{duration}</VideoDurationOverlay>}
           {isSeries && seriesCount && (
-            <div className="video-series-count-overlay">
+            <VideoSeriesCountOverlay>
               <Users size={12} />
               <span>{seriesCount}集</span>
-            </div>
+            </VideoSeriesCountOverlay>
           )}
           {showDownloadProgress && progress !== undefined && progress > 0 && (
-            <div className="video-progress-overlay">
-              <div
-                className="video-progress-bar"
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
+            <VideoProgressOverlay>
+              <VideoProgressBar $progress={progress} />
+            </VideoProgressOverlay>
           )}
-        </div>
-      </div>
-      <div className="video-card-info">
-        <h3 title={title}>{title}</h3>
-        {/* 下载进度显示 - 仅在下载列表显示 */}
+        </VideoCardThumbnail>
+      </VideoCardCover>
+
+      <VideoCardInfo>
+        <VideoTitle title={title}>{title}</VideoTitle>
+
         {showDownloadProgress && progress !== undefined && progress > 0 && (
-          <div className="video-download-progress">
+          <VideoDownloadProgress>
             <div className="progress-text">
               下载中: {formatFileSize(downloaded_bytes || 0)} / {formatFileSize(total_bytes || 0)}
             </div>
@@ -265,58 +290,49 @@ export default function VideoListCard({
             </div>
             <div className="progress-stats">
               {download_speed !== undefined && download_speed > 0 && (
-                <span className="progress-speed">{formatDownloadSpeed(download_speed)}</span>
+                <VideoDownloadSpeed>{formatDownloadSpeed(download_speed)}</VideoDownloadSpeed>
               )}
               {eta !== undefined && eta > 0 && eta !== Infinity && (
-                <span className="progress-eta">剩余{formatETA(eta)}</span>
+                <VideoETA>剩余{formatETA(eta)}</VideoETA>
               )}
             </div>
-          </div>
+          </VideoDownloadProgress>
         )}
-        <div className="video-card-meta" title={`${uploader} · ${time}${watched ? ` · ${watched}` : ''}`}>
-          {/* 下载列表：显示下载速度和进度 */}
+
+        <VideoCardMeta>
           {showActionButtons ? (
             <>
               {download_speed !== undefined && download_speed > 0 && (
-                <span className="video-card-download-speed" style={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}>
-                  {formatDownloadSpeed(download_speed)}
-                </span>
+                <VideoDownloadSpeed>{formatDownloadSpeed(download_speed)}</VideoDownloadSpeed>
               )}
               {showDownloadProgress && progress !== undefined && progress > 0 && (
-                <span className="video-card-progress-text">
-                  {Math.round(progress)}%
-                </span>
+                <VideoProgressText>{Math.round(progress)}%</VideoProgressText>
               )}
               {fileSize !== undefined && !showDownloadProgress && (
-                <span className="video-card-file-size">
-                  {formatFileSize(fileSize)}
-                </span>
+                <VideoFileSize>{formatFileSize(fileSize)}</VideoFileSize>
               )}
               {eta !== undefined && eta > 0 && eta !== Infinity && (
-                <span className="video-card-eta" style={{ color: 'var(--color-secondary-500)', fontSize: '12px' }}>
-                  剩余{formatETA(eta)}
-                </span>
+                <VideoETA>剩余{formatETA(eta)}</VideoETA>
               )}
             </>
           ) : (
             <>
-              {/* 视频列表：显示上传者、时间等 */}
-              <span className="video-card-uploader" title={`上传者：${uploader}`}>{uploader}</span>
-              <span className="video-card-time" title={`发布时间：${time}`}>{time}</span>
-              {watched && <span className="video-card-watched" title={`观看进度：${watched}`}>{watched}</span>}
+              <VideoUploader title={`上传者：${uploader}`}>{uploader}</VideoUploader>
+              <VideoTime title={`发布时间：${time}`}>{time}</VideoTime>
+              {watched && <VideoWatched title={`观看进度：${watched}`}>{watched}</VideoWatched>}
               {fileSize !== undefined && (
-                <span className="video-card-file-size" title={`文件大小：${formatFileSize(fileSize)}`}>
+                <VideoFileSize title={`文件大小：${formatFileSize(fileSize)}`}>
                   {formatFileSize(fileSize)}
-                </span>
+                </VideoFileSize>
               )}
             </>
           )}
-          {/* 操作按钮 - 在元数据行中显示 */}
+
           {showActionButtons && (
-            <div className="video-card-actions-inline">
+            <VideoCardActionsInline>
               {canStart && onActionStart && (
-                <button 
-                  className="action-icon-btn start-icon-btn"
+                <ActionIconButton
+                  $variant="start"
                   onClick={(e) => {
                     e.stopPropagation()
                     onActionStart()
@@ -324,11 +340,11 @@ export default function VideoListCard({
                   aria-label="开始下载"
                 >
                   <Play size={14} />
-                </button>
+                </ActionIconButton>
               )}
               {canPause && onActionPause && (
-                <button 
-                  className="action-icon-btn pause-icon-btn"
+                <ActionIconButton
+                  $variant="pause"
                   onClick={(e) => {
                     e.stopPropagation()
                     onActionPause()
@@ -336,11 +352,11 @@ export default function VideoListCard({
                   aria-label="暂停下载"
                 >
                   <RefreshCw size={14} />
-                </button>
+                </ActionIconButton>
               )}
               {onActionDelete && (
-                <button 
-                  className="action-icon-btn delete-icon-btn"
+                <ActionIconButton
+                  $variant="delete"
                   onClick={(e) => {
                     e.stopPropagation()
                     onActionDelete()
@@ -348,15 +364,14 @@ export default function VideoListCard({
                   aria-label="删除"
                 >
                   <Trash2 size={14} />
-                </button>
+                </ActionIconButton>
               )}
-            </div>
+            </VideoCardActionsInline>
           )}
-        </div>
-          
-          {/* 只在非操作按钮模式下显示统计信息 */}
+        </VideoCardMeta>
+
           {!showActionButtons && (
-            <div className="video-card-stats">
+            <VideoCardStats>
               <Eye size={12} />
               <span>{views}</span>
               <MessageSquare size={12} />
@@ -365,7 +380,7 @@ export default function VideoListCard({
               <span>{likes !== undefined ? likes : '0'}</span>
               <Coins size={12} />
               <span>{coins !== undefined ? coins : '0'}</span>
-              <Star size={12} color="#f59e0b" fill="#f59e0b" />
+              <Star size={12} />
               <span>{favorites !== undefined ? favorites : '0'}</span>
               <MessageCircle size={12} />
               <span>{comments !== undefined ? comments : '0'}</span>
@@ -376,30 +391,27 @@ export default function VideoListCard({
                   {isSeries && seriesCount ? `${seriesCount}集` : formatFileSize(fileSize || 0)}
                 </span>
               )}
-            </div>
+            </VideoCardStats>
           )}
-      </div>
-      {/* 批量模式显示复选框，正常模式显示下载按钮 */}
+      </VideoCardInfo>
+
       {batchMode && onToggleSelect && (
-        <button
-          className="video-card-checkbox-btn"
+        <VideoCardCheckboxBtn
+          $selected={selected}
           onClick={(e) => {
             e.stopPropagation()
             onToggleSelect()
           }}
           aria-label={selected ? '取消选择' : '选择'}
           title={selected ? '取消选择' : '选择'}
-          style={{
-            backgroundColor: selected ? 'var(--color-primary-600)' : 'var(--color-white)',
-            borderColor: selected ? 'var(--color-primary-600)' : 'var(--color-border)',
-          }}
         >
           {selected && <Check size={18} className="check-icon" />}
-        </button>
+        </VideoCardCheckboxBtn>
       )}
+
       {!batchMode && showDownloadButton && onDownloadToggle && (
-        <button
-          className="video-card-download-btn"
+        <VideoCardDownloadBtn
+          $status={downloadStatus}
           onClick={(e) => {
             e.stopPropagation()
             const videoData = {
@@ -418,24 +430,12 @@ export default function VideoListCard({
             downloadStatus === 'downloaded' ? '重新下载' :
             '添加到下载'
           }
-          style={{
-            backgroundColor: downloadStatus === 'in_list' ? 'var(--color-primary-600)' :
-                         downloadStatus === 'downloaded' ? 'var(--color-success-500)' :
-                         'var(--color-white)',
-            borderColor: downloadStatus === 'in_list' ? 'var(--color-primary-600)' :
-                        downloadStatus === 'downloaded' ? 'var(--color-success-500)' :
-                        'var(--color-border)',
-            color: downloadStatus === 'in_list' ? 'var(--color-white)' :
-                   downloadStatus === 'downloaded' ? 'var(--color-white)' :
-                   'var(--color-secondary-400)',
-            cursor: 'pointer'
-          }}
         >
           {downloadStatus === 'in_list' && <Download size={16} />}
           {downloadStatus === 'downloaded' && <Check size={16} />}
           {downloadStatus === 'none' && <Plus size={16} />}
-        </button>
+        </VideoCardDownloadBtn>
       )}
-    </article>
+    </VideoCard>
   )
 }

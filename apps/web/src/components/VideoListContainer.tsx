@@ -1,5 +1,5 @@
 import { ReactNode, RefObject } from 'react'
-import VideoListCard from '../pages/components/VideoListCard.refactored'
+import VideoListCard from '../pages/components/VideoListCard'
 import MediaListState from './media-list/MediaListState'
 
 export interface Video {
