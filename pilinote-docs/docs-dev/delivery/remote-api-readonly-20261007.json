@@ -1,0 +1,178 @@
+{
+  "schema": "pilinote-remote-api-readonly/v1",
+  "origin": "http://192.168.31.110:8080",
+  "release": "workforce-20261004-5",
+  "scope": "GET-only representative API domains; no writes/downloads/AI billing",
+  "checks": [
+    {
+      "path": "/health",
+      "status": 200,
+      "json": true,
+      "success": null,
+      "shape": "object"
+    },
+    {
+      "path": "/api/auth/status",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/auth/accounts",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/favorites/folders",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/watch-later/list",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/history/list",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/download/format/options",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/download/quality/options",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/unified-queue/status",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/unified-queue/tasks",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/settings/",
+      "status": 200,
+      "json": true,
+      "success": null,
+      "shape": "object"
+    },
+    {
+      "path": "/api/settings/tool-status",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/settings/storage-info",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/ai/runtime-state",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/ai/asr/models",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/ai/prompt-templates",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/video-library/status",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/auto-download/scan-records",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/subscriptions/sources",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/metrics/auth",
+      "status": 200,
+      "json": true,
+      "success": true,
+      "shape": "object"
+    },
+    {
+      "path": "/api/favorites/collected?up_mid=0&page=1&page_size=1",
+      "status": 422,
+      "json": true,
+      "success": null,
+      "shape": "object"
+    },
+    {
+      "path": "/api/local/versions/by-path/subtitle-files?video_id=BV1test",
+      "status": 404,
+      "json": true,
+      "success": null,
+      "shape": "object"
+    },
+    {
+      "path": "/api/video/BV1test",
+      "status": 200,
+      "json": true,
+      "success": false,
+      "shape": "object"
+    },
+    {
+      "path": "/api/media/video/BV1test",
+      "status": 404,
+      "json": true,
+      "success": null,
+      "shape": "object"
+    }
+  ],
+  "passed_2xx": 21,
+  "expected_validation": 3
+}
