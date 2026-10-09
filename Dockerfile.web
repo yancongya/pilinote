@@ -13,3 +13,5 @@ USER 101
 EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
 HEALTHCHECK --interval=15s --timeout=5s --retries=4 CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
+ARG PILINOTE_SOURCE_SHA256=unknown
+LABEL com.itycon.pilinote.source-sha256="$PILINOTE_SOURCE_SHA256"

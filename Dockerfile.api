@@ -26,3 +26,5 @@ EXPOSE 8000
 ENTRYPOINT ["/usr/bin/tini", "--", "python", "/app/entrypoint.py"]
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=4 CMD ["pilinote", "--json", "health"]
+ARG PILINOTE_SOURCE_SHA256=unknown
+LABEL com.itycon.pilinote.source-sha256="$PILINOTE_SOURCE_SHA256"
