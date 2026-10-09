@@ -55,7 +55,7 @@ PILINOTE_RELEASE=local docker compose -f compose.production.yaml up -d --wait
 
 术语库运行目录为 `/runtime/term-bases`。容器启动入口从镜像内版本化 CSV 补齐缺失文件，已有用户修改不覆盖；实际新增术语及重启持久化有隔离容器验证。密钥、Cookie、数据库和个人覆盖配置不进入构建上下文。
 
-NAS 独立部署和回滚见 [NAS 交付](./nas.md)。本机镜像为 arm64；NAS 构建和远程验收单独核验 amd64、发布标识、业务入口和持久化。凭据沿用已有 infra-ops/bwvault 记录；这里不保存密值。原开发 NAS 脚本仍启动开发 Compose，生产交付使用 scripts/deploy_production.py。
+NAS 独立部署和回滚见 [NAS 交付](./nas.md)。本机镜像为 arm64；NAS 构建和远程验收单独核验 amd64、发布标识、业务入口和持久化。凭据由 BWVault 管理；NAS 连接和容器生命周期经 Agent Ops 登记服务与项目适配器路由。这里不保存密值或复制机器连接参数。原开发 NAS 脚本仍启动开发 Compose，生产交付使用 scripts/deploy_production.py。
 
 回滚使用已保留的旧镜像标签和配置；数据库若有后续迁移，应停服务并恢复与旧版本匹配的备份，不能仅换镜像。测试脚本只移除它自己创建的独立 Compose 项目与临时卷。
 
