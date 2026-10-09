@@ -1,0 +1,13 @@
+{
+  "schema": "workforce-ops/v2",
+  "projectId": "pilinote",
+  "serviceId": "pilinote",
+  "sourceRevisionCommand": ["git", "rev-parse", "HEAD"],
+  "worktreePolicy": "clean-required",
+  "adapter": "scripts/deploy_production.py",
+  "dataPolicy": {
+    "preservePersistentData": true,
+    "neverDeleteVolumes": true,
+    "rollbackRequiresKnownGoodRelease": true
+  }
+}
